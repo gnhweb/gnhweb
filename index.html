@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- iOS: 홈 화면에 추가해 "standalone" 모드로 열면 Safari의 주소창/탭 바 자체가 없는
+         진짜 전체화면이 된다(iOS는 일반 탭에서는 <video> 외 요소에 Fullscreen API를 지원하지
+         않아 이 방법이 사실상 유일하다 — PhaserGame.tsx의 isIOS 관련 주석 참고). -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#0b0e1a" />
+    <title></title>
+    <script>
+      // React가 로드되기 전에 먼저 테마를 적용해서 라이트→다크 깜빡임(FOUC)을 막는다.
+      (function () {
+        try {
+          var stored = localStorage.getItem('theme');
+          var isDark = stored === 'dark' || (!stored && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+          } else {
+            document.documentElement.style.colorScheme = 'light';
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.5.0/remixicon.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script 
+      src="https://readdy.ai/api/public/assistant/widget?projectId=bf294611-0b59-44df-aa0a-5ff8df712394"
+      mode="hybrid"
+      voice-show-transcript="true"
+      theme="light"
+      size="compact"
+      accent-color="#F59E0B"
+      button-base-color="#1F2937"
+      button-accent-color="#FFFFFF"
+      main-label="학생회 AI 도우미"
+      defer
+    ></script>
+  </body>
+</html>
