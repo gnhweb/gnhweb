@@ -71,9 +71,9 @@ export default defineConfig({
       includeAssets: ["favicon.ico", "apple-touch-icon.png"],
       manifest: {
         id: "/",
-        name: "강릉학생회",
-        short_name: "강릉학생회",
-        description: "강릉학생회 운영 플랫폼 - 보고, 출석, 동아리, 행정을 한 곳에서",
+        name: "강학",
+        short_name: "강학",
+        description: "강학 운영 플랫폼 - 보고, 출석, 동아리, 행정을 한 곳에서",
         lang: "ko",
         start_url: ".",
         scope: "/",
