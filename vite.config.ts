@@ -112,7 +112,8 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         // SPA 라우팅: 알 수 없는 경로는 index.html로 폴백
         navigateFallback: "/index.html",
-        // Supabase(다른 도메인)로 나가는 요청은 SW가 건드리지 않음 — 기본적으로 same-origin만 대상이라 별도 제외 불필요
+        // PWA 캐시 제한을 기존 2MB에서 10MB로 변경하여 빌드 에러 방지
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
       devOptions: {
         enabled: false,
@@ -123,6 +124,15 @@ export default defineConfig({
   build: {
     sourcemap: true,
     outDir: 'out',
+    // 용량이 큰 라이브러리들을 별도 파일로 분할
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          canvas: ['html2canvas', 'dom-to-image-more'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {
