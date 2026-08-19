@@ -41,6 +41,20 @@ function applyThemeToDocument(theme: Theme) {
   if (meta) {
     meta.setAttribute('content', theme === 'dark' ? '#0b0e1a' : '#ffffff');
   }
+
+  // 추가: 모든 기기(PWA 포함)에서 일관되게 사용하도록 루트에 hex CSS 변수를 세팅합니다.
+  // CSS에서는 우선 이 변수를 사용하고, 브라우저가 oklch() 를 지원하면 oklch 값이 보완적으로 적용됩니다.
+  try {
+    if (theme === 'dark') {
+      root.style.setProperty('--background-color', '#0b0e1a');
+      root.style.setProperty('--foreground-color', '#ffffff');
+    } else {
+      root.style.setProperty('--background-color', '#ffffff');
+      root.style.setProperty('--foreground-color', '#0b0e1a');
+    }
+  } catch {
+    // 일부 환경(엄격한 CSP 등)에서 setProperty 실패 가능 — 실패해도 앱 동작에는 영향 없음
+  }
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
