@@ -80,7 +80,8 @@ export default function BottomTabBar() {
   if (!user) return null;
 
   // 더보기 메뉴가 열려 있을 땐 스크롤 위치와 상관없이 탭바를 보여준다(활성 표시를 위해).
-  const shouldShow = visible || mobileOpen;
+  // 모바일 메뉴가 열려 있으면 하단 탭바를 숨겨 메뉴 항목이 가려지지 않게 한다
+  const shouldShow = visible && !mobileOpen;
 
   const isTabActive = (tab: TabDef) => {
     if (tab.key === "more") return mobileOpen;
