@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 import AutoImport from "unplugin-auto-import/vite";
+import { VitePWA } from "vite-plugin-pwa";
 // import { readdyJsxRuntimeProxyPlugin } from "./vite.jsx-runtime-proxy";
 
 const base = process.env.BASE_PATH || "/";
@@ -67,6 +68,55 @@ export default defineConfig({
         },
       ],
       dts: true,
+    }),
+    VitePWA({
+      registerType: "autoUpdate",
+      injectRegister: "auto",
+      includeAssets: ["favicon.ico", "apple-touch-icon.png"],
+      manifest: {
+        id: "/",
+        name: "강릉학생회",
+        short_name: "강릉학생회",
+        description: "강릉학생회 운영 플랫폼 - 보고, 출석, 동아리, 행정을 한 곳에서",
+        lang: "ko",
+        start_url: ".",
+        scope: "/",
+        display: "standalone",
+        background_color: "#0b0e1a",
+        theme_color: "#0b0e1a",
+        orientation: "portrait",
+        icons: [
+          {
+            src: "pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+          {
+            src: "pwa-maskable-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ],
+      },
+      workbox: {
+        // 새 배포가 있으면 즉시 캐시를 갱신하도록(학생회원이 구버전에 갇히지 않게)
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // SPA 라우팅: 알 수 없는 경로는 index.html로 폴백
+        navigateFallback: "/index.html",
+        // Supabase(다른 도메인)로 나가는 요청은 SW가 건드리지 않음 — 기본적으로 same-origin만 대상이라 별도 제외 불필요
+      },
+      devOptions: {
+        enabled: false,
+      },
     }),
   ],
   base,
