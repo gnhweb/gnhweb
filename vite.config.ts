@@ -119,9 +119,15 @@ export default defineConfig({
     outDir: 'out',
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          canvas: ['html2canvas', 'dom-to-image-more'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor';
+            }
+            if (id.includes('html2canvas') || id.includes('dom-to-image-more')) {
+              return 'canvas';
+            }
+          }
         },
       },
     },
