@@ -17,6 +17,9 @@ export interface ReviewItem {
   submitted_at: string;
   status: string;
   content_sections: { label: string; icon: string; color: string; content: string }[];
+  // 새 필드: 이전 검토자의 이름 및 의견(선택적)
+  reviewer_name?: string;
+  feedback?: string;
 }
 
 interface FeedbackPanelProps {
@@ -80,6 +83,10 @@ export default function FeedbackPanel({ item, onClose, onSubmit, submitting, rev
   };
 
   if (!item) return null;
+
+  // 기존(이전 단계) 피드백이 있다면 읽기 전용으로 노출
+  const existingFeedback = item.feedback;
+  const existingReviewer = item.reviewer_name;
 
   const colorMap: Record<string, string> = {
     amber: 'bg-amber-50/50 border-amber-100',
@@ -156,6 +163,19 @@ export default function FeedbackPanel({ item, onClose, onSubmit, submitting, rev
                 <i className="ri-feedback-line text-foreground-500"></i>
                 {context.label} 의견
               </h3>
+
+              {/* 기존 피드백(읽기 전용) */}
+              {existingFeedback && (
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-foreground-700 mb-1.5">
+                    이전 의견{existingReviewer ? ` · 작성자: ${existingReviewer}` : ''}
+                  </label>
+                  <div className="w-full px-4 py-2.5 text-sm rounded-[13px] border border-background-200 bg-background-50 text-foreground-700 whitespace-pre-wrap">
+                    {existingFeedback}
+                  </div>
+                </div>
+              )}
+
               {error && (
                 <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 mb-3">
                   <p className="text-xs text-rose-600 flex items-center gap-1.5">
@@ -167,10 +187,16 @@ export default function FeedbackPanel({ item, onClose, onSubmit, submitting, rev
               <textarea
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
-                placeholder={reviewerRole === 'president' ? '회장으로서 검토 의견을 작성해주세요' : reviewerRole === 'chief' ? '최종 승인 의견을 작성해주세요' : '보고서에 대한 피드백을 작성해주세요. 칭찬할 점, 보완할 점, 다음 단계 제안 등을 자유롭게 남겨주세요.'}
+                placeholder={
+                  reviewerRole === 'president'
+                    ? '회장으로서 검토 의견을 작성해주세요'
+                    : reviewerRole === 'chief'
+                    ? '최종 승인 의견을 작성해주세요'
+                    : '교사로서 검토 의견을 작성해주세요'
+                }
                 rows={6}
                 maxLength={1000}
-                className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm text-foreground-800 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300 transition-all resize-none"
+                className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm text-foreground-800 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300 transition-colors"
               />
               <div className="flex items-center justify-between mt-3">
                 <span className="text-xs text-foreground-400">{feedback.length}/1000</span>
