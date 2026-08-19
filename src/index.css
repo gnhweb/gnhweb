@@ -162,8 +162,8 @@ html {
 }
 
 body {
-  background-color: oklch(var(--background-50));
-  color: oklch(var(--foreground-950));
+  background-color: var(--background-color, oklch(var(--background-50)));
+  color: var(--foreground-color, oklch(var(--foreground-950)));
   font-family: var(--font-body);
   font-weight: 400;
   line-height: 1.6;
@@ -195,11 +195,11 @@ textarea,
 select {
   font-family: inherit;
   font-size: 14px;
-  background-color: oklch(var(--background-50));
+  background-color: var(--background-color, oklch(var(--background-50)));
   border: 1.5px solid oklch(var(--background-200));
   border-radius: 13px;
   padding: 11px 13px;
-  color: oklch(var(--foreground-950));
+  color: var(--foreground-color, oklch(var(--foreground-950)));
   transition: all 0.15s ease;
   width: 100%;
 }
@@ -231,7 +231,7 @@ button {
 
 /* ===== Utility tokens for cards ===== */
 .card-surface {
-  background-color: oklch(var(--background-100));
+  background-color: var(--background-color, oklch(var(--background-100)));
   border: 1px solid oklch(var(--background-200));
   border-radius: 20px;
   box-shadow: 0 2px 10px rgba(17, 19, 24, 0.06);
