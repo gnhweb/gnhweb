@@ -106,7 +106,8 @@ export default function BottomTabBar() {
           className="md:hidden fixed bottom-0 left-0 right-0 z-50 pb-safe"
           aria-label="하단 바로가기"
         >
-          <div className="mx-3 mb-3 rounded-[24px] bg-white/85 backdrop-blur-lg shadow-card-lg border border-background-200/60">
+          {/* 변경점: 반투명과 외부 여백 제거하고 화면 끝까지 채우고, 위쪽만 둥글게 처리 */}
+          <div className="w-full rounded-t-[20px] bg-white shadow-card-lg border-t border-background-200">
             <div className="flex items-end justify-between px-2 pt-2 pb-1.5">
               {TABS.map((tab) => {
                 const active = isTabActive(tab);
