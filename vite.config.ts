@@ -83,17 +83,17 @@ export default defineConfig({
         orientation: "portrait",
         icons: [
           {
-            src: "pwa-192x192.png",
+            src: "pwa-192x192.png?v=2", // 캐시 강제 갱신용 버전 추가
             sizes: "192x192",
             type: "image/png",
           },
           {
-            src: "pwa-512x512.png",
+            src: "pwa-512x512.png?v=2", // 캐시 강제 갱신용 버전 추가
             sizes: "512x512",
             type: "image/png",
           },
           {
-            src: "pwa-maskable-512x512.png",
+            src: "pwa-maskable-512x512.png?v=2", // 캐시 강제 갱신용 버전 추가
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
@@ -115,12 +115,12 @@ export default defineConfig({
   ],
   base,
   build: {
-    sourcemap: false, // 1. 용량을 크게 차지만하던 디버깅 파일 생성 끄기 (로딩 속도 대폭 개선)
+    sourcemap: false, // 디버깅 소스맵 생성을 꺼서 빌드 용량 대폭 감소
     outDir: 'out',
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
-        // 2. 파일들을 조각내어 사용자가 필요한 부분만 빠르게 로드하게 분할
+        // 번들링 파일을 분할하여 로딩 속도 향상
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
