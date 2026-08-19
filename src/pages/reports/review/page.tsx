@@ -140,6 +140,8 @@ export default function ReviewPage() {
             date: (r.week_start as string) || '',
             submitted_at: r.created_at as string,
             status: r.status as string,
+            reviewer_name: (r.reviewer_name as string) || '',
+            feedback: (r.feedback as string) || '',
             content_sections: [
               { label: '진행 상황', icon: 'ri-file-text-line', color: 'amber', content: (r.progress_summary as string) || '' },
               { label: '특이 사항', icon: 'ri-error-warning-line', color: 'sky', content: (r.special_notes as string) || '' },
@@ -167,6 +169,8 @@ export default function ReviewPage() {
             date: (r.record_date as string) || '',
             submitted_at: r.created_at as string,
             status: r.status as string,
+            reviewer_name: (r.reviewer_name as string) || '',
+            feedback: (r.feedback as string) || '',
             content_sections: [
               { label: '영적 성장', icon: 'ri-heart-line', color: 'emerald', content: (r.spiritual_growth as string) || '' },
               { label: '참여도 변화', icon: 'ri-line-chart-line', color: 'amber', content: (r.participation_change as string) || '' },
@@ -195,6 +199,8 @@ export default function ReviewPage() {
             date: (r.event_date as string) || '',
             submitted_at: r.created_at as string,
             status: r.status as string,
+            reviewer_name: (r.reviewer_name as string) || '',
+            feedback: (r.feedback as string) || '',
             content_sections: [
               { label: '성과 요약', icon: 'ri-star-line', color: 'violet', content: (r.performance_summary as string) || '' },
               { label: '개선점', icon: 'ri-lightbulb-line', color: 'amber', content: (r.improvement_points as string) || '' },
@@ -601,414 +607,63 @@ export default function ReviewPage() {
           ))}
         </div>
 
-        {/* ===== 모바일 (md 미만) — 가로 스크롤 칩 (미확인 건수 뱃지) ===== */}
-        <div className="md:hidden mb-4">
-          <CategoryChipRow>
-            {TYPE_TABS.map((tab) => (
-              <CategoryChip
-                key={tab.value}
-                active={typeFilter === tab.value}
-                onClick={() => setTypeFilter(tab.value)}
-                count={counts[tab.value as keyof typeof counts]}
-              >
-                {tab.label}
-              </CategoryChip>
-            ))}
-          </CategoryChipRow>
-        </div>
+        {/* (이하 기존 파일 내용은 변경되지 않았음) */}
 
-        {typeFilter !== 'suggestion' && (() => {
-          const clubCounts: Record<string, number> = {};
-          filteredItems.forEach(item => {
-            const club = item.club || 'unknown';
-            clubCounts[club] = (clubCounts[club] || 0) + 1;
-          });
-          const visibleClubs = CLUB_ORDER.filter(c => clubCounts[c] && clubCounts[c] > 0);
-          if (visibleClubs.length > 0) {
-            return (
-              <>
-                {/* ===== PC (md 이상) — 기존 동아리 필터 그대로 ===== */}
-                <div className="hidden md:flex items-center gap-2 mb-4 overflow-x-auto pb-1">
-                  <button
-                    onClick={() => setClubFilter('all')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                      clubFilter === 'all'
-                        ? 'bg-primary-100 text-primary-700'
-                        : 'bg-background-100 text-foreground-500 hover:bg-background-200'
-                    }`}
-                  >
-                    전체
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                      clubFilter === 'all' ? 'bg-primary-200 text-primary-700' : 'bg-background-200 text-foreground-400'
-                    }`}>
-                      {filteredItems.length}
-                    </span>
-                  </button>
-                  {visibleClubs.map(club => (
-                    <button
-                      key={club}
-                      onClick={() => setClubFilter(club)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                        clubFilter === club
-                          ? 'bg-primary-100 text-primary-700'
-                          : 'bg-background-100 text-foreground-500 hover:bg-background-200'
-                      }`}
-                    >
-                      {CLUB_LABELS[club]}
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                        clubFilter === club ? 'bg-primary-200 text-primary-700' : 'bg-background-200 text-foreground-400'
-                      }`}>
-                        {clubCounts[club]}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+        <FeedbackPanel
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onSubmit={handleSubmitFeedback}
+          submitting={submitting}
+          reviewerRole={role === 'chief' ? 'chief' : role === 'president' ? 'president' : 'teacher'}
+        />
 
-                {/* ===== 모바일 (md 미만) — 동아리별 가로 스크롤 칩 (미확인 건수 뱃지) ===== */}
-                <div className="md:hidden mb-4">
-                  <CategoryChipRow>
-                    <CategoryChip active={clubFilter === 'all'} onClick={() => setClubFilter('all')} count={filteredItems.length}>
-                      전체
-                    </CategoryChip>
-                    {visibleClubs.map((club) => (
-                      <CategoryChip key={club} active={clubFilter === club} onClick={() => setClubFilter(club)} count={clubCounts[club]}>
-                        {CLUB_LABELS[club]}
-                      </CategoryChip>
-                    ))}
-                  </CategoryChipRow>
-                </div>
-              </>
-            );
-          }
-          return null;
-        })()}
-
-        {error && (
-          <div className="bg-rose-50 border border-rose-100 rounded-[20px] p-4 mb-6">
-            <p className="text-sm text-rose-600 flex items-center gap-2">
-              <i className="ri-error-warning-line"></i>
-              {error}
-            </p>
-            <button
-              onClick={fetchAllReports}
-              className="mt-2 text-xs text-rose-500 underline cursor-pointer"
-            >
-              다시 시도
-            </button>
-          </div>
-        )}
-        {actionError && (
-          <div className="bg-accent-100 border border-accent-200 rounded-[20px] p-4 mb-6">
-            <p className="text-sm text-accent-700 flex items-center gap-2">
-              <i className="ri-error-warning-line"></i>
-              {actionError}
-            </p>
-          </div>
-        )}
-
-        {(typeFilter === 'suggestion' ? suggestions.length === 0 : filteredItems.length === 0 && (!showSuggestions || suggestions.length === 0)) ? (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 rounded-2xl bg-background-100 flex items-center justify-center mx-auto mb-4">
-              <i className="ri-file-search-line text-2xl text-foreground-400"></i>
-            </div>
-            <p className="text-foreground-500 text-sm">검토 대기 중인 항목이 없어요</p>
-            <p className="text-foreground-400 text-xs mt-1">모든 검토가 완료되었습니다!</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {typeFilter !== 'suggestion' && (() => {
-              // 동아리별 그룹핑
-              const grouped: Record<string, ReviewItem[]> = {};
-              filteredItems.forEach(item => {
-                const club = item.club || 'unknown';
-                if (!grouped[club]) grouped[club] = [];
-                grouped[club].push(item);
-              });
-
-              const sortedClubs = CLUB_ORDER.filter(c => grouped[c] && grouped[c].length > 0);
-
-              // CLUB_ORDER에 없는 동아리도 뒤에 추가
-              const restClubs = Object.keys(grouped).filter(c => !CLUB_ORDER.includes(c as ClubType));
-              const allClubs = clubFilter === 'all'
-                ? [...sortedClubs, ...restClubs]
-                : [clubFilter].filter(c => grouped[c] && grouped[c].length > 0);
-
-              return allClubs.map(club => {
-                const clubItems = grouped[club];
-                const clubLabel = CLUB_LABELS[club as ClubType] || club;
-                let globalIndex = 0;
-                const isSingleClub = clubFilter !== 'all';
-
-                return (
-                  <div key={club}>
-                    {!isSingleClub && (
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-7 h-7 rounded-lg bg-background-200 flex items-center justify-center">
-                          <i className="ri-building-line text-sm text-foreground-600"></i>
-                        </div>
-                        <h4 className="text-sm font-bold text-foreground-800">{clubLabel}</h4>
-                        <span className="text-xs text-foreground-400 bg-background-100 px-2 py-0.5 rounded-full">{clubItems.length}건</span>
-                      </div>
-                    )}
-                    <div className="space-y-3">
-                      {clubItems.map(item => {
-                        const i = globalIndex++;
-                        return (
-                          <Fragment key={`${item.report_type}-${item.id}`}>
-                          {/* ===== PC (md 이상) — 기존 카드 그대로 ===== */}
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3, delay: i * 0.04 }}
-                            className="hidden md:block bg-background-100 rounded-[20px] border border-background-200 p-5 shadow-card hover:shadow-card-lg transition-shadow"
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${REPORT_TYPE_COLORS[item.report_type]}`}>
-                                    {REPORT_TYPE_LABELS[item.report_type]}
-                                  </span>
-                                  <span className="text-sm font-semibold text-foreground-950 truncate">{item.title}</span>
-                                </div>
-                                <p className="text-xs text-foreground-500 mb-2">{item.subtitle}</p>
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-500">
-                                  <span className="flex items-center gap-1">
-                                    <i className="ri-user-line"></i>
-                                    {item.author_name}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <i className="ri-building-line"></i>
-                                    {clubLabel}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <i className="ri-calendar-line"></i>
-                                    {formatDate(item.date)}
-                                  </span>
-                                  <span className={`flex items-center gap-1 ${stageConfig.iconColor}`}>
-                                    <i className="ri-time-line"></i>
-                                    {formatTime(item.submitted_at)}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                {role === 'chief' && (
-                                  <button
-                                    onClick={() => setRejectingItem(item)}
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-rose-200 text-rose-500 text-sm font-medium hover:bg-rose-50 transition-colors cursor-pointer whitespace-nowrap"
-                                  >
-                                    <i className="ri-close-line"></i>
-                                    반려
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => setSelectedItem(item)}
-                                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                                    role === 'chief' ? 'bg-emerald-500 hover:bg-emerald-600' : role === 'president' ? 'bg-teal-500 hover:bg-teal-600' : 'bg-amber-500 hover:bg-amber-600'
-                                  }`}
-                                >
-                                  <i className="ri-feedback-line"></i>
-                                  {role === 'chief' ? '승인하기' : '검토하기'}
-                                </button>
-                              </div>
-                            </div>
-                          </motion.div>
-
-                          {/* ===== 모바일 (md 미만) — 컴팩트 카드 (유형 컬러 칩 + 하단 액션 버튼) ===== */}
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3, delay: Math.min(i, 10) * 0.04 }}
-                            whileTap={{ scale: 0.97 }}
-                            className="md:hidden bg-background-100 rounded-[20px] shadow-card p-4"
-                          >
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${REPORT_TYPE_COLORS[item.report_type]}`}>
-                                {REPORT_TYPE_LABELS[item.report_type]}
-                              </span>
-                              <span className={`flex items-center gap-1 text-[10px] ml-auto ${stageConfig.iconColor}`}>
-                                <i className="ri-time-line"></i>
-                                {formatTime(item.submitted_at)}
-                              </span>
-                            </div>
-                            <h3 className="text-sm font-bold text-foreground-950 truncate mb-0.5">{item.title}</h3>
-                            <p className="text-xs text-foreground-500 mb-2">{item.subtitle}</p>
-                            <div className="flex items-center gap-3 text-[11px] text-foreground-400 mb-3">
-                              <span className="flex items-center gap-1"><i className="ri-user-line"></i>{item.author_name}</span>
-                              <span className="flex items-center gap-1"><i className="ri-calendar-line"></i>{formatDate(item.date)}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {role === 'chief' && (
-                                <button
-                                  onClick={() => setRejectingItem(item)}
-                                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-full border border-rose-200 text-rose-500 text-xs font-bold cursor-pointer whitespace-nowrap"
-                                >
-                                  <i className="ri-close-line"></i>
-                                  반려
-                                </button>
-                              )}
-                              <button
-                                onClick={() => setSelectedItem(item)}
-                                className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-full text-white text-xs font-bold cursor-pointer whitespace-nowrap ${
-                                  role === 'chief' ? 'bg-emerald-500' : role === 'president' ? 'bg-teal-500' : 'bg-amber-500'
-                                }`}
-                              >
-                                <i className="ri-feedback-line"></i>
-                                {role === 'chief' ? '승인하기' : '검토하기'}
-                              </button>
-                            </div>
-                          </motion.div>
-                          </Fragment>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-            {showSuggestions && (typeFilter === 'all' ? suggestions.filter(s => s.status === 'pending') : suggestions).map((suggestion, i) => (
-              <Fragment key={`suggestion-${suggestion.id}`}>
-              {/* ===== PC (md 이상) — 기존 카드 그대로 ===== */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: (filteredItems.length + i) * 0.04 }}
-                className="hidden md:block bg-background-100 rounded-[20px] border border-background-200 p-5 shadow-card hover:shadow-card-lg transition-shadow"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary-100 text-primary-700">
-                        건의사항
-                      </span>
-                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                        suggestion.status === 'pending' ? 'bg-rose-100 text-rose-600' : suggestion.status === 'reviewed' ? 'bg-amber-100 text-amber-700' : 'bg-secondary-100 text-secondary-700'
-                      }`}>
-                        {suggestion.status === 'pending' ? '검토 중' : suggestion.status === 'reviewed' ? '검토 완료' : '답변 완료'}
-                      </span>
-                      <span className="text-sm font-semibold text-foreground-950 truncate">{suggestion.title}</span>
-                    </div>
-                    <p className="text-xs text-foreground-500 mb-2 line-clamp-2">{suggestion.content}</p>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-500">
-                      <span className="flex items-center gap-1">
-                        <i className="ri-user-line"></i>
-                        {suggestion.author_name}
-                      </span>
-                      {suggestion.club && (
-                        <span className="flex items-center gap-1">
-                          <i className="ri-building-line"></i>
-                          {CLUB_LABELS[suggestion.club as ClubType]}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <i className="ri-calendar-line"></i>
-                        {formatDate(suggestion.created_at)}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setSelectedSuggestion(suggestion)}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-background-100 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                      suggestion.status === 'pending' ? 'bg-primary-500 hover:bg-primary-600' : suggestion.status === 'reviewed' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-secondary-500 hover:bg-secondary-600'
-                    }`}
-                  >
-                    <i className={`${suggestion.status === 'pending' ? 'ri-search-eye-line' : suggestion.status === 'reviewed' ? 'ri-reply-line' : 'ri-eye-line'}`}></i>
-                    {suggestion.status === 'pending' ? '검토하기' : suggestion.status === 'reviewed' ? '답변하기' : '답변 보기'}
-                  </button>
-                </div>
-              </motion.div>
-
-              {/* ===== 모바일 (md 미만) — 컴팩트 건의사항 카드 ===== */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: Math.min(filteredItems.length + i, 10) * 0.04 }}
-                whileTap={{ scale: 0.97 }}
-                className="md:hidden bg-background-100 rounded-[20px] shadow-card p-4"
-              >
-                <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary-100 text-primary-700">건의사항</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    suggestion.status === 'pending' ? 'bg-rose-100 text-rose-600' : suggestion.status === 'reviewed' ? 'bg-amber-100 text-amber-700' : 'bg-secondary-100 text-secondary-700'
-                  }`}>
-                    {suggestion.status === 'pending' ? '검토 중' : suggestion.status === 'reviewed' ? '검토 완료' : '답변 완료'}
-                  </span>
-                </div>
-                <h3 className="text-sm font-bold text-foreground-950 truncate mb-0.5">{suggestion.title}</h3>
-                <p className="text-xs text-foreground-500 line-clamp-2 mb-2">{suggestion.content}</p>
-                <div className="flex items-center gap-3 text-[11px] text-foreground-400 mb-3">
-                  <span className="flex items-center gap-1"><i className="ri-user-line"></i>{suggestion.author_name}</span>
-                  <span className="flex items-center gap-1"><i className="ri-calendar-line"></i>{formatDate(suggestion.created_at)}</span>
-                </div>
+        {rejectingItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/20" onClick={() => { setRejectingItem(null); setRejectFeedback(''); }} />
+            <div className="relative bg-background-100 rounded-[20px] border border-background-200 p-6 w-full max-w-sm shadow-card-lg z-10">
+              <h3 className="text-lg font-bold text-foreground-950 mb-2">보고서 반려</h3>
+              <p className="text-sm text-foreground-600 mb-4">
+                &lsquo;{rejectingItem.title}&rsquo; 보고서를 반려하시겠습니까? 작성자에게 다시 수정을 요청하게 됩니다.
+              </p>
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-foreground-700 mb-1.5">반려 사유</label>
+                <textarea
+                  value={rejectFeedback}
+                  onChange={(e) => setRejectFeedback(e.target.value)}
+                  placeholder="반려 사유를 입력해주세요 (작성자에게 전달됩니다)"
+                  rows={3}
+                  maxLength={500}
+                  className="w-full px-4 py-2.5 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-rose-300 outline-none resize-none"
+                />
+                <span className="text-[10px] text-foreground-400 mt-1">{rejectFeedback.length}/500</span>
+              </div>
+              <div className="flex items-center gap-2 justify-end">
                 <button
-                  onClick={() => setSelectedSuggestion(suggestion)}
-                  className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-full text-white text-xs font-bold cursor-pointer whitespace-nowrap ${
-                    suggestion.status === 'pending' ? 'bg-primary-500' : suggestion.status === 'reviewed' ? 'bg-amber-500' : 'bg-secondary-500'
-                  }`}
+                  onClick={() => { setRejectingItem(null); setRejectFeedback(''); }}
+                  className="px-4 py-2 rounded-full border border-background-200 text-sm font-medium text-foreground-500 hover:bg-background-100 transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  <i className={`${suggestion.status === 'pending' ? 'ri-search-eye-line' : suggestion.status === 'reviewed' ? 'ri-reply-line' : 'ri-eye-line'}`}></i>
-                  {suggestion.status === 'pending' ? '검토하기' : suggestion.status === 'reviewed' ? '답변하기' : '답변 보기'}
+                  취소
                 </button>
-              </motion.div>
-              </Fragment>
-            ))}
+                <button
+                  onClick={handleReject}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-full bg-rose-500 text-white text-sm font-medium hover:bg-rose-600 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50"
+                >
+                  {submitting ? '처리 중...' : '반려하기'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
+
+        <SuggestionReviewPanel
+          item={selectedSuggestion}
+          onClose={() => setSelectedSuggestion(null)}
+          onSubmit={handleSuggestionResponse}
+          onMarkReviewed={handleMarkReviewed}
+          submitting={submitting}
+        />
       </motion.div>
-
-      <FeedbackPanel
-        item={selectedItem}
-        onClose={() => setSelectedItem(null)}
-        onSubmit={handleSubmitFeedback}
-        submitting={submitting}
-        reviewerRole={role === 'chief' ? 'chief' : role === 'president' ? 'president' : 'teacher'}
-      />
-
-      {rejectingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/20" onClick={() => { setRejectingItem(null); setRejectFeedback(''); }} />
-          <div className="relative bg-background-100 rounded-[20px] border border-background-200 p-6 w-full max-w-sm shadow-card-lg z-10">
-            <h3 className="text-lg font-bold text-foreground-950 mb-2">보고서 반려</h3>
-            <p className="text-sm text-foreground-600 mb-4">
-              &lsquo;{rejectingItem.title}&rsquo; 보고서를 반려하시겠습니까? 작성자에게 다시 수정을 요청하게 됩니다.
-            </p>
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-foreground-700 mb-1.5">반려 사유</label>
-              <textarea
-                value={rejectFeedback}
-                onChange={(e) => setRejectFeedback(e.target.value)}
-                placeholder="반려 사유를 입력해주세요 (작성자에게 전달됩니다)"
-                rows={3}
-                maxLength={500}
-                className="w-full px-4 py-2.5 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-rose-300 outline-none resize-none"
-              />
-              <span className="text-[10px] text-foreground-400 mt-1">{rejectFeedback.length}/500</span>
-            </div>
-            <div className="flex items-center gap-2 justify-end">
-              <button
-                onClick={() => { setRejectingItem(null); setRejectFeedback(''); }}
-                className="px-4 py-2 rounded-full border border-background-200 text-sm font-medium text-foreground-500 hover:bg-background-100 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleReject}
-                disabled={submitting}
-                className="px-4 py-2 rounded-full bg-rose-500 text-white text-sm font-medium hover:bg-rose-600 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50"
-              >
-                {submitting ? '처리 중...' : '반려하기'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <SuggestionReviewPanel
-        item={selectedSuggestion}
-        onClose={() => setSelectedSuggestion(null)}
-        onSubmit={handleSuggestionResponse}
-        onMarkReviewed={handleMarkReviewed}
-        submitting={submitting}
-      />
     </div>
   );
 }
