@@ -115,17 +115,25 @@ export default defineConfig({
   ],
   base,
   build: {
-    sourcemap: true,
+    sourcemap: false, // 1. 용량을 크게 차지만하던 디버깅 파일 생성 끄기 (로딩 속도 대폭 개선)
     outDir: 'out',
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
+        // 2. 파일들을 조각내어 사용자가 필요한 부분만 빠르게 로드하게 분할
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
               return 'vendor';
             }
+            if (id.includes('@supabase')) {
+              return 'supabase';
+            }
             if (id.includes('html2canvas') || id.includes('dom-to-image-more')) {
               return 'canvas';
+            }
+            if (id.includes('lucide-react')) {
+              return 'icons';
             }
           }
         },
