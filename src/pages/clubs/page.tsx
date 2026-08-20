@@ -1,10 +1,8 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { clubs, clubIcons } from '@/mocks/clubs';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/hooks/useAuth';
-import ClubPasswordModal from '@/components/feature/ClubPasswordModal';
 
 interface ClubDetailContent {
   description?: string;
@@ -13,12 +11,6 @@ interface ClubDetailContent {
 }
 
 export default function Clubs() {
-  const navigate = useNavigate();
-  const { profile } = useAuth();
-  const [passwordVerified, setPasswordVerified] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const isPrivileged = profile?.role === 'teacher' || profile?.role === 'chief';
-
   const [clubBannerMap, setClubBannerMap] = useState<Record<string, { card_image_url: string | null }>>({});
   const [clubDetailMap, setClubDetailMap] = useState<Record<string, ClubDetailContent>>({});
 
@@ -62,34 +54,6 @@ export default function Clubs() {
       .catch(() => {});
   }, []);
 
-  if (!isPrivileged && !passwordVerified) {
-    return (
-      <div className="min-h-screen bg-background-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-[20px] bg-amber-100 flex items-center justify-center mx-auto mb-4">
-            <i className="ri-lock-line text-3xl text-amber-600"></i>
-          </div>
-          <p className="text-lg font-bold text-foreground-950 mb-2">비밀번호가 필요합니다</p>
-          <p className="text-sm text-foreground-600 mb-4">동아리 목록을 보려면 비밀번호를 입력하세요</p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <i className="ri-key-line"></i> 비밀번호 입력
-          </button>
-        </div>
-        {showModal && (
-          <ClubPasswordModal
-            clubId="common"
-            clubName="동아리"
-            onSuccess={() => { setPasswordVerified(true); setShowModal(false); }}
-            onCancel={() => { setShowModal(false); navigate('/'); }}
-          />
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background-50">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-16">
@@ -127,7 +91,6 @@ export default function Clubs() {
               >
                 <Link
                   to={`/clubs/${club.id}`}
-                  state={{ fromVerifiedList: true }}
                   className="block bg-background-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group h-full"
                 >
                   <div className="relative aspect-[16/10] overflow-hidden">
@@ -193,7 +156,6 @@ export default function Clubs() {
                 <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }}>
                   <Link
                     to={`/clubs/${club.id}`}
-                    state={{ fromVerifiedList: true }}
                     className="relative block rounded-[20px] overflow-hidden shadow-card cursor-pointer h-56"
                   >
                     {clubBanner?.card_image_url ? (
