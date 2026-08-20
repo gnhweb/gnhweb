@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import './i18n'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './pwa'
 import App from './App.tsx'
 
 // Supabase auth refresh token 오류 등은 앱 크래시 없이 조용히 처리
