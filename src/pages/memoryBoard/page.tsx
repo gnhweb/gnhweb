@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { clubs } from '@/mocks/clubs';
-import ClubPasswordModal from '@/components/feature/ClubPasswordModal';
 import PhotoLightbox from '@/components/feature/PhotoLightbox';
 import { CategoryChip, CategoryChipRow } from '@/components/base/CategoryChip';
 
@@ -20,19 +18,8 @@ interface PhotoMemory {
 
 export default function MemoryBoard() {
   const { user, profile, hasRole } = useAuth();
-  const navigate = useNavigate();
   const isEditor = user && (hasRole('assistant_zone_leader') || hasRole('teacher') || hasRole('chief'));
-  // 동아리 목록/상세와 동일한 공용 비밀번호(club_passwords의 'common')를 사용.
-  // 교사/부장만 비밀번호 없이 바로 들어갈 수 있고, 나머지는 매 세션 최초 1회 입력해야 함.
-  const isPrivileged = profile?.role === 'teacher' || profile?.role === 'chief';
-  const [passwordVerified, setPasswordVerified] = useState(() => {
-    try {
-      return sessionStorage.getItem('club_pwd_common') === 'granted';
-    } catch {
-      return false;
-    }
-  });
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
   const [filter, setFilter] = useState<'all' | string>('all');
   const [photos, setPhotos] = useState<PhotoMemory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,34 +136,6 @@ export default function MemoryBoard() {
 
   const filteredPhotos = filter === 'all' ? photos : photos.filter(p => p.club === filter);
 
-  if (!isPrivileged && !passwordVerified) {
-    return (
-      <div className="min-h-screen bg-background-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-[20px] bg-amber-100 flex items-center justify-center mx-auto mb-4">
-            <i className="ri-lock-line text-3xl text-amber-600"></i>
-          </div>
-          <p className="text-lg font-bold text-foreground-950 mb-2">비밀번호가 필요합니다</p>
-          <p className="text-sm text-foreground-600 mb-4">추억창을 보려면 비밀번호를 입력하세요</p>
-          <button
-            onClick={() => setShowPasswordModal(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <i className="ri-key-line"></i> 비밀번호 입력
-          </button>
-        </div>
-        {showPasswordModal && (
-          <ClubPasswordModal
-            clubId="common"
-            clubName="추억창"
-            onSuccess={() => { setPasswordVerified(true); setShowPasswordModal(false); }}
-            onCancel={() => { setShowPasswordModal(false); navigate('/'); }}
-          />
-        )}
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background-50 flex items-center justify-center">
@@ -229,14 +188,14 @@ export default function MemoryBoard() {
           {/* 그리드 — PC: 기존 2/3열 + 캡션 유지 */}
           <div className="hidden md:grid grid-cols-2 md:grid-cols-3 gap-4">
             {filteredPhotos.map((photo, idx) => (
-              <motion.div key={photo.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} onClick={() => setLightboxIndex(idx)} className="group cursor-pointer relative overflow-hidden rounded-[20px] bg-background-100 border border-background-200 active:scale-[0.98] transition-transform">
+              <motion.div key={photo.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} onClick={() => setLightboxIndex(idx)} className="group cursor-pointer rounded-xl overflow-hidden bg-background-100 shadow-sm hover:shadow-md transition-shadow">
                 <div className="aspect-[4/3] overflow-hidden">
                   <img src={photo.photo_url} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 </div>
                 {isEditor && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-rose-500"
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                   >
                     <i className="ri-close-line text-sm"></i>
                   </button>
@@ -288,7 +247,7 @@ export default function MemoryBoard() {
 
           {isEditor && (
             <div className="text-center mt-8">
-              <button onClick={() => setShowUpload(true)} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 transition-all cursor-pointer whitespace-nowrap">
+              <button onClick={() => setShowUpload(true)} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 transition-all cursor-pointer">
                 <i className="ri-upload-line"></i> 사진 올리기
               </button>
             </div>
@@ -309,11 +268,11 @@ export default function MemoryBoard() {
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
           <div className="bg-background-100 rounded-[20px] p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-4">사진 올리기</h3>
-            <input type="text" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} placeholder="제목" maxLength={30} className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 outline-none mb-3" />
+            <input type="text" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} placeholder="제목" maxLength={30} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none focus:border-rose-400 mb-4" />
             <input type="file" accept="image/*" onChange={e => setUploadFile(e.target.files?.[0] || null)} className="w-full text-sm mb-4" />
             <div className="flex gap-2">
               <button onClick={() => setShowUpload(false)} className="flex-1 py-2.5 rounded-full border border-gray-200 text-sm cursor-pointer">취소</button>
-              <button onClick={handleUpload} disabled={!uploadFile || !uploadTitle.trim() || uploading} className="flex-1 py-2.5 rounded-full bg-rose-500 text-white text-sm font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">
+              <button onClick={handleUpload} disabled={!uploadFile || !uploadTitle.trim() || uploading} className="flex-1 py-2.5 rounded-full bg-rose-500 text-white text-sm font-semibold disabled:opacity-40 cursor-pointer">
                 {uploading ? '업로드 중...' : '올리기'}
               </button>
             </div>
