@@ -60,12 +60,6 @@ export default function TeacherDashboard() {
   const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'absent'>('all');
   const [attendanceGradeFilter, setAttendanceGradeFilter] = useState('전체');
 
-  // Club password management
-  const [clubPasswords, setClubPasswords] = useState<Record<string, boolean>>({});
-  const [passwordInputs, setPasswordInputs] = useState<Record<string, string>>({});
-  const [passwordSaving, setPasswordSaving] = useState<Record<string, boolean>>({});
-  const [passwordMessages, setPasswordMessages] = useState<Record<string, { type: 'success' | 'error'; text: string } | null>>({});
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clubFilter, setClubFilter] = useState<ClubType | 'all'>('all');
@@ -80,7 +74,6 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     loadDashboardData();
-    loadClubPasswords();
 
     // Realtime subscription for attendance updates
     const todayStr = new Date().toISOString().split('T')[0];
@@ -219,53 +212,6 @@ export default function TeacherDashboard() {
     }
   };
 
-  const loadClubPasswords = async () => {
-    try {
-      const { data } = await supabase.from('club_passwords').select('club');
-      if (data) {
-        const map: Record<string, boolean> = {};
-        data.forEach((r: { club: string }) => { map[r.club] = true; });
-        setClubPasswords(map);
-      }
-    } catch { /* ignore */ }
-  };
-
-  const handleSetClubPassword = async (club: string) => {
-    const pw = passwordInputs[club]?.trim();
-    if (!pw) return;
-    setPasswordSaving(prev => ({ ...prev, [club]: true }));
-    setPasswordMessages(prev => ({ ...prev, [club]: null }));
-    try {
-      const encoder = new TextEncoder();
-      const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(pw));
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-      const { data: existing } = await supabase.from('club_passwords').select('id').eq('club', club).maybeSingle();
-
-      if (existing) {
-        await supabase.from('club_passwords').update({
-          password_hash: hashHex,
-          set_by: profile?.name || 'unknown',
-          updated_at: new Date().toISOString(),
-        }).eq('club', club);
-      } else {
-        await supabase.from('club_passwords').insert({
-          club,
-          password_hash: hashHex,
-          set_by: profile?.name || 'unknown',
-        });
-      }
-
-      setClubPasswords(prev => ({ ...prev, [club]: true }));
-      setPasswordInputs(prev => ({ ...prev, [club]: '' }));
-      setPasswordMessages(prev => ({ ...prev, [club]: { type: 'success', text: '비밀번호가 설정되었습니다' } }));
-    } catch {
-      setPasswordMessages(prev => ({ ...prev, [club]: { type: 'error', text: '설정에 실패했습니다' } }));
-    }
-    setPasswordSaving(prev => ({ ...prev, [club]: false }));
-  };
-
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return `${d.getMonth() + 1}.${d.getDate()}`;
@@ -374,13 +320,13 @@ export default function TeacherDashboard() {
               <div className="flex items-center gap-1 bg-background-200 rounded-full p-0.5">
                 <button
                   onClick={() => setAttendanceFilter('all')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${attendanceFilter === 'all' ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600 hover:text-foreground-950'}`}
+                  className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${attendanceFilter === 'all' ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600'}`}
                 >
                   전체
                 </button>
                 <button
                   onClick={() => setAttendanceFilter('absent')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${attendanceFilter === 'absent' ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600 hover:text-foreground-950'}`}
+                  className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${attendanceFilter === 'absent' ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600'}`}
                 >
                   미출석자만
                 </button>
@@ -588,7 +534,7 @@ export default function TeacherDashboard() {
                                 .eq('id', m.id);
                               if (!updateErr) {
                                 setPendingMarathon(prev => prev.filter(e => e.id !== m.id));
-                                supabase.from('notifications').insert({ user_id: (m as any).user_id, type: 'bible_confirm', title: '묵상 확인 완료', message: `${profile.name} 선생님이 ${m.book} ${m.chapter} 묵상을 확인했습니다.`, is_read: false, link_url: '/bible-marathon' }).then(() => {}).catch(() => { /* ignore */ });
+                                supabase.from('notifications').insert({ user_id: (m as any).user_id, type: 'bible_confirm', title: '묵상 확인 완료', message: `${profile.name} 선생님이 ${m.book}의 묵상을 확인했습니다.` });
                               }
                             }}
                             className="px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 cursor-pointer whitespace-nowrap"
@@ -604,7 +550,7 @@ export default function TeacherDashboard() {
                                 .eq('id', m.id);
                               if (!updateErr) {
                                 setPendingMarathon(prev => prev.filter(e => e.id !== m.id));
-                                supabase.from('notifications').insert({ user_id: (m as any).user_id, type: 'bible_reject', title: '묵상 반려', message: `${profile.name} 선생님이 ${m.book} ${m.chapter} 묵상을 반려했습니다.`, is_read: false, link_url: '/bible-marathon' }).then(() => {}).catch(() => { /* ignore */ });
+                                supabase.from('notifications').insert({ user_id: (m as any).user_id, type: 'bible_reject', title: '묵상 반려', message: `${profile.name} 선생님이 ${m.book}의 묵상을 반려했습니다.` });
                               }
                             }}
                             className="px-3 py-1.5 rounded-full bg-rose-100 text-rose-600 text-xs font-medium hover:bg-rose-200 cursor-pointer whitespace-nowrap"
@@ -646,42 +592,6 @@ export default function TeacherDashboard() {
               <i className="ri-book-open-line text-2xl text-rose-500 mb-2 block"></i>
               <span className="text-xs font-semibold text-foreground-700">묵상 확인</span>
             </Link>
-          </div>
-
-          {/* ── 동아리 공통 비밀번호 관리 (교사/부장 전용) ── */}
-          <div className="mt-8">
-            <div className="bg-background-100 border border-background-200 rounded-[20px] p-6">
-              <h3 className="text-sm font-bold text-foreground-950 mb-4 flex items-center gap-2">
-                <i className="ri-lock-line text-amber-600"></i>
-                동아리 공통 비밀번호 설정
-              </h3>
-              <p className="text-xs text-foreground-600 mb-4">
-                모든 동아리 페이지 접근 시 공통으로 사용되는 비밀번호입니다. 한 번만 설정하면 모든 동아리에 적용됩니다. 비밀번호는 SHA-256으로 암호화되어 저장됩니다.
-              </p>
-              <div className="flex items-center gap-3 max-w-md">
-                <input
-                  type="text"
-                  placeholder={clubPasswords['common'] ? '●●●●●●' : '공통 비밀번호 입력'}
-                  value={passwordInputs['common'] || ''}
-                  onChange={e => setPasswordInputs(prev => ({ ...prev, common: e.target.value }))}
-                  className="flex-1 px-4 py-2.5 text-sm rounded-xl border border-background-200 focus:border-amber-400 outline-none"
-                />
-                <button
-                  onClick={() => handleSetClubPassword('common')}
-                  disabled={!passwordInputs['common']?.trim() || passwordSaving['common']}
-                  className="px-5 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
-                >
-                  {passwordSaving['common'] ? (
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block"></span>
-                  ) : clubPasswords['common'] ? '비밀번호 변경' : '설정'}
-                </button>
-              </div>
-              {passwordMessages['common'] && (
-                <p className={`text-xs mt-2 ${passwordMessages['common']?.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {passwordMessages['common']?.text}
-                </p>
-              )}
-            </div>
           </div>
         </motion.div>
       </div>
