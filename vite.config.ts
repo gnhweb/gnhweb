@@ -67,7 +67,10 @@ export default defineConfig({
     }),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      // "auto"로 두면 새 배포가 나와도 기기가 백그라운드에서만 조용히 감지하고
+      // 화면은 새로고침 전까지 계속 예전 CSS/JS를 보여줌 → 기기별 화면이 서로 달라 보이는 원인.
+      // false로 바꾸고 src/pwa.ts에서 직접 등록해 "새 버전 감지 즉시 자동 새로고침"을 강제한다.
+      injectRegister: false,
       includeAssets: ["favicon.ico", "apple-touch-icon.png"],
       manifest: {
         id: "/",
@@ -104,7 +107,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
         navigateFallback: "/index.html",
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
