@@ -161,31 +161,38 @@ export default function TeacherDashboard() {
       }
       const { data: attData } = await attQuery;
 
-      // Get all students (excluding teachers and chiefs)
+      // Get all students (excluding teachers and chiefs, and excluding expelled members)
       let studentsQuery = supabase
         .from('user_roles')
-        .select('user_id, name, club')
+        .select('user_id, name, club, is_expelled')
         .not('role', 'in', '("chief","teacher")');
       if (effectiveClub !== 'all') {
         studentsQuery = studentsQuery.eq('club', effectiveClub);
       }
-      const { data: allStudents } = await studentsQuery;
+      const { data: allStudentsRaw } = await studentsQuery;
+      const allStudents = (allStudentsRaw || []).filter(
+        (s: { is_expelled?: boolean }) => !s.is_expelled
+      );
 
       if (attData && allStudents) {
-        const present = attData.filter((a: { status: string }) => a.status === 'attended').length;
+        // Only count attendance records for members who are not expelled
+        const validUserIds = new Set(allStudents.map((s: { user_id: string }) => s.user_id));
+        const validAttData = (attData as { user_id: string }[]).filter((a) => validUserIds.has(a.user_id));
+
+        const present = validAttData.filter((a: { status: string }) => a.status === 'attended').length;
         setAttendanceSummary({
           total: allStudents.length,
           present,
         });
 
-        const attendedUserIds = new Set(attData.filter((a: { status: string }) => a.status === 'attended').map((a: { user_id: string }) => a.user_id));
-        const absentUserIds = new Set(attData.filter((a: { status: string }) => a.status === 'absent').map((a: { user_id: string }) => a.user_id));
+        const attendedUserIds = new Set(validAttData.filter((a: { status: string }) => a.status === 'attended').map((a: { user_id: string }) => a.user_id));
+        const absentUserIds = new Set(validAttData.filter((a: { status: string }) => a.status === 'absent').map((a: { user_id: string }) => a.user_id));
 
         const attendedList: { name: string; club: string; clubName: string; user_id: string }[] = [];
         const absentList: { name: string; club: string; clubName: string; reason: string; user_id: string }[] = [];
         const unresponsiveList: { name: string; club: string; clubName: string; user_id: string }[] = [];
 
-        for (const a of attData as { user_name: string; club: string; status: string; absence_reason: string | null; user_id: string }[]) {
+        for (const a of validAttData as { user_name: string; club: string; status: string; absence_reason: string | null; user_id: string }[]) {
           const clubName = CLUB_LABELS[a.club as ClubType]?.split(' ')[0] || a.club;
           if (a.status === 'attended') {
             attendedList.push({ name: a.user_name, club: a.club, clubName, user_id: a.user_id });
