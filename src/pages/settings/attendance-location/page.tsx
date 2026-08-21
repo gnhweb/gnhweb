@@ -35,6 +35,8 @@ interface LocationLog {
   old_longitude: number | null;
   new_latitude: number | null;
   new_longitude: number | null;
+  old_radius_meters: number | null;
+  new_radius_meters: number | null;
   created_at: string;
 }
 
