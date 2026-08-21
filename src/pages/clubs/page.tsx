@@ -15,9 +15,11 @@ export default function Clubs() {
   const [clubDetailMap, setClubDetailMap] = useState<Record<string, ClubDetailContent>>({});
 
   useEffect(() => {
-    supabase
-      .from('club_banners')
-      .select('club, card_image_url')
+    Promise.resolve(
+      supabase
+        .from('club_banners')
+        .select('club, card_image_url')
+    )
       .then(({ data }) => {
         if (data) {
           const map: Record<string, { card_image_url: string | null }> = {};
@@ -29,10 +31,12 @@ export default function Clubs() {
       })
       .catch(() => {});
 
-    supabase
-      .from('club_posts')
-      .select('club, content')
-      .eq('type', 'detail')
+    Promise.resolve(
+      supabase
+        .from('club_posts')
+        .select('club, content')
+        .eq('type', 'detail')
+    )
       .then(({ data }) => {
         if (data) {
           const map: Record<string, ClubDetailContent> = {};
