@@ -498,7 +498,6 @@ export default function AdminRolesPage() {
             {/* 동아리별 담당 교사 지정 (N:M - club_teachers) */}
             {viewMode === 'roles' && !loading && (
               <ClubTeacherManager
-                clubTeachers={[]}
                 users={users}
                 showToast={showToast}
                 fetchUsers={fetchUsers}
@@ -825,7 +824,7 @@ function CAManager({ users, extraClubs, loadingExtraClubs, addExtraClub, removeE
 function ClubTeacherManager({ users, showToast, fetchUsers }: {
   users: AdminUserData[];
   showToast: (msg: string, type: 'success' | 'error') => void;
-  fetchUsers: () => void;
+  fetchUsers: () => void | Promise<void>;
 }) {
   const [clubTeacherMap, setClubTeacherMap] = useState<Record<string, { user_id: string; name: string }[]>>({});
   const [loadingAssignments, setLoadingAssignments] = useState(true);
@@ -1089,7 +1088,7 @@ function UserRow({
                 className={`text-sm font-medium px-2.5 py-1.5 rounded-full ${ROLE_COLORS[user.role]} cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap`}
               >
                 {ROLE_LABELS[user.role]}
-                {isSaving && editing === 'role' ? (
+                {isSaving ? (
                   <span className="ml-1.5 inline-block w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin align-middle"></span>
                 ) : (
                   <i className="ri-arrow-down-s-line ml-1 text-xs opacity-60"></i>
