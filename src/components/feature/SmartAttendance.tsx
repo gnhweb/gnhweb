@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -9,6 +8,8 @@ import { ROLE_HIERARCHY, CLUB_LABELS } from '@/types/auth';
 import type { ClubType, UserRole } from '@/types/auth';
 import { CLUB_META } from '@/mocks/attendance';
 import type { ClubAttendanceSummary, ClubMemberStatus, AttendanceRecord } from '@/mocks/attendance';
+import { todayKey } from '@/lib/date';
+import { Link } from 'react-router-dom';
 
 interface AttendanceLocationData {
   id: string;
@@ -158,7 +159,7 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
 
   const checkTodayStatus = async () => {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = todayKey();
       const { data, error } = await supabase
         .from('attendance')
         .select('id,status,absence_reason')
@@ -195,7 +196,7 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
 
   const doCheckIn = async () => {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = todayKey();
       const clubValue = profile.club || 'saeullim';
 
       const { data, error } = await supabase
@@ -328,7 +329,7 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
     setErrorMsg('');
 
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = todayKey();
       const clubValue = profile.club || 'saeullim';
 
       const { data, error } = await supabase
@@ -790,7 +791,7 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
 
   const fetchAttendanceData = useCallback(async () => {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = todayKey();
 
       const { data: allMembers, error: memberError } = await supabase
         .from('user_roles')
@@ -862,7 +863,7 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
 
   useEffect(() => {
     fetchAttendanceData();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = todayKey();
 
     const channel = supabase
       .channel('attendance-realtime-admin')

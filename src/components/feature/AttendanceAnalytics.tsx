@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -6,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { ROLE_HIERARCHY } from '@/types/auth';
 import type { ClubType, UserRole } from '@/types/auth';
+import { dateKey } from '@/lib/date';
+import { Link } from 'react-router-dom';
 
 const CLUB_IDS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu', 'cheonhwarae_cheongmyeong'];
 
@@ -257,8 +258,8 @@ export default function AttendanceAnalytics() {
         const startDate = new Date(endDate);
         startDate.setDate(startDate.getDate() - interval + 1);
 
-        const startStr = startDate.toISOString().split('T')[0];
-        const endStr = endDate.toISOString().split('T')[0];
+        const startStr = dateKey(startDate);
+        const endStr = dateKey(endDate);
 
         const { data, error } = await supabase
           .from('attendance')
@@ -288,8 +289,8 @@ export default function AttendanceAnalytics() {
         const startDate = new Date(endDate);
         startDate.setDate(startDate.getDate() - interval + 1);
 
-        const startStr = startDate.toISOString().split('T')[0];
-        const endStr = endDate.toISOString().split('T')[0];
+        const startStr = dateKey(startDate);
+        const endStr = dateKey(endDate);
 
         const periodRecords = allRecords.filter((r) =>
           r.attendance_date >= startStr && r.attendance_date <= endStr && filteredIds.has(r.user_id)
