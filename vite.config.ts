@@ -4,11 +4,8 @@ import { resolve } from "node:path";
 import AutoImport from "unplugin-auto-import/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-const rawBasePath = process.env.BASE_PATH || "/";
-const base = rawBasePath === "/"
-  ? "/"
-  : `/${rawBasePath.replace(/^\/+|\/+$/g, "")}/`;
-const pwaBase = base === "/" ? "" : base.replace(/\/$/, "");
+const rawBase = process.env.BASE_PATH || "/";
+const base = rawBase === "/" ? "/" : `/${rawBase.replace(/^\/+|\/+$/g, "")}/`;
 const isPreview = process.env.IS_PREVIEW ? true : false;
 
 export default defineConfig({
@@ -77,13 +74,13 @@ export default defineConfig({
       injectRegister: false,
       includeAssets: ["favicon.ico", "apple-touch-icon.png"],
       manifest: {
-        id: "/",
+        id: base,
         name: "강학",
         short_name: "강학",
         description: "강학 운영 플랫폼 - 보고, 출석, 동아리, 행정을 한 곳에서",
         lang: "ko",
-        start_url: ".",
-        scope: "/",
+        start_url: base,
+        scope: base,
         display: "standalone",
         background_color: "#0b0e1a",
         theme_color: "#0b0e1a",
@@ -112,7 +109,7 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
-        navigateFallback: "/index.html",
+        navigateFallback: `${base}index.html`,
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
       devOptions: {
