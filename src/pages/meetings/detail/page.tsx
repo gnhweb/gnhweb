@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { ROLE_HIERARCHY } from '@/types/auth';
 import type { UserRole } from '@/types/auth';
+import { MEETING_CLUB_LABELS, canAccessMeetingClub } from '@/constants/meetingClubs';
 
 import type { MeetingMinute, MeetingInsight, RecurringIssue } from '@/types/meeting';
 
@@ -33,7 +34,7 @@ const IMPACT_COLORS: Record<string, string> = {
 
 export default function MeetingDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { profile } = useAuth();
+  const { profile, secondaryClubs } = useAuth();
   const navigate = useNavigate();
   const [meeting, setMeeting] = useState<MeetingMinute | null>(null);
   const [insight, setInsight] = useState<MeetingInsight | null>(null);
@@ -48,6 +49,7 @@ export default function MeetingDetailPage() {
     (profile && meeting.authorId === profile.user_id) ||
     isTeacherOrAbove
   );
+  const canView = !meeting || canAccessMeetingClub(meeting.club, role, profile?.club, secondaryClubs);
 
   useEffect(() => {
     const load = async () => {
@@ -180,6 +182,24 @@ export default function MeetingDetailPage() {
     );
   }
 
+  if (!canView) {
+    const clubLabel = meeting.club ? (MEETING_CLUB_LABELS[meeting.club as keyof typeof MEETING_CLUB_LABELS] || meeting.club) : '';
+    return (
+      <div className="max-w-4xl mx-auto px-4 md:px-6 py-20 text-center">
+        <div className="w-16 h-16 rounded-[20px] bg-accent-100 border border-accent-200 flex items-center justify-center mx-auto mb-4">
+          <i className="ri-forbid-line text-2xl text-accent-600"></i>
+        </div>
+        <h1 className="text-xl font-bold text-foreground-950 mb-2">접근할 수 없습니다</h1>
+        <p className="text-sm text-foreground-600 mb-4">
+          {clubLabel ? `이 회의록은 ${clubLabel} 사명자만 열람할 수 있습니다.` : '이 회의록을 열람할 권한이 없습니다.'}
+        </p>
+        <Link to="/meetings" className="text-sm text-primary-600 hover:text-primary-700 font-medium cursor-pointer">
+          회의록 목록으로 돌아가기
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -191,6 +211,11 @@ export default function MeetingDetailPage() {
             <i className="ri-arrow-left-line text-foreground-600"></i>
           </button>
           <h1 className="text-xl font-bold text-foreground-950 flex-1">{meeting.title}</h1>
+          {meeting.club && (
+            <span className="flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-secondary-100 text-secondary-700 whitespace-nowrap">
+              {MEETING_CLUB_LABELS[meeting.club as keyof typeof MEETING_CLUB_LABELS] || meeting.club}
+            </span>
+          )}
           <Link
             to={`/meeting-copilot?meetingId=${meeting.id}`}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-br from-primary-500 to-violet-500 text-white hover:brightness-105 transition-all cursor-pointer whitespace-nowrap"
