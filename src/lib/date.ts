@@ -1,16 +1,35 @@
 /**
- * Format a Date as YYYY-MM-DD using the browser's local timezone.
- * This is intended for date-only values (attendance, schedules, missions, etc.).
- * Avoid toISOString() here because it converts to UTC and can shift the date
- * for users in Asia/Seoul during the local morning hours.
+ * Calendar dates used by the site are business dates in Korea (Asia/Seoul).
+ * Do not use Date#toISOString().split('T')[0] for date-only values: that
+ * converts to UTC first and can shift the date around midnight in Korea.
  */
-export function formatLocalDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+
+const KST = 'Asia/Seoul';
+
+function partsToDateKey(parts: Intl.DateTimeFormatPart[]): string {
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
-export function todayLocalDate(): string {
-  return formatLocalDate(new Date());
+export function dateKey(value: Date | string | number = new Date()): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: KST,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  return partsToDateKey(parts);
+}
+
+export function todayKey(): string {
+  return dateKey(new Date());
+}
+
+/**
+ * Format an ISO timestamp as a Korean local calendar date (YYYY-MM-DD).
+ */
+export function formatDateKey(value: string | Date | number): string {
+  return dateKey(value);
 }
