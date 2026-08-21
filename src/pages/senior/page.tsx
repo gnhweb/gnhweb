@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -37,7 +38,7 @@ export default function SeniorSection() {
   const loadStatus = async () => {
     try {
       const { count: seniorCount } = await supabase.from('user_roles').select('*', { count: 'exact', head: true }).or('grade.eq.고3,graduation_expected.eq.true');
-      const { count: revealCount } = await supabase.from('senior_rolling_papers').select('*', { count: 'exact', head: true }).gte('reveal_date', new Date().toISOString().split('T')[0]);
+      const { count: revealCount } = await supabase.from('senior_rolling_papers').select('*', { count: 'exact', head: true }).gte('reveal_date', formatLocalDate(new Date()));
       const { data: checklist } = await supabase.from('senior_checklist').select('*');
       const completed = checklist ? checklist.filter((c: any) => c.completed).length : 0;
       const total = checklist ? checklist.length : 0;
