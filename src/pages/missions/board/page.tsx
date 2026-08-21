@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -227,18 +228,18 @@ export default function MissionBoardPage() {
             <h1 className="text-xl md:text-2xl font-bold text-foreground-950 mb-1">내 작은 사명</h1>
             <p className="text-sm text-foreground-600">맡은 미션을 확인하고 인증하세요</p>
             <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
-              <a
-                href="/missions/leaderboard"
+              <Link
+                to="/missions/leaderboard"
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold hover:bg-amber-200 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <i className="ri-trophy-line"></i>이달의 사명왕 보기
-              </a>
-              <a
-                href="/missions/wall"
+              </Link>
+              <Link
+                to="/missions/wall"
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold hover:bg-emerald-200 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <i className="ri-gallery-line"></i>인증 게시판
-              </a>
+              </Link>
             </div>
           </div>
 
