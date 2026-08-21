@@ -13,6 +13,7 @@ export default {
         heading: ['var(--font-heading)'],
         display: ['var(--font-heading)'],
         label: ['var(--font-label)'],
+        quote: ['var(--font-quote)'],
       },
       colors: {
         background: {
