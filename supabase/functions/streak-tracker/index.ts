@@ -14,7 +14,7 @@ interface BadgeInfo {
 }
 
 const BADGES: BadgeInfo[] = [
-  { name: '시작의 한걸음', icon: 'ri-footprint-line', days: 1, description: '첫 말씀뽑기 완료!' },
+  { name: '시작의 한걸음', icon: 'ri-footprint-line', days: 1, description: '첫 묵상 확인 또는 퀴즈 완료!' },
   { name: '말씀 새싹', icon: 'ri-seedling-line', days: 3, description: '3일 연속 말씀 묵상' },
   { name: '말씀의 길', icon: 'ri-road-map-line', days: 7, description: '7일 연속! 일주일을 말씀과 함께' },
   { name: '믿음의 기초', icon: 'ri-anchor-line', days: 14, description: '2주 연속 말씀 뽑기' },
