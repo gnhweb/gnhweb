@@ -1,17 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapContainer, TileLayer, Marker, Circle, useMapEvents, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { Map as KakaoMap, MapMarker, Circle, useKakaoLoader } from 'react-kakao-maps-sdk';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { ROLE_HIERARCHY } from '@/types/auth';
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+const KAKAO_MAP_APP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY as string;
 
 interface AttendanceLocation {
   id: string;
@@ -40,31 +34,32 @@ interface LocationLog {
   created_at: string;
 }
 
-const DEFAULT_CENTER: [number, number] = [37.7510, 128.8760];
-const DEFAULT_ZOOM = 16;
+interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+const DEFAULT_CENTER: LatLng = { lat: 37.7510, lng: 128.8760 };
+const DEFAULT_LEVEL = 3; // 카카오맵 확대 수준: 숫자가 작을수록 더 확대됨
 const MIN_RADIUS = 30;
 const MAX_RADIUS = 500;
 
 interface SearchResult {
-  display_name: string;
-  lat: string;
-  lon: string;
-}
-
-function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
-  useMapEvents({ click(e) { onMapClick(e.latlng.lat, e.latlng.lng); } });
-  return null;
-}
-
-function MapCenterUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
-  const map = useMap();
-  useEffect(() => { map.setView(center, zoom, { animate: true }); }, [center, zoom, map]);
-  return null;
+  id: string;
+  place_name: string;
+  address_name: string;
+  lat: number;
+  lng: number;
 }
 
 export default function AttendanceLocationPage() {
   const { profile } = useAuth();
   const isAdmin = profile ? ROLE_HIERARCHY[profile.role] >= ROLE_HIERARCHY.teacher : false;
+
+  const [mapLoading, mapLoadError] = useKakaoLoader({
+    appkey: KAKAO_MAP_APP_KEY,
+    libraries: ['services'],
+  });
 
   const [locations, setLocations] = useState<AttendanceLocation[]>([]);
   const [logs, setLogs] = useState<LocationLog[]>([]);
@@ -74,11 +69,11 @@ export default function AttendanceLocationPage() {
   // Form state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
-  const [markerPos, setMarkerPos] = useState<[number, number]>(DEFAULT_CENTER);
+  const [markerPos, setMarkerPos] = useState<LatLng>(DEFAULT_CENTER);
   const [radius, setRadius] = useState(100);
   const [isActive, setIsActive] = useState(true);
-  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
-  const [mapZoom, setMapZoom] = useState(DEFAULT_ZOOM);
+  const [mapCenter, setMapCenter] = useState<LatLng>(DEFAULT_CENTER);
+  const [mapLevel, setMapLevel] = useState(DEFAULT_LEVEL);
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -144,7 +139,7 @@ export default function AttendanceLocationPage() {
     setLabel('');
     setMarkerPos(DEFAULT_CENTER);
     setMapCenter(DEFAULT_CENTER);
-    setMapZoom(DEFAULT_ZOOM);
+    setMapLevel(DEFAULT_LEVEL);
     setRadius(100);
     setIsActive(true);
     setErrorMsg('');
@@ -159,53 +154,52 @@ export default function AttendanceLocationPage() {
   const openEditForm = (loc: AttendanceLocation) => {
     setEditingId(loc.id);
     setLabel(loc.label);
-    setMarkerPos([loc.latitude, loc.longitude]);
-    setMapCenter([loc.latitude, loc.longitude]);
-    setMapZoom(17);
+    setMarkerPos({ lat: loc.latitude, lng: loc.longitude });
+    setMapCenter({ lat: loc.latitude, lng: loc.longitude });
+    setMapLevel(2);
     setRadius(loc.radius_meters);
     setIsActive(loc.is_active);
     setErrorMsg('');
     setIsFormOpen(true);
   };
 
-  const handleSearch = useCallback(async () => {
+  const handleSearch = useCallback(() => {
     const q = searchQuery.trim();
-    if (!q) return;
+    if (!q || mapLoading || typeof kakao === 'undefined') return;
     setIsSearching(true);
     setErrorMsg('');
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&countrycodes=kr`,
-        { headers: { 'Accept-Language': 'ko' } }
-      );
-      if (!res.ok) throw new Error('검색 실패');
-      const results: SearchResult[] = await res.json();
-      setSearchResults(results);
-      setShowResults(true);
-      if (results.length === 0) {
+
+    const places = new kakao.maps.services.Places();
+    places.keywordSearch(q, (data, status) => {
+      setIsSearching(false);
+      if (status === kakao.maps.services.Status.OK) {
+        const results: SearchResult[] = data.map((item) => ({
+          id: item.id,
+          place_name: item.place_name,
+          address_name: item.road_address_name || item.address_name,
+          lat: parseFloat(item.y),
+          lng: parseFloat(item.x),
+        }));
+        setSearchResults(results);
+        setShowResults(true);
+      } else {
+        setSearchResults([]);
         setErrorMsg('검색 결과가 없어요.');
       }
-    } catch {
-      setErrorMsg('주소 검색 중 오류가 발생했어요.');
-    } finally {
-      setIsSearching(false);
-    }
-  }, [searchQuery]);
+    });
+  }, [searchQuery, mapLoading]);
 
   const selectSearchResult = (result: SearchResult) => {
-    const lat = parseFloat(result.lat);
-    const lng = parseFloat(result.lon);
-    if (isNaN(lat) || isNaN(lng)) return;
-    setMarkerPos([lat, lng]);
-    setMapCenter([lat, lng]);
-    setMapZoom(18);
+    setMarkerPos({ lat: result.lat, lng: result.lng });
+    setMapCenter({ lat: result.lat, lng: result.lng });
+    setMapLevel(2);
     setShowResults(false);
     setSearchQuery('');
     setSearchResults([]);
   };
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
-    setMarkerPos([lat, lng]);
+    setMarkerPos({ lat, lng });
   }, []);
 
   const logChange = async (locationId: string | null, action: string, oldData?: Partial<AttendanceLocation>, newData?: Partial<AttendanceLocation>) => {
@@ -247,8 +241,8 @@ export default function AttendanceLocationPage() {
     try {
       const payload = {
         label: trimmedLabel,
-        latitude: markerPos[0],
-        longitude: markerPos[1],
+        latitude: markerPos.lat,
+        longitude: markerPos.lng,
         radius_meters: radius,
         is_active: isActive,
         updated_by: profile!.user_id,
@@ -559,10 +553,13 @@ export default function AttendanceLocationPage() {
                         <AnimatePresence>
                           {showResults && searchResults.length > 0 && (
                             <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="absolute z-[1000] mt-2 w-full max-w-2xl bg-background-100 border border-background-200 rounded-xl shadow-lg overflow-hidden" style={{ maxWidth: 'calc(100% - 3rem)' }}>
-                              {searchResults.map((r, i) => (
-                                <button key={i} onClick={() => selectSearchResult(r)} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left text-foreground-700 hover:bg-background-50 transition-colors cursor-pointer border-b border-background-100 last:border-0">
+                              {searchResults.map((r) => (
+                                <button key={r.id} onClick={() => selectSearchResult(r)} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left text-foreground-700 hover:bg-background-50 transition-colors cursor-pointer border-b border-background-100 last:border-0">
                                   <i className="ri-map-pin-line text-primary-500 flex-shrink-0"></i>
-                                  <span className="truncate">{r.display_name}</span>
+                                  <span className="truncate">
+                                    <span className="font-medium">{r.place_name}</span>
+                                    {r.address_name && <span className="text-foreground-400"> · {r.address_name}</span>}
+                                  </span>
                                 </button>
                               ))}
                             </motion.div>
@@ -571,14 +568,45 @@ export default function AttendanceLocationPage() {
                       </div>
 
                       {/* Map */}
-                      <div className="rounded-xl overflow-hidden border border-background-200" style={{ height: '350px' }}>
-                        <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: '100%', width: '100%' }} zoomControl={true} scrollWheelZoom={true}>
-                          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                          <MapClickHandler onMapClick={handleMapClick} />
-                          <MapCenterUpdater center={mapCenter} zoom={mapZoom} />
-                          <Marker position={markerPos} draggable={true} eventHandlers={{ dragend(e) { const m = e.target as L.Marker; const pos = m.getLatLng(); setMarkerPos([pos.lat, pos.lng]); } }} />
-                          <Circle center={markerPos} radius={radius} pathOptions={{ color: '#f43f5e', fillColor: '#f43f5e', fillOpacity: 0.12, weight: 2, dashArray: '8 4' }} />
-                        </MapContainer>
+                      <div className="rounded-xl overflow-hidden border border-background-200 relative" style={{ height: '350px' }}>
+                        {mapLoadError ? (
+                          <div className="w-full h-full flex items-center justify-center text-sm text-rose-500 bg-background-50">
+                            지도를 불러오지 못했어요. 카카오맵 API 키를 확인해주세요.
+                          </div>
+                        ) : mapLoading ? (
+                          <div className="w-full h-full flex items-center justify-center text-sm text-foreground-400 bg-background-50">
+                            <i className="ri-loader-4-line animate-spin mr-2"></i>지도를 불러오는 중...
+                          </div>
+                        ) : (
+                          <KakaoMap
+                            center={mapCenter}
+                            level={mapLevel}
+                            isPanto={true}
+                            style={{ height: '100%', width: '100%' }}
+                            onClick={(_target, mouseEvent) => {
+                              handleMapClick(mouseEvent.latLng.getLat(), mouseEvent.latLng.getLng());
+                            }}
+                          >
+                            <MapMarker
+                              position={markerPos}
+                              draggable={true}
+                              onDragEnd={(marker) => {
+                                const pos = marker.getPosition();
+                                setMarkerPos({ lat: pos.getLat(), lng: pos.getLng() });
+                              }}
+                            />
+                            <Circle
+                              center={markerPos}
+                              radius={radius}
+                              strokeWeight={2}
+                              strokeColor="#f43f5e"
+                              strokeOpacity={0.8}
+                              strokeStyle="dash"
+                              fillColor="#f43f5e"
+                              fillOpacity={0.12}
+                            />
+                          </KakaoMap>
+                        )}
                       </div>
 
                       {/* Radius */}
@@ -629,7 +657,7 @@ export default function AttendanceLocationPage() {
                     <li>• 활성화된 모든 위치 중 어느 하나의 반경 안에만 있어도 출석 인증이 가능해요.</li>
                     <li>• 위치별로 다른 반경을 설정할 수 있어요 (건물 내부 50m, 야외 200m 등).</li>
                     <li>• 위치 변경 이력은 '변경 이력' 탭에서 확인할 수 있어요.</li>
-                    <li>• 지도는 OpenStreetMap을 사용하며, 별도 API 키 없이 무료로 이용할 수 있어요.</li>
+                    <li>• 지도는 카카오맵을 사용해요. 검색창에 건물명이나 주소를 입력해 위치를 빠르게 찾을 수 있어요.</li>
                   </ul>
                 </div>
               </div>
