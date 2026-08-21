@@ -242,11 +242,11 @@ export default function ClubDetail() {
   const loadMembers = async () => {
     const { data: memberData } = await supabase
       .from('user_roles')
-      .select('user_id, name, role, club, birth_year, birth_month, birth_day, gender')
+      .select('user_id, name, role, club, birth_year, birth_month, birth_day, gender, is_expelled')
       .eq('club', id)
       .order('role', { ascending: true });
 
-    let allMemberRows = memberData ? [...memberData] : [];
+    let allMemberRows = memberData ? [...memberData].filter((m: any) => !m.is_expelled) : [];
 
     if (id === 'cheonhwarae_cheongmyeong') {
       const { data: assignmentRows } = await supabase
@@ -262,10 +262,10 @@ export default function ClubDetail() {
       if (secondaryIds.length > 0) {
         const { data: secondaryProfiles } = await supabase
           .from('user_roles')
-          .select('user_id, name, role, club, birth_year, birth_month, birth_day, gender')
+          .select('user_id, name, role, club, birth_year, birth_month, birth_day, gender, is_expelled')
           .in('user_id', secondaryIds);
         if (secondaryProfiles) {
-          allMemberRows = [...allMemberRows, ...secondaryProfiles];
+          allMemberRows = [...allMemberRows, ...secondaryProfiles.filter((m: any) => !m.is_expelled)];
         }
       }
     }
