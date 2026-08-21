@@ -74,6 +74,7 @@
   --font-heading: 'Noto Sans KR', sans-serif;
   --font-body: 'Noto Sans KR', sans-serif;
   --font-label: 'Noto Sans KR', sans-serif;
+  --font-quote: 'Nanum Myeongjo', 'Noto Sans KR', serif;
 
   /* ===== Decorative tokens (isolated, not in Tailwind) ===== */
   --grad-coral: #FF7A59;
