@@ -35,6 +35,7 @@ interface ClubQnA {
   id: string;
   question: string;
   questioner: string;
+  authorId: string | null;
   answer?: string;
   answerer?: string;
   createdAt: string;
@@ -169,6 +170,11 @@ export default function ClubDetail() {
   const [answeringQnaId, setAnsweringQnaId] = useState<string | null>(null);
   const [qnaAnswer, setQnaAnswer] = useState('');
   const [qnaSubmitting, setQnaSubmitting] = useState(false);
+  const [editingQnaId, setEditingQnaId] = useState<string | null>(null);
+  const [editQnaText, setEditQnaText] = useState('');
+  const [editingAnswerId, setEditingAnswerId] = useState<string | null>(null);
+  const [editAnswerText, setEditAnswerText] = useState('');
+  const [qnaActionLoading, setQnaActionLoading] = useState(false);
 
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -353,6 +359,7 @@ export default function ClubDetail() {
           id: q.id,
           question: q.question,
           questioner: q.is_anonymous ? '익명' : (q.author_id ? '' : '익명'),
+          authorId: q.author_id ?? null,
           isAnonymous: q.is_anonymous || false,
           answer: q.answer || undefined,
           answerer: q.answerer_name || undefined,
@@ -492,6 +499,7 @@ export default function ClubDetail() {
           id: data.id,
           question: data.question,
           questioner: qnaAnon ? '익명' : profile.name,
+          authorId: user.id,
           isAnonymous: qnaAnon,
           createdAt: data.created_at,
         }, ...prev]);
@@ -528,6 +536,124 @@ export default function ClubDetail() {
     } catch (e) {
       console.error('Failed to submit answer:', e);
       setError('답변 등록 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 질문 작성자 본인 또는 동아리 사명자만 질문을 수정/삭제할 수 있어요.
+  const canManageQnaQuestion = (item: ClubQnA) =>
+    isClubLeader || (!!user && !!item.authorId && item.authorId === user.id);
+
+  const handleStartEditQuestion = (item: ClubQnA) => {
+    setEditingQnaId(item.id);
+    setEditQnaText(item.question);
+  };
+
+  const handleCancelEditQuestion = () => {
+    setEditingQnaId(null);
+    setEditQnaText('');
+  };
+
+  const handleSaveEditQuestion = async (qnaId: string) => {
+    if (!editQnaText.trim() || qnaActionLoading) return;
+    setQnaActionLoading(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('club_qna')
+        .update({ question: editQnaText.trim() })
+        .eq('id', qnaId);
+
+      if (updateError) throw updateError;
+
+      setQnaItems(prev => prev.map(q =>
+        q.id === qnaId ? { ...q, question: editQnaText.trim() } : q
+      ));
+      setEditingQnaId(null);
+      setEditQnaText('');
+    } catch (e) {
+      console.error('Failed to edit question:', e);
+      setError('질문 수정 중 오류가 발생했습니다.');
+    } finally {
+      setQnaActionLoading(false);
+    }
+  };
+
+  const handleDeleteQuestion = async (qnaId: string) => {
+    if (qnaActionLoading) return;
+    if (!window.confirm('이 질문을 삭제할까요? 답변도 함께 삭제됩니다.')) return;
+    setQnaActionLoading(true);
+    try {
+      const { error: deleteError } = await supabase
+        .from('club_qna')
+        .delete()
+        .eq('id', qnaId);
+
+      if (deleteError) throw deleteError;
+
+      setQnaItems(prev => prev.filter(q => q.id !== qnaId));
+      if (editingQnaId === qnaId) handleCancelEditQuestion();
+    } catch (e) {
+      console.error('Failed to delete question:', e);
+      setError('질문 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setQnaActionLoading(false);
+    }
+  };
+
+  const handleStartEditAnswer = (item: ClubQnA) => {
+    setEditingAnswerId(item.id);
+    setEditAnswerText(item.answer || '');
+  };
+
+  const handleCancelEditAnswer = () => {
+    setEditingAnswerId(null);
+    setEditAnswerText('');
+  };
+
+  const handleSaveEditAnswer = async (qnaId: string) => {
+    if (!editAnswerText.trim() || qnaActionLoading) return;
+    setQnaActionLoading(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('club_qna')
+        .update({ answer: editAnswerText.trim() })
+        .eq('id', qnaId);
+
+      if (updateError) throw updateError;
+
+      setQnaItems(prev => prev.map(q =>
+        q.id === qnaId ? { ...q, answer: editAnswerText.trim() } : q
+      ));
+      setEditingAnswerId(null);
+      setEditAnswerText('');
+    } catch (e) {
+      console.error('Failed to edit answer:', e);
+      setError('답변 수정 중 오류가 발생했습니다.');
+    } finally {
+      setQnaActionLoading(false);
+    }
+  };
+
+  const handleDeleteAnswer = async (qnaId: string) => {
+    if (qnaActionLoading) return;
+    if (!window.confirm('이 답변을 삭제할까요?')) return;
+    setQnaActionLoading(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('club_qna')
+        .update({ answer: null, answerer_name: null, answered_at: null })
+        .eq('id', qnaId);
+
+      if (updateError) throw updateError;
+
+      setQnaItems(prev => prev.map(q =>
+        q.id === qnaId ? { ...q, answer: undefined, answerer: undefined } : q
+      ));
+      if (editingAnswerId === qnaId) handleCancelEditAnswer();
+    } catch (e) {
+      console.error('Failed to delete answer:', e);
+      setError('답변 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setQnaActionLoading(false);
     }
   };
 
@@ -1077,7 +1203,25 @@ export default function ClubDetail() {
                             <span className="text-xs text-foreground-500">{item.createdAt}</span>
                             {!item.answer && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">답변 대기</span>}
                           </div>
-                          <p className="text-sm text-foreground-800 font-medium leading-relaxed">{item.question}</p>
+                          {editingQnaId === item.id ? (
+                            <div>
+                              <textarea value={editQnaText} onChange={e => setEditQnaText(e.target.value)} rows={2} maxLength={300} className="w-full px-3 py-2 text-sm rounded-xl border border-accent-300 bg-background-50 focus:border-accent-400 outline-none resize-none" />
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <button onClick={handleCancelEditQuestion} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
+                                <button onClick={() => handleSaveEditQuestion(item.id)} disabled={!editQnaText.trim() || qnaActionLoading} className="px-3 py-1 rounded-full bg-accent-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">저장</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm text-foreground-800 font-medium leading-relaxed">{item.question}</p>
+                              {canManageQnaQuestion(item) && (
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <button onClick={() => handleStartEditQuestion(item)} className="text-xs text-foreground-500 hover:text-accent-600 cursor-pointer">수정</button>
+                                  <button onClick={() => handleDeleteQuestion(item.id)} disabled={qnaActionLoading} className="text-xs text-foreground-500 hover:text-red-600 cursor-pointer disabled:opacity-40">삭제</button>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
                       {item.answer ? (
@@ -1088,7 +1232,25 @@ export default function ClubDetail() {
                             </div>
                             <span className="text-xs font-bold text-emerald-700">{item.answerer}</span>
                           </div>
-                          <p className="text-sm text-emerald-800 leading-relaxed">{item.answer}</p>
+                          {editingAnswerId === item.id ? (
+                            <div>
+                              <textarea value={editAnswerText} onChange={e => setEditAnswerText(e.target.value)} rows={2} maxLength={500} className="w-full px-3 py-2 text-sm rounded-xl border border-emerald-300 bg-background-50 focus:border-emerald-400 outline-none resize-none" />
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <button onClick={handleCancelEditAnswer} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
+                                <button onClick={() => handleSaveEditAnswer(item.id)} disabled={!editAnswerText.trim() || qnaActionLoading} className="px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">저장</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm text-emerald-800 leading-relaxed">{item.answer}</p>
+                              {isClubLeader && (
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <button onClick={() => handleStartEditAnswer(item)} className="text-xs text-emerald-700/70 hover:text-emerald-700 cursor-pointer">수정</button>
+                                  <button onClick={() => handleDeleteAnswer(item.id)} disabled={qnaActionLoading} className="text-xs text-emerald-700/70 hover:text-red-600 cursor-pointer disabled:opacity-40">삭제</button>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       ) : (
                         isClubLeader && (
