@@ -44,22 +44,24 @@ export default function AttendanceBoard() {
     try {
       const [attRes, studentRes] = await Promise.all([
         supabase.from('attendance').select('*').eq('attendance_date', todayStr),
-        supabase.from('user_roles').select('user_id, name, club').not('role', 'in', '("chief","teacher")'),
+        supabase.from('user_roles').select('user_id, name, club, is_expelled').not('role', 'in', '("chief","teacher")'),
       ]);
 
       if (attRes.error) throw attRes.error;
       if (studentRes.error) throw studentRes.error;
 
       const attData = (attRes.data || []) as AttendanceRecord[];
-      const allStudents = (studentRes.data || []) as { user_id: string; name: string; club: string }[];
+      const allStudents = ((studentRes.data || []) as { user_id: string; name: string; club: string; is_expelled?: boolean }[])
+        .filter(s => !s.is_expelled);
+      const validUserIds = new Set(allStudents.map(s => s.user_id));
 
       setTotalStudents(allStudents.length);
 
       const attendedUserIds = new Set(attData.filter(a => a.status === 'attended').map(a => a.user_id));
       const absentUserIds = new Set(attData.filter(a => a.status === 'absent').map(a => a.user_id));
 
-      const attended = attData.filter(a => a.status === 'attended');
-      const absent = attData.filter(a => a.status === 'absent');
+      const attended = attData.filter(a => a.status === 'attended' && validUserIds.has(a.user_id));
+      const absent = attData.filter(a => a.status === 'absent' && validUserIds.has(a.user_id));
       const unresponsive = allStudents.filter(s => !attendedUserIds.has(s.user_id) && !absentUserIds.has(s.user_id)).map(s => ({
         name: s.name,
         club: s.club,
