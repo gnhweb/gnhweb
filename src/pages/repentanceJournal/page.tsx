@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -152,7 +153,7 @@ export default function RepentanceJournal() {
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1 text-xs text-foreground-500">
                             <i className="ri-calendar-line text-[11px]"></i>
-                            {new Date(entry.created_at).toISOString().split('T')[0]}
+                            {formatLocalDate(new Date(entry.created_at))}
                           </span>
                           <button onClick={() => handleDelete(entry.id)} className="text-gray-300 hover:text-rose-500 cursor-pointer">
                             <i className="ri-delete-bin-line text-sm"></i>
