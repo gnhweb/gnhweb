@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -115,7 +116,7 @@ export default function PrayerPartner() {
       }
 
       // Insert new pairs
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatLocalDate(new Date());
       const insertData = allPairs.map((p, i) => ({
         pair_name: `기도 파트너 ${i + 1}조`,
         members: p,
