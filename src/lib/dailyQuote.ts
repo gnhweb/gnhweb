@@ -1,41 +1,37 @@
 import { supabase } from '@/lib/supabase';
-import { getQuoteOfTheDay as getStaticQuoteOfTheDay, hashDateString } from '@/constants/quotes';
+import { getRandomQuote as getStaticRandomQuote } from '@/constants/quotes';
 
 // ──────────────────────────────────────────────
-// 오늘의 어록 - DB 연동 + 일 1회 캐싱 + 정적 데이터 폴백
+// 오늘의 어록 - DB 연동 + "접속할 때마다 랜덤" + 정적 데이터 폴백
 //
-// - quotes 테이블(is_active = true)에서 목록을 불러와,
-//   기존 getQuoteOfTheDay()와 동일한 "날짜 해시로 하루에 하나 고정" 규칙을 적용합니다.
-// - 홈 화면 진입 시마다 DB를 호출하지 않도록, localStorage에
-//   {date, quotes} 형태로 캐시해두고 날짜가 바뀔 때만 다시 조회합니다.
+// - quotes 테이블(is_active = true)에서 목록을 불러와, 사이트에 들어갈 때마다
+//   (그리고 사람마다) 그 목록 중 하나를 완전히 무작위로 골라 보여줍니다.
+// - 매번 DB를 호출하지 않도록, localStorage에 {expiresAt, quotes} 형태로
+//   목록만 잠깐(1시간) 캐시해두고, 그 목록에서 뽑는 것은 매번 새로 무작위로 합니다.
 // - DB 조회가 실패하면(오프라인 등) src/constants/quotes.ts의 정적 QUOTES 배열로 폴백합니다.
 // ──────────────────────────────────────────────
 
-const CACHE_KEY = 'daily_quote_cache_v1';
+const CACHE_KEY = 'quote_list_cache_v2';
+const CACHE_TTL_MS = 60 * 60 * 1000; // 목록 캐시 유효 시간: 1시간
 
-interface QuoteCache {
-  date: string;
+interface QuoteListCache {
+  expiresAt: number;
   quotes: string[];
 }
 
-function getTodayDateStr(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+function pickRandomFromList(quotes: string[]): string {
+  if (quotes.length === 0) return getStaticRandomQuote();
+  return quotes[Math.floor(Math.random() * quotes.length)];
 }
 
-function pickQuoteFromList(quotes: string[], dateStr: string): string {
-  if (quotes.length === 0) return getStaticQuoteOfTheDay();
-  const index = hashDateString(dateStr) % quotes.length;
-  return quotes[index];
-}
-
-function readCache(): QuoteCache | null {
+function readCache(): QuoteListCache | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.date === 'string' && Array.isArray(parsed.quotes)) {
-      return parsed as QuoteCache;
+    if (parsed && typeof parsed.expiresAt === 'number' && Array.isArray(parsed.quotes)) {
+      if (parsed.expiresAt < Date.now()) return null; // 만료됨
+      return parsed as QuoteListCache;
     }
   } catch {
     /* 캐시 파싱 실패는 무시 - 캐시 없이 동작 */
@@ -43,42 +39,37 @@ function readCache(): QuoteCache | null {
   return null;
 }
 
-function writeCache(cache: QuoteCache) {
+function writeCache(quotes: string[]) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ expiresAt: Date.now() + CACHE_TTL_MS, quotes }));
   } catch {
     /* localStorage 저장 실패(용량 초과 등)는 무시 - 캐싱 없이도 정상 동작 */
   }
 }
 
 /**
- * 오늘 날짜로 캐시된 목록이 있으면 그 자리에서(동기, DB 호출 없이) 오늘의 어록을 계산해서 반환합니다.
- * 캐시가 없거나 날짜가 바뀐 경우에는 정적 QUOTES 배열 기준의 어록을 우선 반환하고,
- * 최신 데이터는 fetchAndCacheQuoteOfTheDay()가 비동기로 가져와 교체합니다.
- *
+ * 캐시된 목록(또는 정적 QUOTES 배열)에서 즉시(동기, DB 호출 없이) 무작위 어록 하나를 반환합니다.
  * 화면이 처음 렌더링될 때 "깜빡임 없이" 바로 보여줄 초기값을 얻기 위한 동기 함수입니다.
+ * 매번 호출할 때마다 새로 무작위로 뽑히므로, 접속(새로고침)할 때마다 다른 어록이 나옵니다.
  */
 export function getCachedQuoteOfTheDay(): string {
-  const dateStr = getTodayDateStr();
   const cache = readCache();
-  if (cache && cache.date === dateStr && cache.quotes.length > 0) {
-    return pickQuoteFromList(cache.quotes, dateStr);
+  if (cache && cache.quotes.length > 0) {
+    return pickRandomFromList(cache.quotes);
   }
-  return getStaticQuoteOfTheDay();
+  return getStaticRandomQuote();
 }
 
 /**
- * quotes 테이블에서 오늘의 어록을 가져옵니다.
- * - 오늘 날짜로 이미 캐시된 목록이 있으면 DB를 호출하지 않고 캐시로 계산합니다.
- * - 캐시가 없거나 날짜가 바뀌었으면 DB에서 is_active=true인 어록을 전부 불러와
- *   새로 캐싱한 뒤, 그 목록 기준으로 오늘의 어록을 계산해서 반환합니다.
- * - DB 조회 실패(오프라인 등) 시에는 정적 QUOTES 배열 기준의 어록으로 폴백합니다.
+ * quotes 테이블에서 활성화된 어록 목록을 가져와 그중 하나를 무작위로 반환합니다.
+ * - 목록은 1시간 동안 캐시하여 접속할 때마다 DB를 호출하지 않도록 하되,
+ *   뽑는 것 자체는 호출할 때마다 매번 새로 무작위로 이루어집니다(사람마다·접속마다 다르게 보임).
+ * - DB 조회 실패(오프라인 등) 시에는 정적 QUOTES 배열에서 무작위로 폴백합니다.
  */
 export async function fetchAndCacheQuoteOfTheDay(): Promise<string> {
-  const dateStr = getTodayDateStr();
   const cache = readCache();
-  if (cache && cache.date === dateStr && cache.quotes.length > 0) {
-    return pickQuoteFromList(cache.quotes, dateStr);
+  if (cache && cache.quotes.length > 0) {
+    return pickRandomFromList(cache.quotes);
   }
 
   try {
@@ -88,13 +79,13 @@ export async function fetchAndCacheQuoteOfTheDay(): Promise<string> {
       .eq('is_active', true);
 
     if (error || !data || data.length === 0) {
-      return getStaticQuoteOfTheDay();
+      return getStaticRandomQuote();
     }
 
     const quotes = (data as { content: string }[]).map((row) => row.content);
-    writeCache({ date: dateStr, quotes });
-    return pickQuoteFromList(quotes, dateStr);
+    writeCache(quotes);
+    return pickRandomFromList(quotes);
   } catch {
-    return getStaticQuoteOfTheDay();
+    return getStaticRandomQuote();
   }
 }
