@@ -316,7 +316,7 @@ export default function AttendanceAnalytics() {
           }
           const attendedCount = attendedSet.size;
           const total = clubCounts[clubId] || 1;
-          (point as Record<string, number>)[clubId] = Math.round((attendedCount / total) * 100);
+          (point as unknown as Record<string, number>)[clubId] = Math.round((attendedCount / total) * 100);
         }
 
         point.overall = Math.round((totalUniqueAttended / allMemberCount) * 100);
@@ -343,7 +343,7 @@ export default function AttendanceAnalytics() {
       for (const record of allAbsent) {
         const category = categorizeReason(record.absence_reason!, categories);
         if (reasonMap[category] && CLUB_IDS.includes(record.club as ClubType)) {
-          (reasonMap[category] as Record<string, number>)[record.club]++;
+          (reasonMap[category] as unknown as Record<string, number>)[record.club]++;
         }
       }
 
