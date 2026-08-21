@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { BADGE_DEFINITIONS } from '@/constants/missionBadges';
 import { notifyAutoLogoutMinutesChanged } from '@/lib/simplePin';
+import { ROLE_LABELS } from '@/types/auth';
 
 const INTERESTS_LIST = ['악기', '운동', '독서', '그림', '코딩', '사진', '춤', '노래', '영화', '게임', '요리', '여행', '봉사', '글쓰기'];
 
@@ -362,7 +363,7 @@ export default function ProfilePage() {
       try {
         return b.condition(total, cleaningCount, serviceCount, mediaCount, welcomeCount, equipmentCount, prayerCount, praiseCount, educationCount);
       } catch {
-        return b.condition(total);
+        return false;
       }
     }).length;
   })();
@@ -526,7 +527,7 @@ export default function ProfilePage() {
                 {!isChief && <span className="text-xs text-foreground-500 ml-1">· 부장님만 수정 가능</span>}
               </label>
               <div className="px-4 py-2.5 rounded-[13px] border border-background-200 bg-background-100 text-sm text-foreground-700 font-medium">
-                {profile.role === 'chief' ? '부장' : profile.role === 'teacher' ? '교사' : profile.role === 'zone_leader' ? '부구역장' : profile.role === 'deputy' ? '차장' : '학생회원'}
+                {ROLE_LABELS[profile.role] || '학생회원'}
               </div>
             </div>
 
@@ -742,7 +743,7 @@ export default function ProfilePage() {
                       try {
                         return b.condition(total, cleaningCount, serviceCount, mediaCount, welcomeCount, equipmentCount, prayerCount, praiseCount, educationCount);
                       } catch {
-                        return b.condition(total);
+                        return false;
                       }
                     });
 
