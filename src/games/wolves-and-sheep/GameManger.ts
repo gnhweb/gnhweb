@@ -149,6 +149,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   blackoutActive = false;
   blackoutEndsAt = 0;
   blackoutProgress = 0;
+  hasContributedToBlackout = false;
   emergencyCallsUsed = 0;
 
   // 유령(사망자)끼리만 쓰는 별도 채팅 로그. 일반 chatLog(회의 중 공개 토론)와 분리해서
@@ -1015,6 +1016,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.blackoutActive = true;
     this.blackoutEndsAt = payload.endsAt;
     this.blackoutProgress = 0;
+    this.hasContributedToBlackout = false;
     this.emit("blackout-change");
     // [버그 수정] 예전엔 여기서 settings.blackoutDurationMs가 지나면 스페이스바를
     // 5번 다 채우지 못했어도 setTimeout이 조용히 정전을 꺼버렸다 — "기도실에 모여
@@ -1037,6 +1039,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     // 이제 매 스페이스바 입력마다 다른 모든 클라이언트에게도 방송해서 진행도가
     // 실시간으로 같이 맞춰지도록 한다.
     if (!this.blackoutActive) return;
+    this.hasContributedToBlackout = true;
     this.applyBlackoutProgress();
     this.channel.send({ type: "broadcast", event: "blackout_progress", payload: {} });
   }

@@ -342,7 +342,7 @@ function RoomView({
     };
     if (!document.fullscreenElement) {
       const req = el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.();
-      req?.catch?.(() => {
+      Promise.resolve(req).catch(() => {
         // 사용자가 거부했거나 브라우저 정책상 막힘 — 무시하고 계속 진행
       });
     }
@@ -363,7 +363,7 @@ function RoomView({
       webkitExitFullscreen?: () => Promise<void> | void;
     };
     if (document.fullscreenElement) {
-      (document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.())?.catch?.(() => {});
+      Promise.resolve(document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.()).catch(() => {});
     }
     const orientation = screen.orientation as ScreenOrientation & { unlock?: () => void };
     orientation.unlock?.();

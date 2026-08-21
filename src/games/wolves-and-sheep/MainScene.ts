@@ -763,7 +763,7 @@ export class MainScene extends Phaser.Scene {
     this.fogRebuildToken = (this.fogRebuildToken ?? 0) + 1;
     const myToken = this.fogRebuildToken;
     this.time.delayedCall(50, () => {
-      if (this.isShuttingDown || !this.sys.active) return;
+      if (this.isShuttingDown || !this.sys.isActive()) return;
       if (myToken !== this.fogRebuildToken) return; // 그 사이 더 최신 resize가 들어왔음
       try {
         this.buildFogOfWar();
