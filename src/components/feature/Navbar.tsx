@@ -51,7 +51,6 @@ const BIBLE_CATEGORY: CategoryGroup = {
     { path: '/bible-streak', label: '말씀 스트릭', icon: 'ri-fire-line' },
     { path: '/bible-by-age', label: '연령별 말씀', icon: 'ri-book-read-line' },
     { path: '/bible-marathon', label: '성경 완독', icon: 'ri-book-open-line' },
-    { path: '/sermon-highlight', label: '설교 하이라이트', icon: 'ri-quill-pen-line' },
   ],
 };
 
@@ -66,7 +65,6 @@ const COMMUNITY_CATEGORY: CategoryGroup = {
     { path: '/prayer-partner', label: '신앙 짝꿍', icon: 'ri-heart-pulse-line' },
     { path: '/prayer-relay', label: '기도 릴레이', icon: 'ri-hand-heart-line' },
     { path: '/suggestions', label: '건의사항', icon: 'ri-lightbulb-line' },
-    { path: '/meetings', label: '회의록', icon: 'ri-chat-check-line' },
     { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },
   ],
 };
@@ -98,8 +96,9 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
     ],
   },
   {
-    label: 'AI 도구',
+    label: '회의록',
     items: [
+      { path: '/meetings', label: '회의록', icon: 'ri-chat-check-line' },
       { path: '/meeting-copilot', label: '회의 코파일럿 AI', icon: 'ri-lightbulb-flash-line' },
     ],
   },
@@ -109,7 +108,6 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
       { path: '/pds-planner', label: '행사 기획 마법사', icon: 'ri-todo-line' },
       { path: '/event-ideas', label: '행사 기획 아이디어', icon: 'ri-lightbulb-flash-line' },
       { path: '/leadership-diary', label: '리더십 코칭', icon: 'ri-book-read-line' },
-      { path: '/pastoral-letter', label: '심방 편지', icon: 'ri-chat-smile-2-line' },
     ],
   },
   {
