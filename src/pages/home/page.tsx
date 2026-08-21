@@ -216,15 +216,18 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<string | null>(today.toISOString().split('T')[0]);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
 
-  // 캐러셀
+  // 캐러셀 (인스타 피드 감성 가로 스크롤)
   const [slideIndex, setSlideIndex] = useState(0);
   // 우선 캐시(또는 정적 데이터) 기준으로 즉시 표시한 뒤, DB에서 최신 활성 어록 목록을
   // (하루 1회만) 불러와 갱신합니다. 실패 시에는 정적 QUOTES 배열 기준 값을 그대로 유지합니다.
   const [dailyQuote, setDailyQuote] = useState(() => getCachedQuoteOfTheDay());
-  const [direction, setDirection] = useState(0);
   const autoRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
+  const heroScrollRef = useRef<HTMLDivElement | null>(null);
+  const heroCardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const heroScrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isProgrammaticScroll = useRef(false);
+  const [likedSlides, setLikedSlides] = useState<Record<number, boolean>>({});
+  const [heartBurst, setHeartBurst] = useState<number | null>(null);
 
   // 오늘의 어록 - DB에서 최신 활성 어록 목록을 가져와 갱신 (하루 1회만 실제 조회, 실패 시 폴백 유지)
   useEffect(() => {
@@ -368,29 +371,69 @@ export default function Home() {
     quiz: 'from-rose-600 via-pink-500 to-rose-800',
   };
 
-  // ── 캐러셀 ──
+  // 카드마다 살짝 다른 느낌을 주기 위한 더미 "좋아요" 기본치 (연출용)
+  const heroLikeBase: Record<string, number> = {
+    main: 214,
+    'bible-pick': 96,
+    champion: 158,
+    quiz: 132,
+  };
+
+  // ── 캐러셀 (가로 스크롤 스냅, 인스타 피드/스토리 감성) ──
+  const scrollToHeroSlide = useCallback((idx: number) => {
+    const card = heroCardRefs.current[idx];
+    if (!card) return;
+    isProgrammaticScroll.current = true;
+    card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    window.setTimeout(() => { isProgrammaticScroll.current = false; }, 500);
+  }, []);
+
   const startAuto = useCallback(() => {
     if (autoRef.current) clearInterval(autoRef.current);
     autoRef.current = setInterval(() => {
-      setDirection(1);
-      setSlideIndex(prev => (prev + 1) % heroSlides.length);
+      setSlideIndex(prev => {
+        const next = (prev + 1) % heroSlides.length;
+        scrollToHeroSlide(next);
+        return next;
+      });
     }, 5000);
-  }, [heroSlides.length]);
+  }, [heroSlides.length, scrollToHeroSlide]);
 
   useEffect(() => {
     startAuto();
     return () => { if (autoRef.current) clearInterval(autoRef.current); };
   }, [startAuto]);
 
-  const goToSlide = (idx: number) => { setDirection(idx > slideIndex ? 1 : -1); setSlideIndex(idx); startAuto(); };
-  const prevSlide = () => { setDirection(-1); setSlideIndex(prev => (prev - 1 + heroSlides.length) % heroSlides.length); startAuto(); };
-  const nextSlide = () => { setDirection(1); setSlideIndex(prev => (prev + 1) % heroSlides.length); startAuto(); };
+  const goToSlide = (idx: number) => { setSlideIndex(idx); scrollToHeroSlide(idx); startAuto(); };
 
-  const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    touchEndX.current = e.changedTouches[0].clientX;
-    const diff = touchStartX.current - touchEndX.current;
-    if (Math.abs(diff) > 50) { if (diff > 0) nextSlide(); else prevSlide(); }
+  const handleHeroScroll = () => {
+    if (isProgrammaticScroll.current) return;
+    if (heroScrollTimeout.current) clearTimeout(heroScrollTimeout.current);
+    heroScrollTimeout.current = setTimeout(() => {
+      const el = heroScrollRef.current;
+      if (!el) return;
+      const center = el.scrollLeft + el.clientWidth / 2;
+      let closest = 0;
+      let closestDist = Infinity;
+      heroCardRefs.current.forEach((card, i) => {
+        if (!card) return;
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const dist = Math.abs(cardCenter - center);
+        if (dist < closestDist) { closestDist = dist; closest = i; }
+      });
+      setSlideIndex(closest);
+      startAuto();
+    }, 120);
+  };
+
+  const handleHeroDoubleTap = (i: number) => {
+    setLikedSlides(prev => ({ ...prev, [i]: true }));
+    setHeartBurst(i);
+    window.setTimeout(() => setHeartBurst(prev => (prev === i ? null : prev)), 700);
+  };
+
+  const toggleHeroLike = (i: number) => {
+    setLikedSlides(prev => ({ ...prev, [i]: !prev[i] }));
   };
 
   // ── 출석 현황 로드 ──
@@ -422,12 +465,6 @@ export default function Home() {
     return () => { supabase.removeChannel(channel); };
   }, [loadAttendanceSummary]);
 
-  const slideVariants = {
-    enter: (d: number) => ({ x: d > 0 ? '100%' : '-100%', opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: (d: number) => ({ x: d > 0 ? '-100%' : '100%', opacity: 0 }),
-  };
-
   // 달력 데이터
   const calendarDays = getCalendarDays(calYear, calMonth, schedules);
   const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
@@ -446,56 +483,119 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background-50">
 
-      {/* ═══ 1. 히어로 캐러셀 ═══ */}
-      <section
-        className="relative h-[340px] md:h-[560px] overflow-hidden bg-foreground-950"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        <AnimatePresence custom={direction} initial={false}>
-          <motion.div
-            key={heroSlides[slideIndex].id}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ type: 'tween', duration: 0.45, ease: 'easeInOut' }}
-            className={`absolute inset-0 ${(heroSlides[slideIndex].image || heroImages[heroSlides[slideIndex].id]) ? '' : 'bg-gradient-to-br ' + (heroGradients[heroSlides[slideIndex].id] || heroGradients.main)}`}
-          >
-            {(heroSlides[slideIndex].image || heroImages[heroSlides[slideIndex].id]) && (
-              <img
-                src={heroSlides[slideIndex].image || heroImages[heroSlides[slideIndex].id]}
-                alt={heroSlides[slideIndex].title}
-                className="absolute inset-0 w-full h-full object-cover object-center"
-              />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/60"></div>
-            <div className="absolute inset-0 flex items-end justify-center pb-8 md:pb-16 px-4">
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="text-center max-w-xl w-full">
-                {heroSlides[slideIndex].badge && (
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white mb-3 ${heroSlides[slideIndex].badgeColor}`}>
-                    <i className={heroSlides[slideIndex].id === 'champion' ? 'ri-trophy-line' : heroSlides[slideIndex].id === 'main' ? 'ri-map-pin-line' : heroSlides[slideIndex].id === 'bible-pick' ? 'ri-book-open-line' : 'ri-question-answer-line'}></i>
-                    {heroSlides[slideIndex].badge}
-                  </span>
-                )}
-                <h1 className="text-lg md:text-4xl font-black text-white leading-tight mb-1 md:mb-2 whitespace-pre-line drop-shadow-lg">{heroSlides[slideIndex].title}</h1>
-                <p className="text-xs md:text-base text-white/85 mb-4 md:mb-5 whitespace-pre-line leading-relaxed">{heroSlides[slideIndex].subtitle}</p>
-                {heroSlides[slideIndex].cta && (
-                  <Link to={heroSlides[slideIndex].cta!.path} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-background-100 text-foreground-950 text-sm font-bold hover:bg-background-100 transition-colors cursor-pointer whitespace-nowrap">
-                    {heroSlides[slideIndex].cta!.label} <i className="ri-arrow-right-line"></i>
-                  </Link>
-                )}
-              </motion.div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-        <button onClick={prevSlide} className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-left-s-line text-xl"></i></button>
-        <button onClick={nextSlide} className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-right-s-line text-xl"></i></button>
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+      {/* ═══ 1. 히어로 캐러셀 (인스타 피드 감성) ═══ */}
+      <section className="relative pt-3 pb-1 bg-foreground-950">
+        {/* 스토리형 진행바 */}
+        <div className="max-w-6xl mx-auto px-4 md:px-6 flex items-center gap-1.5 mb-3">
           {heroSlides.map((_, i) => (
-            <button key={i} onClick={() => goToSlide(i)} className={`rounded-full transition-all duration-300 cursor-pointer ${i === slideIndex ? 'w-5 h-2 bg-background-100' : 'w-2 h-2 bg-background-100/45 hover:bg-background-100/70'}`} />
+            <button
+              key={i}
+              onClick={() => goToSlide(i)}
+              aria-label={`${i + 1}번째 카드로 이동`}
+              className="flex-1 h-[3px] rounded-full bg-white/25 overflow-hidden cursor-pointer"
+            >
+              {i < slideIndex && <div className="h-full w-full bg-white rounded-full" />}
+              {i === slideIndex && (
+                <motion.div
+                  key={`progress-${slideIndex}`}
+                  className="h-full bg-white rounded-full"
+                  initial={{ width: '0%' }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 5, ease: 'linear' }}
+                />
+              )}
+            </button>
           ))}
+        </div>
+
+        {/* 가로 스크롤 카드 (인스타 피드 카드 스타일) */}
+        <div
+          ref={heroScrollRef}
+          onScroll={handleHeroScroll}
+          className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide px-4 md:px-6 pb-4"
+          style={{ scrollPaddingLeft: '16px' }}
+        >
+          {heroSlides.map((slide, i) => {
+            const img = slide.image || heroImages[slide.id];
+            const liked = !!likedSlides[i];
+            const likeCount = (heroLikeBase[slide.id] ?? 100) + (liked ? 1 : 0);
+            return (
+              <div
+                key={slide.id}
+                ref={(el) => { heroCardRefs.current[i] = el; }}
+                className="snap-center shrink-0 w-[84%] max-w-[380px] md:w-[440px] rounded-[24px] overflow-hidden bg-foreground-900 border border-white/10 shadow-card-lg"
+              >
+                {/* 게시물 헤더: 프로필 + 배지 (인스타 포스트 헤더) */}
+                <div className="flex items-center gap-2 px-3 py-2.5">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center flex-shrink-0 ring-2 ring-white/20">
+                    <i className="ri-cross-line text-white text-sm"></i>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-white flex items-center gap-1 truncate">
+                      강릉학생회 <i className="ri-checkbox-circle-fill text-sky-400 text-[11px]"></i>
+                    </p>
+                  </div>
+                  {slide.badge && (
+                    <span className={`flex-shrink-0 text-[10px] font-bold text-white px-2 py-0.5 rounded-full ${slide.badgeColor}`}>
+                      {slide.badge}
+                    </span>
+                  )}
+                </div>
+
+                {/* 이미지 (더블탭 좋아요) */}
+                <div
+                  className={`relative aspect-[4/5] md:aspect-[16/11] cursor-pointer select-none ${img ? '' : 'bg-gradient-to-br ' + (heroGradients[slide.id] || heroGradients.main)}`}
+                  onDoubleClick={() => handleHeroDoubleTap(i)}
+                >
+                  {img && (
+                    <img
+                      src={img}
+                      alt={slide.title}
+                      className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none"
+                      draggable={false}
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent pointer-events-none"></div>
+
+                  <AnimatePresence>
+                    {heartBurst === i && (
+                      <motion.div
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: [0, 1.25, 1], opacity: [0, 1, 1] }}
+                        exit={{ opacity: 0, scale: 0.85 }}
+                        transition={{ duration: 0.6 }}
+                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                      >
+                        <i className="ri-heart-fill text-white text-7xl drop-shadow-2xl"></i>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* 액션 바 (좋아요/댓글/공유/저장) */}
+                <div className="flex items-center gap-3.5 px-3 pt-2.5">
+                  <button onClick={() => toggleHeroLike(i)} className="cursor-pointer active:scale-90 transition-transform" aria-label="좋아요">
+                    <i className={liked ? 'ri-heart-fill text-rose-500 text-xl' : 'ri-heart-line text-white text-xl'}></i>
+                  </button>
+                  <i className="ri-chat-3-line text-white text-xl"></i>
+                  <i className="ri-send-plane-line text-white text-xl"></i>
+                  <i className="ri-bookmark-line text-white text-xl ml-auto"></i>
+                </div>
+                <p className="px-3 pt-1.5 text-[11px] font-semibold text-white/70">좋아요 {likeCount.toLocaleString()}명</p>
+
+                {/* 캡션 */}
+                <div className="px-3 pt-1.5 pb-4">
+                  <h1 className="text-sm md:text-lg font-black text-white leading-snug whitespace-pre-line">{slide.title}</h1>
+                  <p className="text-xs md:text-sm text-white/70 mt-1 whitespace-pre-line leading-relaxed">{slide.subtitle}</p>
+                  {slide.cta && (
+                    <Link to={slide.cta.path} className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-full bg-white text-foreground-950 text-xs md:text-sm font-bold hover:bg-white/90 transition-colors cursor-pointer whitespace-nowrap">
+                      {slide.cta.label} <i className="ri-arrow-right-line"></i>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
