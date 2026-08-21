@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -76,7 +77,7 @@ export default function TeacherDashboard() {
     loadDashboardData();
 
     // Realtime subscription for attendance updates
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
     const channel = supabase
       .channel('teacher-dashboard-attendance')
       .on(
@@ -154,7 +155,7 @@ export default function TeacherDashboard() {
       setPendingMarathon(marathonData || []);
 
       // Fetch attendance summary (today's) + detailed list
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatLocalDate(new Date());
       let attQuery = supabase.from('attendance').select('*').eq('attendance_date', today);
       if (effectiveClub !== 'all') {
         attQuery = attQuery.eq('club', effectiveClub);
