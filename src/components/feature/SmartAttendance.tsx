@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -473,13 +474,13 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
                 <p className="text-xs text-amber-700">
                   지금은 위치 검증 없이 출석이 가능해요. 설정 페이지에서 출석 위치를 지정하면 학생들의 위치 기반 출석 인증이 활성화돼요.
                 </p>
-                <a
-                  href="/settings/attendance-location"
+                <Link
+                  to="/settings/attendance-location"
                   className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-amber-700 underline hover:text-amber-900 cursor-pointer"
                 >
                   <i className="ri-settings-3-line"></i>
                   출석 위치 설정하러 가기
-                </a>
+                </Link>
               </div>
             </div>
           </motion.div>
@@ -953,13 +954,13 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href="/dashboard/attendance/analytics"
+            <Link
+              to="/dashboard/attendance/analytics"
               className="flex items-center gap-2 px-5 py-2.5 bg-background-100 border border-background-200 rounded-2xl text-sm font-bold text-foreground-700 hover:bg-background-200 transition-colors cursor-pointer whitespace-nowrap"
             >
               <i className="ri-bar-chart-line text-lg"></i>
               통계 분석
-            </a>
+            </Link>
             <button
               onClick={handleFetchAiInsight}
               disabled={isAiLoading}

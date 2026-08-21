@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -400,40 +401,40 @@ export default function AttendanceAnalytics() {
               <h1 className="text-xl md:text-2xl font-bold text-foreground-950 mb-1">출석 통계 분석</h1>
               <p className="text-xs md:text-sm text-foreground-500">주간/월간 출석률 추이와 불참 사유 트렌드</p>
             </div>
-            <a
-              href="/dashboard/attendance"
+            <Link
+              to="/dashboard/attendance"
               aria-label="출석 현황판으로 이동"
               className="flex-shrink-0 flex items-center justify-center w-11 h-11 md:hidden bg-background-100 border border-background-200 rounded-full text-foreground-700 active:bg-background-200 transition-colors cursor-pointer"
             >
               <i className="ri-arrow-left-line text-xl"></i>
-            </a>
+            </Link>
           </div>
           <div className="hidden md:flex items-center gap-2 flex-wrap">
-            <a
-              href="/dashboard/attendance"
+            <Link
+              to="/dashboard/attendance"
               className="flex items-center gap-2 px-5 py-2.5 bg-background-100 border border-background-200 rounded-2xl text-sm font-bold text-foreground-700 hover:bg-background-200 transition-colors cursor-pointer whitespace-nowrap"
             >
               <i className="ri-arrow-left-line text-lg"></i>
               출석 현황판
-            </a>
+            </Link>
             {isAdmin && (
-              <a
-                href="/settings/absence-reasons"
+              <Link
+                to="/settings/absence-reasons"
                 className="flex items-center gap-2 px-5 py-2.5 bg-background-100 border border-background-200 rounded-2xl text-sm font-bold text-foreground-700 hover:bg-background-200 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <i className="ri-settings-3-line text-lg"></i>
                 불참 사유 설정
-              </a>
+              </Link>
             )}
           </div>
           {isAdmin && (
-            <a
-              href="/settings/absence-reasons"
+            <Link
+              to="/settings/absence-reasons"
               className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-background-100 border border-background-200 rounded-2xl text-sm font-bold text-foreground-700 active:bg-background-200 transition-colors cursor-pointer whitespace-nowrap"
             >
               <i className="ri-settings-3-line text-lg"></i>
               불참 사유 설정
-            </a>
+            </Link>
           )}
         </div>
 
