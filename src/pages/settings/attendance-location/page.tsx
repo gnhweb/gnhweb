@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Map as KakaoMap, MapMarker, Circle, useKakaoLoader } from 'react-kakao-maps-sdk';
@@ -373,13 +374,13 @@ export default function AttendanceLocationPage() {
               여러 출석 위치를 등록하고 활성화할 수 있어요 · 현재 <strong className="text-emerald-600">{activeCount}개</strong> 활성
             </p>
           </div>
-          <a
-            href="/dashboard/attendance"
+          <Link
+            to="/dashboard/attendance"
             className="flex items-center gap-2 px-5 py-2.5 bg-background-100 border border-background-200 rounded-2xl text-sm font-bold text-foreground-700 hover:bg-background-200 transition-colors cursor-pointer whitespace-nowrap"
           >
             <i className="ri-arrow-left-line text-lg"></i>
             출석 현황
-          </a>
+          </Link>
         </div>
 
         {/* Messages */}
