@@ -574,10 +574,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     // For chief, fetch all assigned clubs; for teacher, fetch their assigned clubs
-    supabase
-      .from('club_teachers')
-      .select('club')
-      .eq('teacher_id', user.id)
+    Promise.resolve(
+      supabase
+        .from('club_teachers')
+        .select('club')
+        .eq('teacher_id', user.id)
+    )
       .then(({ data }) => {
         if (data && data.length > 0) {
           // Return the first assigned club as the primary one
@@ -599,10 +601,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSecondaryClubs([]);
       return;
     }
-    supabase
-      .from('user_club_assignments')
-      .select('club')
-      .eq('user_id', user.id)
+    Promise.resolve(
+      supabase
+        .from('user_club_assignments')
+        .select('club')
+        .eq('user_id', user.id)
+    )
       .then(({ data }) => {
         if (data && data.length > 0) {
           setSecondaryClubs(data.map((r: any) => r.club as string));
