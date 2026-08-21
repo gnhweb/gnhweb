@@ -50,7 +50,6 @@ import FaithJournal from "@/pages/faithJournal/page";
 import QandABoard from "@/pages/qnaBoard/page";
 import MemoryBoard from "@/pages/memoryBoard/page";
 import SongVoteBoard from "@/pages/songVote/page";
-import SermonHighlight from "@/pages/sermonHighlight/page";
 import PersonalSchedule from "@/pages/personalSchedule/page";
 import PrayerPartner from "@/pages/prayerPartner/page";
 import EventIdeas from "@/pages/eventIdeas/page";
@@ -60,7 +59,6 @@ import BucketListBoard from "@/pages/bucketList/page";
 import PrayerRelay from "@/pages/prayerRelay/page";
 import PdsPlanner from "@/pages/pdsPlanner/page";
 import LeadershipDiary from "@/pages/leadershipDiary/page";
-import PastoralLetter from "@/pages/pastoralLetter/page";
 import AttendanceDashboard from "@/pages/dashboard/attendance/page";
 import ToolsPage from "@/pages/tools/page";
 import AttendanceAnalyticsPage from "@/pages/dashboard/attendance/analytics/page";
@@ -174,10 +172,6 @@ const routes: RouteObject[] = [
       {
         path: "/song-vote",
         element: <SongVoteBoard />,
-      },
-      {
-        path: "/sermon-highlight",
-        element: <SermonHighlight />,
       },
       {
         path: "/personal-schedule",
@@ -344,14 +338,6 @@ const routes: RouteObject[] = [
         element: (
           <AuthGuard minRole="assistant_zone_leader">
             <LeadershipDiary />
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/pastoral-letter",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            <PastoralLetter />
           </AuthGuard>
         ),
       },
@@ -550,7 +536,7 @@ const routes: RouteObject[] = [
       {
         path: "/meetings",
         element: (
-          <AuthGuard minRole="member">
+          <AuthGuard minRole="assistant_zone_leader">
             <MeetingsPage />
           </AuthGuard>
         ),
@@ -574,7 +560,7 @@ const routes: RouteObject[] = [
       {
         path: "/meetings/:id",
         element: (
-          <AuthGuard minRole="member">
+          <AuthGuard minRole="assistant_zone_leader">
             <MeetingDetailPage />
           </AuthGuard>
         ),
