@@ -123,8 +123,8 @@ function TargetGauge({ current, target, onTargetChange, isAdmin }: {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-[160px] h-[160px]">
-        <svg width="160" height="160" viewBox="0 0 160 160">
+      <div className="relative w-[136px] h-[136px] md:w-[160px] md:h-[160px]">
+        <svg width="100%" height="100%" viewBox="0 0 160 160">
           <circle cx="80" cy="80" r={radius} fill="none" stroke="oklch(var(--foreground-200))" strokeWidth="12" />
           <motion.circle
             cx="80" cy="80" r={radius} fill="none" stroke={gaugeColor} strokeWidth="12"
@@ -137,33 +137,33 @@ function TargetGauge({ current, target, onTargetChange, isAdmin }: {
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-black" style={{ color: gaugeColor }}>{current}%</span>
-          <span className="text-xs text-foreground-500 mt-0.5">현재 달성률</span>
+          <span className="text-2xl md:text-3xl font-black" style={{ color: gaugeColor }}>{current}%</span>
+          <span className="text-[11px] md:text-xs text-foreground-500 mt-0.5">현재 달성률</span>
         </div>
       </div>
 
       <div className="mt-3 flex items-center gap-2">
         <span className="text-xs text-foreground-500">목표:</span>
         {isAdmin && editing ? (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <input
               type="number"
               min={10}
               max={100}
               value={tempTarget}
               onChange={(e) => setTempTarget(Math.max(10, Math.min(100, Number(e.target.value))))}
-              className="w-14 px-2 py-1 text-sm text-center border border-background-200 rounded-lg bg-background-50 outline-none"
+              className="w-16 px-2 py-1.5 text-base text-center border border-background-200 rounded-lg bg-background-50 outline-none"
             />
             <span className="text-xs text-foreground-500">%</span>
             <button
               onClick={() => { onTargetChange(tempTarget); setEditing(false); }}
-              className="px-2 py-1 text-xs font-bold bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap"
+              className="px-3 py-1.5 text-xs font-bold bg-primary-500 text-white rounded-lg active:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap"
             >
               저장
             </button>
             <button
               onClick={() => { setTempTarget(target); setEditing(false); }}
-              className="px-2 py-1 text-xs text-foreground-500 hover:text-foreground-700 cursor-pointer"
+              className="px-2 py-1.5 text-xs text-foreground-500 active:text-foreground-700 cursor-pointer"
             >
               취소
             </button>
@@ -171,7 +171,7 @@ function TargetGauge({ current, target, onTargetChange, isAdmin }: {
         ) : (
           <button
             onClick={() => { if (isAdmin) { setTempTarget(target); setEditing(true); } }}
-            className={`text-sm font-bold px-2 py-0.5 rounded ${isAdmin ? 'hover:bg-background-100 cursor-pointer' : 'cursor-default'}`}
+            className={`text-sm font-bold px-2 py-1.5 rounded ${isAdmin ? 'active:bg-background-100 cursor-pointer' : 'cursor-default'}`}
           >
             {target}%
             {isAdmin && <i className="ri-pencil-line text-xs ml-1 text-foreground-400"></i>}
@@ -394,12 +394,21 @@ export default function AttendanceAnalytics() {
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground-950 mb-1">출석 통계 분석</h1>
-            <p className="text-sm text-foreground-500">주간/월간 출석률 추이와 불참 사유 트렌드</p>
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold text-foreground-950 mb-1">출석 통계 분석</h1>
+              <p className="text-xs md:text-sm text-foreground-500">주간/월간 출석률 추이와 불참 사유 트렌드</p>
+            </div>
+            <a
+              href="/dashboard/attendance"
+              aria-label="출석 현황판으로 이동"
+              className="flex-shrink-0 flex items-center justify-center w-11 h-11 md:hidden bg-background-100 border border-background-200 rounded-full text-foreground-700 active:bg-background-200 transition-colors cursor-pointer"
+            >
+              <i className="ri-arrow-left-line text-xl"></i>
+            </a>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="hidden md:flex items-center gap-2 flex-wrap">
             <a
               href="/dashboard/attendance"
               className="flex items-center gap-2 px-5 py-2.5 bg-background-100 border border-background-200 rounded-2xl text-sm font-bold text-foreground-700 hover:bg-background-200 transition-colors cursor-pointer whitespace-nowrap"
@@ -417,47 +426,58 @@ export default function AttendanceAnalytics() {
               </a>
             )}
           </div>
+          {isAdmin && (
+            <a
+              href="/settings/absence-reasons"
+              className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-background-100 border border-background-200 rounded-2xl text-sm font-bold text-foreground-700 active:bg-background-200 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <i className="ri-settings-3-line text-lg"></i>
+              불참 사유 설정
+            </a>
+          )}
         </div>
 
         {/* Filters + Gauge Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           {/* Filters */}
           <div className="lg:col-span-2 bg-background-100 border border-background-200 rounded-[20px] p-4 md:p-5">
-            <p className="text-xs font-bold text-foreground-600 mb-3">필터</p>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-foreground-500">학년:</span>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold text-foreground-600">필터</p>
+              {(gradeFilter !== '전체' || clubFilter !== '전체') && (
+                <button
+                  onClick={() => { setGradeFilter('전체'); setClubFilter('전체'); }}
+                  className="px-2.5 py-1 text-xs font-medium text-rose-600 active:bg-rose-50 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  필터 초기화
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-foreground-500">학년</span>
                 <select
                   value={gradeFilter}
                   onChange={(e) => setGradeFilter(e.target.value)}
-                  className="px-3 py-1.5 text-sm bg-background-50 border border-background-200 rounded-lg outline-none text-foreground-700 cursor-pointer"
+                  className="w-full px-3 py-2.5 text-base md:text-sm bg-background-50 border border-background-200 rounded-lg outline-none text-foreground-700 cursor-pointer appearance-none bg-[url('data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M5%208l5%205%205-5%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.6rem_center] pr-8"
                 >
                   {GRADE_OPTIONS.map((g) => (
                     <option key={g} value={g}>{g}</option>
                   ))}
                 </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-foreground-500">동아리:</span>
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-foreground-500">동아리</span>
                 <select
                   value={clubFilter}
                   onChange={(e) => setClubFilter(e.target.value as ClubType | '전체')}
-                  className="px-3 py-1.5 text-sm bg-background-50 border border-background-200 rounded-lg outline-none text-foreground-700 cursor-pointer"
+                  className="w-full px-3 py-2.5 text-base md:text-sm bg-background-50 border border-background-200 rounded-lg outline-none text-foreground-700 cursor-pointer appearance-none bg-[url('data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M5%208l5%205%205-5%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.6rem_center] pr-8"
                 >
                   <option value="전체">전체</option>
                   {CLUB_IDS.map((c) => (
                     <option key={c} value={c}>{CLUB_META[c].name}</option>
                   ))}
                 </select>
-              </div>
-              {(gradeFilter !== '전체' || clubFilter !== '전체') && (
-                <button
-                  onClick={() => { setGradeFilter('전체'); setClubFilter('전체'); }}
-                  className="px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  필터 초기화
-                </button>
-              )}
+              </label>
             </div>
           </div>
 
@@ -479,15 +499,15 @@ export default function AttendanceAnalytics() {
         </div>
 
         {/* View mode tabs */}
-        <div className="inline-flex bg-background-100 border border-background-200 rounded-full p-1 mb-6">
+        <div className="flex md:inline-flex bg-background-100 border border-background-200 rounded-full p-1 mb-6">
           {(['weekly', 'monthly'] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
-              className={`px-5 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+              className={`flex-1 md:flex-initial px-5 py-2.5 md:py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${
                 viewMode === mode
                   ? 'bg-primary-500 text-white shadow-sm'
-                  : 'text-foreground-600 hover:text-foreground-900'
+                  : 'text-foreground-600 active:bg-background-200'
               }`}
             >
               {mode === 'weekly' ? '주간' : '월간'}
@@ -503,25 +523,28 @@ export default function AttendanceAnalytics() {
           {trendData.length === 0 ? (
             <p className="text-sm text-foreground-400 text-center py-8">아직 충분한 데이터가 쌓이지 않았어요</p>
           ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="oklch(var(--foreground-200))" />
-                <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'oklch(var(--foreground-600))' }} axisLine={{ stroke: 'oklch(var(--foreground-200))' }} tickLine={false} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: 'oklch(var(--foreground-600))' }} axisLine={false} tickLine={false} unit="%" />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend
-                  wrapperStyle={{ fontSize: 12, paddingTop: 10 }}
-                  formatter={(value: string) => {
-                    const nameMap: Record<string, string> = { saeullim: '새울림', cheonjipoong: '천지풍', cheonjihu: '천지후', munhwabu: '문화부', overall: '전체' };
-                    return nameMap[value] || value;
-                  }}
-                />
-                <Line type="monotone" dataKey="overall" stroke="#6b7280" strokeWidth={2.5} strokeDasharray="5 5" dot={{ r: 4 }} />
-                {CLUB_IDS.map((clubId) => (
-                  <Line key={clubId} type="monotone" dataKey={clubId} stroke={CLUB_CHART_COLORS[clubId]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="h-[260px] md:h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData} margin={{ top: 5, right: 8, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(var(--foreground-200))" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'oklch(var(--foreground-600))' }} axisLine={{ stroke: 'oklch(var(--foreground-200))' }} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'oklch(var(--foreground-600))' }} axisLine={false} tickLine={false} unit="%" width={36} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend
+                    wrapperStyle={{ fontSize: 11, paddingTop: 10, lineHeight: '1.6em' }}
+                    iconSize={8}
+                    formatter={(value: string) => {
+                      const nameMap: Record<string, string> = { saeullim: '새울림', cheonjipoong: '천지풍', cheonjihu: '천지후', munhwabu: '문화부', overall: '전체' };
+                      return nameMap[value] || value;
+                    }}
+                  />
+                  <Line type="monotone" dataKey="overall" stroke="#6b7280" strokeWidth={2.5} strokeDasharray="5 5" dot={{ r: 4 }} />
+                  {CLUB_IDS.map((clubId) => (
+                    <Line key={clubId} type="monotone" dataKey={clubId} stroke={CLUB_CHART_COLORS[clubId]} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
 
@@ -533,31 +556,43 @@ export default function AttendanceAnalytics() {
           {reasonData.length === 0 ? (
             <p className="text-sm text-foreground-400 text-center py-8">아직 불참 신고 데이터가 없어요</p>
           ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={reasonData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="oklch(var(--foreground-200))" />
-                <XAxis dataKey="reason" tick={{ fontSize: 12, fill: 'oklch(var(--foreground-600))' }} axisLine={{ stroke: 'oklch(var(--foreground-200))' }} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: 'oklch(var(--foreground-600))' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'oklch(var(--background-100))',
-                    border: '1px solid oklch(var(--foreground-200))',
-                    borderRadius: 12, fontSize: 12,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{ fontSize: 12, paddingTop: 10 }}
-                  formatter={(value: string) => {
-                    const nameMap: Record<string, string> = { saeullim: '새울림', cheonjipoong: '천지풍', cheonjihu: '천지후', munhwabu: '문화부' };
-                    return nameMap[value] || value;
-                  }}
-                />
-                {CLUB_IDS.map((clubId) => (
-                  <Bar key={clubId} dataKey={clubId} fill={CLUB_CHART_COLORS[clubId]} radius={[4, 4, 0, 0]} maxBarSize={48} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+            <>
+              {/* Scrolls horizontally on mobile so bars per reason stay readable instead of being squeezed */}
+              <div className="overflow-x-auto -mx-1 px-1 pb-1">
+                <div className="h-[280px] md:h-[300px]" style={{ minWidth: Math.max(reasonData.length * 130, 300) }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={reasonData} margin={{ top: 5, right: 8, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="oklch(var(--foreground-200))" />
+                      <XAxis dataKey="reason" tick={{ fontSize: 11, fill: 'oklch(var(--foreground-600))' }} axisLine={{ stroke: 'oklch(var(--foreground-200))' }} tickLine={false} interval={0} />
+                      <YAxis tick={{ fontSize: 11, fill: 'oklch(var(--foreground-600))' }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'oklch(var(--background-100))',
+                          border: '1px solid oklch(var(--foreground-200))',
+                          borderRadius: 12, fontSize: 12,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        }}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: 11, paddingTop: 10 }}
+                        iconSize={8}
+                        formatter={(value: string) => {
+                          const nameMap: Record<string, string> = { saeullim: '새울림', cheonjipoong: '천지풍', cheonjihu: '천지후', munhwabu: '문화부' };
+                          return nameMap[value] || value;
+                        }}
+                      />
+                      {CLUB_IDS.map((clubId) => (
+                        <Bar key={clubId} dataKey={clubId} fill={CLUB_CHART_COLORS[clubId]} radius={[4, 4, 0, 0]} maxBarSize={40} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <p className="md:hidden text-[11px] text-foreground-400 text-center mt-2">
+                <i className="ri-arrow-left-right-line align-middle mr-1"></i>
+                옆으로 밀어서 더 보기
+              </p>
+            </>
           )}
         </div>
 
