@@ -1,9 +1,9 @@
-import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { CLUB_LABELS } from '@/types/auth';
 import type { ClubType } from '@/types/auth';
+import { todayKey } from '@/lib/date';
 
 interface AttendanceRecord {
   user_name: string;
@@ -25,7 +25,7 @@ export default function AttendanceBoard() {
   const [totalStudents, setTotalStudents] = useState(0);
 
   const today = new Date();
-  const todayStr = formatLocalDate(today);
+  const todayStr = todayKey();
   const todayLabel = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일 ${['일','월','화','수','목','금','토'][today.getDay()]}요일`;
 
   useEffect(() => {
