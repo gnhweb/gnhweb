@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -195,10 +195,6 @@ export default function AttendanceAnalytics() {
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
   const [reasonData, setReasonData] = useState<ReasonStat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiError, setAiError] = useState('');
-  const [showAiPanel, setShowAiPanel] = useState(false);
 
   // Filters (zone filter removed per 7-3)
   const [gradeFilter, setGradeFilter] = useState('전체');
@@ -359,47 +355,6 @@ export default function AttendanceAnalytics() {
   useEffect(() => {
     if (allUsers.length > 0) fetchData();
   }, [fetchData, allUsers]);
-
-  const handleAiAnalysis = async () => {
-    setIsAiLoading(true);
-    setAiError('');
-    setShowAiPanel(true);
-
-    try {
-      const reasonSummary = reasonData.map((r) => ({
-        reason: r.reason,
-        saeullim: r.saeullim,
-        cheonjipoong: r.cheonjipoong,
-        cheonjihu: r.cheonjihu,
-        munhwabu: r.munhwabu,
-      }));
-
-      const trendSummary = trendData.map((t) => ({
-        period: t.label,
-        overall: t.overall,
-        saeullim: t.saeullim,
-        cheonjipoong: t.cheonjipoong,
-        cheonjihu: t.cheonjihu,
-        munhwabu: t.munhwabu,
-      }));
-
-      const { data: resultData, error: fnError } = await supabase.functions.invoke('nim-absence-trend', {
-        body: { reasonSummary, trendSummary },
-      });
-
-      if (fnError) throw fnError;
-
-      if (resultData?.analysis) {
-        setAiAnalysis(resultData.analysis);
-      } else {
-        setAiError('AI 분석을 불러오지 못했어요.');
-      }
-    } catch {
-      setAiError('AI 호출 중 오류가 발생했어요.');
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
 
   const CustomTooltip = ({ active, payload, label }: {
     active?: boolean;
@@ -606,65 +561,6 @@ export default function AttendanceAnalytics() {
           )}
         </div>
 
-        {/* AI Analysis */}
-        <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 md:p-6">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-bold text-foreground-950">AI 불참 트렌드 진단</h3>
-            <button
-              onClick={handleAiAnalysis}
-              disabled={isAiLoading}
-              className="flex items-center gap-2 px-5 py-2.5 bg-accent-100 border border-accent-200 rounded-2xl text-sm font-bold text-accent-700 hover:bg-accent-200 transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
-            >
-              <i className={`text-lg ${isAiLoading ? 'ri-loader-4-line animate-spin' : 'ri-brain-line'}`}></i>
-              AI 분석 시작
-            </button>
-          </div>
-
-          <AnimatePresence>
-            {showAiPanel && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-accent-50 border border-accent-200 rounded-2xl p-5"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-accent-100 flex items-center justify-center flex-shrink-0">
-                    {isAiLoading ? (
-                      <i className="ri-loader-4-line animate-spin text-xl text-accent-600"></i>
-                    ) : (
-                      <i className="ri-brain-line text-2xl text-accent-600"></i>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-accent-800 mb-2">
-                      {isAiLoading ? '데이터 분석 중...' : 'AI 전략가의 분석'}
-                    </p>
-                    {aiError && (
-                      <div className="flex items-center gap-2 mb-3">
-                        <p className="text-sm text-accent-700">{aiError}</p>
-                        <button onClick={handleAiAnalysis} className="text-xs text-accent-700 font-medium underline cursor-pointer whitespace-nowrap">
-                          다시 시도
-                        </button>
-                      </div>
-                    )}
-                    {aiAnalysis && !isAiLoading && (
-                      <div className="bg-accent-100/50 rounded-xl p-4">
-                        <p className="text-sm text-accent-800 leading-relaxed whitespace-pre-wrap">{aiAnalysis}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {!showAiPanel && (
-            <p className="text-sm text-foreground-400 text-center py-4">
-              AI 분석 버튼을 눌러 불참 사유 트렌드와 다음 주 심방 전략을 진단받아 보세요
-            </p>
-          )}
-        </div>
       </motion.div>
     </div>
   );
