@@ -12,7 +12,6 @@ export interface BibleVerseData {
   analyzedEmotions: string[];
   primaryEmotion: string;
   crisisMessage?: string;
-  streak?: { streak: number; maxStreak: number };
 }
 
 interface VerseResultProps {
@@ -35,8 +34,6 @@ export default function VerseResult({ verseData, userText, onReset }: VerseResul
     hidden: { opacity: 0, y: 24 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] } },
   };
-
-  const streak = verseData.streak;
 
   return (
     <motion.div
@@ -175,38 +172,6 @@ export default function VerseResult({ verseData, userText, onReset }: VerseResul
               <h3 className="text-sm font-bold text-amber-800 mb-2">당신은 혼자가 아니에요</h3>
               <p className="text-sm text-amber-700 leading-relaxed">{verseData.crisisMessage}</p>
             </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* 스트릭 */}
-      {visibleSections >= 3 && streak && streak.streak > 0 && (
-        <motion.div
-          variants={itemVariants}
-          initial="hidden"
-          animate="visible"
-          className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-[20px] p-5 md:p-6 mb-8"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center">
-                <i className="ri-fire-line text-xl text-amber-600"></i>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-amber-800">
-                  연속 {streak.streak}일째 말씀 묵상 중!
-                </p>
-                <p className="text-xs text-amber-600">
-                  최고 기록: {streak.maxStreak}일
-                </p>
-              </div>
-            </div>
-            <Link
-              to="/bible-streak"
-              className="text-xs font-medium text-amber-700 hover:text-amber-900 underline cursor-pointer whitespace-nowrap"
-            >
-              스트릭 보기
-            </Link>
           </div>
         </motion.div>
       )}
