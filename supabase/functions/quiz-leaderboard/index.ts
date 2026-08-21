@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { updateBibleStreak } from "../_shared/updateBibleStreak.ts";
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -252,10 +253,13 @@ Deno.serve(async (req) => {
         { total_score: 0, total_correct: 0, total_questions: 0, games_played: 0, accuracy: 0 }
       );
 
+      const streak = await updateBibleStreak(supabase, body.user_id);
+
       return new Response(JSON.stringify({
         success: true,
         session: inserted,
         cumulative,
+        streak: streak || undefined,
       }), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
