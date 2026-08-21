@@ -279,9 +279,9 @@ export default function ProfilePage() {
           </div>
           <p className="text-lg font-bold text-foreground-950 mb-2">로그인이 필요합니다</p>
           <p className="text-sm text-foreground-600 mb-4">프로필을 보려면 먼저 로그인해주세요</p>
-          <a href="/login" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-500 text-background-50 text-sm font-semibold hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap">
+          <Link to="/login" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-500 text-background-50 text-sm font-semibold hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap">
             <i className="ri-login-box-line"></i> 로그인하기
-          </a>
+          </Link>
         </div>
       </div>
     );
