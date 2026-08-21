@@ -7,8 +7,12 @@
          구글 번역/크롬 번역 기능을 명시적으로 차단한다. -->
     <meta name="google" content="notranslate" />
 
-    <!-- 카카오맵 SDK (Vite 환경 변수를 사용하여 API 키 로드) -->
-    <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=%VITE_KAKAO_MAP_KEY%&libraries=services"></script>
+    <!-- 카카오맵 SDK는 여기서 전역으로 불러오지 않습니다.
+         출석 위치 설정 페이지(src/pages/settings/attendance-location/page.tsx)에서
+         react-kakao-maps-sdk의 useKakaoLoader 훅으로 필요할 때만 로드합니다.
+         이 script 태그와 useKakaoLoader를 동시에 쓰면 SDK가 두 번 로드되어
+         "kakao.maps.LatLng is not a constructor" 같은 오류가 나거나 지도가 아예
+         안 뜨는 문제가 생기므로 절대 다시 추가하지 마세요. -->
 
     <!-- 파비콘 및 iOS 아이콘 캐시 강제 갱신용 ?v=2 적용 -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
