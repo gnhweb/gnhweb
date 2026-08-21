@@ -5,29 +5,29 @@ import { supabase } from '@/lib/supabase';
 import { CLUB_LABELS } from '@/types/auth';
 import type { ClubType } from '@/types/auth';
 
-const ALL_BOOKS: { name: string; total: number }[] = [
-  { name: '창세기', total: 50 }, { name: '출애굽기', total: 40 }, { name: '레위기', total: 27 },
-  { name: '민수기', total: 36 }, { name: '신명기', total: 34 }, { name: '여호수아', total: 24 },
-  { name: '사사기', total: 21 }, { name: '룻기', total: 4 }, { name: '사무엘상', total: 31 },
-  { name: '사무엘하', total: 24 }, { name: '열왕기상', total: 22 }, { name: '열왕기하', total: 25 },
-  { name: '역대상', total: 29 }, { name: '역대하', total: 36 }, { name: '에스라', total: 10 },
-  { name: '느헤미야', total: 13 }, { name: '에스더', total: 10 }, { name: '욥기', total: 42 },
-  { name: '시편', total: 150 }, { name: '잠언', total: 31 }, { name: '전도서', total: 12 },
-  { name: '아가', total: 8 }, { name: '이사야', total: 66 }, { name: '예레미야', total: 52 },
-  { name: '예레미야애가', total: 5 }, { name: '에스겔', total: 48 }, { name: '다니엘', total: 12 },
-  { name: '호세아', total: 14 }, { name: '요엘', total: 3 }, { name: '아모스', total: 9 },
-  { name: '오바댜', total: 1 }, { name: '요나', total: 4 }, { name: '미가', total: 7 },
-  { name: '나훔', total: 3 }, { name: '하박국', total: 3 }, { name: '스바냐', total: 3 },
-  { name: '학개', total: 2 }, { name: '스가랴', total: 14 }, { name: '말라기', total: 4 },
-  { name: '마태복음', total: 28 }, { name: '마가복음', total: 16 }, { name: '누가복음', total: 24 },
-  { name: '요한복음', total: 21 }, { name: '사도행전', total: 28 }, { name: '로마서', total: 16 },
-  { name: '고린도전서', total: 16 }, { name: '고린도후서', total: 13 }, { name: '갈라디아서', total: 6 },
-  { name: '에베소서', total: 6 }, { name: '빌립보서', total: 4 }, { name: '골로새서', total: 4 },
-  { name: '데살로니가전서', total: 5 }, { name: '데살로니가후서', total: 3 }, { name: '디모데전서', total: 6 },
-  { name: '디모데후서', total: 4 }, { name: '디도서', total: 3 }, { name: '빌레몬서', total: 1 },
-  { name: '히브리서', total: 13 }, { name: '야고보서', total: 5 }, { name: '베드로전서', total: 5 },
-  { name: '베드로후서', total: 3 }, { name: '요한일서', total: 5 }, { name: '요한이서', total: 1 },
-  { name: '요한삼서', total: 1 }, { name: '유다서', total: 1 }, { name: '요한계시록', total: 22 },
+const ALL_BOOKS: { name: string; short: string; total: number }[] = [
+  { name: '창세기', short: '창', total: 50 }, { name: '출애굽기', short: '출', total: 40 }, { name: '레위기', short: '레', total: 27 },
+  { name: '민수기', short: '민', total: 36 }, { name: '신명기', short: '신', total: 34 }, { name: '여호수아', short: '수', total: 24 },
+  { name: '사사기', short: '삿', total: 21 }, { name: '룻기', short: '룻', total: 4 }, { name: '사무엘상', short: '삼상', total: 31 },
+  { name: '사무엘하', short: '삼하', total: 24 }, { name: '열왕기상', short: '왕상', total: 22 }, { name: '열왕기하', short: '왕하', total: 25 },
+  { name: '역대상', short: '대상', total: 29 }, { name: '역대하', short: '대하', total: 36 }, { name: '에스라', short: '스', total: 10 },
+  { name: '느헤미야', short: '느', total: 13 }, { name: '에스더', short: '에', total: 10 }, { name: '욥기', short: '욥', total: 42 },
+  { name: '시편', short: '시', total: 150 }, { name: '잠언', short: '잠', total: 31 }, { name: '전도서', short: '전', total: 12 },
+  { name: '아가', short: '아', total: 8 }, { name: '이사야', short: '사', total: 66 }, { name: '예레미야', short: '렘', total: 52 },
+  { name: '예레미야애가', short: '애', total: 5 }, { name: '에스겔', short: '겔', total: 48 }, { name: '다니엘', short: '단', total: 12 },
+  { name: '호세아', short: '호', total: 14 }, { name: '요엘', short: '욜', total: 3 }, { name: '아모스', short: '암', total: 9 },
+  { name: '오바댜', short: '옵', total: 1 }, { name: '요나', short: '욘', total: 4 }, { name: '미가', short: '미', total: 7 },
+  { name: '나훔', short: '나', total: 3 }, { name: '하박국', short: '합', total: 3 }, { name: '스바냐', short: '습', total: 3 },
+  { name: '학개', short: '학', total: 2 }, { name: '스가랴', short: '슥', total: 14 }, { name: '말라기', short: '말', total: 4 },
+  { name: '마태복음', short: '마', total: 28 }, { name: '마가복음', short: '막', total: 16 }, { name: '누가복음', short: '눅', total: 24 },
+  { name: '요한복음', short: '요', total: 21 }, { name: '사도행전', short: '행', total: 28 }, { name: '로마서', short: '롬', total: 16 },
+  { name: '고린도전서', short: '고전', total: 16 }, { name: '고린도후서', short: '고후', total: 13 }, { name: '갈라디아서', short: '갈', total: 6 },
+  { name: '에베소서', short: '엡', total: 6 }, { name: '빌립보서', short: '빌', total: 4 }, { name: '골로새서', short: '골', total: 4 },
+  { name: '데살로니가전서', short: '살전', total: 5 }, { name: '데살로니가후서', short: '살후', total: 3 }, { name: '디모데전서', short: '딤전', total: 6 },
+  { name: '디모데후서', short: '딤후', total: 4 }, { name: '디도서', short: '딛', total: 3 }, { name: '빌레몬서', short: '몬', total: 1 },
+  { name: '히브리서', short: '히', total: 13 }, { name: '야고보서', short: '약', total: 5 }, { name: '베드로전서', short: '벧전', total: 5 },
+  { name: '베드로후서', short: '벧후', total: 3 }, { name: '요한일서', short: '요일', total: 5 }, { name: '요한이서', short: '요이', total: 1 },
+  { name: '요한삼서', short: '요삼', total: 1 }, { name: '유다서', short: '유', total: 1 }, { name: '요한계시록', short: '계', total: 22 },
 ];
 
 const TOTAL_CHAPTERS = ALL_BOOKS.reduce((sum, b) => sum + b.total, 0);
@@ -113,6 +113,7 @@ export default function BibleMarathon() {
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
   const [clubFilter, setClubFilter] = useState<'all' | ClubType>('all');
+  const [selectedBookName, setSelectedBookName] = useState<string | null>(null);
 
   const [tab, setTab] = useState<'progress' | 'achievements'>('progress');
 
@@ -690,21 +691,40 @@ export default function BibleMarathon() {
                     const bookPct = book.total > 0 ? book.confirmed / book.total : 0;
                     const done = book.confirmed === book.total;
                     const started = book.confirmed > 0;
+                    const isSelected = selectedBookName === book.name;
                     return (
                       <motion.button
                         key={book.name}
                         type="button"
                         whileTap={{ scale: 0.97 }}
+                        onClick={() => setSelectedBookName(prev => prev === book.name ? null : book.name)}
                         title={`${book.name} · ${book.confirmed}/${book.total}장 (${Math.round(bookPct * 100)}%)`}
                         className={`aspect-square rounded-md flex items-center justify-center transition-colors cursor-pointer ${
                           done ? 'bg-amber-600' : started ? (bookPct > 0.5 ? 'bg-amber-400' : 'bg-amber-200') : 'bg-background-300'
-                        }`}
+                        } ${isSelected ? 'ring-2 ring-primary-400 ring-offset-1 ring-offset-background-100' : ''}`}
                       >
-                        {done && <i className="ri-check-line text-white text-[9px]"></i>}
+                        {done ? (
+                          <i className="ri-check-line text-white text-[9px]"></i>
+                        ) : (
+                          <span className={`text-[9px] font-semibold leading-none ${started ? 'text-amber-900' : 'text-foreground-500'}`}>
+                            {book.short}
+                          </span>
+                        )}
                       </motion.button>
                     );
                   })}
                 </div>
+                {selectedBookName && (() => {
+                  const b = bookProgress.find(x => x.name === selectedBookName);
+                  if (!b) return null;
+                  const pct = b.total > 0 ? Math.round((b.confirmed / b.total) * 100) : 0;
+                  return (
+                    <div className="mt-3 flex items-center justify-between px-3 py-2 rounded-xl bg-background-50 border border-background-200 text-xs">
+                      <span className="font-bold text-foreground-800">{b.name}</span>
+                      <span className="text-foreground-600">{b.confirmed}/{b.total}장 · {pct}%</span>
+                    </div>
+                  );
+                })()}
               </div>
             </>
           )}
