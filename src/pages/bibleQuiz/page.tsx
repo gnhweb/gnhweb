@@ -457,10 +457,17 @@ export default function BibleQuiz() {
                   const isTimeout = selectedAnswer === 'TIMEOUT';
                   const isWrongPick = isSelected && !isCorrect;
 
+                  const isHighlightedCorrect = (isSelected && isCorrect) || (!isSelected && (isCorrect !== null || isTimeout) && isCorrectAnswer);
+
                   let cardStyle = 'border-2 border-background-200 bg-background-50';
-                  if (isSelected && isCorrect) cardStyle = 'border-2 border-emerald-400 bg-emerald-50';
-                  else if (isWrongPick) cardStyle = 'border-2 border-rose-400 bg-rose-50';
-                  else if ((isCorrect !== null || isTimeout) && isCorrectAnswer) cardStyle = 'border-2 border-emerald-400 bg-emerald-50';
+                  let textStyle = 'text-foreground-800';
+                  if (isHighlightedCorrect) {
+                    cardStyle = 'border-2 border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-500';
+                    textStyle = 'text-emerald-900 dark:text-emerald-100';
+                  } else if (isWrongPick) {
+                    cardStyle = 'border-2 border-rose-400 bg-rose-50 dark:bg-rose-950/40 dark:border-rose-500';
+                    textStyle = 'text-rose-900 dark:text-rose-100';
+                  }
 
                   return (
                     <motion.button
@@ -485,7 +492,7 @@ export default function BibleQuiz() {
                         }`}>
                           <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-foreground-600'}`}>{idx + 1}</span>
                         </div>
-                        <span className="text-base font-semibold text-foreground-800 flex-1">{option}</span>
+                        <span className={`text-base font-semibold flex-1 ${textStyle}`}>{option}</span>
                         {isSelected && isCorrect && <i className="ri-check-line text-emerald-500 text-xl"></i>}
                         {isWrongPick && <i className="ri-close-line text-rose-500 text-xl"></i>}
                         {!isSelected && (isCorrect !== null || isTimeout) && isCorrectAnswer && <i className="ri-check-line text-emerald-500 text-xl"></i>}
@@ -500,13 +507,13 @@ export default function BibleQuiz() {
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto'}}
-                  className="mt-5 p-4 rounded-xl bg-amber-50 border border-amber-200"
+                  className="mt-5 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <i className="ri-time-line text-amber-600"></i>
-                    <span className="text-xs font-bold text-amber-700">시간 초과!</span>
+                    <i className="ri-time-line text-amber-600 dark:text-amber-300"></i>
+                    <span className="text-xs font-bold text-amber-700 dark:text-amber-200">시간 초과!</span>
                   </div>
-                  <p className="text-sm text-foreground-700 leading-relaxed">
+                  <p className="text-sm text-foreground-900 dark:text-amber-50 leading-relaxed">
                     정답은 <strong>{questions[currentQ]?.answer}</strong>였어요. {questions[currentQ]?.explanation}
                   </p>
                 </motion.div>
@@ -517,18 +524,18 @@ export default function BibleQuiz() {
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
-                  className={`mt-5 p-4 rounded-xl ${isCorrect ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}
+                  className={`mt-5 p-4 rounded-xl ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-700' : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-700'}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <i className={`text-sm ${isCorrect ? 'ri-check-line text-emerald-600' : 'ri-information-line text-rose-600'}`}></i>
-                    <span className={`text-xs font-bold ${isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    <i className={`text-sm ${isCorrect ? 'ri-check-line text-emerald-600 dark:text-emerald-300' : 'ri-information-line text-rose-600 dark:text-rose-300'}`}></i>
+                    <span className={`text-xs font-bold ${isCorrect ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'}`}>
                       {isCorrect ? `정답! (+${questions[currentQ]?.points || 10}점)` : '틀렸어요'}
                     </span>
                     {streak >= 2 && isCorrect && (
-                      <span className="text-xs font-bold text-amber-600 ml-1">🔥 연속 {streak}정답 보너스!</span>
+                      <span className="text-xs font-bold text-amber-600 dark:text-amber-300 ml-1">🔥 연속 {streak}정답 보너스!</span>
                     )}
                   </div>
-                  <p className="text-sm text-foreground-700 leading-relaxed">{questions[currentQ]?.explanation}</p>
+                  <p className={`text-sm leading-relaxed ${isCorrect ? 'text-emerald-950 dark:text-emerald-50' : 'text-rose-950 dark:text-rose-50'}`}>{questions[currentQ]?.explanation}</p>
                 </motion.div>
               )}
 
