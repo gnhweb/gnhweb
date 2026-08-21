@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
-import { CLUB_LABELS } from '@/types/auth';
-import type { ClubType } from '@/types/auth';
+import { MEETING_CLUB_OPTIONS } from '@/constants/meetingClubs';
+import type { MeetingClub } from '@/constants/meetingClubs';
 
 const COMMON_TAGS = ['출석률', '심방', '수련회', '예산', '홍보', 'SNS', '콘텐츠', '시스템개선', '사역방향', '동아리협력', '장비', '인력부족', '찬양집회', '신입생'];
 
@@ -12,6 +12,7 @@ export default function MeetingWritePage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [club, setClub] = useState<MeetingClub | ''>((profile?.club as MeetingClub) || '');
   const [attendeesText, setAttendeesText] = useState(profile?.name || '');
   const [summary, setSummary] = useState('');
   const [decisionsText, setDecisionsText] = useState('');
@@ -25,6 +26,15 @@ export default function MeetingWritePage() {
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
   };
+
+  const role = profile?.role;
+  const isExecutive = role === 'president' || role === 'secretary' || role === 'treasurer';
+  const isAdmin = role === 'chief' || role === 'teacher';
+  const clubOptions = MEETING_CLUB_OPTIONS.filter(opt => {
+    if (isAdmin) return true;
+    if (opt.id === 'executive') return isExecutive;
+    return opt.id === profile?.club;
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +65,7 @@ export default function MeetingWritePage() {
           author_name: profile?.name || '익명',
           date,
           title: title.trim(),
+          club: club || null,
           attendees,
           summary: summary.trim(),
           decisions,
@@ -108,6 +119,22 @@ export default function MeetingWritePage() {
                   className="w-full px-3 py-2.5 text-sm bg-background-100 border border-background-200 rounded-xl outline-none focus:border-primary-400 transition-colors"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-foreground-600 mb-1.5">분류 (동아리 / 회장단)</label>
+              <select
+                name="club"
+                value={club}
+                onChange={e => setClub(e.target.value as typeof club)}
+                className="w-full px-3 py-2.5 text-sm bg-background-100 border border-background-200 rounded-xl outline-none focus:border-primary-400 transition-colors"
+              >
+                <option value="">공통 (모든 사명자 열람 가능)</option>
+                {clubOptions.map(opt => (
+                  <option key={opt.id} value={opt.id}>{opt.label}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-foreground-500 mt-1">동아리/회장단을 선택하면 해당 소속 사명자만 이 회의록을 열람할 수 있어요.</p>
             </div>
 
             <div>
