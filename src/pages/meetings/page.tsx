@@ -1,10 +1,10 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { ROLE_HIERARCHY } from '@/types/auth';
 import type { UserRole } from '@/types/auth';
+import { MEETING_CLUB_OPTIONS, MEETING_CLUB_LABELS, canAccessMeetingClub } from '@/constants/meetingClubs';
 
 import type { MeetingMinute } from '@/types/meeting';
 
@@ -22,12 +22,13 @@ const TAG_COLORS: Record<string, string> = {
 };
 
 export default function MeetingsPage() {
-  const { profile } = useAuth();
+  const { profile, secondaryClubs } = useAuth();
   const [meetings, setMeetings] = useState<MeetingMinute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedClub, setSelectedClub] = useState<string>('all');
 
   const role = profile?.role as UserRole;
   const canWrite = role && ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.assistant_zone_leader;
@@ -71,19 +72,30 @@ export default function MeetingsPage() {
     load();
   }, []);
 
+  const accessibleMeetings = useMemo(
+    () => meetings.filter(m => canAccessMeetingClub(m.club, role, profile?.club, secondaryClubs)),
+    [meetings, role, profile?.club, secondaryClubs]
+  );
+
+  const availableClubTabs = useMemo(
+    () => MEETING_CLUB_OPTIONS.filter(opt => canAccessMeetingClub(opt.id, role, profile?.club, secondaryClubs)),
+    [role, profile?.club, secondaryClubs]
+  );
+
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
-    meetings.forEach(m => m.tags.forEach(t => tagSet.add(t)));
+    accessibleMeetings.forEach(m => m.tags.forEach(t => tagSet.add(t)));
     return Array.from(tagSet).sort();
-  }, [meetings]);
+  }, [accessibleMeetings]);
 
   const filtered = useMemo(() => {
-    return meetings.filter(m => {
+    return accessibleMeetings.filter(m => {
       const matchSearch = !search || m.title.includes(search) || m.attendees.some(a => a.includes(search));
       const matchTag = !selectedTag || m.tags.includes(selectedTag);
-      return matchSearch && matchTag;
+      const matchClub = selectedClub === 'all' || (m.club || '') === selectedClub;
+      return matchSearch && matchTag && matchClub;
     });
-  }, [meetings, search, selectedTag]);
+  }, [accessibleMeetings, search, selectedTag, selectedClub]);
 
   if (loading) {
     return (
@@ -127,6 +139,24 @@ export default function MeetingsPage() {
           </div>
           <i className="ri-arrow-right-line text-white/80 text-xl group-hover:translate-x-1 transition-transform flex-shrink-0 relative"></i>
         </Link>
+
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 mb-4 -mx-1 px-1">
+          <button
+            onClick={() => setSelectedClub('all')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${selectedClub === 'all' ? 'bg-primary-500 text-white' : 'bg-background-100 text-foreground-600 hover:bg-background-200'}`}
+          >
+            전체
+          </button>
+          {availableClubTabs.map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => setSelectedClub(opt.id)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${selectedClub === opt.id ? 'bg-primary-500 text-white' : 'bg-background-100 text-foreground-600 hover:bg-background-200'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
         <div className="flex items-center gap-3 mb-5 flex-wrap">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -192,6 +222,11 @@ export default function MeetingsPage() {
                         <h3 className="text-base font-bold text-foreground-950 group-hover:text-primary-700 transition-colors truncate">
                           {meeting.title}
                         </h3>
+                        {meeting.club && (
+                          <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-secondary-100 text-secondary-700 whitespace-nowrap">
+                            {MEETING_CLUB_LABELS[meeting.club as keyof typeof MEETING_CLUB_LABELS] || meeting.club}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-foreground-600 line-clamp-2 mb-3">{meeting.summary}</p>
                       <div className="flex items-center gap-3 text-xs text-foreground-500 flex-wrap">
