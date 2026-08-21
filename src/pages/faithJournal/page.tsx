@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -65,7 +66,7 @@ export default function FaithJournal() {
           scripture: formData.scripture.trim(),
           content: formData.content.trim(),
           mood: formData.mood,
-          entry_date: new Date().toISOString().split('T')[0],
+          entry_date: formatLocalDate(new Date()),
         })
         .select()
         .single();
