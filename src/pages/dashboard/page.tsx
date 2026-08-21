@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib/date';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -160,7 +161,7 @@ export default function Dashboard() {
           stats.pendingApproval = String(pendingApproval);
 
           // 출석률: 이번 달 attendance
-          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+          const monthStart = formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1));
           const { count: attTotal } = await sb.from('attendance').select('*', { count: 'exact', head: true }).gte('attendance_date', monthStart);
           const { count: attPresent } = await sb.from('attendance').select('*', { count: 'exact', head: true }).gte('attendance_date', monthStart).eq('status', 'present');
           const attRate = attTotal && attTotal > 0 ? Math.round(((attPresent || 0) / attTotal) * 100) : 0;
