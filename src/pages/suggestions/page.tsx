@@ -64,7 +64,7 @@ export default function SuggestionsPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data, fetchError } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('suggestions')
         .select('*')
         .order('created_at', { ascending: false });
