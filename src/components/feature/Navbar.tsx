@@ -22,6 +22,7 @@ const TOP_ITEMS: { path: string; label: string; icon: string }[] = [
   { path: '/clubs', label: '동아리', icon: 'ri-group-line' },
   { path: '/notices', label: '공지사항', icon: 'ri-megaphone-line' },
   { path: '/schedule', label: '일정', icon: 'ri-calendar-event-line' },
+  { path: '/suggestions', label: '건의사항', icon: 'ri-lightbulb-line' },
   { path: '/qna-board', label: '질문 있어요', icon: 'ri-question-answer-line' },
 ];
 
@@ -48,7 +49,6 @@ const BIBLE_CATEGORY: CategoryGroup = {
     { path: '/bible-pick/history', label: '말씀 히스토리', icon: 'ri-history-line' },
     { path: '/bible-quiz', label: '성경 퀴즈', icon: 'ri-question-answer-line' },
     { path: '/bible-mbti', label: '말씀 MBTI', icon: 'ri-user-heart-line' },
-    { path: '/bible-streak', label: '말씀 스트릭', icon: 'ri-fire-line' },
     { path: '/bible-by-age', label: '연령별 말씀', icon: 'ri-book-read-line' },
     { path: '/bible-marathon', label: '성경 완독', icon: 'ri-book-open-line' },
   ],
@@ -64,7 +64,6 @@ const COMMUNITY_CATEGORY: CategoryGroup = {
     { path: '/song-vote', label: '찬양투표', icon: 'ri-music-line' },
     { path: '/prayer-partner', label: '신앙 짝꿍', icon: 'ri-heart-pulse-line' },
     { path: '/prayer-relay', label: '기도 릴레이', icon: 'ri-hand-heart-line' },
-    { path: '/suggestions', label: '건의사항', icon: 'ri-lightbulb-line' },
     { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },
   ],
 };
@@ -93,6 +92,7 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
     label: '출석 관리',
     items: [
       { path: '/dashboard/attendance/analytics', label: '출석 통계 분석', icon: 'ri-bar-chart-line' },
+      { path: '/attendance-board', label: '실시간 출석 현황판', icon: 'ri-user-heart-line' },
     ],
   },
   {
@@ -116,11 +116,6 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
       { path: '/reports/weekly', label: '주간 보고서', icon: 'ri-file-list-3-line' },
       { path: '/reports/growth', label: '성장 기록', icon: 'ri-plant-line' },
       { path: '/reports/events', label: '행사 보고서', icon: 'ri-calendar-event-line' },
-    ],
-  },
-  {
-    label: '심방',
-    items: [
       { path: '/visitations', label: '심방 스케줄', icon: 'ri-heart-pulse-line' },
     ],
   },
@@ -129,12 +124,6 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
     items: [
       { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },
       { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },
-    ],
-  },
-  {
-    label: '출석',
-    items: [
-      { path: '/attendance-board', label: '실시간 출석 현황판', icon: 'ri-user-heart-line' },
     ],
   },
 ];
@@ -151,7 +140,6 @@ const ADMIN_CATEGORY_ITEMS: AdminItem[] = [
   { label: '가입 승인', icon: 'ri-user-star-line', path: '/admin/approvals', minRole: 'teacher' },
   { label: '보고서 검토', icon: 'ri-file-search-line', path: '/reports/review', minRole: 'president' },
   { label: '권한 관리', icon: 'ri-shield-keyhole-line', path: '/admin/roles', minRole: 'chief' },
-  { label: '저장소 정리', icon: 'ri-delete-bin-line', path: '/admin/storage-cleanup', minRole: 'teacher' },
   { label: '전략 대시보드', icon: 'ri-bar-chart-line', path: '/admin/strategy', minRole: 'chief' },
   { label: '불참 사유 설정', icon: 'ri-settings-3-line', path: '/settings/absence-reasons', minRole: 'chief' },
   { label: '출석 위치 설정', icon: 'ri-map-pin-line', path: '/settings/attendance-location', minRole: 'teacher' },
