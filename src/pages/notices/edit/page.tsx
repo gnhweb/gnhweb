@@ -31,7 +31,7 @@ export default function NoticeEdit() {
       try {
         const { data, error: fetchError } = await supabase
           .from('notices')
-          .select('id, author_id, title, content, is_pinned, created_at, updated_at')
+          .select('id, author_id, title, content, is_pinned, category, created_at, updated_at')
           .eq('id', id)
           .maybeSingle();
 
