@@ -166,7 +166,7 @@ export default function AdminApprovals() {
         action: 'approval_revoked',
         performed_by: user!.id,
         performed_by_name: profile?.name || '',
-      }).catch(() => {});
+      }).then(undefined, () => {});
       // Send notification
       await supabase.from('notifications').insert({
         user_id: userId,
@@ -175,7 +175,7 @@ export default function AdminApprovals() {
         message: `${userName}님, 회원가입 승인이 철회되어 다시 승인 대기 상태로 변경되었습니다.`,
         is_read: false,
         link_url: '/',
-      }).catch(() => {});
+      }).then(undefined, () => {});
       setApprovedUsers(prev => prev.filter(u => u.user_id !== userId));
       setMessage({ type: 'success', text: '승인이 철회되었습니다.' });
     } catch {
@@ -204,7 +204,7 @@ export default function AdminApprovals() {
         action: 'rejection_revoked',
         performed_by: user!.id,
         performed_by_name: profile?.name || '',
-      }).catch(() => {});
+      }).then(undefined, () => {});
       await supabase.from('notifications').insert({
         user_id: userId,
         type: 'rejection_revoked',
@@ -212,7 +212,7 @@ export default function AdminApprovals() {
         message: `${userName}님, 가입 거절이 철회되어 다시 승인 대기 상태로 변경되었습니다.`,
         is_read: false,
         link_url: '/',
-      }).catch(() => {});
+      }).then(undefined, () => {});
       setRejectedUsers(prev => prev.filter(u => u.user_id !== userId));
       setMessage({ type: 'success', text: '거절이 철회되었습니다.' });
     } catch {
