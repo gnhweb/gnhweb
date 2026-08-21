@@ -1315,7 +1315,7 @@ function EndScreen({ gm, onExit }: { gm: GameManager; onExit: () => void }) {
       rerender();
     };
     gm.on("mvp-update", onMvpUpdate);
-    return () => gm.off("mvp-update", onMvpUpdate);
+    return () => { gm.off("mvp-update", onMvpUpdate); };
   }, [gm]);
 
   useEffect(() => {
