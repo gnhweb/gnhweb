@@ -20,7 +20,7 @@ interface BadgeInfo {
 }
 
 const ALL_BADGES: BadgeInfo[] = [
-  { name: '시작의 한걸음', icon: 'ri-footprint-line', days: 1, description: '첫 말씀뽑기 완료!' },
+  { name: '시작의 한걸음', icon: 'ri-footprint-line', days: 1, description: '첫 묵상 확인 또는 퀴즈 완료!' },
   { name: '말씀 새싹', icon: 'ri-seedling-line', days: 3, description: '3일 연속 말씀 묵상' },
   { name: '말씀의 길', icon: 'ri-road-map-line', days: 7, description: '7일 연속! 일주일을 말씀과 함께' },
   { name: '믿음의 기초', icon: 'ri-anchor-line', days: 14, description: '2주 연속 말씀 뽑기' },
@@ -97,7 +97,7 @@ export default function BibleStreak() {
             <i className="ri-fire-line text-2xl text-amber-600"></i>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">말씀 묵상 스트릭</h1>
-          <p className="text-sm text-foreground-600">매일 말씀과 함께하는 습관, 지금부터 시작하세요</p>
+          <p className="text-sm text-foreground-600">성경완독 묵상 확인과 성경퀴즈로 매일 말씀과 함께하는 습관을 만들어보세요</p>
         </motion.div>
 
         {/* Tabs */}
@@ -163,7 +163,7 @@ export default function BibleStreak() {
               {individual.badges.length === 0 ? (
                 <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 text-center">
                   <i className="ri-emotion-sad-line text-2xl text-foreground-400 mb-2 block"></i>
-                  <p className="text-sm text-foreground-500">아직 획득한 배지가 없어요. 말씀뽑기를 시작해보세요!</p>
+                  <p className="text-sm text-foreground-500">아직 획득한 배지가 없어요. 성경완독 묵상을 등록하거나 성경퀴즈를 풀어보세요!</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -242,13 +242,20 @@ export default function BibleStreak() {
         )}
 
         {/* CTA */}
-        <div className="text-center mt-8">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
           <Link
-            to="/bible-pick"
+            to="/bible-marathon"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-500 text-background-50 text-sm font-semibold hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap"
           >
             <i className="ri-book-open-line"></i>
-            오늘의 말씀 뽑으러 가기
+            성경완독 묵상 등록하기
+          </Link>
+          <Link
+            to="/bible-quiz"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-secondary-500 text-background-50 text-sm font-semibold hover:bg-secondary-600 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <i className="ri-question-line"></i>
+            성경퀴즈 풀러 가기
           </Link>
         </div>
       </div>
