@@ -325,7 +325,7 @@ export default function StrategyDashboard() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-          <KpiCard title="전체 출석률" value={`${kpi.overallAttendanceRate}%`} delta={kpiDeltas.attendanceDelta} deltaUnit="%p" change="오늘 기준" icon="ri-user-heart-line" color="primary" delay={0} />
+          <KpiCard title="전체 출석률" value={`${kpi.overallAttendanceRate}%`} delta={kpiDeltas.attendanceDelta} deltaUnit="%p" change="오늘 기준" changePositive={kpiDeltas.attendanceDelta >= 0} icon="ri-user-heart-line" color="primary" delay={0} />
           <KpiCard title="보고서 제출률" value={`${kpi.reportSubmissionRate}%`} delta={kpiDeltas.submissionDelta} deltaUnit="건" change={totalDrafted > 0 ? `${totalDrafted}건 미제출` : '전체 제출 완료'} changePositive={totalDrafted === 0} icon="ri-file-text-line" color="secondary" delay={0.08} />
           <KpiCard title="승인 반영률" value={`${kpi.feedbackReflectionRate}%`} delta={kpiDeltas.approvalDelta} deltaUnit="%p" change={`${totalApproved}건 승인`} changePositive icon="ri-check-double-line" color="accent" delay={0.16} />
           <KpiCard title="활성 동아리" value={`${kpi.activeClubCount}/4`} change="전체 활동 중" changePositive icon="ri-shapes-line" color="primary" delay={0.24} />
