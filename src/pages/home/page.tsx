@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib/date';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -129,7 +130,7 @@ function getCalendarDays(year: number, month: number, schedules: Schedule[]): Ca
   const prevLastDay = new Date(year, month, 0);
 
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = formatLocalDate(today);
 
   // Prev month fill
   const startDayOfWeek = firstDay.getDay();
@@ -213,7 +214,7 @@ export default function Home() {
   const today = new Date();
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth());
-  const [selectedDate, setSelectedDate] = useState<string | null>(today.toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(formatLocalDate(today));
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
 
   // 캐러셀
@@ -249,7 +250,7 @@ export default function Home() {
       .finally(() => setNoticesLoading(false));
 
     // 일정
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
     Promise.resolve(
       supabase
         .from('schedules')
@@ -395,7 +396,7 @@ export default function Home() {
 
   // ── 출석 현황 로드 ──
   const loadAttendanceSummary = useCallback(async () => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
     try {
       const [{ data: attData }, { count: totalMembers }] = await Promise.all([
         supabase.from('attendance').select('status').eq('attendance_date', todayStr),
@@ -413,7 +414,7 @@ export default function Home() {
 
   useEffect(() => {
     loadAttendanceSummary();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
     const channel = supabase
       .channel('home-attendance-rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance', filter: `attendance_date=eq.${todayStr}` }, () => loadAttendanceSummary())
