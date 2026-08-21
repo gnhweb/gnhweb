@@ -32,22 +32,16 @@ const updateSW = registerSW({
 
     // 앱을 켜자마자 한 번, 그리고 브라우저 탭/PWA를 다시 활성화할 때마다
     // "지금 배포판이 최신인지" 서버에 재확인한다.
-    registration.update().catch((error) => {
-      console.warn('[PWA] 서비스워커 업데이트 확인 실패:', error);
-    });
+    void registration.update().catch(() => {});
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        registration.update().catch((error) => {
-      console.warn('[PWA] 서비스워커 업데이트 확인 실패:', error);
-    });
+        void registration.update().catch(() => {});
       }
     });
 
     window.addEventListener('focus', () => {
-      registration.update().catch((error) => {
-      console.warn('[PWA] 서비스워커 업데이트 확인 실패:', error);
-    });
+      void registration.update().catch(() => {});
     });
   },
 
