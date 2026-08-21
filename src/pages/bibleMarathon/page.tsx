@@ -190,6 +190,10 @@ export default function BibleMarathon() {
         });
 
       if (insertErr) throw insertErr;
+      if (isTeacherOrChief) {
+        // 자동 확정(교사/부장 본인 등록)이므로 이 시점에 바로 스트릭 반영
+        supabase.functions.invoke('bible-streak-update', { body: { userId: user!.id } }).catch(() => {});
+      }
       setSelectedBook('');
       setChapterStart(1);
       setChapterEnd(1);
@@ -227,6 +231,7 @@ export default function BibleMarathon() {
         .update({ status: 'confirmed', confirmed_by: profile.name, confirmed_at: new Date().toISOString() })
         .eq('id', entry.id);
       if (updateErr) throw updateErr;
+      supabase.functions.invoke('bible-streak-update', { body: { userId: entry.user_id } }).catch(() => {});
       await sendNotification(entry.user_id, 'bible_confirm', '묵상 확인 완료', `${profile.name} 선생님이 ${entry.book} ${entry.chapter} 묵상을 확인했습니다.`, '/bible-marathon');
       await loadEntries();
     } catch { setError('확인 처리 중 오류가 발생했습니다.'); }
