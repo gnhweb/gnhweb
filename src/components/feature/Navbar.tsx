@@ -384,7 +384,7 @@ export default function Navbar() {
   return (
     <>
     <nav
-      className={`sticky top-0 z-40 transition-all duration-300 ${
+      className={`sticky top-0 z-40 pt-safe transition-all duration-300 ${
         scrolled
           ? 'bg-background-100/95 backdrop-blur-md shadow-sm border-b border-background-200/60 max-md:rounded-b-2xl max-md:shadow-card max-md:bg-background-100/75 max-md:backdrop-blur-lg max-md:border-b-0'
           : 'bg-transparent'
@@ -395,12 +395,12 @@ export default function Navbar() {
         <div className={`relative flex justify-center items-center py-2 md:py-3 transition-all duration-300 ${scrolled ? 'max-md:py-1.5' : ''}`}>
           <Link
             to="/"
-            className="flex items-center gap-2.5 group cursor-pointer"
+            className="flex items-center gap-2 group cursor-pointer max-w-[calc(100%-64px)] md:max-w-none"
           >
-            <div className="w-8 h-8 rounded-lg bg-primary-100 max-md:bg-gradient-to-br max-md:from-primary-400 max-md:to-accent-400 flex items-center justify-center group-hover:bg-primary-200 transition-colors">
+            <div className="w-8 h-8 rounded-lg bg-primary-100 max-md:bg-gradient-to-br max-md:from-primary-400 max-md:to-accent-400 flex items-center justify-center group-hover:bg-primary-200 transition-colors flex-shrink-0">
               <i className="ri-cross-line text-primary-600 max-md:text-white text-lg"></i>
             </div>
-            <span className="font-bold text-foreground-950 text-base whitespace-nowrap">
+            <span className="font-bold text-foreground-950 text-sm md:text-base leading-tight truncate max-md:whitespace-normal max-md:line-clamp-2 md:whitespace-nowrap">
               스스로 신앙하는 거침없는 강릉 학생회
             </span>
           </Link>
