@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -190,13 +191,13 @@ export default function AbsenceReasonsPage() {
               학생들이 선택할 수 있는 불참 사유 카테고리를 관리해요 · 현재 {activeCount}개 활성
             </p>
           </div>
-          <a
-            href="/dashboard/attendance/analytics"
+          <Link
+            to="/dashboard/attendance/analytics"
             className="flex items-center gap-2 px-5 py-2.5 bg-background-100 border border-background-200 rounded-2xl text-sm font-bold text-foreground-700 hover:bg-background-200 transition-colors cursor-pointer whitespace-nowrap"
           >
             <i className="ri-arrow-left-line text-lg"></i>
             돌아가기
-          </a>
+          </Link>
         </div>
 
         {/* Success / Error messages */}
