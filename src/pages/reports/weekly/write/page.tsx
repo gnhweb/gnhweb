@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -12,7 +13,7 @@ function getMonday(d: Date): string {
   const day = date.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   date.setDate(date.getDate() + diff);
-  return date.toISOString().split('T')[0];
+  return formatLocalDate(date);
 }
 
 function getWeekRange(startStr: string): string {
