@@ -1,5 +1,4 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 interface VerseRef {
@@ -359,64 +358,6 @@ Deno.serve(async (req) => {
       crisisMessage = '요즘 정말 많이 지치고 힘들었나 봐요. 그런 감정은 자연스러운 거예요. 잠시 멈추고 숨을 깊게 들이쉬어보세요. 당신 곁에는 당신을 응원하는 사람들이 있어요. 필요하다면 가까운 어른이나 선생님께 마음을 열어보는 것도 좋답니다.';
     }
 
-    let streakResult = null;
-    try {
-      const authHeader = req.headers.get('Authorization');
-      if (authHeader) {
-        const supabase = createClient(
-          Deno.env.get('SUPABASE_URL') || '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
-        );
-        const token = authHeader.replace('Bearer ', '');
-        const { data: { user } } = await supabase.auth.getUser(token);
-        if (user) {
-          const today = new Date().toISOString().split('T')[0];
-          const { data: existing } = await supabase.from('bible_streaks').select('*').eq('user_id', user.id).maybeSingle();
-
-          if (existing) {
-            const lastDate = existing.last_pick_date ? new Date(existing.last_pick_date).toISOString().split('T')[0] : null;
-            if (lastDate === today) {
-              streakResult = { streak: existing.streak_count, maxStreak: existing.max_streak };
-            } else if (lastDate) {
-              const yesterday = new Date();
-              yesterday.setDate(yesterday.getDate() - 1);
-              const yesterdayStr = yesterday.toISOString().split('T')[0];
-              const isConsecutive = lastDate === yesterdayStr;
-              const newStreak = isConsecutive ? existing.streak_count + 1 : 1;
-              const newMax = Math.max(newStreak, existing.max_streak);
-              await supabase.from('bible_streaks').update({
-                streak_count: newStreak,
-                max_streak: newMax,
-                last_pick_date: today,
-                total_picks: existing.total_picks + 1,
-                updated_at: new Date().toISOString(),
-              }).eq('user_id', user.id);
-              streakResult = { streak: newStreak, maxStreak: newMax };
-            } else {
-              await supabase.from('bible_streaks').update({
-                streak_count: 1,
-                max_streak: Math.max(1, existing.max_streak),
-                last_pick_date: today,
-                total_picks: existing.total_picks + 1,
-                updated_at: new Date().toISOString(),
-              }).eq('user_id', user.id);
-              streakResult = { streak: 1, maxStreak: Math.max(1, existing.max_streak) };
-            }
-          } else {
-            await supabase.from('bible_streaks').insert({
-              user_id: user.id,
-              streak_count: 1,
-              max_streak: 1,
-              last_pick_date: today,
-              total_picks: 1,
-              updated_at: new Date().toISOString(),
-            });
-            streakResult = { streak: 1, maxStreak: 1 };
-          }
-        }
-      }
-    } catch { /* streak optional */ }
-
     return new Response(
       JSON.stringify({
         verse: verseResult.verse,
@@ -427,7 +368,6 @@ Deno.serve(async (req) => {
         analyzedEmotions,
         primaryEmotion: emotionLabel,
         crisisMessage: crisisMessage || undefined,
-        streak: streakResult || undefined,
       }),
       { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     );
