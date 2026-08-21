@@ -48,7 +48,7 @@ export default function VisitationDetail() {
   const fetchVisitation = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, fetchError } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('visitations')
         .select('*')
         .eq('id', id)
