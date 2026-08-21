@@ -509,7 +509,7 @@ export default function Home() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] md:text-xs font-bold tracking-wide text-white/70 mb-1.5">오늘의 어록</p>
-              <p className="text-sm md:text-base font-medium text-white leading-relaxed whitespace-pre-line">
+              <p className="font-quote text-base md:text-lg font-bold italic text-white leading-relaxed whitespace-pre-line">
                 {dailyQuote}
               </p>
             </div>
