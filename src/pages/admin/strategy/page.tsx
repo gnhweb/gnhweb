@@ -4,6 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts';
+import { todayKey, dateKey } from '@/lib/date';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import type { ClubType } from '@/types/auth';
@@ -75,12 +76,12 @@ export default function StrategyDashboard() {
 
   const fetchAllData = useCallback(async () => {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = todayKey();
 
       // Calculate date ranges for weekly trends
       const fourWeeksAgo = new Date();
       fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-      const fourWeeksAgoStr = fourWeeksAgo.toISOString().split('T')[0];
+      const fourWeeksAgoStr = dateKey(fourWeeksAgo);
 
       const [membersRes, attRes, weeklyRes, growthRes, eventRes, histAttRes, meetingsRes] = await Promise.all([
         supabase.from('user_roles').select('club, role').eq('is_active', true).not('club', 'is', null),
@@ -174,8 +175,8 @@ export default function StrategyDashboard() {
       thisWeekStart.setDate(now.getDate() - now.getDay());
       const lastWeekStart = new Date(thisWeekStart);
       lastWeekStart.setDate(thisWeekStart.getDate() - 7);
-      const thisWeekStartStr = thisWeekStart.toISOString().split('T')[0];
-      const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0];
+      const thisWeekStartStr = dateKey(thisWeekStart);
+      const lastWeekStartStr = dateKey(lastWeekStart);
 
       const thisWeekAtt = histAttRecords.filter(r => r.attendance_date >= thisWeekStartStr).length;
       const lastWeekAtt = histAttRecords.filter(r => r.attendance_date >= lastWeekStartStr && r.attendance_date < thisWeekStartStr).length;
@@ -206,8 +207,8 @@ export default function StrategyDashboard() {
         const weekStartDate = new Date(weekEndDate);
         weekStartDate.setDate(weekEndDate.getDate() - 6);
 
-        const weekStartStr = weekStartDate.toISOString().split('T')[0];
-        const weekEndStr = weekEndDate.toISOString().split('T')[0];
+        const weekStartStr = dateKey(weekStartDate);
+        const weekEndStr = dateKey(weekEndDate);
         const weekLabel = `${weekStartDate.getMonth() + 1}/${weekStartDate.getDate()}`;
 
         const clubRates: Record<string, number> = {};
@@ -273,7 +274,7 @@ export default function StrategyDashboard() {
   useEffect(() => {
     fetchAllData();
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = todayKey();
     const channel = supabase
       .channel('strategy-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance', filter: `attendance_date=eq.${todayStr}` }, () => fetchAllData())
