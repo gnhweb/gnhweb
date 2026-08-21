@@ -42,8 +42,11 @@ window.addEventListener('unhandledrejection', (event) => {
       if (!window.location.pathname.endsWith('/login')) {
         // 약간 지연시켜 React가 SIGNED_OUT 상태를 먼저 처리할 기회를 줌
         setTimeout(() => {
-          const basePath = (window as any).__BASE_PATH__ || '';
-          const loginPath = basePath ? `/${basePath}/login` : '/login';
+          const rawBasePath = String((window as any).__BASE_PATH__ || '/');
+          const normalizedBasePath = rawBasePath === '/'
+            ? ''
+            : `/${rawBasePath.replace(/^\/+|\/+$/g, '')}`;
+          const loginPath = `${normalizedBasePath}/login` || '/login';
           window.location.href = loginPath;
         }, 300);
       }
