@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,7 +20,7 @@ function getCalDays(year: number, month: number, eventDates: Set<string>): CalDa
   const firstDay = new Date(year, month, 1);
   const startOffset = firstDay.getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = formatLocalDate(new Date());
 
   const prevMonthDays = new Date(year, month, 0).getDate();
   for (let i = startOffset - 1; i >= 0; i--) {
