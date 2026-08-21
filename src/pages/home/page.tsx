@@ -234,12 +234,14 @@ export default function Home() {
   // ── 데이터 패치 ──
   useEffect(() => {
     // 공지사항
-    supabase
-      .from('notices')
-      .select('id, title, content, is_pinned, created_at, author_name, category')
-      .order('is_pinned', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(4)
+    Promise.resolve(
+      supabase
+        .from('notices')
+        .select('id, title, content, is_pinned, created_at, author_name, category')
+        .order('is_pinned', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(4)
+    )
       .then(({ data }) => {
         if (data) setNotices(data);
       })
@@ -248,12 +250,14 @@ export default function Home() {
 
     // 일정
     const todayStr = new Date().toISOString().split('T')[0];
-    supabase
-      .from('schedules')
-      .select('id, title, description, event_date, event_time, location, target_club')
-      .gte('event_date', todayStr)
-      .order('event_date', { ascending: true })
-      .limit(30)
+    Promise.resolve(
+      supabase
+        .from('schedules')
+        .select('id, title, description, event_date, event_time, location, target_club')
+        .gte('event_date', todayStr)
+        .order('event_date', { ascending: true })
+        .limit(30)
+    )
       .then(({ data }) => {
         if (data) setSchedules(data);
       })
@@ -271,20 +275,24 @@ export default function Home() {
     }).catch(() => {});
 
     // 강학뉴스
-    supabase
-      .from('ganghak_news')
-      .select('id, title, content, author_name, category, created_at')
-      .order('created_at', { ascending: false })
-      .limit(4)
+    Promise.resolve(
+      supabase
+        .from('ganghak_news')
+        .select('id, title, content, author_name, category, created_at')
+        .order('created_at', { ascending: false })
+        .limit(4)
+    )
       .then(({ data }) => {
         if (data) setNewsItems(data);
       })
       .catch(() => {});
 
     // 동아리 배너 이미지 (card)
-    supabase
-      .from('club_banners')
-      .select('club, card_image_url')
+    Promise.resolve(
+      supabase
+        .from('club_banners')
+        .select('club, card_image_url')
+    )
       .then(({ data }) => {
         if (data) {
           const map: Record<string, { card_image_url: string | null }> = {};
