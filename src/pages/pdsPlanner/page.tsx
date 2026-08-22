@@ -72,7 +72,7 @@ export default function PdsPlanner() {
     return list.length > 0 ? Math.round((checked / list.length) * 100) : 0;
   };
 
-  const exportToText = () => {
+  const exportToText = async () => {
     if (!checklist) return;
     let text = `${purpose} - 행사 기획 체크리스트\n\n`;
     TAB_CONFIG.forEach(tab => {
@@ -83,7 +83,36 @@ export default function PdsPlanner() {
       });
       text += '\n';
     });
-    navigator.clipboard.writeText(text).then(() => alert('체크리스트가 복사되었어요!')).catch(() => alert('복사에 실패했어요'));
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        throw new Error('Clipboard API unavailable');
+      }
+      alert('체크리스트가 복사되었어요!');
+    } catch {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, text.length);
+        const copied = document.execCommand('copy');
+        textarea.remove();
+        if (copied) {
+          alert('체크리스트가 복사되었어요!');
+          return;
+        }
+      } catch {
+        // fallback도 실패하면 안내 메시지로 종료
+      }
+      alert('복사에 실패했어요. 텍스트를 길게 눌러 직접 복사해주세요.');
+    }
   };
 
   return (

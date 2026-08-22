@@ -371,7 +371,7 @@ export function NotificationToast({ user, onOpenList }: NotificationToastProps) 
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none w-[calc(100%-2rem)] max-w-sm">
+    <div className="fixed top-safe-4 right-4 z-[200]" flex flex-col gap-2 pointer-events-none w-[calc(100%-2rem)] max-w-sm">
       <AnimatePresence>
         {toasts.map(t => {
           const visual = getNotificationVisual(t.type);
@@ -394,7 +394,7 @@ export function NotificationToast({ user, onOpenList }: NotificationToastProps) 
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); dismiss(t.id); }}
-                className="w-6 h-6 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer flex-shrink-0"
+                className="w-6 h-6 min-w-[44px] min-h-[44px] rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer flex-shrink-0"
               >
                 <i className="ri-close-line text-xs"></i>
               </button>

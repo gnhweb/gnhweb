@@ -168,16 +168,6 @@ function RoomView({
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const gmRef = useRef<GameManager | null>(null);
-  const bannerTimeoutsRef = useRef<Set<ReturnType<typeof window.setTimeout>>>(new Set());
-
-  const scheduleBanner = (message: string, delay: number) => {
-    setBanner(message);
-    const id = window.setTimeout(() => {
-      bannerTimeoutsRef.current.delete(id);
-      setBanner((current) => current === message ? null : current);
-    }, delay);
-    bannerTimeoutsRef.current.add(id);
-  };
 
   const [, tick] = useState(0);
   const [phase, setPhase] = useState<"lobby" | "playing" | "meeting" | "ended">("lobby");
@@ -299,9 +289,21 @@ function RoomView({
   // 게임 화면이 위아래로 튕기거나 밑에 흰 여백이 보이는 문제가 있었다.
   const isImmersivePhase = phase !== "lobby" && phase !== "ended";
   useEffect(() => {
-    if (!isImmersivePhase || typeof document === "undefined") return;
-    document.body.classList.add("scroll-lock");
-    return () => document.body.classList.remove("scroll-lock");
+    if (!isImmersivePhase || typeof document === "undefined" || typeof window === "undefined") return;
+
+    const body = document.body;
+    const scrollY = window.scrollY;
+    body.dataset.scrollLockY = String(scrollY);
+    body.style.top = `-${scrollY}px`;
+    body.classList.add("scroll-lock");
+
+    return () => {
+      const savedY = Number(body.dataset.scrollLockY || scrollY);
+      body.classList.remove("scroll-lock");
+      body.style.top = "";
+      delete body.dataset.scrollLockY;
+      window.requestAnimationFrame(() => window.scrollTo(0, Number.isFinite(savedY) ? savedY : 0));
+    };
   }, [isImmersivePhase]);
 
   // 버그 수정: "전체화면은 되는데 시야가 캐릭터 중심에서 계속 붕 떠서 따로 노는" 문제의
@@ -430,13 +432,12 @@ function RoomView({
       setTimeout(() => setBanner(null), 4000);
     });
     gm.on("player-revived", (payload: { targetName: string; byName: string }) => {
-      scheduleBanner(`🙏 중보 기도의 응답 — ${payload.targetName}님이 다시 살아났습니다!`, 4500);
+      setBanner(`🙏 중보 기도의 응답 — ${payload.targetName}님이 다시 살아났습니다!`);
+      setTimeout(() => setBanner(null), 4500);
     });
 
     return () => {
       gm.destroy();
-      for (const id of bannerTimeoutsRef.current) window.clearTimeout(id);
-      bannerTimeoutsRef.current.clear();
       gameRef.current?.destroy(true);
       gameRef.current = null;
       setGameInstance(null);

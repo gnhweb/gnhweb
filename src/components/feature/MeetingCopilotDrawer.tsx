@@ -496,7 +496,7 @@ export default function MeetingCopilotDrawer({ open, onClose, meeting }: Props) 
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed top-0 right-0 h-full max-h-dvh w-full sm:w-[440px] bg-background-100 z-50 flex flex-col shadow-2xl mobile-full-height safe-area-top safe-area-bottom"
+            className="fixed top-0 right-0 h-[100dvh] max-h-[100dvh] min-h-0 w-full sm:w-[440px] bg-background-100 z-50 flex flex-col shadow-2xl mobile-full-height safe-area-top safe-area-bottom"
           >
             {/* 헤더 */}
             <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-background-200 bg-background-100">

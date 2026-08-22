@@ -411,3 +411,30 @@ body.scroll-lock {
     min-height: 100dvh;
   }
 }
+
+/* ===== Cross-platform mobile fixes (iOS Safari / Android Chrome) ===== */
+.top-safe-4 {
+  top: calc(env(safe-area-inset-top, 0px) + 1rem);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  /* 모바일에서 마우스 hover로만 노출되던 보조 액션은 실제 터치에서도 접근 가능하게 표시 */
+  [class*="group-hover:opacity-100"] {
+    opacity: 1 !important;
+  }
+
+  /* 작은 아이콘 버튼도 손가락으로 누르기 쉬운 터치 영역을 확보 */
+  button[class~="w-6"][class~="h-6"],
+  button[class~="w-7"][class~="h-7"],
+  button[class~="w-8"][class~="h-8"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* overflow 스크롤 영역의 iOS 관성 스크롤을 활성화 */
+  .overflow-y-auto,
+  .overflow-auto,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}

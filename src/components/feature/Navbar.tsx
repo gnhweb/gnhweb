@@ -342,14 +342,24 @@ export default function Navbar() {
     setMobileAccordion(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // 모바일 메뉴 열릴 때 body 스크롤 잠금
+  // 모바일 메뉴가 열려도 닫을 때 원래 스크롤 위치를 정확히 복원한다.
   useEffect(() => {
-    if (mobileOpen) {
-      document.body.classList.add('scroll-lock');
-    } else {
-      document.body.classList.remove('scroll-lock');
-    }
-    return () => document.body.classList.remove('scroll-lock');
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (!mobileOpen) return;
+
+    const scrollY = window.scrollY;
+    const body = document.body;
+    body.dataset.scrollLockY = String(scrollY);
+    body.style.top = `-${scrollY}px`;
+    body.classList.add('scroll-lock');
+
+    return () => {
+      const savedY = Number(body.dataset.scrollLockY || scrollY);
+      body.classList.remove('scroll-lock');
+      body.style.top = '';
+      delete body.dataset.scrollLockY;
+      window.requestAnimationFrame(() => window.scrollTo(0, Number.isFinite(savedY) ? savedY : 0));
+    };
   }, [mobileOpen]);
 
   const showMissionTab = user && hasRole('assistant_zone_leader');
