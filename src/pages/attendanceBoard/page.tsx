@@ -36,7 +36,7 @@ const CLUB_TABS: Array<{
     label: '전체',
     shortLabel: '전체',
     icon: 'ri-group-line',
-    activeClass: 'bg-foreground-950 text-white border-foreground-950',
+    activeClass: 'bg-foreground-950 text-white border-foreground-950 dark:bg-background-950 dark:text-foreground-50 dark:border-background-950',
     countClass: 'bg-white/15 text-white',
   },
   {
@@ -71,24 +71,16 @@ const CLUB_TABS: Array<{
     activeClass: 'bg-rose-500 text-white border-rose-500',
     countClass: 'bg-white/20 text-white',
   },
-  {
-    id: 'cheonhwarae_cheongmyeong',
-    label: '천화래와 청명',
-    shortLabel: '천화래·청명',
-    icon: 'ri-mic-line',
-    activeClass: 'bg-sky-500 text-white border-sky-500',
-    countClass: 'bg-white/20 text-white',
-  },
 ];
 
-const CLUB_IDLE_CLASS = 'bg-background-100 text-foreground-700 border-background-200 hover:border-foreground-300 hover:bg-background-200';
+const CLUB_IDLE_CLASS = 'bg-background-100 text-foreground-700 border-background-200 hover:border-foreground-300 hover:bg-background-200 dark:bg-background-100 dark:text-foreground-800 dark:border-background-300 dark:hover:border-background-400 dark:hover:bg-background-200';
 
 const getClubName = (club: string) => CLUB_LABELS[club as ClubType]?.split(' (')[0] || club;
 
 export default function AttendanceBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTab, setSelectedTab] = useState<AttendanceTab>('saeullim');
+  const [selectedTab, setSelectedTab] = useState<AttendanceTab>('all');
   const [attendanceList, setAttendanceList] = useState<{
     attended: AttendanceRecord[];
     absent: AttendanceRecord[];
@@ -123,8 +115,8 @@ export default function AttendanceBoard() {
       if (attRes.error) throw attRes.error;
       if (studentRes.error) throw studentRes.error;
 
-      const attData = (attRes.data || []) as AttendanceRecord[];
-      const students = ((studentRes.data || []) as StudentRecord[]).filter(s => !s.is_expelled);
+      const attData = ((attRes.data || []) as AttendanceRecord[]).filter(a => CLUB_TABS.some(tab => tab.id !== 'all' && tab.id === a.club));
+      const students = ((studentRes.data || []) as StudentRecord[]).filter(s => !s.is_expelled && CLUB_TABS.some(tab => tab.id !== 'all' && tab.id === s.club));
       const validUserIds = new Set(students.map(s => s.user_id));
       const attendedUserIds = new Set(attData.filter(a => a.status === 'attended').map(a => a.user_id));
       const absentUserIds = new Set(attData.filter(a => a.status === 'absent').map(a => a.user_id));
@@ -184,8 +176,8 @@ export default function AttendanceBoard() {
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-14">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="text-center mb-7">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-[18px] bg-gradient-to-br from-emerald-100 to-teal-100 border border-emerald-200 mb-4">
-              <i className="ri-user-heart-line text-2xl text-emerald-600"></i>
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-[18px] bg-gradient-to-br from-emerald-100 to-teal-100 border border-emerald-200 dark:from-emerald-950/60 dark:to-teal-950/60 dark:border-emerald-800 mb-4">
+              <i className="ri-user-heart-line text-2xl text-emerald-600 dark:text-emerald-300"></i>
             </div>
             <h1 className="text-xl md:text-2xl font-bold text-foreground-950 mb-1">실시간 출석 현황판</h1>
             <p className="text-sm text-foreground-600">{todayLabel}</p>
@@ -200,7 +192,7 @@ export default function AttendanceBoard() {
 
           {/* Club tabs */}
           <div className="mb-6">
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide snap-x" role="tablist" aria-label="동아리별 출석 현황">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" role="tablist" aria-label="동아리별 출석 현황">
               {CLUB_TABS.map((tab) => {
                 const isActive = selectedTab === tab.id;
                 return (
@@ -210,7 +202,7 @@ export default function AttendanceBoard() {
                     role="tab"
                     aria-selected={isActive}
                     onClick={() => setSelectedTab(tab.id)}
-                    className={`shrink-0 snap-start inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${isActive ? tab.activeClass : CLUB_IDLE_CLASS}`}
+                    className={`w-full sm:w-auto inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${isActive ? tab.activeClass : CLUB_IDLE_CLASS}`}
                   >
                     <i className={`${tab.icon} text-base`}></i>
                     <span className="hidden sm:inline">{tab.label}</span>
@@ -226,7 +218,7 @@ export default function AttendanceBoard() {
 
           {/* Current club header */}
           <div className="bg-background-100 border border-background-200 rounded-2xl p-4 mb-4 flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedTab === 'all' ? 'bg-foreground-100 text-foreground-700' : selectedMeta.id === 'saeullim' ? 'bg-amber-100 text-amber-600' : selectedMeta.id === 'cheonjipoong' ? 'bg-emerald-100 text-emerald-600' : selectedMeta.id === 'cheonjihu' ? 'bg-violet-100 text-violet-600' : selectedMeta.id === 'munhwabu' ? 'bg-rose-100 text-rose-600' : 'bg-sky-100 text-sky-600'}`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedTab === 'all' ? 'bg-foreground-100 text-foreground-700 dark:bg-foreground-200 dark:text-foreground-800' : selectedMeta.id === 'saeullim' ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300' : selectedMeta.id === 'cheonjipoong' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300' : selectedMeta.id === 'cheonjihu' ? 'bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300' : 'bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300'}`}>
               <i className={`${selectedMeta.icon} text-lg`}></i>
             </div>
             <div className="min-w-0">
@@ -238,10 +230,10 @@ export default function AttendanceBoard() {
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {[
-              { label: '동아리 인원', value: selectedTotal, color: 'bg-sky-100 text-sky-700 border-sky-200', icon: 'ri-group-line', iconColor: 'text-sky-600' },
-              { label: '출석 완료', value: presentCount, color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: 'ri-check-double-line', iconColor: 'text-emerald-600' },
-              { label: '불참', value: absentCount, color: 'bg-orange-100 text-orange-700 border-orange-200', icon: 'ri-close-circle-line', iconColor: 'text-orange-600' },
-              { label: '미응답', value: unresponsiveCount, color: 'bg-gray-100 text-gray-600 border-gray-200', icon: 'ri-question-line', iconColor: 'text-gray-500' },
+              { label: '동아리 인원', value: selectedTotal, color: 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-950/45 dark:text-sky-200 dark:border-sky-800', icon: 'ri-group-line', iconColor: 'text-sky-600 dark:text-sky-300' },
+              { label: '출석 완료', value: presentCount, color: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/45 dark:text-emerald-200 dark:border-emerald-800', icon: 'ri-check-double-line', iconColor: 'text-emerald-600 dark:text-emerald-300' },
+              { label: '불참', value: absentCount, color: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950/45 dark:text-orange-200 dark:border-orange-800', icon: 'ri-close-circle-line', iconColor: 'text-orange-600 dark:text-orange-300' },
+              { label: '미응답', value: unresponsiveCount, color: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-background-200 dark:text-foreground-800 dark:border-background-400', icon: 'ri-question-line', iconColor: 'text-gray-500 dark:text-foreground-600' },
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}
@@ -296,11 +288,11 @@ export default function AttendanceBoard() {
                 {visibleData.attended.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {visibleData.attended.map((m) => (
-                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-sm font-medium text-emerald-800">
+                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-sm font-medium text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-100">
                         {m.user_name}
-                        {selectedTab === 'all' && <span className="text-[10px] text-emerald-500">· {getClubName(m.club)}</span>}
+                        {selectedTab === 'all' && <span className="text-[10px] text-emerald-500 dark:text-emerald-300">· {getClubName(m.club)}</span>}
                         {m.checked_in_at && (
-                          <span className="text-[10px] text-emerald-400">{new Date(m.checked_in_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="text-[10px] text-emerald-400 dark:text-emerald-300">{new Date(m.checked_in_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
                         )}
                       </span>
                     ))}
@@ -319,9 +311,9 @@ export default function AttendanceBoard() {
                 {visibleData.unresponsive.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {visibleData.unresponsive.map((m) => (
-                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700">
+                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 dark:bg-background-200 dark:border-background-400 dark:text-foreground-800">
                         {m.name}
-                        {selectedTab === 'all' && <span className="text-[10px] text-gray-400">· {getClubName(m.club)}</span>}
+                        {selectedTab === 'all' && <span className="text-[10px] text-gray-400 dark:text-foreground-600">· {getClubName(m.club)}</span>}
                       </span>
                     ))}
                   </div>
@@ -339,13 +331,13 @@ export default function AttendanceBoard() {
                 {visibleData.absent.length > 0 ? (
                   <div className="space-y-2">
                     {visibleData.absent.map((m) => (
-                      <div key={m.user_id} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-4 py-2.5 rounded-xl bg-orange-50 border border-orange-100">
+                      <div key={m.user_id} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-4 py-2.5 rounded-xl bg-orange-50 border border-orange-100 dark:bg-orange-950/40 dark:border-orange-800">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-foreground-800">{m.user_name}</span>
-                          {selectedTab === 'all' && <span className="text-[10px] text-orange-500">· {getClubName(m.club)}</span>}
+                          {selectedTab === 'all' && <span className="text-[10px] text-orange-300">· {getClubName(m.club)}</span>}
                         </div>
                         {m.absence_reason && (
-                          <span className="text-xs text-orange-600 sm:ml-auto">{m.absence_reason}</span>
+                          <span className="text-xs text-orange-600 dark:text-orange-300 sm:ml-auto">{m.absence_reason}</span>
                         )}
                       </div>
                     ))}
