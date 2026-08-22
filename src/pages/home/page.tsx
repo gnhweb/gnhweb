@@ -526,7 +526,7 @@ export default function Home() {
             </span>
             <div className="min-w-0 flex-1 pr-3 md:pr-10">
               <p className="text-xs md:text-sm font-extrabold tracking-wide text-primary-700 dark:text-primary-200 mb-2">오늘의 어록</p>
-              <p className="font-quote text-base md:text-xl font-bold italic text-foreground-950 dark:text-foreground-50 leading-8 md:leading-9 whitespace-pre-line break-keep">
+              <p className="font-quote text-base md:text-xl font-bold italic text-foreground-950 leading-8 md:leading-9 whitespace-pre-line break-keep">
                 {dailyQuote}
               </p>
             </div>
