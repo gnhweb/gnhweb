@@ -97,7 +97,7 @@ export default function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean;
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="bg-background-50 border border-background-200 rounded-[20px] w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+            className="bg-background-50 border border-background-200 rounded-[20px] w-full max-w-lg max-h-[80dvh] max-h-[80vh] overflow-hidden flex flex-col mobile-safe-modal"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}

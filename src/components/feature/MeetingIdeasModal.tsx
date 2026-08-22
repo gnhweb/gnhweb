@@ -71,7 +71,7 @@ export default function MeetingIdeasModal({ open, onClose }: Props) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2 }}
-            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90dvh] max-h-[90vh] overflow-y-auto mobile-safe-modal"
           >
             <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-amber-100 px-6 py-4 flex items-center justify-between z-10 rounded-t-2xl">
               <div className="flex items-center gap-2.5">
@@ -81,6 +81,7 @@ export default function MeetingIdeasModal({ open, onClose }: Props) {
                 <h2 className="text-lg font-bold text-gray-800">회의 아이디어 AI</h2>
               </div>
               <button
+                type="button"
                 onClick={handleClose}
                 className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors cursor-pointer"
               >
@@ -132,6 +133,7 @@ export default function MeetingIdeasModal({ open, onClose }: Props) {
                   )}
 
                   <button
+                    type="button"
                     onClick={handleSubmit}
                     disabled={!topic.trim() || loading}
                     className={`w-full py-3.5 rounded-xl text-base font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap ${
@@ -215,12 +217,14 @@ export default function MeetingIdeasModal({ open, onClose }: Props) {
 
                   <div className="flex gap-3 mt-6">
                     <button
+                      type="button"
                       onClick={() => { setResult(null); setTopic(''); setSituation(''); }}
                       className="flex-1 py-3.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <i className="ri-refresh-line mr-1"></i> 다시 질문하기
                     </button>
                     <button
+                      type="button"
                       onClick={handleClose}
                       className="flex-1 py-3.5 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 transition-colors cursor-pointer whitespace-nowrap"
                     >

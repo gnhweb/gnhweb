@@ -61,9 +61,34 @@
   a[role='button'],
   [data-mobile-touch-target='true'] {
     touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button[class*='w-5'][class*='h-5'],
+  button[class*='w-6'][class*='h-6'],
+  button[class*='w-7'][class*='h-7'],
+  button[class*='w-8'][class*='h-8'],
+  [data-mobile-touch-target='true'] {
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .mobile-modal-panel {
     max-height: min(88dvh, 88vh);
   }
+}
+
+
+@media (max-width: 767px) {
+  .mobile-safe-modal {
+    max-height: 90dvh;
+    max-height: min(90dvh, 90vh);
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .max-h-\[80vh\] { max-height: 80dvh !important; }
+  .max-h-\[85vh\] { max-height: 85dvh !important; }
+  .max-h-\[90vh\] { max-height: 90dvh !important; }
 }

@@ -80,7 +80,7 @@ export default function ClubPasswordModal({ clubId, clubName, onSuccess, onCance
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-background-100 rounded-2xl shadow-xl border border-gray-100 w-full max-w-sm mx-4 p-6">
+      <div className="bg-background-100 rounded-2xl shadow-xl border border-gray-100 w-full max-w-sm mx-4 p-6 mobile-safe-modal">
         <div className="text-center mb-5">
           <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
             <i className="ri-lock-line text-xl text-amber-600"></i>

@@ -357,6 +357,8 @@ export default function ClubCommunity() {
                       <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden bg-background-200">
                         <img src={preview} alt={`업로드 ${i + 1}`} className="w-full h-full object-cover" />
                         <button
+                          type="button"
+                          aria-label={`사진 ${i + 1} 삭제`}
                           onClick={() => {
                             setPostImages(prev => prev.filter((_, idx) => idx !== i));
                             setPostImagePreviews(prev => {
@@ -365,7 +367,7 @@ export default function ClubCommunity() {
                               return prev.filter((_, idx) => idx !== i);
                             });
                           }}
-                          className="absolute top-0 right-0 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
+                          className="absolute top-0 right-0 min-w-[44px] min-h-[44px] rounded-full bg-black/60 text-white flex items-center justify-center"
                         >
                           <i className="ri-close-line text-[10px]"></i>
                         </button>
@@ -375,7 +377,7 @@ export default function ClubCommunity() {
                 )}
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-background-200 text-xs text-foreground-600 hover:bg-background-300/60 cursor-pointer whitespace-nowrap">
+                    <label className="flex items-center gap-1 min-h-[44px] px-3 rounded-full bg-background-200 text-xs text-foreground-600 hover:bg-background-300/60 cursor-pointer whitespace-nowrap">
                       <i className="ri-image-add-line"></i>
                       사진 {postImages.length > 0 ? `(${postImages.length}/10)` : ''}
                       <input

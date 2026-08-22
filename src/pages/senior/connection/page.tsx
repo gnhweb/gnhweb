@@ -222,7 +222,7 @@ export default function SeniorConnection() {
       <AnimatePresence>
         {showEditor && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowEditor(false)}>
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-background-100 border border-background-200 rounded-2xl p-6 max-w-md w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-background-100 border border-background-200 rounded-2xl p-6 max-w-md w-full max-h-[85dvh] max-h-[85vh] overflow-y-auto mobile-safe-modal" onClick={e => e.stopPropagation()}>
               <h3 className="text-lg font-bold text-foreground-950 mb-4">{editingId ? '내용 수정' : '새 내용 추가'}</h3>
               <div className="space-y-3">
                 <select value={editSection} onChange={e => setEditSection(e.target.value)} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none cursor-pointer">
