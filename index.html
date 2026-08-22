@@ -2,33 +2,19 @@
 <html lang="ko" translate="no">
   <head>
     <meta charset="UTF-8" />
-    <!-- 자동 번역 방지: html lang이 실제 콘텐츠(한국어)와 다르게 선언되어 있으면
-         브라우저가 언어 불일치로 판단해 번역 팝업을 띄운다. lang="ko"로 정정하고
-         구글 번역/크롬 번역 기능을 명시적으로 차단한다. -->
+    <!-- 자동 번역 방지 -->
     <meta name="google" content="notranslate" />
 
-    <!-- 카카오맵 SDK는 여기서 전역으로 불러오지 않습니다.
-         출석 위치 설정 페이지(src/pages/settings/attendance-location/page.tsx)에서
-         react-kakao-maps-sdk의 useKakaoLoader 훅으로 필요할 때만 로드합니다.
-         이 script 태그와 useKakaoLoader를 동시에 쓰면 SDK가 두 번 로드되어
-         "kakao.maps.LatLng is not a constructor" 같은 오류가 나거나 지도가 아예
-         안 뜨는 문제가 생기므로 절대 다시 추가하지 마세요. -->
-
-    <!-- 파비콘 및 iOS 아이콘 캐시 강제 갱신용 ?v=2 적용 -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
     <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png?v=2" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- iOS: 홈 화면에 추가해 "standalone" 모드로 열면 Safari의 주소창/탭 바 자체가 없는
-         진짜 전체화면이 된다(iOS는 일반 탭에서는 <video> 외 요소에 Fullscreen API를 지원하지
-         않아 이 방법이 사실상 유일하다 — PhaserGame.tsx의 isIOS 관련 주석 참고). -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0b0e1a" />
     <title>강학</title>
     <script>
-      // React가 로드되기 전에 먼저 테마를 적용해서 라이트→다크 깜빡임(FOUC)을 막는다.
       (function () {
         try {
           var stored = localStorage.getItem('theme');
@@ -42,6 +28,28 @@
         } catch (e) {}
       })();
     </script>
+
+    <!-- 강학뉴스는 신문 지면 자체가 라이트 테마이므로 앱 전체의 dark-mode foreground 토큰을 상속하지 않도록 고정한다. -->
+    <style>
+      .bg-\[\#f5f0e8\] .text-foreground-950 { color: #171717 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-900 { color: #222222 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-800 { color: #333333 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-700 { color: #444444 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-600 { color: #555555 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-500 { color: #666666 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-400 { color: #777777 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-300 { color: #888888 !important; }
+      .bg-\[\#f5f0e8\] .border-foreground-950 { border-color: #171717 !important; }
+      .bg-\[\#f5f0e8\] .border-foreground-900 { border-color: #222222 !important; }
+      .bg-\[\#f5f0e8\] .border-foreground-300 { border-color: #c8c2b8 !important; }
+      .bg-\[\#f5f0e8\] .border-foreground-200 { border-color: #d8d1c7 !important; }
+      .bg-\[\#f5f0e8\] .border-foreground-100 { border-color: #e7e0d7 !important; }
+      .bg-\[\#f5f0e8\] .bg-foreground-950 { background-color: #171717 !important; }
+      .bg-\[\#f5f0e8\] .text-background-50 { color: #ffffff !important; }
+      .bg-\[\#f5f0e8\] .bg-foreground-200 { background-color: #e6dfd5 !important; }
+      .bg-\[\#f5f0e8\] .bg-foreground-100 { background-color: #eee8df !important; }
+    </style>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
