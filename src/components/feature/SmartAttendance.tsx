@@ -89,6 +89,12 @@ function getDistanceM(lat1: number, lng1: number, lat2: number, lng2: number): n
 
 type AttendanceState = 'idle' | 'loading-attend' | 'loading-absent' | 'loading-cancel' | 'success-attend' | 'success-absent' | 'already-attend' | 'already-absent' | 'checking-location' | 'location-denied' | 'location-out-of-range';
 
+// Attendance notifications are intentionally handled by the Supabase DB trigger
+// `attendance_notify_teacher` after the attendance row is inserted.
+// This keeps the recipient policy identical across web/PWA devices and avoids
+// client-side duplicate notifications. The trigger targets only:
+// 1) assigned teacher, 2) same-club assistant_zone_leader, 3) same-club zone_leader.
+
 function StudentAttendanceView({ profile }: { profile: { name: string; club?: string; user_id: string; role?: string } }) {
   const [attendanceStatus, setAttendanceStatus] = useState<AttendanceState>('idle');
   const [aiMessage, setAiMessage] = useState<string | null>(null);
