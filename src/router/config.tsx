@@ -84,18 +84,11 @@ const MeetingDetailPage = lazy(() => import("@/pages/meetings/detail/page"));
 const MeetingEditPage = lazy(() => import("@/pages/meetings/edit/page"));
 const MeetingCopilotPage = lazy(() => import("@/pages/meetingCopilot/page"));
 const MissionsPage = lazy(() => import("@/pages/missions/page"));
+const MissionsOperationsPage = lazy(() => import("@/pages/missions/operations/page"));
 const MissionBoardPage = lazy(() => import("@/pages/missions/board/page"));
 const MissionLeaderboardPage = lazy(() => import("@/pages/missions/leaderboard/page"));
 const MissionWallPage = lazy(() => import("@/pages/missions/wall/page"));
 const AttendanceBoard = lazy(() => import("@/pages/attendanceBoard/page"));
-const MissionOperations = lazy(() => import("@/pages/missions/operations/page"));
-const SeniorSection = lazy(() => import("@/pages/senior/page"));
-const SeniorRoadmap = lazy(() => import("@/pages/senior/roadmap/page"));
-const SeniorCalendar = lazy(() => import("@/pages/senior/calendar/page"));
-const SeniorConnection = lazy(() => import("@/pages/senior/connection/page"));
-const SeniorProposals = lazy(() => import("@/pages/senior/proposals/page"));
-const SeniorRollingPaper = lazy(() => import("@/pages/senior/rolling-paper/page"));
-const SeniorChecklist = lazy(() => import("@/pages/senior/checklist/page"));
 
 const pageFallback = (label = "로딩 중…") => (
   <div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">
@@ -604,37 +597,9 @@ const routes: RouteObject[] = [
         path: "/missions/operations",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<MissionOperations />)}
+            {withSuspense(<MissionsOperationsPage />)}
           </AuthGuard>
         ),
-      },
-      {
-        path: "/senior",
-        element: withSuspense(<SeniorSection />),
-      },
-      {
-        path: "/senior/roadmap",
-        element: withSuspense(<SeniorRoadmap />),
-      },
-      {
-        path: "/senior/calendar",
-        element: withSuspense(<SeniorCalendar />),
-      },
-      {
-        path: "/senior/connection",
-        element: withSuspense(<SeniorConnection />),
-      },
-      {
-        path: "/senior/proposals",
-        element: withSuspense(<SeniorProposals />),
-      },
-      {
-        path: "/senior/rolling-paper",
-        element: withSuspense(<SeniorRollingPaper />),
-      },
-      {
-        path: "/senior/checklist",
-        element: withSuspense(<SeniorChecklist />),
       },
       {
         path: "/missions/leaderboard",
