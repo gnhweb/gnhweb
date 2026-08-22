@@ -296,19 +296,6 @@ readdy-ai-assistant,
   height: 100dvh;
 }
 
-
-/* Mobile touch/readability helpers */
-@media (max-width: 639px) {
-  .mobile-readable {
-    font-size: 12px;
-    line-height: 1.45;
-  }
-  .mobile-touch {
-    min-width: 44px;
-    min-height: 44px;
-  }
-}
-
 /* ===== Scroll lock for mobile menu overlay ===== */
 body.scroll-lock {
   overflow: hidden;
@@ -368,4 +355,59 @@ body.scroll-lock {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+
+/* ===== Mobile / iOS / Android touch & viewport hardening ===== */
+@media (max-width: 639px) {
+  /* 24~32px 아이콘 버튼도 실제 터치 영역은 최소 44px 확보 */
+  button[class~="w-6"][class~="h-6"],
+  button[class~="w-7"][class~="h-7"],
+  button[class~="w-8"][class~="h-8"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* 작은 네이티브 date/time 입력이 너무 좁아지는 것을 방지 */
+  input[type="date"],
+  input[type="time"] {
+    min-height: 44px;
+  }
+
+  /* 모달/드로어에 붙여 쓸 수 있는 동적 viewport 높이 */
+  .mobile-modal-panel {
+    max-height: min(90vh, 90dvh);
+  }
+
+  .mobile-modal-scroll {
+    max-height: min(80vh, 80dvh);
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 키보드가 열린 동안 visualViewport 대응을 위한 여백 */
+  body.keyboard-open {
+    overscroll-behavior: none;
+  }
+
+  /* Android Chrome의 text-selection/callout이 인터랙티브 카드까지 번지는 것을 억제 */
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* 모달/게임의 safe-area 보조 클래스 */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@supports (height: 100dvh) {
+  .mobile-full-height {
+    min-height: 100dvh;
+  }
 }

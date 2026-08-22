@@ -52,6 +52,24 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
+
+// iOS Safari / Android Chrome 키보드에 따라 visual viewport가 줄어드는 것을 감지합니다.
+// UI 자체를 직접 재배치하지 않고 body에 상태만 남겨 모달/고정 UI가 대응할 수 있게 합니다.
+if (typeof window !== 'undefined' && 'visualViewport' in window) {
+  const updateKeyboardState = () => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const heightGap = window.innerHeight - vv.height;
+    const keyboardOpen = heightGap > 120;
+    document.body.classList.toggle('keyboard-open', keyboardOpen);
+    document.documentElement.style.setProperty('--visual-viewport-height', `${Math.round(vv.height)}px`);
+  };
+  window.visualViewport?.addEventListener('resize', updateKeyboardState);
+  window.visualViewport?.addEventListener('scroll', updateKeyboardState);
+  window.addEventListener('resize', updateKeyboardState);
+  updateKeyboardState();
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

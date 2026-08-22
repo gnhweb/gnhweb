@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
 
 // ── 타입 ──
 
@@ -99,7 +100,7 @@ function MessageBubble({
         </div>
 
         {!isUser && !isStreaming && message.id !== 'welcome' && (
-          <div className="flex items-center gap-1 mt-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => onSaveIdea(message.content.slice(0, 300))}
               className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] text-amber-600 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer whitespace-nowrap"
@@ -132,6 +133,7 @@ export default function MeetingCopilotDrawer({ open, onClose, meeting }: Props) 
   const [savedIdeas, setSavedIdeas] = useState<SavedIdea[]>([]);
   const [showIdeas, setShowIdeas] = useState(false);
   const [personaMode, setPersonaMode] = useState<string | null>(null);
+  useMobileBackHandler(open, onClose);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -494,7 +496,7 @@ export default function MeetingCopilotDrawer({ open, onClose, meeting }: Props) 
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed top-0 right-0 h-full w-full sm:w-[440px] bg-background-100 z-50 flex flex-col shadow-2xl"
+            className="fixed top-0 right-0 h-full max-h-dvh w-full sm:w-[440px] bg-background-100 z-50 flex flex-col shadow-2xl mobile-full-height safe-area-top safe-area-bottom"
           >
             {/* 헤더 */}
             <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-background-200 bg-background-100">

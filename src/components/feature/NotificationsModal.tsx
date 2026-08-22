@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
 import type { User } from '@supabase/supabase-js';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -144,6 +145,7 @@ interface NotificationsModalProps {
 export default function NotificationsModal({ open, onClose, user }: NotificationsModalProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+  useMobileBackHandler(open, onClose);
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
@@ -237,7 +239,7 @@ export default function NotificationsModal({ open, onClose, user }: Notification
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -8, scale: 0.96 }}
           transition={{ duration: 0.15 }}
-          className="relative mt-2 mr-4 md:mr-6 w-full max-w-sm bg-background-100 rounded-2xl shadow-lg border border-gray-100 max-h-[500px] flex flex-col pointer-events-auto"
+          className="relative mt-2 mr-4 md:mr-6 w-full max-w-sm bg-background-100 rounded-2xl shadow-lg border border-gray-100 max-h-[500px] sm:max-h-[80dvh] flex flex-col pointer-events-auto mobile-modal-panel"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -299,7 +301,7 @@ export default function NotificationsModal({ open, onClose, user }: Notification
                         </div>
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
-                          className="md:opacity-0 md:group-hover:opacity-100 w-10 h-10 md:w-6 md:h-6 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-400 hover:text-red-500 cursor-pointer flex-shrink-0 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-400 hover:text-red-500 cursor-pointer flex-shrink-0 transition-opacity"
                         >
                           <i className="ri-delete-bin-line text-xs"></i>
                         </button>
@@ -392,7 +394,7 @@ export function NotificationToast({ user, onOpenList }: NotificationToastProps) 
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); dismiss(t.id); }}
-                className="w-10 h-10 md:w-6 md:h-6 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer flex-shrink-0"
+                className="w-6 h-6 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer flex-shrink-0"
               >
                 <i className="ri-close-line text-xs"></i>
               </button>
