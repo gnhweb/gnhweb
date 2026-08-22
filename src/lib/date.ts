@@ -1,7 +1,7 @@
 /**
- * Calendar dates used by the site are business dates in Korea (Asia/Seoul).
- * Do not use Date#toISOString().split('T')[0] for date-only values: that
- * converts to UTC first and can shift the date around midnight in Korea.
+ * Date helpers for site business dates in Korea (Asia/Seoul).
+ * Avoid Date#toISOString().split('T')[0] for date-only values because
+ * ISO conversion is UTC-based and can shift dates around midnight in Korea.
  */
 
 const KST = 'Asia/Seoul';
@@ -27,9 +27,11 @@ export function todayKey(): string {
   return dateKey(new Date());
 }
 
-/**
- * Format an ISO timestamp as a Korean local calendar date (YYYY-MM-DD).
- */
 export function formatDateKey(value: string | Date | number): string {
+  return dateKey(value);
+}
+
+/** Backward-compatible alias used by pages importing formatLocalDate. */
+export function formatLocalDate(value: string | Date | number): string {
   return dateKey(value);
 }
