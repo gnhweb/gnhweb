@@ -1,92 +1,103 @@
 import type { RouteObject } from "react-router-dom";
-import WolvesAndSheep from "@/pages/wolvesAndSheep/page";
-import GameHub from "@/pages/gameHub/page";
+import { lazy, Suspense, type ReactNode } from "react";
+const WolvesAndSheep = lazy(() => import("@/pages/wolvesAndSheep/page"));
+const GameHub = lazy(() => import("@/pages/gameHub/page"));
 // import 추가 (WolvesAndSheep import 아래)
-import Pharisee from "@/games/pharisee/page";
-import GalileePhone from "@/games/galilee-phone/page";
-import NotFound from "@/pages/NotFound";
-import Home from "@/pages/home/page";
-import BiblePick from "@/pages/biblePick/page";
-import BiblePickHistory from "@/pages/biblePick/history/page";
-import Clubs from "@/pages/clubs/page";
-import ClubDetail from "@/pages/clubs/detail/page";
-import ClubCommunity from "@/pages/clubs/community/page";
-import Notices from "@/pages/notices/page";
-import NoticeWrite from "@/pages/notices/write/page";
-import NoticeDetail from "@/pages/notices/detail/page";
-import NoticeEdit from "@/pages/notices/edit/page";
-import Schedule from "@/pages/schedule/page";
-import ScheduleWrite from "@/pages/schedule/write/page";
-import ScheduleEdit from "@/pages/schedule/edit/page";
-import Login from "@/pages/login/page";
-import Setup from "@/pages/setup/page";
-import Dashboard from "@/pages/dashboard/page";
-import WeeklyReports from "@/pages/reports/weekly/page";
-import WeeklyReportWrite from "@/pages/reports/weekly/write/page";
-import WeeklyReportDetail from "@/pages/reports/weekly/detail/page";
-import WeeklyReportEdit from "@/pages/reports/weekly/edit/page";
-import GrowthReports from "@/pages/reports/growth/page";
-import GrowthReportWrite from "@/pages/reports/growth/write/page";
-import GrowthRecordDetail from "@/pages/reports/growth/detail/page";
-import GrowthReportEdit from "@/pages/reports/growth/edit/page";
-import EventReports from "@/pages/reports/events/page";
-import EventReportWrite from "@/pages/reports/events/write/page";
-import EventReportDetail from "@/pages/reports/events/detail/page";
-import EventReportEdit from "@/pages/reports/events/edit/page";
-import ReviewPage from "@/pages/reports/review/page";
-import AdminRolesPage from "@/pages/admin/roles/page";
-import StrategyDashboard from "@/pages/admin/strategy/page";
-import AdminApprovals from "@/pages/admin/approvals/page";
-import ResetPassword from "@/pages/reset-password/page";
+const Pharisee = lazy(() => import("@/games/pharisee/page"));
+const GalileePhone = lazy(() => import("@/games/galilee-phone/page"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const Home = lazy(() => import("@/pages/home/page"));
+const BiblePick = lazy(() => import("@/pages/biblePick/page"));
+const BiblePickHistory = lazy(() => import("@/pages/biblePick/history/page"));
+const Clubs = lazy(() => import("@/pages/clubs/page"));
+const ClubDetail = lazy(() => import("@/pages/clubs/detail/page"));
+const ClubCommunity = lazy(() => import("@/pages/clubs/community/page"));
+const Notices = lazy(() => import("@/pages/notices/page"));
+const NoticeWrite = lazy(() => import("@/pages/notices/write/page"));
+const NoticeDetail = lazy(() => import("@/pages/notices/detail/page"));
+const NoticeEdit = lazy(() => import("@/pages/notices/edit/page"));
+const Schedule = lazy(() => import("@/pages/schedule/page"));
+const ScheduleWrite = lazy(() => import("@/pages/schedule/write/page"));
+const ScheduleEdit = lazy(() => import("@/pages/schedule/edit/page"));
+const Login = lazy(() => import("@/pages/login/page"));
+const Setup = lazy(() => import("@/pages/setup/page"));
+const Dashboard = lazy(() => import("@/pages/dashboard/page"));
+const WeeklyReports = lazy(() => import("@/pages/reports/weekly/page"));
+const WeeklyReportWrite = lazy(() => import("@/pages/reports/weekly/write/page"));
+const WeeklyReportDetail = lazy(() => import("@/pages/reports/weekly/detail/page"));
+const WeeklyReportEdit = lazy(() => import("@/pages/reports/weekly/edit/page"));
+const GrowthReports = lazy(() => import("@/pages/reports/growth/page"));
+const GrowthReportWrite = lazy(() => import("@/pages/reports/growth/write/page"));
+const GrowthRecordDetail = lazy(() => import("@/pages/reports/growth/detail/page"));
+const GrowthReportEdit = lazy(() => import("@/pages/reports/growth/edit/page"));
+const EventReports = lazy(() => import("@/pages/reports/events/page"));
+const EventReportWrite = lazy(() => import("@/pages/reports/events/write/page"));
+const EventReportDetail = lazy(() => import("@/pages/reports/events/detail/page"));
+const EventReportEdit = lazy(() => import("@/pages/reports/events/edit/page"));
+const ReviewPage = lazy(() => import("@/pages/reports/review/page"));
+const AdminRolesPage = lazy(() => import("@/pages/admin/roles/page"));
+const StrategyDashboard = lazy(() => import("@/pages/admin/strategy/page"));
+const AdminApprovals = lazy(() => import("@/pages/admin/approvals/page"));
+const ResetPassword = lazy(() => import("@/pages/reset-password/page"));
 import Layout from "@/components/feature/Layout";
 import AuthGuard from "@/components/base/AuthGuard";
-import BibleMbti from "@/pages/bibleMbti/page";
-import BibleQuiz from "@/pages/bibleQuiz/page";
-import BibleStreak from "@/pages/bibleStreak/page";
-import BibleByAge from "@/pages/bibleByAge/page";
-import FaithStorybook from "@/pages/faithStorybook/page";
-import RepentanceJournal from "@/pages/repentanceJournal/page";
-import FaithJournal from "@/pages/faithJournal/page";
-import QandABoard from "@/pages/qnaBoard/page";
-import MemoryBoard from "@/pages/memoryBoard/page";
-import SongVoteBoard from "@/pages/songVote/page";
-import PersonalSchedule from "@/pages/personalSchedule/page";
-import PrayerPartner from "@/pages/prayerPartner/page";
-import EventIdeas from "@/pages/eventIdeas/page";
-import BibleMarathon from "@/pages/bibleMarathon/page";
-import YearEndSummary from "@/pages/yearEndSummary/page";
-import BucketListBoard from "@/pages/bucketList/page";
-import PrayerRelay from "@/pages/prayerRelay/page";
-import PdsPlanner from "@/pages/pdsPlanner/page";
-import LeadershipDiary from "@/pages/leadershipDiary/page";
-import AttendanceDashboard from "@/pages/dashboard/attendance/page";
-import ToolsPage from "@/pages/tools/page";
-import AttendanceAnalyticsPage from "@/pages/dashboard/attendance/analytics/page";
-import AbsenceReasonsPage from "@/pages/settings/absence-reasons/page";
-import AttendanceLocationPage from "@/pages/settings/attendance-location/page";
-import ProfilePage from "@/pages/profile/page";
-import TeacherDashboard from "@/pages/teacherDashboard/page";
-import GanghakNewsList from "@/pages/ganghakNews/page";
-import GanghakNewsDetail from "@/pages/ganghakNews/detail/page";
-import GanghakNewsWrite from "@/pages/ganghakNews/write/page";
-import GanghakNewsEdit from "@/pages/ganghakNews/edit/page";
-import QuizManagePage from "@/pages/teacherDashboard/quizManage/page";
-import QuoteManagePage from "@/pages/teacherDashboard/quoteManage/page";
-import StorageCleanupPage from "@/pages/admin/storageCleanup/page";
-import SuggestionsPage from "@/pages/suggestions/page";
-import VisitationsPage from "@/pages/visitations/page";
-import VisitationWrite from "@/pages/visitations/write/page";
-import VisitationDetail from "@/pages/visitations/detail/page";
-import MeetingsPage from "@/pages/meetings/page";
-import MeetingWritePage from "@/pages/meetings/write/page";
-import MeetingDetailPage from "@/pages/meetings/detail/page";
-import MeetingEditPage from "@/pages/meetings/edit/page";
-import MeetingCopilotPage from "@/pages/meetingCopilot/page";
-import MissionsPage from "@/pages/missions/page";
-import MissionBoardPage from "@/pages/missions/board/page";
-import MissionLeaderboardPage from "@/pages/missions/leaderboard/page";
-import MissionWallPage from "@/pages/missions/wall/page";
-import AttendanceBoard from "@/pages/attendanceBoard/page";
+const BibleMbti = lazy(() => import("@/pages/bibleMbti/page"));
+const BibleQuiz = lazy(() => import("@/pages/bibleQuiz/page"));
+const BibleStreak = lazy(() => import("@/pages/bibleStreak/page"));
+const BibleByAge = lazy(() => import("@/pages/bibleByAge/page"));
+const FaithStorybook = lazy(() => import("@/pages/faithStorybook/page"));
+const RepentanceJournal = lazy(() => import("@/pages/repentanceJournal/page"));
+const FaithJournal = lazy(() => import("@/pages/faithJournal/page"));
+const QandABoard = lazy(() => import("@/pages/qnaBoard/page"));
+const MemoryBoard = lazy(() => import("@/pages/memoryBoard/page"));
+const SongVoteBoard = lazy(() => import("@/pages/songVote/page"));
+const PersonalSchedule = lazy(() => import("@/pages/personalSchedule/page"));
+const PrayerPartner = lazy(() => import("@/pages/prayerPartner/page"));
+const EventIdeas = lazy(() => import("@/pages/eventIdeas/page"));
+const BibleMarathon = lazy(() => import("@/pages/bibleMarathon/page"));
+const YearEndSummary = lazy(() => import("@/pages/yearEndSummary/page"));
+const BucketListBoard = lazy(() => import("@/pages/bucketList/page"));
+const PrayerRelay = lazy(() => import("@/pages/prayerRelay/page"));
+const PdsPlanner = lazy(() => import("@/pages/pdsPlanner/page"));
+const LeadershipDiary = lazy(() => import("@/pages/leadershipDiary/page"));
+const AttendanceDashboard = lazy(() => import("@/pages/dashboard/attendance/page"));
+const ToolsPage = lazy(() => import("@/pages/tools/page"));
+const AttendanceAnalyticsPage = lazy(() => import("@/pages/dashboard/attendance/analytics/page"));
+const AbsenceReasonsPage = lazy(() => import("@/pages/settings/absence-reasons/page"));
+const AttendanceLocationPage = lazy(() => import("@/pages/settings/attendance-location/page"));
+const ProfilePage = lazy(() => import("@/pages/profile/page"));
+const TeacherDashboard = lazy(() => import("@/pages/teacherDashboard/page"));
+const GanghakNewsList = lazy(() => import("@/pages/ganghakNews/page"));
+const GanghakNewsDetail = lazy(() => import("@/pages/ganghakNews/detail/page"));
+const GanghakNewsWrite = lazy(() => import("@/pages/ganghakNews/write/page"));
+const GanghakNewsEdit = lazy(() => import("@/pages/ganghakNews/edit/page"));
+const QuizManagePage = lazy(() => import("@/pages/teacherDashboard/quizManage/page"));
+const QuoteManagePage = lazy(() => import("@/pages/teacherDashboard/quoteManage/page"));
+const StorageCleanupPage = lazy(() => import("@/pages/admin/storageCleanup/page"));
+const SuggestionsPage = lazy(() => import("@/pages/suggestions/page"));
+const VisitationsPage = lazy(() => import("@/pages/visitations/page"));
+const VisitationWrite = lazy(() => import("@/pages/visitations/write/page"));
+const VisitationDetail = lazy(() => import("@/pages/visitations/detail/page"));
+const MeetingsPage = lazy(() => import("@/pages/meetings/page"));
+const MeetingWritePage = lazy(() => import("@/pages/meetings/write/page"));
+const MeetingDetailPage = lazy(() => import("@/pages/meetings/detail/page"));
+const MeetingEditPage = lazy(() => import("@/pages/meetings/edit/page"));
+const MeetingCopilotPage = lazy(() => import("@/pages/meetingCopilot/page"));
+const MissionsPage = lazy(() => import("@/pages/missions/page"));
+const MissionBoardPage = lazy(() => import("@/pages/missions/board/page"));
+const MissionLeaderboardPage = lazy(() => import("@/pages/missions/leaderboard/page"));
+const MissionWallPage = lazy(() => import("@/pages/missions/wall/page"));
+const AttendanceBoard = lazy(() => import("@/pages/attendanceBoard/page"));
+
+const pageFallback = (label = "로딩 중…") => (
+  <div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">
+    {label}
+  </div>
+);
+
+const withSuspense = (element: ReactNode) => (
+  <Suspense fallback={pageFallback()}>{element}</Suspense>
+);
 
 const routes: RouteObject[] = [
   {
@@ -96,128 +107,128 @@ const routes: RouteObject[] = [
         path: "/",
         element: (
           <AuthGuard minRole="member">
-            <Home />
+            {withSuspense(<Home />)}
           </AuthGuard>
         ),
       },
       {
         path: "/tools",
-        element: <ToolsPage />,
+        element: withSuspense(<ToolsPage />),
       },
       {
         path: "/bible-pick",
-        element: <BiblePick />,
+        element: withSuspense(<BiblePick />),
       },
       {
         path: "/bible-pick/history",
-        element: <BiblePickHistory />,
+        element: withSuspense(<BiblePickHistory />),
       },
       {
         path: "/bible-mbti",
-        element: <BibleMbti />,
+        element: withSuspense(<BibleMbti />),
       },
       {
         path: "/bible-quiz",
-        element: <BibleQuiz />,
+        element: withSuspense(<BibleQuiz />),
       },
       {
         path: "/games",
-        element: <GameHub />,
+        element: withSuspense(<GameHub />),
       },
       {
         path: "/wolves-and-sheep",
-        element: <WolvesAndSheep />,
+        element: withSuspense(<WolvesAndSheep />),
       },
             // routes 배열에 추가 (wolves-and-sheep 라우트 아래)
       {
         path: "/pharisee",
-        element: <Pharisee />,
+        element: withSuspense(<Pharisee />),
       },
       {
         path: "/galilee-phone",
-        element: <GalileePhone />,
+        element: withSuspense(<GalileePhone />),
       },
       {
         path: "/bible-streak",
-        element: <BibleStreak />,
+        element: withSuspense(<BibleStreak />),
       },
       {
         path: "/bible-by-age",
-        element: <BibleByAge />,
+        element: withSuspense(<BibleByAge />),
       },
       {
         path: "/prayer-relay",
-        element: <PrayerRelay />,
+        element: withSuspense(<PrayerRelay />),
       },
       {
         path: "/faith-storybook",
-        element: <FaithStorybook />,
+        element: withSuspense(<FaithStorybook />),
       },
       {
         path: "/repentance-journal",
-        element: <RepentanceJournal />,
+        element: withSuspense(<RepentanceJournal />),
       },
       {
         path: "/faith-journal",
-        element: <FaithJournal />,
+        element: withSuspense(<FaithJournal />),
       },
       {
         path: "/qna-board",
-        element: <QandABoard />,
+        element: withSuspense(<QandABoard />),
       },
       {
         path: "/memory-board",
-        element: <MemoryBoard />,
+        element: withSuspense(<MemoryBoard />),
       },
       {
         path: "/song-vote",
-        element: <SongVoteBoard />,
+        element: withSuspense(<SongVoteBoard />),
       },
       {
         path: "/personal-schedule",
-        element: <PersonalSchedule />,
+        element: withSuspense(<PersonalSchedule />),
       },
       {
         path: "/prayer-partner",
-        element: <PrayerPartner />,
+        element: withSuspense(<PrayerPartner />),
       },
       {
         path: "/event-ideas",
-        element: <EventIdeas />,
+        element: withSuspense(<EventIdeas />),
       },
       {
         path: "/bible-marathon",
-        element: <BibleMarathon />,
+        element: withSuspense(<BibleMarathon />),
       },
       {
         path: "/year-end-summary",
-        element: <YearEndSummary />,
+        element: withSuspense(<YearEndSummary />),
       },
       {
         path: "/bucket-list",
-        element: <BucketListBoard />,
+        element: withSuspense(<BucketListBoard />),
       },
       {
         path: "/clubs",
-        element: <Clubs />,
+        element: withSuspense(<Clubs />),
       },
       {
         path: "/clubs/:id",
-        element: <ClubDetail />,
+        element: withSuspense(<ClubDetail />),
       },
       {
         path: "/clubs/:id/community",
-        element: <ClubCommunity />,
+        element: withSuspense(<ClubCommunity />),
       },
       {
         path: "/notices",
-        element: <Notices />,
+        element: withSuspense(<Notices />),
       },
       {
         path: "/notices/write",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <NoticeWrite />
+            {withSuspense(<NoticeWrite />)}
           </AuthGuard>
         ),
       },
@@ -225,23 +236,23 @@ const routes: RouteObject[] = [
         path: "/notices/:id/edit",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <NoticeEdit />
+            {withSuspense(<NoticeEdit />)}
           </AuthGuard>
         ),
       },
       {
         path: "/notices/:id",
-        element: <NoticeDetail />,
+        element: withSuspense(<NoticeDetail />),
       },
       {
         path: "/schedule",
-        element: <Schedule />,
+        element: withSuspense(<Schedule />),
       },
       {
         path: "/schedule/write",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <ScheduleWrite />
+            {withSuspense(<ScheduleWrite />)}
           </AuthGuard>
         ),
       },
@@ -249,7 +260,7 @@ const routes: RouteObject[] = [
         path: "/schedule/:id/edit",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <ScheduleEdit />
+            {withSuspense(<ScheduleEdit />)}
           </AuthGuard>
         ),
       },
@@ -257,7 +268,7 @@ const routes: RouteObject[] = [
         path: "/dashboard",
         element: (
           <AuthGuard minRole="member">
-            <Dashboard />
+            {withSuspense(<Dashboard />)}
           </AuthGuard>
         ),
       },
@@ -265,7 +276,7 @@ const routes: RouteObject[] = [
         path: "/dashboard/attendance",
         element: (
           <AuthGuard minRole="member">
-            <AttendanceDashboard />
+            {withSuspense(<AttendanceDashboard />)}
           </AuthGuard>
         ),
       },
@@ -273,7 +284,7 @@ const routes: RouteObject[] = [
         path: "/dashboard/attendance/analytics",
         element: (
           <AuthGuard minRole="member">
-            <AttendanceAnalyticsPage />
+            {withSuspense(<AttendanceAnalyticsPage />)}
           </AuthGuard>
         ),
       },
@@ -281,7 +292,7 @@ const routes: RouteObject[] = [
         path: "/teacher-dashboard/quiz-manage",
         element: (
           <AuthGuard minRole="teacher">
-            <QuizManagePage />
+            {withSuspense(<QuizManagePage />)}
           </AuthGuard>
         ),
       },
@@ -289,7 +300,7 @@ const routes: RouteObject[] = [
         path: "/teacher-dashboard/quote-manage",
         element: (
           <AuthGuard minRole="teacher">
-            <QuoteManagePage />
+            {withSuspense(<QuoteManagePage />)}
           </AuthGuard>
         ),
       },
@@ -297,7 +308,7 @@ const routes: RouteObject[] = [
         path: "/teacher-dashboard",
         element: (
           <AuthGuard minRole="teacher">
-            <TeacherDashboard />
+            {withSuspense(<TeacherDashboard />)}
           </AuthGuard>
         ),
       },
@@ -305,7 +316,7 @@ const routes: RouteObject[] = [
         path: "/profile",
         element: (
           <AuthGuard minRole="member">
-            <ProfilePage />
+            {withSuspense(<ProfilePage />)}
           </AuthGuard>
         ),
       },
@@ -313,7 +324,7 @@ const routes: RouteObject[] = [
         path: "/settings/absence-reasons",
         element: (
           <AuthGuard minRole="chief">
-            <AbsenceReasonsPage />
+            {withSuspense(<AbsenceReasonsPage />)}
           </AuthGuard>
         ),
       },
@@ -321,7 +332,7 @@ const routes: RouteObject[] = [
         path: "/settings/attendance-location",
         element: (
           <AuthGuard minRole="teacher">
-            <AttendanceLocationPage />
+            {withSuspense(<AttendanceLocationPage />)}
           </AuthGuard>
         ),
       },
@@ -329,7 +340,7 @@ const routes: RouteObject[] = [
         path: "/pds-planner",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <PdsPlanner />
+            {withSuspense(<PdsPlanner />)}
           </AuthGuard>
         ),
       },
@@ -337,7 +348,7 @@ const routes: RouteObject[] = [
         path: "/leadership-diary",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <LeadershipDiary />
+            {withSuspense(<LeadershipDiary />)}
           </AuthGuard>
         ),
       },
@@ -345,7 +356,7 @@ const routes: RouteObject[] = [
         path: "/reports/weekly",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <WeeklyReports />
+            {withSuspense(<WeeklyReports />)}
           </AuthGuard>
         ),
       },
@@ -353,7 +364,7 @@ const routes: RouteObject[] = [
         path: "/reports/weekly/write",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <WeeklyReportWrite />
+            {withSuspense(<WeeklyReportWrite />)}
           </AuthGuard>
         ),
       },
@@ -361,7 +372,7 @@ const routes: RouteObject[] = [
         path: "/reports/weekly/:id/edit",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <WeeklyReportEdit />
+            {withSuspense(<WeeklyReportEdit />)}
           </AuthGuard>
         ),
       },
@@ -369,7 +380,7 @@ const routes: RouteObject[] = [
         path: "/reports/weekly/:id",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <WeeklyReportDetail />
+            {withSuspense(<WeeklyReportDetail />)}
           </AuthGuard>
         ),
       },
@@ -377,7 +388,7 @@ const routes: RouteObject[] = [
         path: "/reports/growth",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <GrowthReports />
+            {withSuspense(<GrowthReports />)}
           </AuthGuard>
         ),
       },
@@ -385,7 +396,7 @@ const routes: RouteObject[] = [
         path: "/reports/growth/write",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <GrowthReportWrite />
+            {withSuspense(<GrowthReportWrite />)}
           </AuthGuard>
         ),
       },
@@ -393,7 +404,7 @@ const routes: RouteObject[] = [
         path: "/reports/growth/:id/edit",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <GrowthReportEdit />
+            {withSuspense(<GrowthReportEdit />)}
           </AuthGuard>
         ),
       },
@@ -401,7 +412,7 @@ const routes: RouteObject[] = [
         path: "/reports/growth/:id",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <GrowthRecordDetail />
+            {withSuspense(<GrowthRecordDetail />)}
           </AuthGuard>
         ),
       },
@@ -409,7 +420,7 @@ const routes: RouteObject[] = [
         path: "/reports/events",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <EventReports />
+            {withSuspense(<EventReports />)}
           </AuthGuard>
         ),
       },
@@ -417,7 +428,7 @@ const routes: RouteObject[] = [
         path: "/reports/events/write",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <EventReportWrite />
+            {withSuspense(<EventReportWrite />)}
           </AuthGuard>
         ),
       },
@@ -425,7 +436,7 @@ const routes: RouteObject[] = [
         path: "/reports/events/:id/edit",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <EventReportEdit />
+            {withSuspense(<EventReportEdit />)}
           </AuthGuard>
         ),
       },
@@ -433,7 +444,7 @@ const routes: RouteObject[] = [
         path: "/reports/events/:id",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <EventReportDetail />
+            {withSuspense(<EventReportDetail />)}
           </AuthGuard>
         ),
       },
@@ -441,7 +452,7 @@ const routes: RouteObject[] = [
         path: "/reports/review",
         element: (
           <AuthGuard minRole="president">
-            <ReviewPage />
+            {withSuspense(<ReviewPage />)}
           </AuthGuard>
         ),
       },
@@ -449,7 +460,7 @@ const routes: RouteObject[] = [
         path: "/admin/roles",
         element: (
           <AuthGuard minRole="chief">
-            <AdminRolesPage />
+            {withSuspense(<AdminRolesPage />)}
           </AuthGuard>
         ),
       },
@@ -457,7 +468,7 @@ const routes: RouteObject[] = [
         path: "/admin/strategy",
         element: (
           <AuthGuard minRole="chief">
-            <StrategyDashboard />
+            {withSuspense(<StrategyDashboard />)}
           </AuthGuard>
         ),
       },
@@ -465,7 +476,7 @@ const routes: RouteObject[] = [
         path: "/admin/approvals",
         element: (
           <AuthGuard minRole="teacher">
-            <AdminApprovals />
+            {withSuspense(<AdminApprovals />)}
           </AuthGuard>
         ),
       },
@@ -473,19 +484,19 @@ const routes: RouteObject[] = [
         path: "/admin/storage-cleanup",
         element: (
           <AuthGuard minRole="teacher">
-            <StorageCleanupPage />
+            {withSuspense(<StorageCleanupPage />)}
           </AuthGuard>
         ),
       },
       {
         path: "/ganghak-news",
-        element: <GanghakNewsList />,
+        element: withSuspense(<GanghakNewsList />),
       },
       {
         path: "/ganghak-news/write",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <GanghakNewsWrite />
+            {withSuspense(<GanghakNewsWrite />)}
           </AuthGuard>
         ),
       },
@@ -493,19 +504,19 @@ const routes: RouteObject[] = [
         path: "/ganghak-news/:id/edit",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <GanghakNewsEdit />
+            {withSuspense(<GanghakNewsEdit />)}
           </AuthGuard>
         ),
       },
       {
         path: "/ganghak-news/:id",
-        element: <GanghakNewsDetail />,
+        element: withSuspense(<GanghakNewsDetail />),
       },
       {
         path: "/suggestions",
         element: (
           <AuthGuard minRole="member">
-            <SuggestionsPage />
+            {withSuspense(<SuggestionsPage />)}
           </AuthGuard>
         ),
       },
@@ -513,7 +524,7 @@ const routes: RouteObject[] = [
         path: "/visitations",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <VisitationsPage />
+            {withSuspense(<VisitationsPage />)}
           </AuthGuard>
         ),
       },
@@ -521,7 +532,7 @@ const routes: RouteObject[] = [
         path: "/visitations/write",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <VisitationWrite />
+            {withSuspense(<VisitationWrite />)}
           </AuthGuard>
         ),
       },
@@ -529,7 +540,7 @@ const routes: RouteObject[] = [
         path: "/visitations/:id",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <VisitationDetail />
+            {withSuspense(<VisitationDetail />)}
           </AuthGuard>
         ),
       },
@@ -537,7 +548,7 @@ const routes: RouteObject[] = [
         path: "/meetings",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <MeetingsPage />
+            {withSuspense(<MeetingsPage />)}
           </AuthGuard>
         ),
       },
@@ -545,7 +556,7 @@ const routes: RouteObject[] = [
         path: "/meeting-copilot",
         element: (
           <AuthGuard minRole="member">
-            <MeetingCopilotPage />
+            {withSuspense(<MeetingCopilotPage />)}
           </AuthGuard>
         ),
       },
@@ -553,7 +564,7 @@ const routes: RouteObject[] = [
         path: "/meetings/write",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <MeetingWritePage />
+            {withSuspense(<MeetingWritePage />)}
           </AuthGuard>
         ),
       },
@@ -561,7 +572,7 @@ const routes: RouteObject[] = [
         path: "/meetings/:id",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <MeetingDetailPage />
+            {withSuspense(<MeetingDetailPage />)}
           </AuthGuard>
         ),
       },
@@ -569,7 +580,7 @@ const routes: RouteObject[] = [
         path: "/meetings/:id/edit",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <MeetingEditPage />
+            {withSuspense(<MeetingEditPage />)}
           </AuthGuard>
         ),
       },
@@ -577,7 +588,7 @@ const routes: RouteObject[] = [
         path: "/missions",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
-            <MissionsPage />
+            {withSuspense(<MissionsPage />)}
           </AuthGuard>
         ),
       },
@@ -585,7 +596,7 @@ const routes: RouteObject[] = [
         path: "/missions/leaderboard",
         element: (
           <AuthGuard minRole="member">
-            <MissionLeaderboardPage />
+            {withSuspense(<MissionLeaderboardPage />)}
           </AuthGuard>
         ),
       },
@@ -593,7 +604,7 @@ const routes: RouteObject[] = [
         path: "/missions/board",
         element: (
           <AuthGuard minRole="member">
-            <MissionBoardPage />
+            {withSuspense(<MissionBoardPage />)}
           </AuthGuard>
         ),
       },
@@ -601,7 +612,7 @@ const routes: RouteObject[] = [
         path: "/missions/wall",
         element: (
           <AuthGuard minRole="member">
-            <MissionWallPage />
+            {withSuspense(<MissionWallPage />)}
           </AuthGuard>
         ),
       },
@@ -609,27 +620,27 @@ const routes: RouteObject[] = [
         path: "/attendance-board",
         element: (
           <AuthGuard minRole="member">
-            <AttendanceBoard />
+            {withSuspense(<AttendanceBoard />)}
           </AuthGuard>
         ),
       },
       {
         path: "*",
-        element: <NotFound />,
+        element: withSuspense(<NotFound />),
       },
     ],
   },
   {
     path: "/login",
-    element: <Login />,
+    element: withSuspense(<Login />),
   },
   {
     path: "/setup",
-    element: <Setup />,
+    element: withSuspense(<Setup />),
   },
   {
     path: "/reset-password",
-    element: <ResetPassword />,
+    element: withSuspense(<ResetPassword />),
   },
 ];
 
