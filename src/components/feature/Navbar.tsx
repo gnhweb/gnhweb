@@ -91,6 +91,7 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
   {
     label: '출석 관리',
     items: [
+      { path: '/missions/operations', label: '사명 운영센터', icon: 'ri-dashboard-3-line' },
       { path: '/dashboard/attendance/analytics', label: '출석 통계 분석', icon: 'ri-bar-chart-line' },
       { path: '/attendance-board', label: '실시간 출석 현황판', icon: 'ri-user-heart-line' },
     ],
@@ -105,6 +106,7 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
   {
     label: '사명 도구',
     items: [
+      { path: '/senior', label: '고3구역', icon: 'ri-graduation-cap-line' },
       { path: '/pds-planner', label: '행사 기획 마법사', icon: 'ri-todo-line' },
       { path: '/event-ideas', label: '행사 기획 아이디어', icon: 'ri-lightbulb-flash-line' },
       { path: '/leadership-diary', label: '리더십 코칭', icon: 'ri-book-read-line' },
