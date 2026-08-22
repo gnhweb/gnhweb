@@ -371,7 +371,7 @@ export function NotificationToast({ user, onOpenList }: NotificationToastProps) 
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-safe-4 right-4 z-[200]" flex flex-col gap-2 pointer-events-none w-[calc(100%-2rem)] max-w-sm">
+    <div className="fixed top-safe-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none w-[calc(100%-2rem)] max-w-sm">
       <AnimatePresence>
         {toasts.map(t => {
           const visual = getNotificationVisual(t.type);
