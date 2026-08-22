@@ -517,15 +517,16 @@ export default function Home() {
 
       {/* ═══ 1.5 오늘의 어록 ═══ */}
       <section className="max-w-6xl mx-auto px-4 md:px-6 mt-6">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 to-primary-800 px-5 py-6 md:px-8 md:py-8 shadow-sm">
-          <i className="ri-double-quotes-l absolute -top-2 left-3 text-white/15 text-7xl md:text-8xl"></i>
-          <div className="relative flex items-start gap-3">
-            <span className="mt-0.5 hidden md:flex w-9 h-9 flex-shrink-0 items-center justify-center rounded-lg bg-background-100/15">
-              <i className="ri-book-open-line text-white text-base"></i>
+        <div className="relative overflow-hidden rounded-2xl border border-primary-200/70 dark:border-primary-800/80 bg-background-100 dark:bg-background-200 px-5 py-6 md:px-8 md:py-8 shadow-sm">
+          <div className="absolute inset-y-0 left-0 w-1.5 bg-primary-600 dark:bg-primary-400"></div>
+          <i className="ri-double-quotes-l absolute -top-2 right-3 md:right-6 text-primary-100 dark:text-primary-900/60 text-7xl md:text-8xl pointer-events-none"></i>
+          <div className="relative flex items-start gap-3 md:gap-4">
+            <span className="mt-0.5 flex w-10 h-10 md:w-11 md:h-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary-100 dark:bg-primary-900/70 border border-primary-200/70 dark:border-primary-800">
+              <i className="ri-book-open-line text-primary-700 dark:text-primary-200 text-base md:text-lg"></i>
             </span>
-            <div className="min-w-0">
-              <p className="text-[11px] md:text-xs font-bold tracking-wide text-white/70 mb-1.5">오늘의 어록</p>
-              <p className="font-quote text-base md:text-lg font-bold italic text-white leading-relaxed whitespace-pre-line">
+            <div className="min-w-0 flex-1 pr-3 md:pr-10">
+              <p className="text-xs md:text-sm font-extrabold tracking-wide text-primary-700 dark:text-primary-200 mb-2">오늘의 어록</p>
+              <p className="font-quote text-base md:text-xl font-bold italic text-foreground-950 dark:text-foreground-50 leading-8 md:leading-9 whitespace-pre-line break-keep">
                 {dailyQuote}
               </p>
             </div>
