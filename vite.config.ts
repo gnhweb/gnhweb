@@ -124,22 +124,22 @@ export default defineConfig({
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
-        // 번들링 파일을 분할하여 로딩 속도 향상
+        // 초기 홈 진입에 모든 기능이 묶이지 않도록 라우트는 React.lazy로 분리하고,
+        // 무거운 서드파티 라이브러리도 별도 청크로 분리합니다.
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'vendor';
-            }
-            if (id.includes('@supabase')) {
-              return 'supabase';
-            }
-            if (id.includes('html2canvas') || id.includes('dom-to-image-more')) {
-              return 'canvas';
-            }
-            if (id.includes('lucide-react')) {
-              return 'icons';
-            }
+          if (!id.includes('node_modules')) return;
+
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router') || id.includes('/scheduler/')) {
+            return 'vendor';
           }
+          if (id.includes('/@supabase/')) return 'supabase';
+          if (id.includes('html2canvas') || id.includes('dom-to-image-more')) return 'canvas';
+          if (id.includes('lucide-react')) return 'icons';
+          if (id.includes('recharts')) return 'charts';
+          if (id.includes('framer-motion')) return 'motion';
+          if (id.includes('phaser')) return 'game-phaser';
+          if (id.includes('/three/') || id.includes('@react-three/')) return 'game-three';
+          if (id.includes('firebase')) return 'firebase';
         },
       },
     },
