@@ -277,8 +277,8 @@ export default function Navbar() {
   // outside click → 모든 드롭다운 닫기
   useEffect(() => {
     const refs = [profileRef, bibleRef, faithRef, commRef, missionRef, adminRef, gameRef];
-    const handler = (e: MouseEvent) => {
-      if (refs.every(ref => !ref.current || !ref.current.contains(e.target as Node))) {
+    const onClickOutside = (e: MouseEvent) => {
+      if (refs.every(r => !r.current?.contains(e.target as Node))) {
         setProfileOpen(false);
         setBibleOpen(false);
         setFaithOpen(false);
@@ -288,204 +288,1077 @@ export default function Navbar() {
         setGameOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
+  // 경로 바뀌면 모두 닫기
+  useEffect(() => {
+    setMobileOpen(false);
+    setBibleOpen(false);
+    setFaithOpen(false);
+    setCommOpen(false);
+    setMissionOpen(false);
+    setAdminOpen(false);
+    setGameOpen(false);
+    setProfileOpen(false);
+    setMobileAccordion({});
+  }, [location.pathname]);
+
+  // helpers
+  const closeAllDesktop = () => {
+    setBibleOpen(false);
+    setFaithOpen(false);
+    setCommOpen(false);
+    setMissionOpen(false);
+    setAdminOpen(false);
+  };
+  const isActive = (path: string) => location.pathname === path;
+
+  const handleMissionAction = (item: { path?: string; action?: string }) => {
+    closeAllDesktop();
+    setMobileOpen(false);
+    if (item.path) {
+      navigate(item.path);
+    } else if (item.action === 'meeting-ideas') {
+      setMeetingIdeasOpen(true);
+    }
+  };
+
+  const handleSuggestions = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate('/suggestions');
+  };
+
+  const handleSignOut = async () => {
+    // signOut()이 이제 항상 /login으로 강제 전환하므로 여기서 별도로 navigate할 필요가 없다
+    // (예전에는 navigate('/')를 추가로 호출해서 /login → / → (AuthGuard가 다시) /login으로
+    // 불필요하게 두 번 튕기는 문제가 있었다).
+    await signOut();
+    setProfileOpen(false);
+    setMobileOpen(false);
+  };
 
   const toggleMobileAccordion = (key: string) => {
     setMobileAccordion(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const showMissionTab = hasRole('assistant_zone_leader') || hasRole('zone_leader') || hasRole('teacher') || hasRole('president') || hasRole('chief');
-  const showTeacherTab = hasRole('teacher') || hasRole('president') || hasRole('chief');
+  // 모바일 메뉴가 열려도 닫을 때 원래 스크롤 위치를 정확히 복원한다.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (!mobileOpen) return;
 
-  const handleMissionAction = (item: { path?: string; action?: string }) => {
-    if (item.path) navigate(item.path);
-    if (item.action === 'meeting-ideas') setMeetingIdeasOpen(true);
-    setMobileOpen(false);
-  };
+    const scrollY = window.scrollY;
+    const body = document.body;
+    body.dataset.scrollLockY = String(scrollY);
+    body.style.top = `-${scrollY}px`;
+    body.classList.add('scroll-lock');
 
+    return () => {
+      const savedY = Number(body.dataset.scrollLockY || scrollY);
+      body.classList.remove('scroll-lock');
+      body.style.top = '';
+      delete body.dataset.scrollLockY;
+      window.requestAnimationFrame(() => window.scrollTo(0, Number.isFinite(savedY) ? savedY : 0));
+    };
+  }, [mobileOpen]);
+
+  const showMissionTab = user && hasRole('assistant_zone_leader');
+  const showAdminTab = user && hasRole('president');
+  const showTeacherTab = user && (hasRole('teacher') || hasRole('chief'));
+
+  // 사명자 + 교사 대시보드를 합친 목록
+  const fullMissionItems = (() => {
+    const items: { path?: string; label: string; icon: string; action?: string }[] = [];
+    if (showTeacherTab) {
+      items.push({ path: '/teacher-dashboard', label: '교사 대시보드', icon: 'ri-dashboard-line' });
+    }
+    MISSION_SUBSECTIONS.forEach(sec => items.push(...sec.items));
+    return items;
+  })();
+
+  const visibleAdminItems = ADMIN_CATEGORY_ITEMS.filter(i => hasRole(i.minRole));
+
+  // ── 렌더링 ──
   return (
     <>
-      <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-background-50/95 backdrop-blur-md shadow-sm' : 'bg-background-50'}`}>
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <Link to="/" className="flex items-center gap-3 min-w-0">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-500 text-white shadow-sm">
-                <i className="ri-cross-line text-xl" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-foreground-950 sm:text-base">스스로 신앙하는 거침없는 강릉 학생회</p>
-                <p className="hidden text-[10px] font-medium tracking-[0.18em] text-foreground-400 sm:block">GANGNEUNG STUDENT ASSOCIATION</p>
-              </div>
-            </Link>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setNotificationsOpen(true)}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full text-foreground-600 hover:bg-background-100"
-                aria-label="알림"
-              >
-                <i className="ri-notification-3-line text-xl" />
-                {notificationCount > 0 && <span className="absolute right-1 top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-accent-500 px-1 text-[9px] font-bold text-white">{notificationCount > 99 ? '99+' : notificationCount}</span>}
-              </button>
-              <ThemeToggleButton />
-              <button
-                type="button"
-                onClick={() => setMobileOpen(!mobileOpen)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-foreground-600 hover:bg-background-100 lg:hidden"
-                aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'}
-                aria-expanded={mobileOpen}
-              >
-                <i className={`text-2xl ${mobileOpen ? 'ri-close-line' : 'ri-menu-line'}`} />
-              </button>
+    <nav
+      className={`sticky top-0 z-40 pt-safe transition-all duration-300 ${
+        scrolled
+          ? 'bg-background-100/95 backdrop-blur-md shadow-sm border-b border-background-200/60 max-md:rounded-b-2xl max-md:shadow-card max-md:bg-background-100/75 max-md:backdrop-blur-lg max-md:border-b-0'
+          : 'bg-transparent'
+      }`}
+    >
+      <div className="max-w-6xl mx-auto px-4 md:px-6">
+        {/* Row 1: 브랜드 + 다크모드 토글 */}
+        <div className={`relative flex justify-center items-center py-2 md:py-3 transition-all duration-300 ${scrolled ? 'max-md:py-1.5' : ''}`}>
+          <Link
+            to="/"
+            className="flex items-center gap-2 group cursor-pointer max-w-[calc(100%-64px)] md:max-w-none"
+          >
+            <div className="w-8 h-8 rounded-lg bg-primary-100 max-md:bg-gradient-to-br max-md:from-primary-400 max-md:to-accent-400 flex items-center justify-center group-hover:bg-primary-200 transition-colors flex-shrink-0">
+              <i className="ri-cross-line text-primary-600 max-md:text-white text-lg"></i>
             </div>
-          </div>
+            <span className="font-bold text-foreground-950 text-sm md:text-base leading-tight truncate max-md:whitespace-normal max-md:line-clamp-2 md:whitespace-nowrap">
+              스스로 신앙하는 거침없는 강릉 학생회
+            </span>
+          </Link>
 
-          <nav className="hidden items-center gap-1 overflow-x-auto py-2 lg:flex">
-            {TOP_ITEMS.map(item => (
-              <Link key={item.path} to={item.path} className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${isActive(item.path) ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:bg-background-100 hover:text-foreground-950'}`}>
-                <i className={item.icon} />
+          <ThemeToggleButton className="absolute right-0 top-1/2 -translate-y-1/2" />
+        </div>
+
+        <div className="border-t border-primary-100/60"></div>
+
+        {/* Row 2: 네비게이션 + 프로필 */}
+        <div className="flex items-center justify-between h-11 md:h-12">
+
+          {/* ───── 데스크톱 네비게이션 ───── */}
+          <div className="hidden md:flex items-center gap-1">
+            {/* 핵심 5개 항상 노출 */}
+            {TOP_ITEMS.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${
+                  isActive(item.path)
+                    ? 'bg-primary-100 text-primary-700'
+                    : 'text-foreground-600 hover:text-foreground-950 hover:bg-background-100'
+                }`}
+              >
+                <i className={`${item.icon} text-xs`}></i>
                 {item.label}
               </Link>
             ))}
-            <div ref={bibleRef} className="relative">
-              <button type="button" onClick={() => setBibleOpen(v => !v)} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${bibleOpen ? catBgActive(BIBLE_CATEGORY.colorClass) : `text-foreground-600 ${catBgHover(BIBLE_CATEGORY.colorClass)}`}`}>
-                <i className={BIBLE_CATEGORY.icon} />{BIBLE_CATEGORY.name}<i className="ri-arrow-down-s-line text-xs" />
+
+            {/* 구분선 */}
+            <div className="w-px h-5 bg-background-200 mx-1"></div>
+
+            {/* 말씀 도구 드롭다운 */}
+            <div className="relative" ref={bibleRef}>
+              <button
+                onClick={() => { setBibleOpen(!bibleOpen); setFaithOpen(false); setCommOpen(false); setMissionOpen(false); setAdminOpen(false); setProfileOpen(false); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${
+                  bibleOpen ? catBgActive('amber') : `text-foreground-600 ${catBgHover('amber')}`
+                }`}
+              >
+                <i className="ri-book-open-line text-xs"></i>
+                말씀 도구
+                <i className={`ri-arrow-down-s-line text-xs transition-transform duration-200 ${bibleOpen ? 'rotate-180' : ''}`}></i>
               </button>
-              {bibleOpen && <div className="absolute left-0 top-full mt-1 w-64 rounded-2xl border border-background-200 bg-background-50 p-2 shadow-xl">
-                <div className="grid grid-cols-2 gap-1">{BIBLE_CATEGORY.items.map(item => <Link key={item.path} to={item.path} onClick={() => setBibleOpen(false)} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold ${isActive(item.path) ? catBgActive(BIBLE_CATEGORY.colorClass) : `text-foreground-700 ${catBgHover(BIBLE_CATEGORY.colorClass)}`}`}><i className={item.icon} />{item.label}</Link>)}</div>
-              </div>}
+              <AnimatePresence>
+                {bibleOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 top-full mt-2 w-56 bg-background-100 rounded-xl shadow-lg border border-background-200 overflow-hidden"
+                  >
+                    <div className="p-1.5 max-h-[380px] overflow-y-auto">
+                      {BIBLE_CATEGORY.items.map((item) => (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setBibleOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
+                            isActive(item.path) ? 'bg-amber-50 text-amber-700' : 'text-foreground-700 hover:bg-amber-50/70'
+                          }`}
+                        >
+                          <i className={`${item.icon} text-amber-400`}></i>
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <div ref={commRef} className="relative">
-              <button type="button" onClick={() => setCommOpen(v => !v)} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${commOpen ? catBgActive(COMMUNITY_CATEGORY.colorClass) : `text-foreground-600 ${catBgHover(COMMUNITY_CATEGORY.colorClass)}`}`}>
-                <i className={COMMUNITY_CATEGORY.icon} />{COMMUNITY_CATEGORY.name}<i className="ri-arrow-down-s-line text-xs" />
+
+            {/* 소통·공동체 드롭다운 */}
+            <div className="relative" ref={commRef}>
+              <button
+                onClick={() => { setCommOpen(!commOpen); setBibleOpen(false); setFaithOpen(false); setMissionOpen(false); setAdminOpen(false); setProfileOpen(false); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${
+                  commOpen ? catBgActive('emerald') : `text-foreground-600 ${catBgHover('emerald')}`
+                }`}
+              >
+                <i className="ri-group-line text-xs"></i>
+                소통·공동체
+                <i className={`ri-arrow-down-s-line text-xs transition-transform duration-200 ${commOpen ? 'rotate-180' : ''}`}></i>
               </button>
-              {commOpen && <div className="absolute left-0 top-full mt-1 w-64 rounded-2xl border border-background-200 bg-background-50 p-2 shadow-xl"><div className="grid grid-cols-2 gap-1">{COMMUNITY_CATEGORY.items.map(item => <Link key={item.path} to={item.path} onClick={() => setCommOpen(false)} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold ${isActive(item.path) ? catBgActive(COMMUNITY_CATEGORY.colorClass) : `text-foreground-700 ${catBgHover(COMMUNITY_CATEGORY.colorClass)}`}`}><i className={item.icon} />{item.label}</Link>)}</div></div>}
+              <AnimatePresence>
+                {commOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 top-full mt-2 w-52 bg-background-100 rounded-xl shadow-lg border border-background-200 overflow-hidden"
+                  >
+                    <div className="p-1.5 max-h-[380px] overflow-y-auto">
+                      {COMMUNITY_CATEGORY.items.map((item) => (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setCommOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
+                            isActive(item.path) ? 'bg-emerald-50 text-emerald-700' : 'text-foreground-700 hover:bg-emerald-50/70'
+                          }`}
+                        >
+                          <i className={`${item.icon} text-emerald-400`}></i>
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <div ref={gameRef} className="relative">
-              <button type="button" onClick={() => setGameOpen(v => !v)} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${gameOpen ? catBgActive(GAME_CATEGORY.colorClass) : `text-foreground-600 ${catBgHover(GAME_CATEGORY.colorClass)}`}`}>
-                <i className={GAME_CATEGORY.icon} />{GAME_CATEGORY.name}<i className="ri-arrow-down-s-line text-xs" />
+            {/* 갓겜 드롭다운 */}
+            <div className="relative" ref={gameRef}>
+              <button
+                onClick={() => { setGameOpen(!gameOpen); setBibleOpen(false); setFaithOpen(false); setCommOpen(false); setMissionOpen(false); setAdminOpen(false); setProfileOpen(false); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${
+                  gameOpen ? catBgActive('indigo') : `text-foreground-600 ${catBgHover('indigo')}`
+                }`}
+              >
+                <i className="ri-gamepad-line text-xs"></i>
+                갓겜
+                <i className={`ri-arrow-down-s-line text-xs transition-transform duration-200 ${gameOpen ? 'rotate-180' : ''}`}></i>
               </button>
-              {gameOpen && <div className="absolute left-0 top-full mt-1 w-64 rounded-2xl border border-background-200 bg-background-50 p-2 shadow-xl"><div className="grid grid-cols-2 gap-1">{GAME_CATEGORY.items.map(item => <Link key={item.path} to={item.path} onClick={() => setGameOpen(false)} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold ${isActive(item.path) ? catBgActive(GAME_CATEGORY.colorClass) : `text-foreground-700 ${catBgHover(GAME_CATEGORY.colorClass)}`}`}><i className={item.icon} />{item.label}</Link>)}</div></div>}
+              <AnimatePresence>
+                {gameOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 top-full mt-2 w-52 bg-background-100 rounded-xl shadow-lg border border-background-200 overflow-hidden"
+                  >
+                    <div className="p-1.5 max-h-[380px] overflow-y-auto">
+                      {GAME_CATEGORY.items.map((item) => (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setGameOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
+                            isActive(item.path) ? 'bg-indigo-50 text-indigo-700' : 'text-foreground-700 hover:bg-indigo-50/70'
+                          }`}
+                        >
+                          <i className={`${item.icon} text-indigo-400`}></i>
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <div ref={faithRef} className="relative">
-              <button type="button" onClick={() => setFaithOpen(v => !v)} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${faithOpen ? catBgActive(FAITH_CATEGORY.colorClass) : `text-foreground-600 ${catBgHover(FAITH_CATEGORY.colorClass)}`}`}>
-                <i className={FAITH_CATEGORY.icon} />{FAITH_CATEGORY.name}<i className="ri-arrow-down-s-line text-xs" />
+
+            {/* 구분선 — 아래는 나만 보는 개인 기록 보관함 */}
+            <div className="w-px h-5 bg-background-200 mx-1"></div>
+
+            {/* 신앙(비공개) 드롭다운 — 개인 기록 보관함 */}
+            <div className="relative" ref={faithRef}>
+              <button
+                onClick={() => { setFaithOpen(!faithOpen); setBibleOpen(false); setCommOpen(false); setGameOpen(false); setMissionOpen(false); setAdminOpen(false); setProfileOpen(false); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${
+                  faithOpen ? catBgActive('primary') : `text-foreground-600 ${catBgHover('primary')}`
+                }`}
+              >
+                <i className="ri-lock-line text-xs"></i>
+                신앙(비공개)
+                <i className={`ri-arrow-down-s-line text-xs transition-transform duration-200 ${faithOpen ? 'rotate-180' : ''}`}></i>
               </button>
-              {faithOpen && <div className="absolute left-0 top-full mt-1 w-64 rounded-2xl border border-background-200 bg-background-50 p-2 shadow-xl"><div className="grid grid-cols-2 gap-1">{FAITH_CATEGORY.items.map(item => <Link key={item.path} to={item.path} onClick={() => setFaithOpen(false)} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold ${isActive(item.path) ? catBgActive(FAITH_CATEGORY.colorClass) : `text-foreground-700 ${catBgHover(FAITH_CATEGORY.colorClass)}`}`}><i className={item.icon} />{item.label}</Link>)}</div></div>}
+              <AnimatePresence>
+                {faithOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 top-full mt-2 w-52 bg-background-100 rounded-xl shadow-lg border border-background-200 overflow-hidden"
+                  >
+                    <div className="p-1.5 max-h-[380px] overflow-y-auto">
+                      {FAITH_CATEGORY.items.map((item) => (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setFaithOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
+                            isActive(item.path) ? 'bg-primary-50 text-primary-700' : 'text-foreground-700 hover:bg-primary-50/70'
+                          }`}
+                        >
+                          <i className={`${item.icon} text-primary-400`}></i>
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            {showMissionTab && <div ref={missionRef} className="relative">
-              <button type="button" onClick={() => setMissionOpen(v => !v)} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${missionOpen ? catBgActive('rose') : `text-foreground-600 ${catBgHover('rose')}`}`}>
-                <i className="ri-shield-star-line" />사명자 전용<i className="ri-arrow-down-s-line text-xs" />
+
+            {/* 사명자 드롭다운 */}
+            {showMissionTab && (
+              <div className="relative" ref={missionRef}>
+                <button
+                  onClick={() => { setMissionOpen(!missionOpen); setBibleOpen(false); setFaithOpen(false); setCommOpen(false); setAdminOpen(false); setProfileOpen(false); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${
+                    missionOpen ? catBgActive('rose') : `text-accent-600 ${catBgHover('rose')}`
+                  }`}
+                >
+                  <i className="ri-shield-star-line text-xs"></i>
+                  사명자
+                  <i className={`ri-arrow-down-s-line text-xs transition-transform duration-200 ${missionOpen ? 'rotate-180' : ''}`}></i>
+                </button>
+                <AnimatePresence>
+                  {missionOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-0 top-full mt-2 w-60 bg-background-100 rounded-xl shadow-lg border border-background-200 overflow-hidden"
+                    >
+                      <div className="p-1.5 max-h-[440px] overflow-y-auto">
+                        {showTeacherTab && (
+                          <>
+                            <Link
+                              to="/teacher-dashboard"
+                              onClick={() => setMissionOpen(false)}
+                              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer text-accent-700 hover:bg-accent-50"
+                            >
+                              <i className="ri-dashboard-line text-accent-400"></i>
+                              교사 대시보드
+                            </Link>
+                            <div className="border-t border-background-200 my-1"></div>
+                          </>
+                        )}
+                        {MISSION_SUBSECTIONS.map((section) => (
+                          <div key={section.label} className="mb-1">
+                            <p className="px-3 py-1.5 text-[11px] font-semibold text-foreground-400 uppercase tracking-wider">
+                              {section.label}
+                            </p>
+                            {section.items.map((item) => (
+                              <button
+                                key={item.label}
+                                onClick={() => handleMissionAction(item)}
+                                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-foreground-700 hover:bg-accent-50 hover:text-accent-700 transition-colors cursor-pointer text-left"
+                              >
+                                <i className={`${item.icon} text-accent-300`}></i>
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* 관리 드롭다운 */}
+            {(showAdminTab || showTeacherTab) && visibleAdminItems.length > 0 && (
+              <div className="relative" ref={adminRef}>
+                <button
+                  onClick={() => { setAdminOpen(!adminOpen); setBibleOpen(false); setFaithOpen(false); setCommOpen(false); setMissionOpen(false); setProfileOpen(false); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${
+                    adminOpen ? catBgActive('slate') : `text-secondary-600 ${catBgHover('slate')}`
+                  }`}
+                >
+                  <i className="ri-settings-3-line text-xs"></i>
+                  관리
+                  <i className={`ri-arrow-down-s-line text-xs transition-transform duration-200 ${adminOpen ? 'rotate-180' : ''}`}></i>
+                </button>
+                <AnimatePresence>
+                  {adminOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-0 top-full mt-2 w-52 bg-background-100 rounded-xl shadow-lg border border-background-200 overflow-hidden"
+                    >
+                      <div className="p-1.5">
+                        {visibleAdminItems.map((item) => (
+                          <Link
+                            key={item.label}
+                            to={item.path}
+                            onClick={() => setAdminOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-foreground-700 hover:bg-secondary-50 hover:text-secondary-700 transition-colors cursor-pointer"
+                          >
+                            <i className={`${item.icon} text-secondary-400`}></i>
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+
+          {/* ───── 알림 + 데스크톱 프로필 ───── */}
+          <div className="hidden md:flex items-center gap-3">
+            {user && (
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-background-100 transition-colors cursor-pointer relative"
+              >
+                <i className="ri-notification-3-line text-lg text-foreground-600"></i>
+                {notificationCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {notificationCount > 99 ? '99+' : notificationCount}
+                  </span>
+                )}
               </button>
-              {missionOpen && <div className="absolute right-0 top-full mt-1 w-[30rem] max-w-[90vw] rounded-2xl border border-background-200 bg-background-50 p-3 shadow-xl">
-                {showTeacherTab && <div className="mb-3 grid grid-cols-2 gap-2">
-                  <Link to="/student-council-center" onClick={() => setMissionOpen(false)} className={`rounded-xl p-3 text-sm font-bold ${isActive('/student-council-center') ? 'bg-indigo-100 text-indigo-700' : 'bg-background-100 text-foreground-700 hover:bg-indigo-50'}`}><i className="ri-rocket-2-line mr-2" />학생회 발전센터</Link>
-                  <Link to="/teacher-dashboard" onClick={() => setMissionOpen(false)} className={`rounded-xl p-3 text-sm font-bold ${isActive('/teacher-dashboard') ? 'bg-accent-100 text-accent-700' : 'bg-background-100 text-foreground-700 hover:bg-accent-50'}`}><i className="ri-dashboard-line mr-2" />교사 대시보드</Link>
-                </div>}
-                <div className="grid grid-cols-2 gap-2">{MISSION_SUBSECTIONS.flatMap(section => section.items).map(item => <Link key={item.path ?? item.label} to={item.path ?? '#'} onClick={(e) => { if (!item.path) e.preventDefault(); setMissionOpen(false); }} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold ${item.path && isActive(item.path) ? catBgActive('rose') : `text-foreground-700 ${catBgHover('rose')}`}`}><i className={item.icon} />{item.label}</Link>)}</div>
-              </div>}
-            </div>}
-            {hasRole('teacher') || hasRole('president') || hasRole('chief') ? <div ref={adminRef} className="relative">
-              <button type="button" onClick={() => setAdminOpen(v => !v)} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${adminOpen ? catBgActive('slate') : `text-foreground-600 ${catBgHover('slate')}`}`}><i className="ri-settings-3-line" />관리자<i className="ri-arrow-down-s-line text-xs" /></button>
-              {adminOpen && <div className="absolute right-0 top-full mt-1 w-72 rounded-2xl border border-background-200 bg-background-50 p-2 shadow-xl">{ADMIN_CATEGORY_ITEMS.filter(item => hasRole(item.minRole)).map(item => <Link key={item.path} to={item.path} onClick={() => setAdminOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold ${isActive(item.path) ? catBgActive('slate') : `text-foreground-700 ${catBgHover('slate')}`} `}><i className={item.icon} />{item.label}</Link>)}</div>}
-            </div> : null}
-          </nav>
+            )}
+            {user ? (
+              <div className="relative" ref={profileRef}>
+                <button
+                  onClick={() => { setBibleOpen(false); setFaithOpen(false); setCommOpen(false); setMissionOpen(false); setAdminOpen(false); setProfileOpen(!profileOpen); }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-50 hover:bg-primary-100 transition-all duration-200 cursor-pointer hover:scale-[1.02]"
+                >
+                  {profile ? (
+                    <>
+                      <div className="w-7 h-7 rounded-full bg-amber-200 flex items-center justify-center">
+                        <span className="text-xs font-bold text-amber-700">{profile.name.charAt(0)}</span>
+                      </div>
+                      <span className="text-sm font-medium text-foreground-800 max-w-[80px] truncate">{profile.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center">
+                        <span className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
+                      </div>
+                      <span className="text-sm text-foreground-400">불러오는 중...</span>
+                    </>
+                  )}
+                  <i className={`ri-arrow-down-s-line text-foreground-400 text-xs transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''}`}></i>
+                </button>
+
+                <AnimatePresence>
+                  {profileOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-full mt-2 w-60 bg-background-100 rounded-xl shadow-lg border border-background-200 overflow-hidden z-50"
+                    >
+                      {!profile ? (
+                        /* profile still loading */
+                        <div className="p-5 flex items-center gap-3 text-sm text-foreground-500">
+                          <span className="w-4 h-4 border-2 border-primary-300 border-t-transparent rounded-full animate-spin flex-shrink-0"></span>
+                          프로필 불러오는 중...
+                        </div>
+                      ) : (
+                        <>
+                          {/* 프로필 헤더 */}
+                          <div className="p-3 border-b border-background-200">
+                            <p className="text-sm font-semibold text-foreground-900">{profile.name}</p>
+                            <p className="text-xs text-foreground-500">
+                              {profile.roles && profile.roles.length > 1
+                                ? profile.roles.map(r => ROLE_LABELS[r]).join(' · ')
+                                : ROLE_LABELS[profile.role]}
+                            </p>
+                            {profile.club && (
+                              <p className="text-xs text-primary-600 mt-0.5">{CLUB_LABELS[profile.club]}</p>
+                            )}
+                          </div>
+
+                          {/* 동아리 소통방 바로가기 */}
+                          {profile.club && (
+                            <Link
+                              to={`/clubs/${profile.club}/community`}
+                              onClick={() => setProfileOpen(false)}
+                              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-primary-600 hover:bg-primary-50 transition-colors cursor-pointer border-b border-background-100"
+                            >
+                              <i className="ri-chat-smile-2-line"></i>
+                              내 동아리 소통방
+                            </Link>
+                          )}
+
+                          {/* 탭 그룹: 나의 신앙 기록 / 계정 */}
+                          <ProfileDropdownTabs
+                            faithItems={PROFILE_FAITH_ITEMS}
+                            activityItems={PROFILE_ACTIVITY_ITEMS}
+                            onClose={() => setProfileOpen(false)}
+                            onSignOut={handleSignOut}
+                            onSuggestions={handleSuggestions}
+                          />
+                        </>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <i className="ri-login-box-line text-sm"></i>
+                로그인
+              </Link>
+            )}
+          </div>
+
+          {/* 모바일 햄버거 + 알림 */}
+          <div className="flex md:hidden items-center gap-2">
+            {user && (
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-background-200 transition-colors cursor-pointer relative"
+              >
+                <i className="ri-notification-3-line text-lg text-foreground-600"></i>
+                <AnimatePresence>
+                  {notificationCount > 0 && (
+                    <motion.span
+                      key={notificationCount}
+                      initial={{ scale: 0.6 }}
+                      animate={{ scale: [1.25, 1] }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-gradient-to-br from-accent-500 to-primary-500 text-white text-[9px] font-bold flex items-center justify-center shadow-card"
+                    >
+                      {notificationCount > 99 ? '99+' : notificationCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            )}
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-background-200 transition-colors cursor-pointer"
+            >
+              <i className={`text-xl text-foreground-700 ${mobileOpen ? 'ri-close-line' : 'ri-menu-line'}`}></i>
+            </button>
+          </div>
         </div>
+      </div>
 
-        <AnimatePresence>
-          {mobileOpen && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="border-t border-background-200 bg-background-50 lg:hidden">
-              <div className="mx-auto max-h-[calc(100vh-4rem)] max-w-7xl overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                <div className="grid grid-cols-3 gap-1.5">
-                  {TOP_ITEMS.map(item => <Link key={`m-top-${item.path}`} to={item.path} onClick={() => setMobileOpen(false)} className={`flex min-h-12 flex-col items-center justify-center rounded-xl px-2 py-2 text-center text-[11px] font-semibold ${isActive(item.path) ? 'bg-primary-100 text-primary-700' : 'text-foreground-700 hover:bg-background-100'}`}><i className={`${item.icon} mb-0.5 text-lg`} />{item.label}</Link>)}
+      {/* ───── 모바일 메뉴 (전체화면 오버레이) ───── */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="md:hidden fixed inset-0 z-[60] bg-background-50 flex flex-col"
+          >
+            {/* 상단 헤더 */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-background-200 flex-shrink-0">
+              <Link to="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 cursor-pointer">
+                <div className="w-7 h-7 rounded-lg bg-primary-100 flex items-center justify-center">
+                  <i className="ri-cross-line text-primary-600 text-sm"></i>
                 </div>
+                <span className="text-sm font-bold text-foreground-950">강릉 학생회</span>
+              </Link>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="w-10 h-10 rounded-full bg-background-200 flex items-center justify-center cursor-pointer"
+              >
+                <i className="ri-close-line text-xl text-foreground-700"></i>
+              </button>
+            </div>
 
-                <AccordionBlock icon={BIBLE_CATEGORY.icon} label={BIBLE_CATEGORY.name} color="amber" open={!!mobileAccordion['bible']} onToggle={() => toggleMobileAccordion('bible')}>
-                  <div className="grid grid-cols-3 gap-1">{BIBLE_CATEGORY.items.map(item => <MenuGridCard key={`m-bible-${item.path}`} icon={item.icon} label={item.label} colorClass="bg-amber-100 text-amber-700" active={isActive(item.path)} onClick={() => { navigate(item.path); setMobileOpen(false); }} />)}</div>
-                </AccordionBlock>
+            {/* 본문 스크롤 영역 */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe">
+              {/* ── ⓪ 프로필 미니 카드 (그라디언트, 내 권한 뱃지) ── */}
+              {user ? (
+                <MotionLink
+                  to="/profile"
+                  onClick={() => setMobileOpen(false)}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                  className="flex items-center gap-3 p-4 mb-4 rounded-[20px] bg-gradient-to-br from-primary-500 to-accent-500 text-white shadow-card cursor-pointer"
+                >
+                  <div className="w-14 h-14 rounded-full overflow-hidden bg-background-100/20 border-2 border-white/40 flex items-center justify-center flex-shrink-0">
+                    {profile?.profile_image ? (
+                      <img src={profile.profile_image} alt="프로필" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-lg font-bold">{profile?.name?.charAt(0) || '?'}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    {profile ? (
+                      <>
+                        <p className="text-sm font-bold truncate">{profile.name}</p>
+                        <p className="text-[11px] text-white/80 truncate">
+                          {profile.club ? CLUB_LABELS[profile.club] : '동아리 미배정'}
+                        </p>
+                        <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full bg-background-100/25 text-[10px] font-semibold whitespace-nowrap max-w-full truncate">
+                          {roleEmoji(profile.role)}{' '}
+                          {profile.roles && profile.roles.length > 1
+                            ? profile.roles.map(r => ROLE_LABELS[r]).join(' · ')
+                            : ROLE_LABELS[profile.role]}
+                        </span>
+                      </>
+                    ) : (
+                      <p className="text-sm">불러오는 중...</p>
+                    )}
+                  </div>
+                  <i className="ri-arrow-right-s-line text-xl text-white/70 flex-shrink-0"></i>
+                </MotionLink>
+              ) : (
+                <MotionLink
+                  to="/login"
+                  onClick={() => setMobileOpen(false)}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                  className="flex items-center justify-center gap-2 p-4 mb-4 rounded-[20px] bg-gradient-to-br from-primary-500 to-accent-500 text-white text-sm font-semibold shadow-card cursor-pointer"
+                >
+                  <i className="ri-login-box-line"></i> 로그인하기
+                </MotionLink>
+              )}
 
-                <AccordionBlock icon={COMMUNITY_CATEGORY.icon} label={COMMUNITY_CATEGORY.name} color="emerald" open={!!mobileAccordion['community']} onToggle={() => toggleMobileAccordion('community')}>
-                  <div className="grid grid-cols-3 gap-1">{COMMUNITY_CATEGORY.items.map(item => <MenuGridCard key={`m-community-${item.path}`} icon={item.icon} label={item.label} colorClass="bg-emerald-100 text-emerald-700" active={isActive(item.path)} onClick={() => { navigate(item.path); setMobileOpen(false); }} />)}</div>
-                </AccordionBlock>
+              {/* ── ① 핵심 5개 그리드 (앱스토어형) ── */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {TOP_ITEMS.map((item) => (
+                  <MotionLink
+                    key={`mobile-top-${item.path}`}
+                    to={item.path}
+                    onClick={() => setMobileOpen(false)}
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                    className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-colors cursor-pointer ${
+                      isActive(item.path)
+                        ? 'bg-background-100 shadow-card text-primary-700'
+                        : 'text-foreground-600 hover:bg-background-100/60'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      isActive(item.path) ? 'bg-gradient-to-br from-primary-500 to-accent-500' : 'bg-background-100'
+                    }`}>
+                      <i className={`${item.icon} text-lg ${isActive(item.path) ? 'text-white' : 'text-foreground-500'}`}></i>
+                    </div>
+                    <span className="text-[11px] font-medium whitespace-nowrap">{item.label}</span>
+                  </MotionLink>
+                ))}
+              </div>
 
-                <AccordionBlock icon={GAME_CATEGORY.icon} label={GAME_CATEGORY.name} color="indigo" open={!!mobileAccordion['game']} onToggle={() => toggleMobileAccordion('game')}>
-                  <div className="grid grid-cols-3 gap-1">{GAME_CATEGORY.items.map(item => <MenuGridCard key={`m-game-${item.path}`} icon={item.icon} label={item.label} colorClass="bg-indigo-100 text-indigo-700" active={isActive(item.path)} onClick={() => { navigate(item.path); setMobileOpen(false); }} />)}</div>
-                </AccordionBlock>
+              {/* ── ② 말씀 도구 아코디언 ── */}
+              <AccordionBlock
+                icon="ri-book-open-line"
+                label="말씀 도구"
+                color="amber"
+                open={!!mobileAccordion['bible']}
+                onToggle={() => toggleMobileAccordion('bible')}
+              >
+                <div className="grid grid-cols-3 gap-1">
+                  {BIBLE_CATEGORY.items.map((item) => (
+                    <MenuGridCard
+                      key={`m-bible-${item.path}`}
+                      icon={item.icon}
+                      label={item.label}
+                      colorClass="bg-amber-100 text-amber-600"
+                      active={isActive(item.path)}
+                      onClick={() => { navigate(item.path); setMobileOpen(false); }}
+                    />
+                  ))}
+                </div>
+              </AccordionBlock>
 
-                <AccordionBlock icon={FAITH_CATEGORY.icon} label="신앙(비공개)" color="primary" open={!!mobileAccordion['faith']} onToggle={() => toggleMobileAccordion('faith')}>
-                  <div className="grid grid-cols-3 gap-1">{FAITH_CATEGORY.items.map(item => <MenuGridCard key={`m-faith-${item.path}`} icon={item.icon} label={item.label} colorClass="bg-primary-100 text-primary-600" active={isActive(item.path)} onClick={() => { navigate(item.path); setMobileOpen(false); }} />)}</div>
-                </AccordionBlock>
+              {/* ── ③ 소통·공동체 아코디언 ── */}
+              <AccordionBlock
+                icon="ri-group-line"
+                label="소통·공동체"
+                color="emerald"
+                open={!!mobileAccordion['comm']}
+                onToggle={() => toggleMobileAccordion('comm')}
+              >
+                <div className="grid grid-cols-3 gap-1">
+                  {COMMUNITY_CATEGORY.items.map((item) => (
+                    <MenuGridCard
+                      key={`m-comm-${item.path}`}
+                      icon={item.icon}
+                      label={item.label}
+                      colorClass="bg-emerald-100 text-emerald-600"
+                      active={isActive(item.path)}
+                      onClick={() => { navigate(item.path); setMobileOpen(false); }}
+                    />
+                  ))}
+                </div>
+              </AccordionBlock>
 
-                {showMissionTab && <AccordionBlock icon="ri-shield-star-line" label="사명자 전용" color="rose" open={!!mobileAccordion['mission']} onToggle={() => toggleMobileAccordion('mission')}>
+              {/* ── 갓겜 아코디언 ── */}
+              <AccordionBlock
+                icon="ri-gamepad-line"
+                label="갓겜"
+                color="indigo"
+                open={!!mobileAccordion['game']}
+                onToggle={() => toggleMobileAccordion('game')}
+              >
+                <div className="grid grid-cols-3 gap-1">
+                  {GAME_CATEGORY.items.map((item) => (
+                    <MenuGridCard
+                      key={`m-game-${item.path}`}
+                      icon={item.icon}
+                      label={item.label}
+                      colorClass="bg-indigo-100 text-indigo-600"
+                      active={isActive(item.path)}
+                      onClick={() => { navigate(item.path); setMobileOpen(false); }}
+                    />
+                  ))}
+                </div>
+              </AccordionBlock>
+
+              {/* 구분선 — 아래는 나만 보는 개인 기록 보관함 */}
+              <div className="flex items-center gap-2 px-2 py-2 mt-1 mb-2">
+                <div className="h-px flex-1 bg-background-200"></div>
+                <span className="text-[10px] font-bold text-foreground-400 uppercase tracking-widest">나의 기록</span>
+                <div className="h-px flex-1 bg-background-200"></div>
+              </div>
+
+              {/* ── 신앙(비공개) 아코디언 — 개인 기록 보관함 ── */}
+              <AccordionBlock
+                icon="ri-lock-line"
+                label="신앙(비공개)"
+                color="primary"
+                open={!!mobileAccordion['faith']}
+                onToggle={() => toggleMobileAccordion('faith')}
+              >
+                <div className="grid grid-cols-3 gap-1">
+                  {FAITH_CATEGORY.items.map((item) => (
+                    <MenuGridCard
+                      key={`m-faith-${item.path}`}
+                      icon={item.icon}
+                      label={item.label}
+                      colorClass="bg-primary-100 text-primary-600"
+                      active={isActive(item.path)}
+                      onClick={() => { navigate(item.path); setMobileOpen(false); }}
+                    />
+                  ))}
+                </div>
+              </AccordionBlock>
+
+              {/* ── ④ 사명자 아코디언 ── */}
+              {showMissionTab && (
+                <AccordionBlock
+                  icon="ri-shield-star-line"
+                  label="사명자 전용"
+                  color="rose"
+                  open={!!mobileAccordion['mission']}
+                  onToggle={() => toggleMobileAccordion('mission')}
+                >
                   <div className="space-y-3">
                     {showTeacherTab && (
-                      <>
-                        <MenuGridCard
-                          icon="ri-rocket-2-line"
-                          label="학생회 발전센터"
-                          colorClass="bg-indigo-100 text-indigo-600"
-                          active={isActive('/student-council-center')}
-                          onClick={() => { navigate('/student-council-center'); setMobileOpen(false); }}
-                        />
-                        <MenuGridCard
-                          icon="ri-dashboard-line"
-                          label="교사 대시보드"
-                          colorClass="bg-accent-100 text-accent-600"
-                          active={isActive('/teacher-dashboard')}
-                          onClick={() => { navigate('/teacher-dashboard'); setMobileOpen(false); }}
-                        />
-                      </>
+                      <MenuGridCard
+                        icon="ri-rocket-2-line"
+                        label="학생회 발전센터"
+                        colorClass="bg-indigo-100 text-indigo-600"
+                        active={isActive('/student-council-center')}
+                        onClick={() => { navigate('/student-council-center'); setMobileOpen(false); }}
+                      />
+                      <MenuGridCard
+                        icon="ri-dashboard-line"
+                        label="교사 대시보드"
+                        colorClass="bg-accent-100 text-accent-600"
+                        active={isActive('/teacher-dashboard')}
+                        onClick={() => { navigate('/teacher-dashboard'); setMobileOpen(false); }}
+                      />
                     )}
                     {MISSION_SUBSECTIONS.map((section) => (
                       <div key={`m-ms-${section.label}`}>
-                        <p className="px-2 py-1 text-[11px] font-semibold text-foreground-400 uppercase tracking-wider">{section.label}</p>
+                        <p className="px-2 py-1 text-[11px] font-semibold text-foreground-400 uppercase tracking-wider">
+                          {section.label}
+                        </p>
                         <div className="grid grid-cols-3 gap-1">
-                          {section.items.map((item) => <MenuGridCard key={`m-msi-${item.label}`} icon={item.icon} label={item.label} colorClass="bg-accent-100 text-accent-600" active={!!item.path && isActive(item.path)} onClick={() => handleMissionAction(item)} />)}
+                          {section.items.map((item) => (
+                            <MenuGridCard
+                              key={`m-msi-${item.label}`}
+                              icon={item.icon}
+                              label={item.label}
+                              colorClass="bg-accent-100 text-accent-600"
+                              active={!!item.path && isActive(item.path)}
+                              onClick={() => handleMissionAction(item)}
+                            />
+                          ))}
                         </div>
                       </div>
                     ))}
                   </div>
-                </AccordionBlock>}
+                </AccordionBlock>
+              )}
 
-                {(hasRole('teacher') || hasRole('president') || hasRole('chief')) && <AccordionBlock icon="ri-settings-3-line" label="관리자" color="slate" open={!!mobileAccordion['admin']} onToggle={() => toggleMobileAccordion('admin')}>
-                  <div className="grid grid-cols-3 gap-1">{ADMIN_CATEGORY_ITEMS.filter(item => hasRole(item.minRole)).map(item => <MenuGridCard key={`m-admin-${item.path}`} icon={item.icon} label={item.label} colorClass="bg-secondary-100 text-secondary-700" active={isActive(item.path)} onClick={() => { navigate(item.path); setMobileOpen(false); }} />)}</div>
-                </AccordionBlock>}
+              {/* ── ⑤ 관리 아코디언 ── */}
+              {(showAdminTab || showTeacherTab) && visibleAdminItems.length > 0 && (
+                <AccordionBlock
+                  icon="ri-settings-3-line"
+                  label="관리"
+                  color="slate"
+                  open={!!mobileAccordion['admin']}
+                  onToggle={() => toggleMobileAccordion('admin')}
+                >
+                  <div className="grid grid-cols-3 gap-1">
+                    {visibleAdminItems.map((item) => (
+                      <MenuGridCard
+                        key={`m-admin-${item.label}`}
+                        icon={item.icon}
+                        label={item.label}
+                        colorClass="bg-secondary-100 text-secondary-600"
+                        active={isActive(item.path)}
+                        onClick={() => { navigate(item.path); setMobileOpen(false); }}
+                      />
+                    ))}
+                  </div>
+                </AccordionBlock>
+              )}
 
-                {profile && <div className="mt-4 flex items-center gap-3 rounded-2xl border border-background-200 bg-background-100 p-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-lg">{roleEmoji(profile.role as UserRole)}</div>
-                  <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-foreground-950">{profile.name || user?.email}</p><p className="truncate text-xs text-foreground-500">{ROLE_LABELS[profile.role as UserRole] ?? profile.role}</p></div>
-                  <button type="button" onClick={async () => { await signOut(); setMobileOpen(false); }} className="rounded-xl bg-background-50 px-3 py-2 text-xs font-bold text-foreground-700">로그아웃</button>
-                </div>}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </header>
+              {/* ── 계정 영역 (우선순위 낮춰 최하단, 프로필 정보는 위 미니카드에 이미 표시됨) ── */}
+              {user && (
+                <div className="mt-2 pt-3 border-t border-background-200 pb-8 space-y-1">
+                  {profile && profile.club && (
+                    <Link to={`/clubs/${profile.club}/community`} onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-primary-600 hover:bg-primary-50 transition-colors cursor-pointer">
+                      <i className="ri-chat-smile-2-line"></i>내 동아리 소통방
+                    </Link>
+                  )}
+                  <Link to="/dashboard/attendance" onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground-700 hover:bg-background-100 transition-colors cursor-pointer">
+                    <i className="ri-user-heart-line"></i>스마트 출석
+                  </Link>
+                  <Link to="/missions/board" onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground-700 hover:bg-background-100 transition-colors cursor-pointer">
+                    <i className="ri-medal-line"></i>작은 사명
+                  </Link>
+                  <Link to="/profile" onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-primary-600 hover:bg-primary-50 transition-colors cursor-pointer font-medium">
+                    <i className="ri-user-settings-line"></i>프로필 설정
+                  </Link>
+                  <button onClick={handleSignOut}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground-700 hover:bg-background-100 transition-colors cursor-pointer">
+                    <i className="ri-logout-box-line"></i>로그아웃
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
 
-      <NotificationsModal open={notificationsOpen} onClose={() => setNotificationsOpen(false)} user={user} />
-      <MeetingIdeasModal open={meetingIdeasOpen} onClose={() => setMeetingIdeasOpen(false)} />
-      <NotificationToast user={user} />
+    {/* 모달 */}
+    <MeetingIdeasModal open={meetingIdeasOpen} onClose={() => setMeetingIdeasOpen(false)} />
+    <NotificationsModal open={notificationsOpen} onClose={() => setNotificationsOpen(false)} user={user} />
+    <NotificationToast user={user} onOpenList={() => setNotificationsOpen(true)} />
     </>
   );
 }
 
-function AccordionBlock({ icon, label, color, open, onToggle, children }: { icon: string; label: string; color: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
-  const colorMap: Record<string, string> = {
-    amber: 'bg-amber-50 text-amber-700',
-    emerald: 'bg-emerald-50 text-emerald-700',
-    indigo: 'bg-indigo-50 text-indigo-700',
-    primary: 'bg-primary-50 text-primary-700',
-    rose: 'bg-accent-50 text-accent-700',
-    slate: 'bg-secondary-50 text-secondary-700',
-  };
-  return <div className="mt-3 overflow-hidden rounded-2xl border border-background-200 bg-background-50"><button type="button" onClick={onToggle} className={`flex w-full items-center justify-between px-4 py-3 text-sm font-bold ${open ? colorMap[color] : 'text-foreground-800'}`} aria-expanded={open}><span className="flex items-center gap-2"><i className={icon} />{label}</span><i className={`ri-arrow-down-s-line transition-transform ${open ? 'rotate-180' : ''}`} /></button>{open && <div className="border-t border-background-200 p-3">{children}</div>}</div>;
+// ──────────────────────────────────────────────
+// 모바일 아코디언 블록 (재사용)
+// ──────────────────────────────────────────────
+
+function AccordionBlock({
+  icon,
+  label,
+  color,
+  open,
+  onToggle,
+  children,
+}: {
+  icon: string;
+  label: string;
+  color: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const bg = color === 'amber' ? 'bg-amber-50 text-amber-700' :
+             color === 'emerald' ? 'bg-emerald-50 text-emerald-700' :
+             color === 'rose' ? 'bg-accent-50 text-accent-700' :
+             color === 'primary' ? 'bg-primary-50 text-primary-700' :
+             color === 'indigo' ? 'bg-indigo-50 text-indigo-700' :
+             'bg-secondary-50 text-secondary-700';
+  const badgeBg = color === 'amber' ? 'bg-amber-100 text-amber-600' :
+             color === 'emerald' ? 'bg-emerald-100 text-emerald-600' :
+             color === 'rose' ? 'bg-accent-100 text-accent-600' :
+             color === 'primary' ? 'bg-primary-100 text-primary-600' :
+             color === 'indigo' ? 'bg-indigo-100 text-indigo-600' :
+             'bg-secondary-100 text-secondary-600';
+
+  return (
+    <div className="mb-2">
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-sm font-semibold transition-colors cursor-pointer ${
+          open ? bg : 'text-foreground-700 hover:bg-background-100'
+        }`}
+      >
+        <span className="flex items-center gap-2.5">
+          <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${badgeBg}`}>
+            <i className={`${icon} text-sm`}></i>
+          </span>
+          {label}
+        </span>
+        <motion.i
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+          className={`ri-arrow-down-s-line text-base ${open ? '' : 'text-foreground-400'}`}
+        ></motion.i>
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="px-2 pt-2 pb-1">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
-function MenuGridCard({ icon, label, colorClass, active, onClick }: { icon: string; label: string; colorClass: string; active?: boolean; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className={`flex min-h-16 flex-col items-center justify-center rounded-xl border p-2 text-center transition ${active ? `${colorClass} border-current/20` : 'border-background-200 bg-background-50 text-foreground-700 hover:bg-background-100'}`}><i className={`${icon} mb-1 text-lg`} /><span className="text-[11px] font-semibold leading-tight">{label}</span></button>;
+// ──────────────────────────────────────────────
+// 3열 그리드 메뉴 카드 (아코디언 내부 항목 — 인스타 감성 통일)
+// ──────────────────────────────────────────────
+
+function MenuGridCard({
+  icon,
+  label,
+  colorClass,
+  active,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  colorClass: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+      className={`flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-2xl text-center cursor-pointer transition-colors ${
+        active ? 'bg-background-100 shadow-card' : 'hover:bg-background-100/70'
+      }`}
+    >
+      <span className={`w-9 h-9 rounded-full flex items-center justify-center ${colorClass}`}>
+        <i className={`${icon} text-sm`}></i>
+      </span>
+      <span className="text-[11px] font-medium text-foreground-700 leading-tight line-clamp-2">
+        {label}
+      </span>
+    </motion.button>
+  );
+}
+
+// ──────────────────────────────────────────────
+// 프로필 드롭다운 탭 컴포넌트
+// ──────────────────────────────────────────────
+
+function ProfileDropdownTabs({
+  faithItems,
+  activityItems,
+  onClose,
+  onSignOut,
+  onSuggestions,
+}: {
+  faithItems: CategoryItem[];
+  activityItems: CategoryItem[];
+  onClose: () => void;
+  onSignOut: () => void;
+  onSuggestions: (e: React.MouseEvent) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'faith' | 'account'>('faith');
+
+  return (
+    <div>
+      {/* 탭 헤더 */}
+      <div className="flex border-b border-background-100">
+        <button
+          onClick={() => setActiveTab('faith')}
+          className={`flex-1 py-2.5 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'faith' ? 'text-primary-700 border-b-2 border-primary-500' : 'text-foreground-500 hover:text-foreground-700'}`}
+        >
+          <i className="ri-book-open-line mr-1"></i>나의 신앙 기록
+        </button>
+        <button
+          onClick={() => setActiveTab('account')}
+          className={`flex-1 py-2.5 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${activeTab === 'account' ? 'text-primary-700 border-b-2 border-primary-500' : 'text-foreground-500 hover:text-foreground-700'}`}
+        >
+          <i className="ri-user-settings-line mr-1"></i>계정
+        </button>
+      </div>
+
+      {/* 탭 내용 */}
+      {activeTab === 'faith' ? (
+        <div className="py-1">
+          {/* 신앙 기록 */}
+          <div className="pb-0.5">
+            {faithItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={onClose}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-foreground-700 hover:bg-background-100 transition-colors cursor-pointer"
+              >
+                <i className={`${item.icon} text-foreground-400`}></i>
+                {item.label}
+              </Link>
+            ))}
+          </div>
+          {/* 활동 */}
+          <div className="border-t border-background-100 pt-1 pb-0.5">
+            <p className="px-3 py-1.5 text-[10px] font-bold text-foreground-400 uppercase tracking-widest">
+              활동
+            </p>
+            {activityItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={onClose}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-foreground-700 hover:bg-background-100 transition-colors cursor-pointer"
+              >
+                <i className={`${item.icon} text-foreground-400`}></i>
+                {item.label}
+              </Link>
+            ))}
+            <Link
+              to="/dashboard"
+              onClick={(e) => { onClose(); onSuggestions(e); }}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-foreground-700 hover:bg-background-100 transition-colors cursor-pointer"
+            >
+              <i className="ri-lightbulb-line text-foreground-400"></i>
+              건의사항
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="py-1">
+          {/* 계정 탭 */}
+          <div className="pb-1">
+            <Link
+              to="/profile"
+              onClick={onClose}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-foreground-700 hover:bg-background-100 transition-colors cursor-pointer"
+            >
+              <i className="ri-user-settings-line text-foreground-400"></i>
+              프로필 설정
+            </Link>
+            <button
+              onClick={onSignOut}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-foreground-700 hover:bg-background-100 transition-colors cursor-pointer"
+            >
+              <i className="ri-logout-box-line text-foreground-400"></i>
+              로그아웃
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
