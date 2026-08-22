@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { MEETING_CLUB_OPTIONS } from '@/constants/meetingClubs';
 import type { MeetingClub } from '@/constants/meetingClubs';
+import { todayKey } from '@/lib/date';
 
 const COMMON_TAGS = ['출석률', '심방', '수련회', '예산', '홍보', 'SNS', '콘텐츠', '시스템개선', '사역방향', '동아리협력', '장비', '인력부족', '찬양집회', '신입생'];
 
@@ -11,7 +12,7 @@ export default function MeetingWritePage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(todayKey());
   const [club, setClub] = useState<MeetingClub | ''>((profile?.club as MeetingClub) || '');
   const [attendeesText, setAttendeesText] = useState(profile?.name || '');
   const [summary, setSummary] = useState('');

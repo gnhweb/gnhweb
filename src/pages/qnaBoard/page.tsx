@@ -1,10 +1,10 @@
-import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { CLUB_LABELS } from '@/types/auth';
 import type { ClubType } from '@/types/auth';
+import { formatDateKey } from '@/lib/date';
 
 interface Question {
   id: string;
@@ -306,7 +306,7 @@ export default function QandABoard() {
                         <div className="w-6 h-6 rounded-full bg-accent-100 flex items-center justify-center">
                           <i className="ri-question-mark text-accent-600 text-xs"></i>
                         </div>
-                        <span className="text-xs text-accent-600 font-medium">익명 · {formatLocalDate(new Date(q.created_at))}</span>
+                        <span className="text-xs text-accent-600 font-medium">익명 · {formatDateKey(q.created_at)}</span>
                         <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">답변 완료</span>
                         {canEditQuestion(q.author_id) && (
                           <button onClick={(e) => { e.preventDefault(); setEditingQId(q.id); setEditQText(q.question); }} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full text-gray-400 hover:text-foreground-600 hover:bg-background-200 cursor-pointer">
@@ -343,7 +343,7 @@ export default function QandABoard() {
                             <i className="ri-user-star-line text-emerald-700 text-xs"></i>
                           </div>
                           <span className="text-xs font-bold text-emerald-700">{q.answer_author}</span>
-                          {q.answered_at && <span className="text-xs text-emerald-600">{formatLocalDate(new Date(q.answered_at))}</span>}
+                          {q.answered_at && <span className="text-xs text-emerald-600">{formatDateKey(q.answered_at)}</span>}
                         </div>
                         <p className="text-sm text-emerald-800 leading-relaxed">{q.answer}</p>
                       </div>
@@ -367,7 +367,7 @@ export default function QandABoard() {
                       <div className="w-6 h-6 rounded-full bg-accent-100 flex items-center justify-center">
                         <i className="ri-question-mark text-accent-600 text-xs"></i>
                       </div>
-                      <span className="text-xs text-accent-600 font-medium">익명 · {formatLocalDate(new Date(q.created_at))}</span>
+                      <span className="text-xs text-accent-600 font-medium">익명 · {formatDateKey(q.created_at)}</span>
                       <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">답변 대기</span>
                       {canEditQuestion(q.author_id) && (
                         <button onClick={(e) => { e.preventDefault(); setEditingQId(q.id); setEditQText(q.question); }} className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full text-gray-400 hover:text-foreground-600 hover:bg-background-200 cursor-pointer">

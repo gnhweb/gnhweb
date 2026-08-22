@@ -1,8 +1,8 @@
-import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { todayKey } from '@/lib/date';
 
 interface FaithEntry {
   id: string;
@@ -66,7 +66,7 @@ export default function FaithJournal() {
           scripture: formData.scripture.trim(),
           content: formData.content.trim(),
           mood: formData.mood,
-          entry_date: formatLocalDate(new Date()),
+          entry_date: todayKey(),
         })
         .select()
         .single();

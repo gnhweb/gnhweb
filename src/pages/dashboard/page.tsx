@@ -1,4 +1,3 @@
-import { formatLocalDate } from '@/lib/date';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,6 +6,7 @@ import { ROLE_LABELS, CLUB_LABELS, ROLE_HIERARCHY } from '@/types/auth';
 import type { ClubType, UserRole } from '@/types/auth';
 import { clubs } from '@/mocks/clubs';
 import { supabase } from '@/lib/supabase';
+import { dateKey } from '@/lib/date';
 
 interface VisitationWidget {
   id: string;
@@ -161,7 +161,7 @@ export default function Dashboard() {
           stats.pendingApproval = String(pendingApproval);
 
           // 출석률: 이번 달 attendance
-          const monthStart = formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1));
+          const monthStart = dateKey(new Date(now.getFullYear(), now.getMonth(), 1));
           const { count: attTotal } = await sb.from('attendance').select('*', { count: 'exact', head: true }).gte('attendance_date', monthStart);
           const { count: attPresent } = await sb.from('attendance').select('*', { count: 'exact', head: true }).gte('attendance_date', monthStart).eq('status', 'present');
           const attRate = attTotal && attTotal > 0 ? Math.round(((attPresent || 0) / attTotal) * 100) : 0;

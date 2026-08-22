@@ -1,9 +1,9 @@
-import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { todayKey } from '@/lib/date';
 
 interface PersonalSchedule {
   id: string;
@@ -26,7 +26,7 @@ export default function PersonalSchedule() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    date: formatLocalDate(new Date()),
+    date: todayKey(),
     time: '',
     title: prefilled.prefilledTitle || '',
     description: prefilled.prefilledDescription || '',

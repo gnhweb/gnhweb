@@ -1,4 +1,3 @@
-import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -6,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { CLUB_LABELS } from '@/types/auth';
 import type { ClubType } from '@/types/auth';
+import { todayKey } from '@/lib/date';
 
 const ALL_CLUBS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu', 'cheonhwarae_cheongmyeong'];
 
@@ -77,7 +77,7 @@ export default function TeacherDashboard() {
     loadDashboardData();
 
     // Realtime subscription for attendance updates
-    const todayStr = formatLocalDate(new Date());
+    const todayStr = todayKey();
     const channel = supabase
       .channel('teacher-dashboard-attendance')
       .on(
@@ -155,7 +155,7 @@ export default function TeacherDashboard() {
       setPendingMarathon(marathonData || []);
 
       // Fetch attendance summary (today's) + detailed list
-      const today = formatLocalDate(new Date());
+      const today = todayKey();
       let attQuery = supabase.from('attendance').select('*').eq('attendance_date', today);
       if (effectiveClub !== 'all') {
         attQuery = attQuery.eq('club', effectiveClub);

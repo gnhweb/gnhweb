@@ -6,12 +6,13 @@ import { supabase } from '@/lib/supabase';
 import { CLUB_LABELS } from '@/types/auth';
 import type { ClubType } from '@/types/auth';
 import { notifyReportSubmitted } from '@/lib/reportNotifications';
+import { todayKey } from '@/lib/date';
 
 export default function GrowthReportWrite() {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   const [studentName, setStudentName] = useState('');
   const [recordDate, setRecordDate] = useState(today);
   const [spiritualGrowth, setSpiritualGrowth] = useState('');

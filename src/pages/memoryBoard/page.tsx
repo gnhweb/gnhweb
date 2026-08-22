@@ -1,4 +1,3 @@
-import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { clubs } from '@/mocks/clubs';
 import PhotoLightbox from '@/components/feature/PhotoLightbox';
 import { CategoryChip, CategoryChipRow } from '@/components/base/CategoryChip';
+import { formatDateKey } from '@/lib/date';
 
 interface PhotoMemory {
   id: string;
@@ -205,7 +205,7 @@ export default function MemoryBoard() {
                   <p className="text-sm font-semibold text-foreground-800 truncate">{photo.title}</p>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-xs text-foreground-600">{photo.author_name}</span>
-                    <span className="text-xs text-foreground-500">{formatLocalDate(new Date(photo.created_at))}</span>
+                    <span className="text-xs text-foreground-500">{formatDateKey(photo.created_at)}</span>
                   </div>
                   {photo.club && (
                     <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600">{clubs.find(c => c.id === photo.club)?.name}</span>

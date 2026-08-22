@@ -1,9 +1,9 @@
-import { Link } from "react-router-dom";
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { MISSION_CATEGORIES } from '@/constants/missionBadges';
+import { Link } from 'react-router-dom';
 
 interface Mission {
   id: string;

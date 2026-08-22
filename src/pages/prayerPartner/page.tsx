@@ -1,8 +1,8 @@
-import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { todayKey } from '@/lib/date';
 
 interface MemberData {
   user_id: string;
@@ -116,7 +116,7 @@ export default function PrayerPartner() {
       }
 
       // Insert new pairs
-      const today = formatLocalDate(new Date());
+      const today = todayKey();
       const insertData = allPairs.map((p, i) => ({
         pair_name: `기도 파트너 ${i + 1}조`,
         members: p,

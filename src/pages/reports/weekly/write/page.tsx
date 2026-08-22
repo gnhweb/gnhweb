@@ -1,4 +1,3 @@
-import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -7,13 +6,14 @@ import { supabase } from '@/lib/supabase';
 import { CLUB_LABELS } from '@/types/auth';
 import type { ClubType } from '@/types/auth';
 import { notifyReportSubmitted } from '@/lib/reportNotifications';
+import { dateKey } from '@/lib/date';
 
 function getMonday(d: Date): string {
   const date = new Date(d);
   const day = date.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   date.setDate(date.getDate() + diff);
-  return formatLocalDate(date);
+  return dateKey(date);
 }
 
 function getWeekRange(startStr: string): string {

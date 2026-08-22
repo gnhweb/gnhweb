@@ -1,4 +1,3 @@
-import { formatLocalDate } from '@/lib/date';
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { clubs } from '@/mocks/clubs';
 import { CategoryChip, CategoryChipRow } from '@/components/base/CategoryChip';
+import { todayKey } from '@/lib/date';
 
 interface CalDay {
   date: number;
@@ -20,7 +20,7 @@ function getCalDays(year: number, month: number, eventDates: Set<string>): CalDa
   const firstDay = new Date(year, month, 1);
   const startOffset = firstDay.getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayStr = formatLocalDate(new Date());
+  const todayStr = todayKey();
 
   const prevMonthDays = new Date(year, month, 0).getDate();
   for (let i = startOffset - 1; i >= 0; i--) {

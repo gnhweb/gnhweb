@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { dateKey } from '@/lib/date';
 
 interface LeaderboardEntry {
   user_id: string;
@@ -30,9 +31,9 @@ export default function MissionLeaderboardPage() {
     setError(null);
     try {
       const [year, month] = selectedMonth.split('-').map(Number);
-      const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+      const startDate = dateKey(new Date(year, month - 1, 1));
       const endDateObj = new Date(year, month, 0);
-      const endDate = endDateObj.toISOString().split('T')[0];
+      const endDate = dateKey(endDateObj);
 
       const { data: assignments, error: assignErr } = await supabase
         .from('mission_assignments')

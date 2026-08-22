@@ -4,12 +4,13 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { clubs } from '@/mocks/clubs';
+import { todayKey } from '@/lib/date';
 
 export default function ScheduleWrite() {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   const [title, setTitle] = useState('');
   const [eventDate, setEventDate] = useState(today);
   const [eventTime, setEventTime] = useState('');

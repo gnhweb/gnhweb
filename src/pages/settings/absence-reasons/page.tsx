@@ -1,9 +1,9 @@
-import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { ROLE_HIERARCHY } from '@/types/auth';
+import { Link } from 'react-router-dom';
 
 interface AbsenceReason {
   id: string;

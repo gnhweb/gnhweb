@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { todayKey } from '@/lib/date';
 
 interface SeniorStudent {
   user_id: string;
@@ -94,7 +95,7 @@ export default function SeniorRollingPaper() {
   };
 
   const canViewPaper = (paper: RollingPaper) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayKey();
     if (paper.reveal_date <= today) return true;
     if (paper.author_id === user?.id) return true;
     if (paper.target_user_id === user?.id && paper.reveal_date <= today) return true;
@@ -102,7 +103,7 @@ export default function SeniorRollingPaper() {
   };
 
   const isLocked = (paper: RollingPaper) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayKey();
     return paper.reveal_date > today;
   };
 
@@ -246,7 +247,7 @@ export default function SeniorRollingPaper() {
                 </div>
                 <div>
                   <label className="text-xs text-foreground-600 block mb-1">공개일 지정</label>
-                  <input type="date" value={revealDate} onChange={e => setRevealDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none focus:border-violet-400" />
+                  <input type="date" value={revealDate} onChange={e => setRevealDate(e.target.value)} min={todayKey()} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none focus:border-violet-400" />
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-4">
