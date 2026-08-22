@@ -80,18 +80,27 @@ export default function BottomTabBar() {
     const updateKeyboardState = () => {
       if (!viewport) return;
       const heightGap = window.innerHeight - viewport.height;
-      const keyboardVisible = heightGap > 150 && viewport.offsetTop === 0;
+      const keyboardVisible = heightGap > Math.max(120, window.innerHeight * 0.18);
+      document.body.classList.toggle("ios-keyboard-open", keyboardVisible);
       setKeyboardOpen(keyboardVisible);
     };
 
     updateKeyboardState();
     viewport?.addEventListener("resize", updateKeyboardState);
     viewport?.addEventListener("scroll", updateKeyboardState);
+    window.addEventListener("resize", updateKeyboardState);
+    document.addEventListener("focusin", updateKeyboardState);
+    document.addEventListener("focusout", () => {
+      window.setTimeout(updateKeyboardState, 120);
+    });
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
       viewport?.removeEventListener("resize", updateKeyboardState);
       viewport?.removeEventListener("scroll", updateKeyboardState);
+      window.removeEventListener("resize", updateKeyboardState);
+      document.body.classList.remove("ios-keyboard-open");
+      document.removeEventListener("focusin", updateKeyboardState);
     };
   }, [location.pathname]);
 
