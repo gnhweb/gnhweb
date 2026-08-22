@@ -3,54 +3,15 @@
  * iOS Safari + Android Chrome safe improvements; no business logic changes.
  */
 
-const MOBILE_TOAST_EVENT = 'gnh-mobile-toast';
-
 function isCoarsePointer() {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
     ? window.matchMedia('(pointer: coarse)').matches
     : false;
 }
 
-function showMobileToast(message: string) {
-  if (typeof document === 'undefined') return;
-  let host = document.getElementById('gnh-mobile-toast-host');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'gnh-mobile-toast-host';
-    host.className = 'gnh-mobile-toast-host';
-    document.body.appendChild(host);
-  }
-
-  const item = document.createElement('div');
-  item.className = 'gnh-mobile-toast';
-  item.textContent = message;
-  host.appendChild(item);
-
-  window.setTimeout(() => {
-    item.classList.add('is-leaving');
-    window.setTimeout(() => item.remove(), 180);
-  }, 2800);
-}
-
-function patchMobileAlert() {
-  if (!isCoarsePointer()) return;
-  const originalAlert = window.alert.bind(window);
-  // Keep a reference for debugging / emergency fallback.
-  (window as unknown as { __gnhOriginalAlert?: typeof window.alert }).__gnhOriginalAlert = originalAlert;
-
-  window.alert = (message?: string) => {
-    try {
-      showMobileToast(String(message ?? ''));
-    } catch {
-      originalAlert(message);
-    }
-  };
-}
-
 function patchVibrateForUnsupportedBrowsers() {
   if (typeof navigator === 'undefined' || !('vibrate' in navigator)) return;
   const userAgent = navigator.userAgent || '';
-  // iOS Safari generally exposes no useful vibration API. Keep a harmless no-op there.
   if (/iPhone|iPad|iPod/i.test(userAgent)) {
     try {
       Object.defineProperty(navigator, 'vibrate', {
@@ -58,13 +19,13 @@ function patchVibrateForUnsupportedBrowsers() {
         value: () => false,
       });
     } catch {
-      // Ignore if the browser exposes a non-configurable implementation.
+      // Ignore non-configurable implementations.
     }
   }
 }
 
 function observeScrollLock() {
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined' || typeof window === 'undefined') return;
 
   let locked = false;
   let savedScrollY = 0;
@@ -97,8 +58,8 @@ function observeScrollLock() {
 function upgradeHiddenPinInputs() {
   if (typeof document === 'undefined') return;
 
-  const upgrade = () => {
-    document.querySelectorAll<HTMLInputElement>('input[data-gnh-pin-input]').forEach((input) => {
+  const upgrade = (root: ParentNode) => {
+    root.querySelectorAll<HTMLInputElement>('input[data-gnh-pin-input]').forEach((input) => {
       input.setAttribute('aria-label', 'PIN 입력');
       input.style.pointerEvents = 'auto';
       input.style.position = 'fixed';
@@ -110,31 +71,38 @@ function upgradeHiddenPinInputs() {
     });
   };
 
-  upgrade();
-  const observer = new MutationObserver(upgrade);
+  upgrade(document);
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      record.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) upgrade(node as Element);
+      });
+    }
+  });
   observer.observe(document.body, { subtree: true, childList: true });
 }
 
 function enableLazyImages() {
   if (typeof document === 'undefined') return;
 
-  const maybeLazy = (img: HTMLImageElement) => {
-    if (img.dataset.noLazy === 'true') return;
-    if (img.loading === 'lazy') return;
-
-    const rect = img.getBoundingClientRect();
-    if (rect.top > window.innerHeight * 1.25) {
-      img.loading = 'lazy';
-    }
-    img.decoding = 'async';
+  const markImages = (root: ParentNode) => {
+    root.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
+      if (img.dataset.noLazy === 'true') return;
+      if (!img.loading) img.loading = 'lazy';
+      img.decoding = 'async';
+    });
   };
 
-  const scan = () => document.querySelectorAll<HTMLImageElement>('img').forEach(maybeLazy);
-  scan();
+  markImages(document);
 
-  const observer = new MutationObserver(scan);
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      record.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) markImages(node as Element);
+      });
+    }
+  });
   observer.observe(document.body, { subtree: true, childList: true });
-  window.addEventListener('resize', scan, { passive: true });
 }
 
 function addExternalResourceHints() {
@@ -165,11 +133,11 @@ function addExternalResourceHints() {
 export function initMobileRuntime() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
+  // Avoid changing window.alert globally: alerts may be semantically important.
   observeScrollLock();
   upgradeHiddenPinInputs();
   enableLazyImages();
   addExternalResourceHints();
   patchVibrateForUnsupportedBrowsers();
-  patchMobileAlert();
-  window.dispatchEvent(new CustomEvent(MOBILE_TOAST_EVENT));
+  void isCoarsePointer();
 }

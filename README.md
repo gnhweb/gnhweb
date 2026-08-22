@@ -1,25 +1,21 @@
-# Android + iPhone mobile patch (PWA auto-refresh excluded)
+# Final Android + iPhone mobile cleanup patch
 
-덮어쓰기 대상:
-- src/main.tsx
-- src/mobile-runtime.ts
-- src/mobile-runtime.css
-- src/components/feature/AppLockScreen.tsx
+This patch is based on the current mobile changes and fixes the latest Vercel JSX build error in `NotificationsModal.tsx`.
 
-적용한 범위:
-- scroll-lock 해제 시 원래 스크롤 위치 복원
-- PIN 숨김 input의 물리 키보드 접근성 개선
-- 모바일 alert를 비차단 toast로 보이게 개선
-- 화면 아래쪽 이미지 lazy-loading/decoding 보강
-- iOS 미지원 vibrate를 무해한 no-op으로 처리
-- 상단 toast/modal safe-area 대응
-- overflow 스크롤의 iOS 관성 스크롤 보강
-- 외부 CDN preconnect/dns-prefetch 보강
+Included:
+- Fix malformed JSX that caused `Expected ">" but found "["` at NotificationsModal.tsx:374.
+- Remove global `window.alert` override from mobile runtime; alerts remain semantically intact.
+- Reduce image MutationObserver work: only inspect newly added DOM nodes instead of rescanning every image on every mutation.
+- Keep hidden PIN input accessibility selector aligned with AppLockScreen (`data-gnh-pin-input`).
+- Keep scroll-lock position restoration and iOS/Android vibration no-op behavior.
+- Change notification permission request to explicit user action via an `알림 허용` button.
+- Make notification close/delete actions touch-friendly (44px), remove hover-only delete behavior.
+- Add safe-area-aware notification toast positioning and mobile-friendly text wrapping.
 
-제외:
-- PWA 자동 새로고침 정책
-- 부장계정
-- NVIDIA/NIM/회의 AI 보안
-- 게임 규칙/게임플레이 로직
+Excluded:
+- PWA automatic reload policy.
+- Chief account / setup logic.
+- NVIDIA / NIM / meeting AI security logic.
+- Game rules.
 
-주의: 이 패치는 실제 iPhone/Android 실기기 테스트 완료본이 아니라 코드 기준 보강 패치입니다.
+Important: This is a code patch. A production `vite build` must still be verified by Vercel after upload.
