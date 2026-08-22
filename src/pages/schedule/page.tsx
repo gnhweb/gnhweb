@@ -271,7 +271,7 @@ export default function Schedule() {
                 <i className="ri-arrow-right-s-line text-foreground-600"></i>
               </button>
             </div>
-            <div className="grid grid-cols-7 gap-y-1 text-center">
+            <div className="grid grid-cols-7 gap-y-2 text-center">
               {['일', '월', '화', '수', '목', '금', '토'].map(w => (
                 <span key={w} className="text-[10px] font-semibold text-foreground-400">{w}</span>
               ))}
@@ -280,7 +280,7 @@ export default function Schedule() {
                   key={`${d.dateStr}-${i}`}
                   onClick={() => d.isCurrentMonth && setSelectedDate(selectedDate === d.dateStr ? null : d.dateStr)}
                   disabled={!d.isCurrentMonth}
-                  className="relative flex min-h-10 min-w-10 md:min-h-8 md:min-w-8 flex-col items-center justify-center py-1 cursor-pointer disabled:cursor-default"
+                  className="relative flex min-h-11 min-w-11 md:min-h-8 md:min-w-8 flex-col items-center justify-center py-1 cursor-pointer disabled:cursor-default"
                 >
                   <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-medium transition-all ${
                     selectedDate === d.dateStr

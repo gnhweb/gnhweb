@@ -297,7 +297,7 @@ export default function StorageCleanupPage() {
                   <p className="text-sm text-foreground-600">저장소가 깔끔하게 관리되고 있어요</p>
                 </div>
               ) : (
-                <div className="max-h-[60vh] overflow-y-auto">
+                <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
                   {orphanFiles.map((file, idx) => (
                     <div
                       key={file.name}

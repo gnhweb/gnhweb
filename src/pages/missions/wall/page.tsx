@@ -227,7 +227,7 @@ export default function MissionWallPage() {
           <img
             src={selectedImage}
             alt="인증 사진 확대"
-            className="max-w-full max-h-[90vh] object-contain rounded-xl"
+            className="max-w-full max-h-[calc(100dvh-2rem)] object-contain rounded-xl"
             onClick={(e) => e.stopPropagation()}
           />
         </div>

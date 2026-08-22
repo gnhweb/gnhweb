@@ -397,7 +397,7 @@ export default function MissionBoardPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="relative bg-background-100 rounded-2xl shadow-xl max-w-md w-full p-6 z-10 max-h-[90vh] overflow-y-auto"
+            className="relative bg-background-100 rounded-2xl shadow-xl max-w-md w-full p-6 z-10 max-h-[calc(100dvh-2rem)] overflow-y-auto"
           >
             <h3 className="text-lg font-bold text-foreground-950 mb-4">인증 제출하기</h3>
 

@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -279,7 +280,7 @@ export default function VisitationWrite() {
                       담당자: <strong>{conflict.visitor_name}</strong>
                     </p>
                     <p className="text-xs text-amber-600 mt-0.5">
-                      예정일: {new Date(conflict.scheduled_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}
+                      예정일: {formatKoreanDate(conflict.scheduled_at, { month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>
                     <p className="text-xs text-amber-600 mt-1">
                       중복 등록 시 담당자와 조율이 필요할 수 있습니다
