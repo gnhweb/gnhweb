@@ -12,6 +12,7 @@ interface AttendanceRecord {
   absence_reason: string | null;
   user_id: string;
   checked_in_at: string | null;
+  profile_image?: string | null;
 }
 
 interface StudentRecord {
@@ -19,6 +20,7 @@ interface StudentRecord {
   name: string;
   club: string;
   is_expelled?: boolean;
+  profile_image?: string | null;
 }
 
 type AttendanceTab = 'all' | ClubType;
@@ -84,7 +86,7 @@ export default function AttendanceBoard() {
   const [attendanceList, setAttendanceList] = useState<{
     attended: AttendanceRecord[];
     absent: AttendanceRecord[];
-    unresponsive: { name: string; club: string; user_id: string }[];
+    unresponsive: { name: string; club: string; user_id: string; profile_image?: string | null }[];
   }>({ attended: [], absent: [], unresponsive: [] });
   const [allStudents, setAllStudents] = useState<StudentRecord[]>([]);
 
@@ -109,7 +111,7 @@ export default function AttendanceBoard() {
     try {
       const [attRes, studentRes] = await Promise.all([
         supabase.from('attendance').select('*').eq('attendance_date', todayStr),
-        supabase.from('user_roles').select('user_id, name, club, is_expelled').not('role', 'in', '("chief","teacher")'),
+        supabase.from('user_roles').select('user_id, name, club, is_expelled, profile_image').not('role', 'in', '("chief","teacher")'),
       ]);
 
       if (attRes.error) throw attRes.error;
@@ -121,13 +123,21 @@ export default function AttendanceBoard() {
       const attendedUserIds = new Set(attData.filter(a => a.status === 'attended').map(a => a.user_id));
       const absentUserIds = new Set(attData.filter(a => a.status === 'absent').map(a => a.user_id));
 
+      const studentById = new Map(students.map(student => [student.user_id, student]));
+      const attended = attData
+        .filter(a => a.status === 'attended' && validUserIds.has(a.user_id))
+        .map(a => ({ ...a, profile_image: studentById.get(a.user_id)?.profile_image || null }));
+      const absent = attData
+        .filter(a => a.status === 'absent' && validUserIds.has(a.user_id))
+        .map(a => ({ ...a, profile_image: studentById.get(a.user_id)?.profile_image || null }));
+
       setAllStudents(students);
       setAttendanceList({
-        attended: attData.filter(a => a.status === 'attended' && validUserIds.has(a.user_id)),
-        absent: attData.filter(a => a.status === 'absent' && validUserIds.has(a.user_id)),
+        attended,
+        absent,
         unresponsive: students
           .filter(s => !attendedUserIds.has(s.user_id) && !absentUserIds.has(s.user_id))
-          .map(s => ({ name: s.name, club: s.club, user_id: s.user_id })),
+          .map(s => ({ name: s.name, club: s.club, user_id: s.user_id, profile_image: s.profile_image || null })),
       });
     } catch (e) {
       console.error('Attendance board load error:', e);
@@ -288,12 +298,21 @@ export default function AttendanceBoard() {
                 {visibleData.attended.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {visibleData.attended.map((m) => (
-                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-sm font-medium text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-100">
-                        {m.user_name}
-                        {selectedTab === 'all' && <span className="text-[10px] text-emerald-500 dark:text-emerald-300">· {getClubName(m.club)}</span>}
-                        {m.checked_in_at && (
-                          <span className="text-[10px] text-emerald-400 dark:text-emerald-300">{new Date(m.checked_in_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
-                        )}
+                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-sm font-medium text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-100">
+                        <span className="w-7 h-7 rounded-full overflow-hidden bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center flex-shrink-0 border border-emerald-200/70 dark:border-emerald-700/70">
+                          {m.profile_image ? (
+                            <img src={m.profile_image} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-200">{m.user_name?.charAt(0) || '?'}</span>
+                          )}
+                        </span>
+                        <span className="min-w-0">
+                          {m.user_name}
+                          {selectedTab === 'all' && <span className="text-[10px] text-emerald-500 dark:text-emerald-300 ml-1">· {getClubName(m.club)}</span>}
+                          {m.checked_in_at && (
+                            <span className="text-[10px] text-emerald-400 dark:text-emerald-300 ml-1">{new Date(m.checked_in_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                          )}
+                        </span>
                       </span>
                     ))}
                   </div>
@@ -311,9 +330,15 @@ export default function AttendanceBoard() {
                 {visibleData.unresponsive.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {visibleData.unresponsive.map((m) => (
-                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 dark:bg-background-200 dark:border-background-400 dark:text-foreground-800">
-                        {m.name}
-                        {selectedTab === 'all' && <span className="text-[10px] text-gray-400 dark:text-foreground-600">· {getClubName(m.club)}</span>}
+                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 dark:bg-background-200 dark:border-background-400 dark:text-foreground-800">
+                        <span className="w-7 h-7 rounded-full overflow-hidden bg-background-200 dark:bg-background-300 flex items-center justify-center flex-shrink-0 border border-background-300 dark:border-background-500">
+                          {m.profile_image ? (
+                            <img src={m.profile_image} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <span className="text-[11px] font-bold text-foreground-600 dark:text-foreground-200">{m.name?.charAt(0) || '?'}</span>
+                          )}
+                        </span>
+                        <span>{m.name}{selectedTab === 'all' && <span className="text-[10px] text-gray-400 dark:text-foreground-600 ml-1">· {getClubName(m.club)}</span>}</span>
                       </span>
                     ))}
                   </div>
@@ -331,10 +356,17 @@ export default function AttendanceBoard() {
                 {visibleData.absent.length > 0 ? (
                   <div className="space-y-2">
                     {visibleData.absent.map((m) => (
-                      <div key={m.user_id} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-4 py-2.5 rounded-xl bg-orange-50 border border-orange-100 dark:bg-orange-950/40 dark:border-orange-800">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground-800">{m.user_name}</span>
-                          {selectedTab === 'all' && <span className="text-[10px] text-orange-300">· {getClubName(m.club)}</span>}
+                      <div key={m.user_id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-xl bg-orange-50 border border-orange-100 dark:bg-orange-950/40 dark:border-orange-800">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-8 h-8 rounded-full overflow-hidden bg-orange-100 dark:bg-orange-900/60 flex items-center justify-center flex-shrink-0 border border-orange-200/70 dark:border-orange-700/70">
+                            {m.profile_image ? (
+                              <img src={m.profile_image} alt="" className="w-full h-full object-cover" loading="lazy" />
+                            ) : (
+                              <span className="text-[11px] font-bold text-orange-700 dark:text-orange-200">{m.user_name?.charAt(0) || '?'}</span>
+                            )}
+                          </span>
+                          <span className="text-sm font-medium text-foreground-800 truncate">{m.user_name}</span>
+                          {selectedTab === 'all' && <span className="text-[10px] text-orange-500 dark:text-orange-300 whitespace-nowrap">· {getClubName(m.club)}</span>}
                         </div>
                         {m.absence_reason && (
                           <span className="text-xs text-orange-600 dark:text-orange-300 sm:ml-auto">{m.absence_reason}</span>
