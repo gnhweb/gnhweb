@@ -1,12 +1,25 @@
-# Android + iPhone 추가 모바일 패치
+# Android + iPhone mobile patch (PWA auto-refresh excluded)
 
-이번 패치는 기존 모바일 수정본 위에 추가로 적용하는 보강 패치입니다.
+덮어쓰기 대상:
+- src/main.tsx
+- src/mobile-runtime.ts
+- src/mobile-runtime.css
+- src/components/feature/AppLockScreen.tsx
 
-- 모바일 `grid-cols-2` 폼을 1열로 전환(가로 스크롤 영역은 예외)
-- 모바일 `whitespace-nowrap` 폭 밀림 완화(버튼/탭/가로 스크롤은 유지)
-- 남아 있는 `vh` 기반 max-height 모달을 dynamic viewport 기준으로 보강
-- 모달 내부 iOS/Android 관성 스크롤 및 overscroll 보강
-- 바리새인 게임 하단 HUD safe-area 보강
+적용한 범위:
+- scroll-lock 해제 시 원래 스크롤 위치 복원
+- PIN 숨김 input의 물리 키보드 접근성 개선
+- 모바일 alert를 비차단 toast로 보이게 개선
+- 화면 아래쪽 이미지 lazy-loading/decoding 보강
+- iOS 미지원 vibrate를 무해한 no-op으로 처리
+- 상단 toast/modal safe-area 대응
+- overflow 스크롤의 iOS 관성 스크롤 보강
+- 외부 CDN preconnect/dns-prefetch 보강
 
-PWA 자동 새로고침 정책은 수정하지 않습니다.
-실제 iPhone/Android 실기기 테스트는 수행하지 않았습니다.
+제외:
+- PWA 자동 새로고침 정책
+- 부장계정
+- NVIDIA/NIM/회의 AI 보안
+- 게임 규칙/게임플레이 로직
+
+주의: 이 패치는 실제 iPhone/Android 실기기 테스트 완료본이 아니라 코드 기준 보강 패치입니다.
