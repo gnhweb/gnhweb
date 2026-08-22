@@ -161,7 +161,7 @@ export default function AdminApprovals() {
         return;
       }
       // Log the audit action
-      await supabase.from('audit_logs').insert({
+      await supabase.from('audit_log').insert({
         target_user_id: userId,
         target_user_name: userName,
         action: 'approval_revoked',
@@ -199,7 +199,7 @@ export default function AdminApprovals() {
         setMessage({ type: 'error', text: '거절 철회 중 오류가 발생했습니다: ' + updateErr.message });
         return;
       }
-      await supabase.from('audit_logs').insert({
+      await supabase.from('audit_log').insert({
         target_user_id: userId,
         target_user_name: userName,
         action: 'rejection_revoked',
