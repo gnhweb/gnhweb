@@ -5,7 +5,7 @@ import { clubs } from '@/mocks/clubs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { getCachedQuoteOfTheDay, fetchAndCacheQuoteOfTheDay } from '@/lib/dailyQuote';
-import { todayKey } from '@/lib/date';
+import { todayKey, formatKoreanDate } from '@/lib/date';
 
 // ──────────────────────────────────────────────
 // 타입
@@ -60,9 +60,13 @@ const CLUB_ICON_MAP: Record<string, string> = {
 
 const NOTICE_READS_KEY = 'notice_reads';
 
-function getReadNoticeIds(): Set<string> {
+function noticeReadsKey(userId?: string | null): string {
+  return userId ? `${NOTICE_READS_KEY}:${userId}` : NOTICE_READS_KEY;
+}
+
+function getReadNoticeIds(userId?: string | null): Set<string> {
   try {
-    const raw = localStorage.getItem(NOTICE_READS_KEY);
+    const raw = localStorage.getItem(noticeReadsKey(userId));
     if (raw) {
       const arr = JSON.parse(raw);
       if (Array.isArray(arr)) return new Set(arr);
@@ -71,11 +75,11 @@ function getReadNoticeIds(): Set<string> {
   return new Set();
 }
 
-function markNoticeAsRead(noticeId: string) {
+function markNoticeAsRead(noticeId: string, userId?: string | null) {
   try {
-    const current = getReadNoticeIds();
+    const current = getReadNoticeIds(userId);
     current.add(noticeId);
-    localStorage.setItem(NOTICE_READS_KEY, JSON.stringify([...current]));
+    localStorage.setItem(noticeReadsKey(userId), JSON.stringify([...current]));
   } catch { /* ignore */ }
 }
 
@@ -108,8 +112,7 @@ function getCategoryColor(category: string | null) {
 }
 
 function formatDateShort(dateStr: string) {
-  const d = new Date(dateStr);
-  return `${d.getMonth() + 1}.${d.getDate()}`;
+  return formatKoreanDate(dateStr, { month: 'numeric', day: 'numeric' }).replace(/\s/g, '');
 }
 
 // ──────────────────────────────────────────────
@@ -546,7 +549,7 @@ export default function Home() {
                 {/* 모바일 전용: 인스타 스토리처럼 원형으로 훑어보는 최근 공지 링 */}
                 <div className="lg:hidden flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1 mb-1 snap-x">
                   {notices.slice(0, 6).map((notice) => {
-                    const readIds = getReadNoticeIds();
+                    const readIds = getReadNoticeIds(user?.id);
                     const isRead = readIds.has(notice.id);
                     const catColor = getCategoryColor(notice.category);
                     return (
@@ -566,7 +569,7 @@ export default function Home() {
                   })}
                 </div>
                 {notices.map((notice) => {
-                  const readIds = getReadNoticeIds();
+                  const readIds = getReadNoticeIds(user?.id);
                   const isNew = !readIds.has(notice.id) && (Date.now() - new Date(notice.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
                   const catColor = getCategoryColor(notice.category);
                   return (

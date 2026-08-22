@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -436,7 +437,7 @@ export default function QuizManagePage() {
                                 {r.status === 'pending' ? '미처리' : '처리완료'}
                               </span>
                               <span className="text-xs text-foreground-400">{r.reporter_name}</span>
-                              <span className="text-xs text-foreground-300">{new Date(r.created_at).toLocaleString('ko-KR')}</span>
+                              <span className="text-xs text-foreground-300">{formatKoreanDateTime(r.created_at)}</span>
                             </div>
                             <p className="text-sm text-foreground-800 mb-1">{r.question_text}</p>
                             {r.reason && (

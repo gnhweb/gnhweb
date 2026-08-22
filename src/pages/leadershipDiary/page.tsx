@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -423,7 +424,7 @@ export default function LeadershipDiary() {
                               {catConfig?.label || '기타'}
                             </span>
                             <span className="text-[10px] text-foreground-400">
-                              {new Date(entry.date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                              {formatKoreanDate(entry.date, { month: 'long', day: 'numeric', weekday: 'short' })}
                             </span>
                           </div>
                         </div>

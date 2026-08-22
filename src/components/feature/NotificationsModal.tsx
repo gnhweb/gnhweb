@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -295,7 +296,7 @@ export default function NotificationsModal({ open, onClose, user }: Notification
                             )}
                           </div>
                           <p className="text-xs text-foreground-600 mt-0.5 line-clamp-2">{n.message}</p>
-                          <p className="text-[10px] text-foreground-400 mt-1">{new Date(n.created_at).toLocaleString('ko-KR')}</p>
+                          <p className="text-[10px] text-foreground-400 mt-1">{formatKoreanDateTime(n.created_at)}</p>
                         </div>
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}

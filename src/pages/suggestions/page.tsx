@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -391,7 +392,7 @@ export default function SuggestionsPage() {
                               </>
                             )}
                             <span className="text-gray-200">|</span>
-                            <span>{new Date(item.created_at).toLocaleDateString('ko-KR')}</span>
+                            <span>{formatKoreanDate(item.created_at)}</span>
                           </div>
                         </div>
                         <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">

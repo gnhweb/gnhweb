@@ -8,7 +8,7 @@ import { ROLE_HIERARCHY, CLUB_LABELS } from '@/types/auth';
 import type { ClubType, UserRole } from '@/types/auth';
 import { CLUB_META } from '@/mocks/attendance';
 import type { ClubAttendanceSummary, ClubMemberStatus, AttendanceRecord } from '@/mocks/attendance';
-import { todayKey } from '@/lib/date';
+import { todayKey, formatKoreanDate } from '@/lib/date';
 import { Link } from 'react-router-dom';
 
 interface AttendanceLocationData {
@@ -106,7 +106,7 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const today = new Date();
-  const dateStr = today.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  const dateStr = formatKoreanDate(today, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
   const clubMeta = profile.club && CLUB_META[profile.club as ClubType] ? CLUB_META[profile.club as ClubType] : null;
 
   const isTeacherOrChief = profile.role === 'teacher' || profile.role === 'chief';
@@ -854,7 +854,7 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
         clubBg: meta.bg,
         totalMembers,
         attendedToday,
-        absentToday: noResponse,
+        absentToday: absentDeclared,
         attendanceRate: totalMembers > 0 ? Math.round((attendedToday / totalMembers) * 100) : 0,
         memberList: memberStatuses,
       };
@@ -951,7 +951,7 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
           <div>
             <h1 className="text-2xl font-bold text-foreground-950 mb-1">실시간 출석 현황판</h1>
             <p className="text-sm text-foreground-500">
-              {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+              {formatKoreanDate(new Date(), { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
             </p>
           </div>
           <div className="flex items-center gap-2">

@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -314,7 +315,7 @@ export default function StorageCleanupPage() {
                         <p className="text-sm text-foreground-800 truncate">{file.name}</p>
                         <p className="text-xs text-foreground-500">
                           {formatSize(file.metadata?.size || 0)}
-                          {file.created_at && ` · ${new Date(file.created_at).toLocaleDateString('ko-KR')}`}
+                          {file.created_at && ` · ${formatKoreanDate(file.created_at)}`}
                         </p>
                       </div>
                       <button

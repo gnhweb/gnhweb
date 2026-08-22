@@ -6,7 +6,7 @@ import { ROLE_LABELS, CLUB_LABELS, ROLE_HIERARCHY } from '@/types/auth';
 import type { ClubType, UserRole } from '@/types/auth';
 import { clubs } from '@/mocks/clubs';
 import { supabase } from '@/lib/supabase';
-import { dateKey } from '@/lib/date';
+import { dateKey, formatKoreanDate } from '@/lib/date';
 
 interface VisitationWidget {
   id: string;
@@ -926,7 +926,7 @@ export default function Dashboard() {
                               </>
                             )}
                             <span className="text-gray-200">|</span>
-                            <span>{new Date(suggestion.created_at).toLocaleDateString('ko-KR')}</span>
+                            <span>{formatKoreanDate(suggestion.created_at)}</span>
                           </div>
                         </div>
                         <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">

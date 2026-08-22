@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -240,7 +241,7 @@ export default function SeniorProposals() {
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusLabel(p.status).cls}`}>{statusLabel(p.status).text}</span>
                         </div>
                         <p className="text-xs text-foreground-600">
-                          {p.author_name} · {new Date(p.created_at).toLocaleDateString('ko-KR')}
+                          {p.author_name} · {formatKoreanDate(p.created_at)}
                         </p>
                         <AnimatePresence>
                           {expandId === p.id && (

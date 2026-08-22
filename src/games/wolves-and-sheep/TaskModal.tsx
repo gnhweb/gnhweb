@@ -76,6 +76,14 @@ export function TaskModal({
   // 성공/실패 콜백이 중복 호출되는 걸 막는 가드. state 업데이트는 비동기라 result만으로는
   // 같은 렌더 사이클 안의 중복 호출을 못 막을 수 있어 ref로 한 번 더 잠근다.
   const resolvedRef = useRef(false);
+  const resolveTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (resolveTimerRef.current) {
+      window.clearTimeout(resolveTimerRef.current);
+      resolveTimerRef.current = null;
+    }
+  }, []);
 
   // 성공: 초록 피드백을 보여준 뒤 짧게 딜레이하고서 실제 onComplete를 호출한다.
   const handleComplete = () => {
@@ -83,7 +91,10 @@ export function TaskModal({
     resolvedRef.current = true;
     playTaskSuccess();
     setResult("success");
-    window.setTimeout(onComplete, RESULT_FLASH_MS);
+    resolveTimerRef.current = window.setTimeout(() => {
+      resolveTimerRef.current = null;
+      onComplete();
+    }, RESULT_FLASH_MS);
   };
 
   // 실패(제한시간 초과)든 사용자가 직접 취소했든 동일한 취소 경로를 타므로 구분 없이
@@ -93,7 +104,10 @@ export function TaskModal({
     resolvedRef.current = true;
     playTaskFail();
     setResult("fail");
-    window.setTimeout(onCancel, RESULT_FLASH_MS);
+    resolveTimerRef.current = window.setTimeout(() => {
+      resolveTimerRef.current = null;
+      onCancel();
+    }, RESULT_FLASH_MS);
   };
 
   const taskProps = { onComplete: handleComplete, onCancel: handleCancel };

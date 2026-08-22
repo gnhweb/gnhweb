@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -354,7 +355,7 @@ export default function QuoteManagePage() {
                             <span className={`w-2 h-2 rounded-full inline-block ${q.is_active ? 'bg-emerald-400' : 'bg-background-400'}`}></span>
                             {q.is_active ? '활성' : '비활성'}
                           </span>
-                          <span className="text-[10px] text-foreground-400">{new Date(q.created_at).toLocaleDateString('ko-KR')}</span>
+                          <span className="text-[10px] text-foreground-400">{formatKoreanDate(q.created_at)}</span>
                         </div>
 
                         {editingId === q.id ? (

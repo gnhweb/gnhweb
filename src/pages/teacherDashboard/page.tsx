@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { CLUB_LABELS } from '@/types/auth';
 import type { ClubType } from '@/types/auth';
-import { todayKey } from '@/lib/date';
+import { todayKey, formatKoreanDate } from '@/lib/date';
 
 const ALL_CLUBS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu', 'cheonhwarae_cheongmyeong'];
 
@@ -221,8 +221,7 @@ export default function TeacherDashboard() {
   };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return `${d.getMonth() + 1}.${d.getDate()}`;
+    return formatKoreanDate(dateStr, { month: 'numeric', day: 'numeric' }).replace(/\s/g, '');
   };
 
   if (!isTeacher && !isChief) {

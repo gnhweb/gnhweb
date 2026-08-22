@@ -198,6 +198,16 @@ export class GameManager extends Phaser.Events.EventEmitter {
 
   private subscribed = false;
   private unbindVisibility: (() => void) | null = null;
+  private pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
+
+  private scheduleTimeout(fn: () => void, delay: number) {
+    const id = setTimeout(() => {
+      this.pendingTimeouts.delete(id);
+      fn();
+    }, delay);
+    this.pendingTimeouts.add(id);
+    return id;
+  }
 
   constructor(roomCode: string, userId: string, userName: string) {
     super();
@@ -313,6 +323,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   destroy() {
     this.unbindVisibility?.();
     this.unbindVisibility = null;
+    for (const id of this.pendingTimeouts) clearTimeout(id);
+    this.pendingTimeouts.clear();
     supabase.removeChannel(this.channel);
   }
 
@@ -866,12 +878,12 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.votes.clear();
     this.chatLog = [];
     this.emit("phase-change", "meeting");
-    setTimeout(() => {
+    this.scheduleTimeout(() => {
       if (this.phase === "meeting" && this.meetingSubPhase === "discuss") {
         this.meetingSubPhase = "vote";
         this.meetingEndsAt = Date.now() + this.settings.meetingVoteMs;
         this.emit("meeting-subphase", "vote");
-        setTimeout(() => {
+        this.scheduleTimeout(() => {
           if (this.isHost && this.phase === "meeting") this.resolveMeeting();
         }, this.settings.meetingVoteMs + 500);
       }
@@ -1083,7 +1095,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.reactorLeftFixed = false;
     this.reactorRightFixed = false;
     this.emit("reactor-change");
-    setTimeout(() => {
+    this.scheduleTimeout(() => {
       if (this.reactorActive && this.reactorEndsAt === payload.endsAt) {
         // 시간 내에 양쪽 패널을 못 고치면 늑대 승리로 즉시 게임 종료
         this.applyGameEnd({ winner: "wolf" });
@@ -1133,7 +1145,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.doorLockRoomId = payload.roomId;
     this.doorLockEndsAt = payload.endsAt;
     this.emit("doorlock-change");
-    setTimeout(() => {
+    this.scheduleTimeout(() => {
       // 버그 수정: roomId만 비교하면, 이 타이머가 끝나기 전에 같은 방이 다시 잠긴 경우
       // (레이스 컨디션) "같은 방이니까" 하고 방금 새로 건 잠금을 조기 해제해버렸다.
       // 보일러실 사보타지(applyReactorStart)처럼 endsAt까지 같이 비교해서 "이 타이머가
@@ -1189,7 +1201,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.candleAFixed = false;
     this.candleBFixed = false;
     this.emit("candle-change");
-    setTimeout(() => {
+    this.scheduleTimeout(() => {
       if (this.candleActive && this.candleEndsAt === payload.endsAt) {
         // 시간 내에 두 촛불을 다 못 끄면 늑대 승리로 즉시 게임 종료 (보일러실/배수관과 동일 패턴)
         this.applyGameEnd({ winner: "wolf" });
@@ -1252,7 +1264,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.pipeAFixed = false;
     this.pipeBFixed = false;
     this.emit("pipe-change");
-    setTimeout(() => {
+    this.scheduleTimeout(() => {
       if (this.pipeActive && this.pipeEndsAt === payload.endsAt) {
         this.applyGameEnd({ winner: "wolf" });
         if (this.isHost) this.channel.send({ type: "broadcast", event: "game_end", payload: { winner: "wolf" } });

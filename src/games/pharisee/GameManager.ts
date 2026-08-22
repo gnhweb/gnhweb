@@ -190,6 +190,10 @@ export class GameManager extends MiniEmitter {
     if (this.voteTimer) clearTimeout(this.voteTimer);
     if (this.lastWordsTimer) clearTimeout(this.lastWordsTimer);
     if (this.mvpTimer) clearTimeout(this.mvpTimer);
+    this.nightTimer = null;
+    this.voteTimer = null;
+    this.lastWordsTimer = null;
+    this.mvpTimer = null;
     supabase.removeChannel(this.channel);
   }
 

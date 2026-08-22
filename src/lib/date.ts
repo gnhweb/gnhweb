@@ -41,3 +41,25 @@ export function formatDateKey(value: string | Date | number): string {
 export function formatLocalDate(value: string | Date | number): string {
   return dateKey(value);
 }
+
+/** Format a timestamp consistently in Korea Standard Time. */
+export function formatKoreanDate(
+  value: string | Date | number,
+  options: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit' },
+): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('ko-KR', { timeZone: KST, ...options }).format(date);
+}
+
+/** Format a timestamp with date and time consistently in Korea Standard Time. */
+export function formatKoreanDateTime(
+  value: string | Date | number,
+  options: Intl.DateTimeFormatOptions = {},
+): string {
+  return formatKoreanDate(value, {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    ...options,
+  });
+}

@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { writeSimbangLetter } from '@/lib/nvidiaNim';
@@ -197,7 +198,7 @@ export default function PastoralLetter() {
                         <div>
                           <p className="text-sm font-medium text-foreground-800">{h.name} · {h.situation}</p>
                           <p className="text-xs text-foreground-500 mt-0.5">
-                            {new Date(h.date).toLocaleDateString('ko-KR')} · {h.tone} 톤
+                            {formatKoreanDate(h.date)} · {h.tone} 톤
                           </p>
                         </div>
                         <i className="ri-arrow-right-s-line text-foreground-400"></i>

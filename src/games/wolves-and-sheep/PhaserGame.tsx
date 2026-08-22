@@ -168,6 +168,16 @@ function RoomView({
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const gmRef = useRef<GameManager | null>(null);
+  const bannerTimeoutsRef = useRef<Set<ReturnType<typeof window.setTimeout>>>(new Set());
+
+  const scheduleBanner = (message: string, delay: number) => {
+    setBanner(message);
+    const id = window.setTimeout(() => {
+      bannerTimeoutsRef.current.delete(id);
+      setBanner((current) => current === message ? null : current);
+    }, delay);
+    bannerTimeoutsRef.current.add(id);
+  };
 
   const [, tick] = useState(0);
   const [phase, setPhase] = useState<"lobby" | "playing" | "meeting" | "ended">("lobby");
@@ -420,12 +430,13 @@ function RoomView({
       setTimeout(() => setBanner(null), 4000);
     });
     gm.on("player-revived", (payload: { targetName: string; byName: string }) => {
-      setBanner(`🙏 중보 기도의 응답 — ${payload.targetName}님이 다시 살아났습니다!`);
-      setTimeout(() => setBanner(null), 4500);
+      scheduleBanner(`🙏 중보 기도의 응답 — ${payload.targetName}님이 다시 살아났습니다!`, 4500);
     });
 
     return () => {
       gm.destroy();
+      for (const id of bannerTimeoutsRef.current) window.clearTimeout(id);
+      bannerTimeoutsRef.current.clear();
       gameRef.current?.destroy(true);
       gameRef.current = null;
       setGameInstance(null);

@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -535,8 +536,7 @@ export default function ReviewPage() {
   const pendingSuggestionCount = suggestions.filter(s => s.status === 'pending').length;
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+    return formatKoreanDate(dateStr, { year: 'numeric', month: 'numeric', day: 'numeric' }).replace(/ /g, '.');
   };
 
   const formatTime = (dateStr: string) => {

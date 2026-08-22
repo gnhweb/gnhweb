@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CLUB_LABELS } from '@/types/auth';
@@ -54,8 +55,7 @@ export default function SuggestionReviewPanel({ item, onClose, onSubmit, onMarkR
   if (!item) return null;
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+    return formatKoreanDate(dateStr, { year: 'numeric', month: 'numeric', day: 'numeric' }).replace(/ /g, '.');
   };
 
   return (

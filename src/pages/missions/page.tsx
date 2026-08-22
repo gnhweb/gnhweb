@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -696,7 +697,7 @@ export default function MissionsPage() {
                               <p className="text-xs text-foreground-600">
                                 {stu?.name || a.student_id?.slice(0, 8)}
                                 {stu?.club ? ` · ${stu.club}` : ''}
-                                {a.submitted_at ? ` · ${new Date(a.submitted_at).toLocaleDateString('ko-KR')} 제출` : ''}
+                                {a.submitted_at ? ` · ${formatKoreanDate(a.submitted_at)} 제출` : ''}
                               </p>
                             </div>
                           </div>
@@ -813,8 +814,8 @@ export default function MissionsPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground-900 truncate">{mission?.title || '삭제된 미션'}</p>
                         <p className="text-xs text-foreground-500">
-                          {stu?.name || a.student_id?.slice(0, 8)} · {new Date(a.assigned_at).toLocaleDateString('ko-KR')}
-                          {a.completed_at && ` → 완료: ${new Date(a.completed_at).toLocaleDateString('ko-KR')}`}
+                          {stu?.name || a.student_id?.slice(0, 8)} · {formatKoreanDate(a.assigned_at)}
+                          {a.completed_at && ` → 완료: ${formatKoreanDate(a.completed_at)}`}
                           {a.reject_reason && ` · 사유: ${a.reject_reason}`}
                         </p>
                       </div>

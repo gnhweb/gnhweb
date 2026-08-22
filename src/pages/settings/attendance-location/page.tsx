@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Map as KakaoMap, MapMarker, Circle, useKakaoLoader } from 'react-kakao-maps-sdk';
@@ -686,7 +687,7 @@ export default function AttendanceLocationPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground-800 truncate">{log.location_label || '(이름 없음)'}</p>
                       <p className="text-xs text-foreground-500">
-                        {log.changed_by_name} · {new Date(log.created_at).toLocaleString('ko-KR')}
+                        {log.changed_by_name} · {formatKoreanDateTime(log.created_at)}
                         {log.old_label && log.new_label && log.old_label !== log.new_label && ` · 이름: ${log.old_label} → ${log.new_label}`}
                         {log.old_latitude && log.new_latitude && (log.old_latitude !== log.new_latitude || log.old_longitude !== log.new_longitude) && ' · 위치 변경됨'}
                         {log.old_radius_meters && log.new_radius_meters && log.old_radius_meters !== log.new_radius_meters && ` · 반경: ${log.old_radius_meters}m → ${log.new_radius_meters}m`}

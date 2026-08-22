@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -329,18 +330,18 @@ export default function MissionBoardPage() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-foreground-500">{cat.label}</span>
-                        <span className="text-xs text-foreground-400">· {new Date(a.assigned_at).toLocaleDateString('ko-KR')} 배정</span>
+                        <span className="text-xs text-foreground-400">· {formatKoreanDate(a.assigned_at)} 배정</span>
                       </div>
                       {isSubmitted && a.submitted_at && (
                         <p className="text-xs text-sky-600 mt-1">
                           <i className="ri-time-line mr-1"></i>
-                          {new Date(a.submitted_at).toLocaleDateString('ko-KR')} 제출 - 승인 대기 중
+                          {formatKoreanDate(a.submitted_at)} 제출 - 승인 대기 중
                         </p>
                       )}
                       {isCompleted && a.completed_at && (
                         <p className="text-xs text-emerald-600 mt-1">
                           <i className="ri-check-double-line mr-1"></i>
-                          {new Date(a.completed_at).toLocaleDateString('ko-KR')} 인증 완료
+                          {formatKoreanDate(a.completed_at)} 인증 완료
                         </p>
                       )}
                       {isRejected && a.reject_reason && (

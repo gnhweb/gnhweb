@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,7 +20,7 @@ interface NoticeItem {
 export default function NoticeDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const [notice, setNotice] = useState<NoticeItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,11 +42,12 @@ export default function NoticeDetail() {
         // Mark as read
         if (data && id) {
           try {
-            const raw = localStorage.getItem('notice_reads');
+            const key = user?.id ? `notice_reads:${user.id}` : 'notice_reads';
+            const raw = localStorage.getItem(key);
             const reads: string[] = raw ? JSON.parse(raw) : [];
             if (!reads.includes(id)) {
               reads.push(id);
-              localStorage.setItem('notice_reads', JSON.stringify(reads));
+              localStorage.setItem(key, JSON.stringify(reads));
             }
           } catch { /* ignore */ }
         }
@@ -57,7 +59,7 @@ export default function NoticeDetail() {
     };
 
     if (id) fetchNotice();
-  }, [id]);
+  }, [id, user?.id]);
 
   const canModify = profile && notice && (
     profile.user_id === notice.author_id ||
@@ -90,8 +92,7 @@ export default function NoticeDetail() {
   };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+    return formatKoreanDate(dateStr, { year: 'numeric', month: 'numeric', day: 'numeric' }).replace(/ /g, '.');
   };
 
   if (loading) {

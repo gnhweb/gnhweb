@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
-import { todayKey } from '@/lib/date';
+import { todayKey, formatKoreanDate } from '@/lib/date';
 
 interface SeniorStudent {
   user_id: string;
@@ -201,7 +201,7 @@ export default function SeniorRollingPaper() {
                                 </div>
                                 <div>
                                   <p className="text-sm font-semibold text-foreground-950">{paper.author_name} {paper.is_anonymous && <span className="text-xs text-foreground-500 font-normal">(익명)</span>}</p>
-                                  <p className="text-[11px] text-foreground-500">{new Date(paper.created_at).toLocaleDateString('ko-KR')}</p>
+                                  <p className="text-[11px] text-foreground-500">{formatKoreanDate(paper.created_at)}</p>
                                 </div>
                               </div>
                               {(paper.author_id === user?.id || isTeacherOrChief) && (

@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -140,7 +141,7 @@ export default function MissionWallPage() {
               {entries.map((entry, idx) => {
                 const cat = MISSION_CATEGORIES[entry.mission_category] || MISSION_CATEGORIES.general;
                 const clubLabel = CLUB_LABELS[entry.student_club] || entry.student_club;
-                const reviewDate = new Date(entry.reviewed_at).toLocaleDateString('ko-KR', {
+                const reviewDate = formatKoreanDate(entry.reviewed_at, {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric',

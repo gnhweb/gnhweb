@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -327,7 +328,7 @@ export default function AdminApprovals() {
                               <p className="text-xs text-foreground-500">
                                 {u.gender && `${u.gender} · `}
                                 {u.birth_year && `${u.birth_year}년생 · `}
-                                가입 {new Date(u.created_at).toLocaleDateString('ko-KR')}
+                                가입 {formatKoreanDate(u.created_at)}
                               </p>
                             </div>
                           </div>

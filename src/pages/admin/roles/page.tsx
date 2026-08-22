@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -255,8 +256,7 @@ export default function AdminRolesPage() {
   };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    return formatKoreanDate(dateStr, { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/ /g, '.');
   };
 
   const formatAuditDate = (dateStr: string) => {
@@ -1031,8 +1031,7 @@ function UserRow({
   };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    return formatKoreanDate(dateStr, { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/ /g, '.');
   };
 
   return (

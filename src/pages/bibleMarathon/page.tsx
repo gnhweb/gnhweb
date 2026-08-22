@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -577,7 +578,7 @@ export default function BibleMarathon() {
                         <div key={entry.id} className="flex items-center justify-between bg-background-100 rounded-xl p-3 border border-gray-100">
                           <div>
                             <p className="text-sm font-medium text-foreground-800">{entry.book} {entry.chapter}</p>
-                            <p className="text-[10px] text-foreground-500">{new Date(entry.created_at).toLocaleString('ko-KR')}</p>
+                            <p className="text-[10px] text-foreground-500">{formatKoreanDateTime(entry.created_at)}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className={`text-xs px-2 py-1 rounded-full font-medium ${
