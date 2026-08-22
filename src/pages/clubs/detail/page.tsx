@@ -1050,10 +1050,19 @@ export default function ClubDetail() {
                         <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-full bg-rose-100 border border-rose-200">
                           <div className={`w-6 h-6 rounded-full ${m.avatarColor} overflow-hidden flex items-center justify-center flex-shrink-0`}>
                             {m.profileImage ? (
-                              <img src={m.profileImage} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-[10px] font-bold text-gray-700">{m.name.charAt(0)}</span>
-                            )}
+                              <img
+                                src={m.profileImage}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <span className={`${m.profileImage ? 'hidden' : ''} text-gray-600 flex items-center justify-center w-full h-full`}>
+                              <i className="ri-user-3-line text-[12px]"></i>
+                            </span>
                           </div>
                           <span className="text-xs font-semibold text-rose-800">{m.name}</span>
                           <span className="text-xs text-rose-600">{m.birthday}</span>
@@ -1072,10 +1081,19 @@ export default function ClubDetail() {
                       <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-background-50 transition-colors">
                         <div className={`w-10 h-10 rounded-full ${m.avatarColor} overflow-hidden flex items-center justify-center flex-shrink-0`}>
                           {m.profileImage ? (
-                            <img src={m.profileImage} alt={`${m.name} 프로필`} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-sm font-bold text-gray-700">{m.name.charAt(0)}</span>
-                          )}
+                            <img
+                              src={m.profileImage}
+                              alt={`${m.name} 프로필`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <span className={`${m.profileImage ? 'hidden' : ''} text-gray-600 flex items-center justify-center w-full h-full`}>
+                            <i className="ri-user-3-line text-base"></i>
+                          </span>
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-foreground-950">
