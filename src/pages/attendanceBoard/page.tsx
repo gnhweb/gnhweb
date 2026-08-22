@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { CLUB_LABELS } from '@/types/auth';
@@ -14,15 +14,87 @@ interface AttendanceRecord {
   checked_in_at: string | null;
 }
 
+interface StudentRecord {
+  user_id: string;
+  name: string;
+  club: string;
+  is_expelled?: boolean;
+}
+
+type AttendanceTab = 'all' | ClubType;
+
+const CLUB_TABS: Array<{
+  id: AttendanceTab;
+  label: string;
+  shortLabel: string;
+  icon: string;
+  activeClass: string;
+  countClass: string;
+}> = [
+  {
+    id: 'all',
+    label: '전체',
+    shortLabel: '전체',
+    icon: 'ri-group-line',
+    activeClass: 'bg-foreground-950 text-white border-foreground-950',
+    countClass: 'bg-white/15 text-white',
+  },
+  {
+    id: 'saeullim',
+    label: '새울림',
+    shortLabel: '새울림',
+    icon: 'ri-music-line',
+    activeClass: 'bg-amber-500 text-white border-amber-500',
+    countClass: 'bg-white/20 text-white',
+  },
+  {
+    id: 'cheonjipoong',
+    label: '천지풍',
+    shortLabel: '천지풍',
+    icon: 'ri-flag-line',
+    activeClass: 'bg-emerald-500 text-white border-emerald-500',
+    countClass: 'bg-white/20 text-white',
+  },
+  {
+    id: 'cheonjihu',
+    label: '천지후',
+    shortLabel: '천지후',
+    icon: 'ri-heart-pulse-line',
+    activeClass: 'bg-violet-500 text-white border-violet-500',
+    countClass: 'bg-white/20 text-white',
+  },
+  {
+    id: 'munhwabu',
+    label: '문화부',
+    shortLabel: '문화부',
+    icon: 'ri-camera-lens-line',
+    activeClass: 'bg-rose-500 text-white border-rose-500',
+    countClass: 'bg-white/20 text-white',
+  },
+  {
+    id: 'cheonhwarae_cheongmyeong',
+    label: '천화래와 청명',
+    shortLabel: '천화래·청명',
+    icon: 'ri-mic-line',
+    activeClass: 'bg-sky-500 text-white border-sky-500',
+    countClass: 'bg-white/20 text-white',
+  },
+];
+
+const CLUB_IDLE_CLASS = 'bg-background-100 text-foreground-700 border-background-200 hover:border-foreground-300 hover:bg-background-200';
+
+const getClubName = (club: string) => CLUB_LABELS[club as ClubType]?.split(' (')[0] || club;
+
 export default function AttendanceBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTab, setSelectedTab] = useState<AttendanceTab>('saeullim');
   const [attendanceList, setAttendanceList] = useState<{
     attended: AttendanceRecord[];
     absent: AttendanceRecord[];
     unresponsive: { name: string; club: string; user_id: string }[];
   }>({ attended: [], absent: [], unresponsive: [] });
-  const [totalStudents, setTotalStudents] = useState(0);
+  const [allStudents, setAllStudents] = useState<StudentRecord[]>([]);
 
   const today = new Date();
   const todayStr = todayKey();
@@ -37,7 +109,7 @@ export default function AttendanceBoard() {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [todayStr]);
 
   const loadAttendance = async () => {
     setLoading(true);
@@ -52,24 +124,19 @@ export default function AttendanceBoard() {
       if (studentRes.error) throw studentRes.error;
 
       const attData = (attRes.data || []) as AttendanceRecord[];
-      const allStudents = ((studentRes.data || []) as { user_id: string; name: string; club: string; is_expelled?: boolean }[])
-        .filter(s => !s.is_expelled);
-      const validUserIds = new Set(allStudents.map(s => s.user_id));
-
-      setTotalStudents(allStudents.length);
-
+      const students = ((studentRes.data || []) as StudentRecord[]).filter(s => !s.is_expelled);
+      const validUserIds = new Set(students.map(s => s.user_id));
       const attendedUserIds = new Set(attData.filter(a => a.status === 'attended').map(a => a.user_id));
       const absentUserIds = new Set(attData.filter(a => a.status === 'absent').map(a => a.user_id));
 
-      const attended = attData.filter(a => a.status === 'attended' && validUserIds.has(a.user_id));
-      const absent = attData.filter(a => a.status === 'absent' && validUserIds.has(a.user_id));
-      const unresponsive = allStudents.filter(s => !attendedUserIds.has(s.user_id) && !absentUserIds.has(s.user_id)).map(s => ({
-        name: s.name,
-        club: s.club,
-        user_id: s.user_id,
-      }));
-
-      setAttendanceList({ attended, absent, unresponsive });
+      setAllStudents(students);
+      setAttendanceList({
+        attended: attData.filter(a => a.status === 'attended' && validUserIds.has(a.user_id)),
+        absent: attData.filter(a => a.status === 'absent' && validUserIds.has(a.user_id)),
+        unresponsive: students
+          .filter(s => !attendedUserIds.has(s.user_id) && !absentUserIds.has(s.user_id))
+          .map(s => ({ name: s.name, club: s.club, user_id: s.user_id })),
+      });
     } catch (e) {
       console.error('Attendance board load error:', e);
       setError('출석 데이터를 불러오지 못했습니다.');
@@ -78,10 +145,31 @@ export default function AttendanceBoard() {
     }
   };
 
-  const presentCount = attendanceList.attended.length;
-  const absentCount = attendanceList.absent.length;
-  const unresponsiveCount = attendanceList.unresponsive.length;
-  const attendanceRate = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
+  const tabCounts = useMemo(() => {
+    return CLUB_TABS.reduce<Record<string, number>>((counts, tab) => {
+      counts[tab.id] = tab.id === 'all'
+        ? allStudents.length
+        : allStudents.filter(student => student.club === tab.id).length;
+      return counts;
+    }, {});
+  }, [allStudents]);
+
+  const visibleData = useMemo(() => {
+    if (selectedTab === 'all') return attendanceList;
+    return {
+      attended: attendanceList.attended.filter(member => member.club === selectedTab),
+      absent: attendanceList.absent.filter(member => member.club === selectedTab),
+      unresponsive: attendanceList.unresponsive.filter(member => member.club === selectedTab),
+    };
+  }, [attendanceList, selectedTab]);
+
+  const selectedTotal = selectedTab === 'all' ? allStudents.length : tabCounts[selectedTab] || 0;
+  const presentCount = visibleData.attended.length;
+  const absentCount = visibleData.absent.length;
+  const unresponsiveCount = visibleData.unresponsive.length;
+  const attendanceRate = selectedTotal > 0 ? Math.round((presentCount / selectedTotal) * 100) : 0;
+  const selectedMeta = CLUB_TABS.find(tab => tab.id === selectedTab)!;
+  const selectedLabel = selectedTab === 'all' ? '전체 학생' : CLUB_LABELS[selectedTab].split(' (')[0];
 
   if (loading) {
     return (
@@ -95,7 +183,7 @@ export default function AttendanceBoard() {
     <div className="min-h-screen bg-background-50">
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-14">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="text-center mb-8">
+          <div className="text-center mb-7">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-[18px] bg-gradient-to-br from-emerald-100 to-teal-100 border border-emerald-200 mb-4">
               <i className="ri-user-heart-line text-2xl text-emerald-600"></i>
             </div>
@@ -110,10 +198,47 @@ export default function AttendanceBoard() {
             </div>
           )}
 
+          {/* Club tabs */}
+          <div className="mb-6">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide snap-x" role="tablist" aria-label="동아리별 출석 현황">
+              {CLUB_TABS.map((tab) => {
+                const isActive = selectedTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setSelectedTab(tab.id)}
+                    className={`shrink-0 snap-start inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${isActive ? tab.activeClass : CLUB_IDLE_CLASS}`}
+                  >
+                    <i className={`${tab.icon} text-base`}></i>
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.shortLabel}</span>
+                    <span className={`min-w-5 h-5 px-1.5 rounded-full inline-flex items-center justify-center text-[10px] font-bold ${isActive ? tab.countClass : 'bg-background-200 text-foreground-500'}`}>
+                      {tabCounts[tab.id] ?? 0}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Current club header */}
+          <div className="bg-background-100 border border-background-200 rounded-2xl p-4 mb-4 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedTab === 'all' ? 'bg-foreground-100 text-foreground-700' : selectedMeta.id === 'saeullim' ? 'bg-amber-100 text-amber-600' : selectedMeta.id === 'cheonjipoong' ? 'bg-emerald-100 text-emerald-600' : selectedMeta.id === 'cheonjihu' ? 'bg-violet-100 text-violet-600' : selectedMeta.id === 'munhwabu' ? 'bg-rose-100 text-rose-600' : 'bg-sky-100 text-sky-600'}`}>
+              <i className={`${selectedMeta.icon} text-lg`}></i>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-foreground-950">{selectedLabel} 출석 현황</p>
+              <p className="text-xs text-foreground-500">동아리 탭을 선택하면 해당 동아리만 따로 확인할 수 있습니다.</p>
+            </div>
+          </div>
+
           {/* Summary cards */}
-          <div className="grid grid-cols-4 gap-3 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {[
-              { label: '전체 학생', value: totalStudents, color: 'bg-sky-100 text-sky-700 border-sky-200', icon: 'ri-group-line', iconColor: 'text-sky-600' },
+              { label: '동아리 인원', value: selectedTotal, color: 'bg-sky-100 text-sky-700 border-sky-200', icon: 'ri-group-line', iconColor: 'text-sky-600' },
               { label: '출석 완료', value: presentCount, color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: 'ri-check-double-line', iconColor: 'text-emerald-600' },
               { label: '불참', value: absentCount, color: 'bg-orange-100 text-orange-700 border-orange-200', icon: 'ri-close-circle-line', iconColor: 'text-orange-600' },
               { label: '미응답', value: unresponsiveCount, color: 'bg-gray-100 text-gray-600 border-gray-200', icon: 'ri-question-line', iconColor: 'text-gray-500' },
@@ -135,14 +260,15 @@ export default function AttendanceBoard() {
           {/* Progress bar */}
           <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-foreground-800">출석률</span>
+              <span className="text-sm font-semibold text-foreground-800">{selectedLabel} 출석률</span>
               <span className="text-sm font-bold text-emerald-600">{attendanceRate}%</span>
             </div>
-            <div className="h-3 bg-background-100 rounded-full overflow-hidden">
+            <div className="h-3 bg-background-200 rounded-full overflow-hidden">
               <motion.div
+                key={`${selectedTab}-${attendanceRate}`}
                 initial={{ width: 0 }}
                 animate={{ width: `${attendanceRate}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
                 className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full"
               />
             </div>
@@ -151,66 +277,84 @@ export default function AttendanceBoard() {
             </p>
           </div>
 
-          {/* Attended list */}
-          {attendanceList.attended.length > 0 && (
-            <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-4">
-              <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                출석 완료 ({attendanceList.attended.length}명)
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {attendanceList.attended.map((m, i) => (
-                  <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-sm font-medium text-emerald-800">
-                    {m.user_name}
-                    <span className="text-[10px] text-emerald-500">· {CLUB_LABELS[m.club as ClubType]?.split(' ')[0] || m.club}</span>
-                    {m.checked_in_at && (
-                      <span className="text-[10px] text-emerald-400">{new Date(m.checked_in_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
-                    )}
-                  </span>
-                ))}
+          {selectedTotal === 0 ? (
+            <div className="bg-background-100 border border-background-200 rounded-2xl p-8 text-center">
+              <div className="w-12 h-12 rounded-full bg-background-200 mx-auto mb-3 flex items-center justify-center">
+                <i className="ri-user-search-line text-xl text-foreground-400"></i>
               </div>
+              <p className="text-sm font-semibold text-foreground-700">이 동아리에 등록된 학생이 없습니다.</p>
+              <p className="text-xs text-foreground-500 mt-1">학생의 동아리 정보를 확인해주세요.</p>
             </div>
-          )}
-
-          {/* Unresponsive list */}
-          {attendanceList.unresponsive.length > 0 && (
-            <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-4">
-              <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
-                미응답 ({attendanceList.unresponsive.length}명)
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {attendanceList.unresponsive.map((m, i) => (
-                  <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700">
-                    {m.name}
-                    <span className="text-[10px] text-gray-400">· {CLUB_LABELS[m.club as ClubType]?.split(' ')[0] || m.club}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Absent list */}
-          {attendanceList.absent.length > 0 && (
-            <div className="bg-background-100 border border-background-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-orange-400"></span>
-                불참 신고 ({attendanceList.absent.length}명)
-              </h3>
-              <div className="space-y-2">
-                {attendanceList.absent.map((m, i) => (
-                  <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-4 py-2.5 rounded-xl bg-orange-50 border border-orange-100">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground-800">{m.user_name}</span>
-                      <span className="text-[10px] text-orange-500">· {CLUB_LABELS[m.club as ClubType]?.split(' ')[0] || m.club}</span>
-                    </div>
-                    {m.absence_reason && (
-                      <span className="text-xs text-orange-600 sm:ml-auto">{m.absence_reason}</span>
-                    )}
+          ) : (
+            <>
+              {/* Attended list */}
+              <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-4">
+                <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  출석 완료 ({presentCount}명)
+                </h3>
+                {visibleData.attended.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {visibleData.attended.map((m) => (
+                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-sm font-medium text-emerald-800">
+                        {m.user_name}
+                        {selectedTab === 'all' && <span className="text-[10px] text-emerald-500">· {getClubName(m.club)}</span>}
+                        {m.checked_in_at && (
+                          <span className="text-[10px] text-emerald-400">{new Date(m.checked_in_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        )}
+                      </span>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <p className="text-xs text-foreground-500 py-2">아직 출석 완료한 학생이 없습니다.</p>
+                )}
               </div>
-            </div>
+
+              {/* Unresponsive list */}
+              <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-4">
+                <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
+                  미응답 ({unresponsiveCount}명)
+                </h3>
+                {visibleData.unresponsive.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {visibleData.unresponsive.map((m) => (
+                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700">
+                        {m.name}
+                        {selectedTab === 'all' && <span className="text-[10px] text-gray-400">· {getClubName(m.club)}</span>}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-foreground-500 py-2">미응답 학생이 없습니다.</p>
+                )}
+              </div>
+
+              {/* Absent list */}
+              <div className="bg-background-100 border border-background-200 rounded-2xl p-5">
+                <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-orange-400"></span>
+                  불참 신고 ({absentCount}명)
+                </h3>
+                {visibleData.absent.length > 0 ? (
+                  <div className="space-y-2">
+                    {visibleData.absent.map((m) => (
+                      <div key={m.user_id} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-4 py-2.5 rounded-xl bg-orange-50 border border-orange-100">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground-800">{m.user_name}</span>
+                          {selectedTab === 'all' && <span className="text-[10px] text-orange-500">· {getClubName(m.club)}</span>}
+                        </div>
+                        {m.absence_reason && (
+                          <span className="text-xs text-orange-600 sm:ml-auto">{m.absence_reason}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-foreground-500 py-2">불참 신고한 학생이 없습니다.</p>
+                )}
+              </div>
+            </>
           )}
         </motion.div>
       </div>
