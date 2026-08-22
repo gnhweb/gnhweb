@@ -122,7 +122,7 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
   {
     label: '미션',
     items: [
-      { path: '/missions/operations', label: '사명 운영센터', icon: 'ri-dashboard-line' },
+      { path: '/student-council-center', label: '학생회 발전센터', icon: 'ri-rocket-2-line' },
       { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },
       { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },
     ],
@@ -1047,6 +1047,13 @@ export default function Navbar() {
                 >
                   <div className="space-y-3">
                     {showTeacherTab && (
+                      <MenuGridCard
+                        icon="ri-rocket-2-line"
+                        label="학생회 발전센터"
+                        colorClass="bg-indigo-100 text-indigo-600"
+                        active={isActive('/student-council-center')}
+                        onClick={() => { navigate('/student-council-center'); setMobileOpen(false); }}
+                      />
                       <MenuGridCard
                         icon="ri-dashboard-line"
                         label="교사 대시보드"
