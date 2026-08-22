@@ -136,7 +136,13 @@ export default function Dashboard() {
         suggestionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setShowSuggestionForm(true);
       }, 300);
-      window.history.replaceState({}, '');
+      // React Router가 관리하는 history.state를 직접 덮어쓰면
+      // 모바일 브라우저 뒤로가기에서 이전 route/location key가 꼬일 수 있다.
+      // replace navigation으로 state만 안전하게 제거한다.
+      navigate(location.pathname + location.search, {
+        replace: true,
+        state: null,
+      });
     }
   }, [location.state]);
 
