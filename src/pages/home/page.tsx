@@ -75,7 +75,7 @@ function getReadNoticeIds(userId?: string | null): Set<string> {
   return new Set();
 }
 
-function markNoticeAsRead(noticeId: string, userId?: string | null) {
+function markNoticeAsReadLocal(noticeId: string, userId?: string | null) {
   try {
     const current = getReadNoticeIds(userId);
     current.add(noticeId);
@@ -205,6 +205,7 @@ export default function Home() {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [noticesError, setNoticesError] = useState(false);
+  const [readNoticeIds, setReadNoticeIds] = useState<Set<string>>(() => getReadNoticeIds(user?.id));
   const [schedulesLoading, setSchedulesLoading] = useState(true);
   const [schedulesError, setSchedulesError] = useState(false);
   const [clubBannerMap, setClubBannerMap] = useState<Record<string, { card_image_url: string | null }>>({}); 
@@ -308,6 +309,58 @@ export default function Home() {
       })
       .catch(() => {});
   }, []);
+
+  // ── 공지 읽음 상태: 계정별 Supabase 저장 + 기존 localStorage fallback ──
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadReadNoticeIds = async () => {
+      const localIds = getReadNoticeIds(user?.id);
+      if (!user?.id) {
+        if (!cancelled) setReadNoticeIds(localIds);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('notice_reads')
+        .select('notice_id')
+        .eq('user_id', user.id);
+
+      const remoteIds = !error && data ? data.map((row) => row.notice_id) : [];
+      const merged = new Set<string>([...localIds, ...remoteIds]);
+      if (!cancelled) setReadNoticeIds(merged);
+
+      // 기존 브라우저별 기록도 한 번만 계정 기록으로 마이그레이션합니다.
+      if (!error && localIds.size > 0) {
+        const legacyRows = [...localIds].map((notice_id) => ({ user_id: user.id, notice_id }));
+        await supabase.from('notice_reads').upsert(legacyRows, { onConflict: 'user_id,notice_id', ignoreDuplicates: true });
+      }
+    };
+
+    void loadReadNoticeIds();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const markNoticeAsRead = useCallback(async (noticeId: string) => {
+    setReadNoticeIds((prev) => {
+      const next = new Set(prev);
+      next.add(noticeId);
+      return next;
+    });
+
+    markNoticeAsReadLocal(noticeId, user?.id);
+
+    if (!user?.id) return;
+
+    const { error } = await supabase
+      .from('notice_reads')
+      .upsert({ user_id: user.id, notice_id: noticeId }, { onConflict: 'user_id,notice_id', ignoreDuplicates: true });
+
+    if (error) {
+      // Supabase 오류가 있어도 기존 브라우저별 fallback은 유지합니다.
+      console.warn('공지 읽음 상태 저장 실패:', error.message);
+    }
+  }, [user?.id]);
 
   // ── 히어로 슬라이드 구성 ──
   const heroSlides: HeroSlide[] = [
@@ -549,13 +602,12 @@ export default function Home() {
                 {/* 모바일 전용: 인스타 스토리처럼 원형으로 훑어보는 최근 공지 링 */}
                 <div className="lg:hidden flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1 mb-1 snap-x">
                   {notices.slice(0, 6).map((notice) => {
-                    const readIds = getReadNoticeIds(user?.id);
-                    const isRead = readIds.has(notice.id);
+                    const isRead = readNoticeIds.has(notice.id);
                     const catColor = getCategoryColor(notice.category);
                     return (
                       <button
                         key={`story-${notice.id}`}
-                        onClick={() => navigate(`/notices/${notice.id}`)}
+                        onClick={() => { void markNoticeAsRead(notice.id); navigate(`/notices/${notice.id}`); }}
                         className="flex-shrink-0 snap-start flex flex-col items-center gap-1 w-16 cursor-pointer active:scale-95 transition-transform"
                       >
                         <div className={`w-14 h-14 rounded-full flex items-center justify-center p-[2px] ${isRead ? 'bg-background-200' : 'bg-gradient-to-br from-primary-500 to-accent-500'}`}>
@@ -569,13 +621,13 @@ export default function Home() {
                   })}
                 </div>
                 {notices.map((notice) => {
-                  const readIds = getReadNoticeIds(user?.id);
-                  const isNew = !readIds.has(notice.id) && (Date.now() - new Date(notice.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
+                  const isNew = !readNoticeIds.has(notice.id) && (Date.now() - new Date(notice.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
                   const catColor = getCategoryColor(notice.category);
                   return (
                     <Link
                       key={notice.id}
                       to={`/notices/${notice.id}`}
+                      onClick={() => { void markNoticeAsRead(notice.id); }}
                       className={`group flex items-start gap-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer hover:scale-[1.01] hover:shadow-sm ${
                         notice.is_pinned
                           ? 'bg-primary-50 border-primary-200 hover:border-primary-300'

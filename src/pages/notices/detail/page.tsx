@@ -39,17 +39,38 @@ export default function NoticeDetail() {
         if (fetchError) throw fetchError;
         setNotice(data);
 
-        // Mark as read
+        // Mark as read in Supabase for cross-device/account sync.
         if (data && id) {
-          try {
-            const key = user?.id ? `notice_reads:${user.id}` : 'notice_reads';
-            const raw = localStorage.getItem(key);
-            const reads: string[] = raw ? JSON.parse(raw) : [];
-            if (!reads.includes(id)) {
-              reads.push(id);
-              localStorage.setItem(key, JSON.stringify(reads));
+          if (user?.id) {
+            const { error: readError } = await supabase
+              .from('notice_reads')
+              .upsert(
+                { user_id: user.id, notice_id: id },
+                { onConflict: 'user_id,notice_id', ignoreDuplicates: true }
+              );
+
+            if (readError) {
+              // Preserve the previous browser-local behavior as a fallback.
+              try {
+                const key = `notice_reads:${user.id}`;
+                const raw = localStorage.getItem(key);
+                const reads: string[] = raw ? JSON.parse(raw) : [];
+                if (!reads.includes(id)) {
+                  reads.push(id);
+                  localStorage.setItem(key, JSON.stringify(reads));
+                }
+              } catch { /* ignore */ }
             }
-          } catch { /* ignore */ }
+          } else {
+            try {
+              const raw = localStorage.getItem('notice_reads');
+              const reads: string[] = raw ? JSON.parse(raw) : [];
+              if (!reads.includes(id)) {
+                reads.push(id);
+                localStorage.setItem('notice_reads', JSON.stringify(reads));
+              }
+            } catch { /* ignore */ }
+          }
         }
       } catch {
         setError('공지사항을 불러오는 중 오류가 발생했습니다');
