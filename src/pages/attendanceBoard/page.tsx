@@ -79,6 +79,27 @@ const CLUB_IDLE_CLASS = 'bg-background-100 text-foreground-700 border-background
 
 const getClubName = (club: string) => CLUB_LABELS[club as ClubType]?.split(' (')[0] || club;
 
+function ProfileAvatar({ src, name, className = '' }: { src?: string | null; name?: string; className?: string }) {
+  const [imageError, setImageError] = useState(false);
+  const showImage = Boolean(src) && !imageError;
+
+  return (
+    <span className={`w-7 h-7 rounded-full overflow-hidden bg-background-200 dark:bg-background-300 flex items-center justify-center flex-shrink-0 border border-background-300 dark:border-background-500 ${className}`}>
+      {showImage ? (
+        <img
+          src={src!}
+          alt={`${name || '학생'} 프로필`}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <i className="ri-user-line text-sm text-foreground-500 dark:text-foreground-300" aria-hidden="true"></i>
+      )}
+    </span>
+  );
+}
+
 export default function AttendanceBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -299,13 +320,7 @@ export default function AttendanceBoard() {
                   <div className="flex flex-wrap gap-2">
                     {visibleData.attended.map((m) => (
                       <span key={m.user_id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-sm font-medium text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-100">
-                        <span className="w-7 h-7 rounded-full overflow-hidden bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center flex-shrink-0 border border-emerald-200/70 dark:border-emerald-700/70">
-                          {m.profile_image ? (
-                            <img src={m.profile_image} alt="" className="w-full h-full object-cover" loading="lazy" />
-                          ) : (
-                            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-200">{m.user_name?.charAt(0) || '?'}</span>
-                          )}
-                        </span>
+                        <ProfileAvatar src={m.profile_image} name={m.user_name} className="bg-emerald-100 dark:bg-emerald-900/60 border-emerald-200/70 dark:border-emerald-700/70" />
                         <span className="min-w-0">
                           {m.user_name}
                           {selectedTab === 'all' && <span className="text-[10px] text-emerald-500 dark:text-emerald-300 ml-1">· {getClubName(m.club)}</span>}
@@ -331,13 +346,7 @@ export default function AttendanceBoard() {
                   <div className="flex flex-wrap gap-2">
                     {visibleData.unresponsive.map((m) => (
                       <span key={m.user_id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 dark:bg-background-200 dark:border-background-400 dark:text-foreground-800">
-                        <span className="w-7 h-7 rounded-full overflow-hidden bg-background-200 dark:bg-background-300 flex items-center justify-center flex-shrink-0 border border-background-300 dark:border-background-500">
-                          {m.profile_image ? (
-                            <img src={m.profile_image} alt="" className="w-full h-full object-cover" loading="lazy" />
-                          ) : (
-                            <span className="text-[11px] font-bold text-foreground-600 dark:text-foreground-200">{m.name?.charAt(0) || '?'}</span>
-                          )}
-                        </span>
+                        <ProfileAvatar src={m.profile_image} name={m.name} />
                         <span>{m.name}{selectedTab === 'all' && <span className="text-[10px] text-gray-400 dark:text-foreground-600 ml-1">· {getClubName(m.club)}</span>}</span>
                       </span>
                     ))}
@@ -358,13 +367,7 @@ export default function AttendanceBoard() {
                     {visibleData.absent.map((m) => (
                       <div key={m.user_id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-xl bg-orange-50 border border-orange-100 dark:bg-orange-950/40 dark:border-orange-800">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-8 h-8 rounded-full overflow-hidden bg-orange-100 dark:bg-orange-900/60 flex items-center justify-center flex-shrink-0 border border-orange-200/70 dark:border-orange-700/70">
-                            {m.profile_image ? (
-                              <img src={m.profile_image} alt="" className="w-full h-full object-cover" loading="lazy" />
-                            ) : (
-                              <span className="text-[11px] font-bold text-orange-700 dark:text-orange-200">{m.user_name?.charAt(0) || '?'}</span>
-                            )}
-                          </span>
+                          <ProfileAvatar src={m.profile_image} name={m.user_name} className="w-8 h-8 bg-orange-100 dark:bg-orange-900/60 border-orange-200/70 dark:border-orange-700/70" />
                           <span className="text-sm font-medium text-foreground-800 truncate">{m.user_name}</span>
                           {selectedTab === 'all' && <span className="text-[10px] text-orange-500 dark:text-orange-300 whitespace-nowrap">· {getClubName(m.club)}</span>}
                         </div>
