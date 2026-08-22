@@ -15,6 +15,7 @@ interface ClubMember {
   roleLabel: string;
   birthday: string;
   avatarColor: string;
+  profileImage?: string;
   isBirthdayThisMonth?: boolean;
 }
 
@@ -248,7 +249,7 @@ export default function ClubDetail() {
   const loadMembers = async () => {
     const { data: memberData } = await supabase
       .from('user_roles')
-      .select('user_id, name, role, club, birth_year, birth_month, birth_day, gender, is_expelled')
+      .select('user_id, name, role, club, birth_year, birth_month, birth_day, gender, profile_image, is_expelled')
       .eq('club', id)
       .order('role', { ascending: true });
 
@@ -268,7 +269,7 @@ export default function ClubDetail() {
       if (secondaryIds.length > 0) {
         const { data: secondaryProfiles } = await supabase
           .from('user_roles')
-          .select('user_id, name, role, club, birth_year, birth_month, birth_day, gender, is_expelled')
+          .select('user_id, name, role, club, birth_year, birth_month, birth_day, gender, profile_image, is_expelled')
           .in('user_id', secondaryIds);
         if (secondaryProfiles) {
           allMemberRows = [...allMemberRows, ...secondaryProfiles.filter((m: any) => !m.is_expelled)];
@@ -310,6 +311,7 @@ export default function ClubDetail() {
           birthday: birthdayStr,
           isBirthdayThisMonth,
           avatarColor: colors[i % colors.length],
+          profileImage: typeof m.profile_image === 'string' ? m.profile_image : '',
         };
       });
       setMembers(mapped);
@@ -1046,8 +1048,12 @@ export default function ClubDetail() {
                     <div className="flex flex-wrap gap-2">
                       {members.filter(m => m.isBirthdayThisMonth).map((m, i) => (
                         <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-full bg-rose-100 border border-rose-200">
-                          <div className={`w-6 h-6 rounded-full ${m.avatarColor} flex items-center justify-center flex-shrink-0`}>
-                            <span className="text-[10px] font-bold text-gray-700">{m.name.charAt(0)}</span>
+                          <div className={`w-6 h-6 rounded-full ${m.avatarColor} overflow-hidden flex items-center justify-center flex-shrink-0`}>
+                            {m.profileImage ? (
+                              <img src={m.profileImage} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[10px] font-bold text-gray-700">{m.name.charAt(0)}</span>
+                            )}
                           </div>
                           <span className="text-xs font-semibold text-rose-800">{m.name}</span>
                           <span className="text-xs text-rose-600">{m.birthday}</span>
@@ -1064,8 +1070,12 @@ export default function ClubDetail() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     {members.map((m, i) => (
                       <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-background-50 transition-colors">
-                        <div className={`w-10 h-10 rounded-full ${m.avatarColor} flex items-center justify-center flex-shrink-0`}>
-                          <span className="text-sm font-bold text-gray-700">{m.name.charAt(0)}</span>
+                        <div className={`w-10 h-10 rounded-full ${m.avatarColor} overflow-hidden flex items-center justify-center flex-shrink-0`}>
+                          {m.profileImage ? (
+                            <img src={m.profileImage} alt={`${m.name} 프로필`} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-bold text-gray-700">{m.name.charAt(0)}</span>
+                          )}
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-foreground-950">
