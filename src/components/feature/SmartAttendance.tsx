@@ -311,7 +311,7 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
       (err) => {
         console.warn('Geolocation error:', err.message);
         if (err.code === err.PERMISSION_DENIED) {
-          setErrorMsg('위치 권한이 거부되었어요. 브라우저 설정에서 위치 권한을 허용해주세요.');
+          setErrorMsg('위치 권한이 거부되었어요. iPhone에서는 설정 → 개인정보 보호 및 보안 → 위치 서비스에서 사용하는 브라우저의 위치 권한을 허용한 뒤 다시 시도해주세요.');
           setAttendanceStatus('location-denied');
         } else {
           setErrorMsg('위치를 확인할 수 없어요. 학관 내에서 다시 시도해주세요.');
