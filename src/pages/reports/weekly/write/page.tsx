@@ -164,7 +164,7 @@ export default function WeeklyReportWrite() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground-950 mb-2">
                 <i className="ri-user-line mr-1.5 text-foreground-600"></i>

@@ -272,6 +272,22 @@ readdy-ai-assistant,
   display: none;
 }
 
+/* ===== Mobile form usability ===== */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea,
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  select,
+  textarea {
+    max-width: 100%;
+  }
+}
+
 /* ===== Safe Area Utilities ===== */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);

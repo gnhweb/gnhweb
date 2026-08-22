@@ -64,6 +64,7 @@ export default function BottomTabBar() {
   const { user, profile } = useAuth();
   const { mobileOpen, setMobileOpen } = useMobileMenu();
   const [visible, setVisible] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
     // 페이지 이동 시엔 항상 맨 위(숨김 상태)에서 시작한다.
@@ -74,14 +75,31 @@ export default function BottomTabBar() {
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+
+    const viewport = window.visualViewport;
+    const updateKeyboardState = () => {
+      if (!viewport) return;
+      const heightGap = window.innerHeight - viewport.height;
+      const keyboardVisible = heightGap > 150 && viewport.offsetTop === 0;
+      setKeyboardOpen(keyboardVisible);
+    };
+
+    updateKeyboardState();
+    viewport?.addEventListener("resize", updateKeyboardState);
+    viewport?.addEventListener("scroll", updateKeyboardState);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      viewport?.removeEventListener("resize", updateKeyboardState);
+      viewport?.removeEventListener("scroll", updateKeyboardState);
+    };
   }, [location.pathname]);
 
   if (!user) return null;
 
   // 더보기 메뉴가 열려 있을 땐 스크롤 위치와 상관없이 탭바를 보여준다(활성 표시를 위해).
   // 모바일 메뉴가 열려 있으면 하단 탭바를 숨겨 메뉴 항목이 가려지지 않게 한다
-  const shouldShow = visible && !mobileOpen;
+  const shouldShow = visible && !mobileOpen && !keyboardOpen;
 
   const isTabActive = (tab: TabDef) => {
     if (tab.key === "more") return mobileOpen;

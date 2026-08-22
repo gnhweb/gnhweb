@@ -670,7 +670,7 @@ export default function MeetingCopilotPage() {
 
       {/* ── 본문 ── */}
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-5 md:py-6">
-        <div className={`grid gap-5 h-[78vh] min-h-[560px] ${
+        <div className={`grid gap-5 h-auto min-h-0 lg:h-[78vh] lg:min-h-[560px] ${
           mode === 'meeting' ? 'grid-cols-1 lg:grid-cols-[280px_1fr]' : 'grid-cols-1 max-w-3xl mx-auto'
         }`}>
 
