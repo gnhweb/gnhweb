@@ -569,7 +569,7 @@ function RoomView({
 /** 화면 하단에서 위로 떠오르며 사라지는 리액션 이모지들 */
 function FloatingReactions({ reactions }: { reactions: (ReactionEvent & { left: number })[] }) {
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-16 h-64 z-30 overflow-hidden">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] h-64 z-30 overflow-hidden">
       <AnimatePresence>
         {reactions.map((r) => (
           <motion.div
@@ -839,7 +839,7 @@ function GhostChatPanel({ gm }: { gm: GameManager }) {
     setInput("");
   };
   return (
-    <div className="fixed bottom-3 right-3 z-40 w-72 max-w-[90vw]">
+    <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] right-3 z-40 w-72 max-w-[90vw]">
       {open ? (
         <div className="bg-gray-900 border border-violet-700/50 rounded-xl overflow-hidden shadow-xl">
           <div className="flex items-center justify-between px-3 py-2 bg-violet-900/40">
