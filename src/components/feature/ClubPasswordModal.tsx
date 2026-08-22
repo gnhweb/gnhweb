@@ -97,7 +97,7 @@ export default function ClubPasswordModal({ clubId, clubName, onSuccess, onCance
               onChange={e => { setPassword(e.target.value); setError(''); }}
               placeholder="비밀번호 입력"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 transition-all text-center tracking-widest"
-              autoFocus
+              autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
             />
           </div>
 

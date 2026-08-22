@@ -1065,7 +1065,7 @@ function UserRow({
                 value={tempRole}
                 onChange={(e) => handleRoleChange(e.target.value as UserRole)}
                 onBlur={() => setEditing(null)}
-                autoFocus
+                autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
                 disabled={isSaving}
                 className="text-sm font-medium px-2.5 py-1.5 rounded-lg border border-rose-200 bg-background-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-rose-200 cursor-pointer"
               >
@@ -1127,7 +1127,7 @@ function UserRow({
             value={tempClub || ''}
             onChange={(e) => handleClubChange(e.target.value as ClubType)}
             onBlur={() => setEditing(null)}
-            autoFocus
+            autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
             disabled={isSaving}
             className="text-sm px-2.5 py-1.5 rounded-lg border border-rose-200 bg-background-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-rose-200 cursor-pointer"
           >
@@ -1170,7 +1170,7 @@ function UserRow({
               onChange={(e) => setTempZone(e.target.value)}
               onBlur={handleZoneSave}
               onKeyDown={(e) => { if (e.key === 'Enter') handleZoneSave(); }}
-              autoFocus
+              autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
               disabled={isSaving}
               placeholder="구역 입력"
               maxLength={20}

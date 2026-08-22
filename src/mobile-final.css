@@ -6,3 +6,45 @@
   img { max-width: 100%; height: auto; }
   button, [role="button"] { -webkit-tap-highlight-color: transparent; }
 }
+
+/* Additional audit-safe mobile hardening */
+@media (max-width: 767px) {
+  html, body {
+    min-height: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .mobile-modal-panel,
+  .mobile-safe-modal {
+    min-height: 0;
+    max-height: 90dvh;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  select {
+    min-height: 44px;
+    font-size: 16px !important;
+  }
+
+  textarea {
+    font-size: 16px !important;
+  }
+
+  button,
+  a[role="button"],
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Avoid accidental horizontal layout growth from long Korean/URL content. */
+  p, h1, h2, h3, h4, h5, h6, label {
+    overflow-wrap: break-word;
+  }
+}

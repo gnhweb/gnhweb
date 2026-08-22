@@ -109,7 +109,7 @@ export default function MeetingIdeasModal({ open, onClose }: Props) {
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
                         placeholder="예: 동아리 축제 준비, 봉사활동 계획..."
                         className="w-full px-4 py-3 text-sm rounded-xl border border-amber-200 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-amber-300 transition-all"
-                        autoFocus
+                        autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
                       />
                     </div>
                     <div>

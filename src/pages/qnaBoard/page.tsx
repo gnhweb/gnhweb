@@ -327,7 +327,7 @@ export default function QandABoard() {
                             onChange={e => setEditQText(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') handleEditQuestion(q.id); if (e.key === 'Escape') setEditingQId(null); }}
                             className="w-full px-3 py-2 text-sm rounded-xl border border-accent-300 bg-accent-50 focus:border-accent-400 outline-none"
-                            autoFocus
+                            autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
                           />
                           <div className="flex items-center gap-2 mt-1.5">
                             <button onClick={() => setEditingQId(null)} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
@@ -388,7 +388,7 @@ export default function QandABoard() {
                           onChange={e => setEditQText(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') handleEditQuestion(q.id); if (e.key === 'Escape') setEditingQId(null); }}
                           className="w-full px-3 py-2 text-sm rounded-xl border border-accent-300 bg-accent-50 focus:border-accent-400 outline-none"
-                          autoFocus
+                          autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
                         />
                         <div className="flex items-center gap-2 mt-1.5">
                           <button onClick={() => setEditingQId(null)} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>

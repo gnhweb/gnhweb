@@ -730,7 +730,7 @@ export default function MissionsPage() {
                                 onChange={e => setRejectReason(e.target.value)}
                                 placeholder="반려 사유를 입력하세요..."
                                 className="w-full px-3 py-2 text-sm rounded-xl border border-rose-200 bg-background-100 focus:border-rose-400 outline-none"
-                                autoFocus
+                                autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
                               />
                               <div className="flex items-center gap-2">
                                 <button

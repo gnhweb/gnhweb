@@ -177,7 +177,7 @@ export default function BucketListBoard() {
                       onChange={e => setEditContent(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingId(null); }}
                       className="w-full px-3 py-1.5 text-sm rounded-lg border border-emerald-300 outline-none focus:border-emerald-500"
-                      autoFocus
+                      autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
                     />
                   ) : (
                     item.content

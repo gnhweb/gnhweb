@@ -74,6 +74,21 @@ export default function ClubCommunity() {
   const [postImages, setPostImages] = useState<File[]>([]);
   const [postImagePreviews, setPostImagePreviews] = useState<string[]>([]);
 
+  const revokePostImagePreviews = useCallback((urls: string[]) => {
+    for (const url of urls) {
+      if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      setPostImagePreviews((current) => {
+        revokePostImagePreviews(current);
+        return [];
+      });
+    };
+  }, [revokePostImagePreviews]);
+
   const isPrimaryMember = profile?.club === clubId;
   const isSecondaryMember = secondaryClubs.includes(clubId);
   const isClubMember = isPrimaryMember || isSecondaryMember;
@@ -148,7 +163,10 @@ export default function ClubCommunity() {
 
       setNewPost('');
       setPostImages([]);
-      setPostImagePreviews([]);
+      setPostImagePreviews((current) => {
+        revokePostImagePreviews(current);
+        return [];
+      });
       await fetchPosts();
     } catch (e) {
       console.error('Failed to submit post:', e);
@@ -341,7 +359,11 @@ export default function ClubCommunity() {
                         <button
                           onClick={() => {
                             setPostImages(prev => prev.filter((_, idx) => idx !== i));
-                            setPostImagePreviews(prev => prev.filter((_, idx) => idx !== i));
+                            setPostImagePreviews(prev => {
+                              const removed = prev[i];
+                              if (removed?.startsWith('blob:')) URL.revokeObjectURL(removed);
+                              return prev.filter((_, idx) => idx !== i);
+                            });
                           }}
                           className="absolute top-0 right-0 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
                         >

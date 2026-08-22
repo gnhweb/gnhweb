@@ -279,7 +279,7 @@ export default function AbsenceReasonsPage() {
                         onKeyDown={(e) => { if (e.key === 'Enter') handleEdit(); }}
                         maxLength={50}
                         className="flex-1 px-3 py-2 text-sm bg-background-50 border border-background-200 rounded-lg outline-none focus:border-primary-300"
-                        autoFocus
+                        autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
                       />
                       <button
                         onClick={handleEdit}

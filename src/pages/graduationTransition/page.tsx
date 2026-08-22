@@ -277,7 +277,7 @@ export default function GraduationTransition() {
                       placeholder="새 체크리스트 항목..."
                       maxLength={100}
                       className="flex-1 px-4 py-2.5 text-sm rounded-xl border border-background-200 bg-background-50 focus:border-primary-400 outline-none"
-                      autoFocus
+                      autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
                     />
                     <select
                       value={newItemPhase}
@@ -336,7 +336,7 @@ export default function GraduationTransition() {
                               onKeyDown={e => { if (e.key === 'Enter') handleUpdateMasterItem(item.id); if (e.key === 'Escape') { setEditingItemId(null); setEditingItemTask(''); } }}
                               maxLength={100}
                               className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-amber-200 bg-background-100 outline-none"
-                              autoFocus
+                              autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
                             />
                             <button onClick={() => handleUpdateMasterItem(item.id)} className="text-xs text-emerald-600 hover:text-emerald-700 cursor-pointer font-medium whitespace-nowrap">저장</button>
                             <button onClick={() => { setEditingItemId(null); setEditingItemTask(''); }} className="text-xs text-foreground-500 hover:text-foreground-700 cursor-pointer">취소</button>

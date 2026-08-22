@@ -256,7 +256,7 @@ function TypingTask({ onComplete, onCancel }: { onComplete: () => void; onCancel
       <p className="bg-gray-800 rounded-lg p-3 mb-1 text-yellow-300 font-medium">{phrase}</p>
       <p className="text-xs text-gray-500 mb-3">— {entry.ref}</p>
       <input
-        autoFocus
+        autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
         value={input}
         onChange={(e) => setInput(e.target.value)}
         className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-400"
