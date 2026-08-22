@@ -7,6 +7,7 @@ import type { UserRole } from '@/types/auth';
 import { MEETING_CLUB_LABELS, canAccessMeetingClub } from '@/constants/meetingClubs';
 
 import type { MeetingMinute, MeetingInsight, RecurringIssue } from '@/types/meeting';
+import { notifyUser } from '@/lib/mobileFeedback';
 
 const SEVERITY_COLORS: Record<string, string> = {
   high: 'bg-rose-100 text-rose-700 border-rose-200',
@@ -139,7 +140,7 @@ export default function MeetingDetailPage() {
       if (error) throw error;
       navigate('/meetings');
     } catch {
-      alert('삭제 중 오류가 발생했습니다. 다시 시도해주세요.');
+      notifyUser('삭제 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
   };
 

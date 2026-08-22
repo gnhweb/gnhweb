@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { generatePlan } from '@/lib/nvidiaNim';
 import type { PDSChecklist, PDSItem } from '@/lib/nvidiaNim';
+import { notifyUser } from '@/lib/mobileFeedback';
 
 type TabKey = 'plan' | 'do' | 'see';
 
@@ -90,7 +91,7 @@ export default function PdsPlanner() {
       } else {
         throw new Error('Clipboard API unavailable');
       }
-      alert('체크리스트가 복사되었어요!');
+      notifyUser('체크리스트가 복사되었어요!');
     } catch {
       try {
         const textarea = document.createElement('textarea');
@@ -105,13 +106,13 @@ export default function PdsPlanner() {
         const copied = document.execCommand('copy');
         textarea.remove();
         if (copied) {
-          alert('체크리스트가 복사되었어요!');
+          notifyUser('체크리스트가 복사되었어요!');
           return;
         }
       } catch {
         // fallback도 실패하면 안내 메시지로 종료
       }
-      alert('복사에 실패했어요. 텍스트를 길게 눌러 직접 복사해주세요.');
+      notifyUser('복사에 실패했어요. 텍스트를 길게 눌러 직접 복사해주세요.');
     }
   };
 

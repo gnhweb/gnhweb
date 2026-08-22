@@ -3,40 +3,9 @@
  * iOS Safari + Android Chrome safe improvements; no business logic changes.
  */
 
-const MOBILE_TOAST_EVENT = 'gnh-mobile-toast';
-
-function isCoarsePointer() {
-  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(pointer: coarse)').matches
-    : false;
-}
-
-function showMobileToast(message: string) {
-  if (typeof document === 'undefined') return;
-  let host = document.getElementById('gnh-mobile-toast-host');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'gnh-mobile-toast-host';
-    host.className = 'gnh-mobile-toast-host';
-    document.body.appendChild(host);
-  }
-
-  const item = document.createElement('div');
-  item.className = 'gnh-mobile-toast';
-  item.textContent = message;
-  host.appendChild(item);
-
-  window.setTimeout(() => {
-    item.classList.add('is-leaving');
-    window.setTimeout(() => item.remove(), 180);
-  }, 2800);
-}
-
-
 function patchVibrateForUnsupportedBrowsers() {
   if (typeof navigator === 'undefined' || !('vibrate' in navigator)) return;
   const userAgent = navigator.userAgent || '';
-  // iOS Safari generally exposes no useful vibration API. Keep a harmless no-op there.
   if (/iPhone|iPad|iPod/i.test(userAgent)) {
     try {
       Object.defineProperty(navigator, 'vibrate', {
@@ -44,7 +13,7 @@ function patchVibrateForUnsupportedBrowsers() {
         value: () => false,
       });
     } catch {
-      // Ignore if the browser exposes a non-configurable implementation.
+      // 비구성 가능한 구현이면 그대로 둠
     }
   }
 }
@@ -80,27 +49,6 @@ function observeScrollLock() {
   sync();
 }
 
-function upgradeHiddenPinInputs() {
-  if (typeof document === 'undefined') return;
-
-  const upgrade = () => {
-    document.querySelectorAll<HTMLInputElement>('input[data-gnh-pin-input]').forEach((input) => {
-      input.setAttribute('aria-label', 'PIN 입력');
-      input.style.pointerEvents = 'auto';
-      input.style.position = 'fixed';
-      input.style.left = '-10000px';
-      input.style.top = '0';
-      input.style.width = '1px';
-      input.style.height = '1px';
-      input.style.opacity = '0';
-    });
-  };
-
-  upgrade();
-  const observer = new MutationObserver(upgrade);
-  observer.observe(document.body, { subtree: true, childList: true });
-}
-
 function enableLazyImages() {
   if (typeof document === 'undefined' || typeof IntersectionObserver === 'undefined') return;
 
@@ -116,9 +64,8 @@ function enableLazyImages() {
 
   const observe = (root: ParentNode) => {
     root.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
-      if (seen.has(img)) return;
+      if (seen.has(img) || img.dataset.noLazy === 'true') return;
       seen.add(img);
-      if (img.dataset.noLazy === 'true') return;
       img.decoding = 'async';
       const rect = img.getBoundingClientRect();
       if (rect.top > window.innerHeight * 1.25) img.loading = 'lazy';
@@ -127,6 +74,7 @@ function enableLazyImages() {
   };
 
   observe(document);
+
   const mo = new MutationObserver((records) => {
     for (const record of records) {
       for (const node of record.addedNodes) {
@@ -168,9 +116,7 @@ export function initMobileRuntime() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
   observeScrollLock();
-  upgradeHiddenPinInputs();
   enableLazyImages();
   addExternalResourceHints();
   patchVibrateForUnsupportedBrowsers();
-  window.dispatchEvent(new CustomEvent(MOBILE_TOAST_EVENT));
 }

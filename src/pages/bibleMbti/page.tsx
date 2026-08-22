@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { fetchMbtiResult } from '@/lib/nvidiaNim';
 import type { MbtiResult } from '@/lib/nvidiaNim';
+import { notifyUser } from '@/lib/mobileFeedback';
 
 const questions = [
   { id: 1, axis: 'action', question: '친구가 힘들어할 때 나는?', icon: 'ri-heart-line', options: ['바로 달려가서 위로한다', '옆에서 조용히 기도해 준다', '실질적인 해결책을 같이 찾아본다', '친구가 편하게 털어놓을 수 있게 기다려 준다'] },
@@ -237,7 +238,7 @@ export default function BibleMbti() {
       }
     } catch (err) {
       console.error('Image capture failed:', err);
-      alert('이미지 저장에 실패했어요. 다시 시도해주세요.');
+      notifyUser('이미지 저장에 실패했어요. 다시 시도해주세요.');
     } finally {
       if (resultCardRef.current) {
         resultCardRef.current.style.width = originalWidth || '';

@@ -7,6 +7,7 @@ import { clubs, clubIcons, ClubData } from '@/mocks/clubs';
 import { CLUB_LABELS } from '@/types/auth';
 import type { ClubType } from '@/types/auth';
 import ClubBannerManager, { useClubBanner } from '@/components/feature/ClubBannerManager';
+import { notifyUser } from '@/lib/mobileFeedback';
 
 interface ClubPost {
   id: string;
@@ -362,7 +363,7 @@ export default function ClubCommunity() {
                         onChange={(e) => {
                           const files = Array.from(e.target.files || []);
                           if (files.length + postImages.length > 10) {
-                            alert('최대 10장까지 업로드할 수 있어요');
+                            notifyUser('최대 10장까지 업로드할 수 있어요');
                             return;
                           }
                           const newPreviews = files.map(f => URL.createObjectURL(f));
