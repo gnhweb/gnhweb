@@ -78,7 +78,6 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
     { path: '/visitations', label: '심방 스케줄', icon: 'ri-heart-pulse-line' },
   ]},
   { label: '미션', items: [
-    { path: '/student-council-center', label: '학생회 발전센터', icon: 'ri-rocket-2-line' },
     { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },
     { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },
   ]},
@@ -298,7 +297,7 @@ export default function Navbar() {
               <div className="flex items-center gap-2 px-2 py-2 mt-1 mb-2"><div className="h-px flex-1 bg-background-200"></div><span className="text-[10px] font-bold text-foreground-400 uppercase tracking-widest">나의 기록</span><div className="h-px flex-1 bg-background-200"></div></div>
               <AccordionBlock icon="ri-lock-line" label="신앙(비공개)" color="primary" open={!!mobileAccordion['faith']} onToggle={() => toggleMobileAccordion('faith')}><div className="grid grid-cols-3 gap-1">{FAITH_CATEGORY.items.map(item => <MenuGridCard key={`m-faith-${item.path}`} icon={item.icon} label={item.label} colorClass="bg-primary-100 text-primary-600" active={isActive(item.path)} onClick={() => { navigate(item.path); setMobileOpen(false); }} />)}</div></AccordionBlock>
               {showMissionTab && <AccordionBlock icon="ri-shield-star-line" label="사명자 전용" color="rose" open={!!mobileAccordion['mission']} onToggle={() => toggleMobileAccordion('mission')}><div className="space-y-3">
-                {showTeacherTab && <div className="grid grid-cols-2 gap-1"><MenuGridCard icon="ri-rocket-2-line" label="학생회 발전센터" colorClass="bg-indigo-100 text-indigo-600" active={isActive('/student-council-center')} onClick={() => { navigate('/student-council-center'); setMobileOpen(false); }} /><MenuGridCard icon="ri-dashboard-line" label="교사 대시보드" colorClass="bg-accent-100 text-accent-600" active={isActive('/teacher-dashboard')} onClick={() => { navigate('/teacher-dashboard'); setMobileOpen(false); }} /></div>}
+                {showTeacherTab && <div className="grid grid-cols-2 gap-1"><MenuGridCard icon="ri-dashboard-line" label="교사 대시보드" colorClass="bg-accent-100 text-accent-600" active={isActive('/teacher-dashboard')} onClick={() => { navigate('/teacher-dashboard'); setMobileOpen(false); }} /></div>}
                 {MISSION_SUBSECTIONS.map(section => <div key={`m-ms-${section.label}`}><p className="px-2 py-1 text-[11px] font-semibold text-foreground-400 uppercase tracking-wider">{section.label}</p><div className="grid grid-cols-3 gap-1">{section.items.map(item => <MenuGridCard key={`m-msi-${item.label}`} icon={item.icon} label={item.label} colorClass="bg-accent-100 text-accent-600" active={!!item.path && isActive(item.path)} onClick={() => handleMissionAction(item)} />)}</div></div>)}
               </div></AccordionBlock>}
               {(showAdminTab || showTeacherTab) && visibleAdminItems.length > 0 && <AccordionBlock icon="ri-settings-3-line" label="관리" color="slate" open={!!mobileAccordion['admin']} onToggle={() => toggleMobileAccordion('admin')}><div className="grid grid-cols-3 gap-1">{visibleAdminItems.map(item => <MenuGridCard key={`m-admin-${item.label}`} icon={item.icon} label={item.label} colorClass="bg-secondary-100 text-secondary-600" active={isActive(item.path)} onClick={() => { navigate(item.path); setMobileOpen(false); }} />)}</div></AccordionBlock>}

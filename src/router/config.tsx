@@ -83,7 +83,6 @@ const MeetingWritePage = lazy(() => import("@/pages/meetings/write/page"));
 const MeetingDetailPage = lazy(() => import("@/pages/meetings/detail/page"));
 const MeetingEditPage = lazy(() => import("@/pages/meetings/edit/page"));
 const MeetingCopilotPage = lazy(() => import("@/pages/meetingCopilot/page"));
-const StudentCouncilCenter = lazy(() => import("@/pages/studentCouncilCenter/page"));
 const MissionsPage = lazy(() => import("@/pages/missions/page"));
 const MissionBoardPage = lazy(() => import("@/pages/missions/board/page"));
 const MissionLeaderboardPage = lazy(() => import("@/pages/missions/leaderboard/page"));
@@ -262,14 +261,6 @@ const routes: RouteObject[] = [
         element: (
           <AuthGuard minRole="assistant_zone_leader">
             {withSuspense(<ScheduleEdit />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/student-council-center",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<StudentCouncilCenter />)}
           </AuthGuard>
         ),
       },
