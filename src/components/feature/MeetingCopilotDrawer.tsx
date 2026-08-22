@@ -99,7 +99,7 @@ function MessageBubble({
         </div>
 
         {!isUser && !isStreaming && message.id !== 'welcome' && (
-          <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 mt-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => onSaveIdea(message.content.slice(0, 300))}
               className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] text-amber-600 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer whitespace-nowrap"

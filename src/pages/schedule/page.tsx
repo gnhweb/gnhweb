@@ -263,11 +263,11 @@ export default function Schedule() {
           {/* 모바일: 미니 캘린더 — 홈 화면과 톤 통일 */}
           <div className="md:hidden bg-background-100 border border-background-200 rounded-[20px] p-4 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <button onClick={goPrevMonth} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-background-200 cursor-pointer">
+              <button onClick={goPrevMonth} className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-full hover:bg-background-200 cursor-pointer">
                 <i className="ri-arrow-left-s-line text-foreground-600"></i>
               </button>
               <span className="text-sm font-bold text-foreground-900">{calYear}년 {calMonth + 1}월</span>
-              <button onClick={goNextMonth} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-background-200 cursor-pointer">
+              <button onClick={goNextMonth} className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-full hover:bg-background-200 cursor-pointer">
                 <i className="ri-arrow-right-s-line text-foreground-600"></i>
               </button>
             </div>
@@ -280,7 +280,7 @@ export default function Schedule() {
                   key={`${d.dateStr}-${i}`}
                   onClick={() => d.isCurrentMonth && setSelectedDate(selectedDate === d.dateStr ? null : d.dateStr)}
                   disabled={!d.isCurrentMonth}
-                  className="relative flex flex-col items-center justify-center py-1 cursor-pointer disabled:cursor-default"
+                  className="relative flex min-h-10 min-w-10 md:min-h-8 md:min-w-8 flex-col items-center justify-center py-1 cursor-pointer disabled:cursor-default"
                 >
                   <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-medium transition-all ${
                     selectedDate === d.dateStr

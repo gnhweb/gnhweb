@@ -196,7 +196,7 @@ export default function MemoryBoard() {
                 {isEditor && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    className="absolute top-2 right-2 w-10 h-10 md:w-7 md:h-7 rounded-full bg-black/50 text-white flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
                   >
                     <i className="ri-close-line text-sm"></i>
                   </button>

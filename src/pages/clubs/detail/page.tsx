@@ -863,7 +863,7 @@ export default function ClubDetail() {
                               maxLength={200}
                               className="flex-1 px-3 py-2 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none"
                             />
-                            <button onClick={() => setActivitiesInput(prev => prev.filter((_, idx) => idx !== i))} className="w-7 h-7 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center hover:bg-rose-200 cursor-pointer flex-shrink-0 self-start mt-1">
+                            <button onClick={() => setActivitiesInput(prev => prev.filter((_, idx) => idx !== i))} className="w-10 h-10 md:w-7 md:h-7 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center hover:bg-rose-200 cursor-pointer flex-shrink-0 self-start mt-1">
                               <i className="ri-close-line text-sm"></i>
                             </button>
                           </div>
@@ -1138,14 +1138,14 @@ export default function ClubDetail() {
                             <button
                               onClick={(e) => { e.stopPropagation(); togglePhotoSelect(url); }}
                               aria-label="선택"
-                              className={`absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${selectedPhotos.has(url) ? 'bg-rose-500 border-rose-500' : 'border-white bg-black/30 opacity-0 group-hover:opacity-100'}`}
+                              className={`absolute top-2 left-2 w-10 h-10 md:w-7 md:h-7 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${selectedPhotos.has(url) ? 'bg-rose-500 border-rose-500' : 'border-white bg-black/30 md:opacity-0 md:group-hover:opacity-100'}`}
                             >
                               {selectedPhotos.has(url) && <i className="ri-check-line text-white text-[10px]"></i>}
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleDeletePhoto(url); }}
                               aria-label="삭제"
-                              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-rose-500"
+                              className="absolute top-2 right-2 w-10 h-10 md:w-7 md:h-7 rounded-full bg-black/50 text-white flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-rose-500"
                             >
                               <i className="ri-close-line text-sm"></i>
                             </button>
@@ -1194,7 +1194,7 @@ export default function ClubDetail() {
                   qnaItems.map((item, idx) => (
                     <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(idx * 0.05, 0.3) }} className={`bg-background-100 border rounded-[20px] p-5 ${item.answer ? 'border-emerald-200' : 'border-background-200'}`}>
                       <div className="flex items-start gap-3 mb-2">
-                        <div className="w-7 h-7 rounded-full bg-accent-100 flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 md:w-7 md:h-7 rounded-full bg-accent-100 flex items-center justify-center flex-shrink-0">
                           <i className="ri-question-mark text-accent-600 text-xs"></i>
                         </div>
                         <div className="flex-1">

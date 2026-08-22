@@ -93,7 +93,7 @@ function MessageBubble({
         </div>
 
         {!isUser && !isStreaming && message.id !== 'welcome' && (
-          <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 mt-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => onSaveIdea(message.content.slice(0, 300))}
               className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] text-amber-600 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer whitespace-nowrap"
@@ -670,7 +670,7 @@ export default function MeetingCopilotPage() {
 
       {/* ── 본문 ── */}
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-5 md:py-6">
-        <div className={`grid gap-5 h-auto min-h-0 [min-height:0] lg:h-[78vh] lg:min-h-[560px] ${
+        <div className={`grid gap-5 h-[78vh] min-h-[560px] ${
           mode === 'meeting' ? 'grid-cols-1 lg:grid-cols-[280px_1fr]' : 'grid-cols-1 max-w-3xl mx-auto'
         }`}>
 

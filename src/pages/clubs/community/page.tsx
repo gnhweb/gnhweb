@@ -1,4 +1,3 @@
-import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -190,7 +189,7 @@ export default function ClubCommunity() {
     if (diffHours < 24) return `${diffHours}시간 전`;
     if (diffDays < 7) return `${diffDays}일 전`;
 
-    return formatKoreanDate(date, {
+    return date.toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -445,7 +444,7 @@ export default function ClubCommunity() {
                           <button
                             onClick={() => handleDelete(post.id)}
                             disabled={deletingId === post.id}
-                            className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-rose-500 cursor-pointer disabled:opacity-50"
+                            className="ml-auto md:opacity-0 md:group-hover:opacity-100 transition-opacity text-gray-300 hover:text-rose-500 cursor-pointer disabled:opacity-50"
                             title="삭제"
                           >
                             {deletingId === post.id ? (

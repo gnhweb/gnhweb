@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
-import { todayKey, formatKoreanDate } from '@/lib/date';
+import { todayKey } from '@/lib/date';
 
 interface SeniorStudent {
   user_id: string;
@@ -201,11 +201,11 @@ export default function SeniorRollingPaper() {
                                 </div>
                                 <div>
                                   <p className="text-sm font-semibold text-foreground-950">{paper.author_name} {paper.is_anonymous && <span className="text-xs text-foreground-500 font-normal">(익명)</span>}</p>
-                                  <p className="text-[11px] text-foreground-500">{formatKoreanDate(paper.created_at)}</p>
+                                  <p className="text-[11px] text-foreground-500">{new Date(paper.created_at).toLocaleDateString('ko-KR')}</p>
                                 </div>
                               </div>
                               {(paper.author_id === user?.id || isTeacherOrChief) && (
-                                <button onClick={() => handleDelete(paper.id)} className="md:opacity-0 md:group-hover:opacity-100 transition-opacity w-7 h-7 rounded-full flex items-center justify-center text-foreground-400 hover:text-rose-600 cursor-pointer">
+                                <button onClick={() => handleDelete(paper.id)} className="md:opacity-0 md:group-hover:opacity-100 transition-opacity w-10 h-10 md:w-7 md:h-7 rounded-full flex items-center justify-center text-foreground-400 hover:text-rose-600 cursor-pointer">
                                   <i className="ri-delete-bin-line text-sm"></i>
                                 </button>
                               )}

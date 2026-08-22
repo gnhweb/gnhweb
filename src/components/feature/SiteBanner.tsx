@@ -149,7 +149,7 @@ export default function SiteBanner() {
           <div className="relative w-full h-[180px] md:h-[220px] overflow-hidden">
             <img src={bannerUrl} alt="사이트 배너" className="w-full h-full object-cover" />
             {canManage && (
-              <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-3 right-3 flex items-center gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 <label className={`px-3 py-1.5 rounded-full bg-white/90 text-xs font-semibold text-foreground-700 cursor-pointer hover:bg-white transition-colors whitespace-nowrap ${uploading ? 'opacity-50' : ''}`}>
                   <i className="ri-image-edit-line mr-1"></i>
                   {uploading ? '업로드 중...' : '사진 변경'}

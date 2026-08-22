@@ -156,7 +156,7 @@ export default function SeniorSection() {
                         </div>
                         <h3 className="text-sm font-bold text-foreground-950 mb-1.5 group-hover:text-foreground-800 transition-colors">{feature.label}</h3>
                         <p className="text-xs text-foreground-600 leading-relaxed">{feature.desc}</p>
-                        <div className="flex items-center gap-1 mt-3 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 mt-3 text-xs font-medium md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                           <span className={c.text}>바로가기</span>
                           <i className={`ri-arrow-right-line ${c.icon} text-xs`}></i>
                         </div>

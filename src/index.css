@@ -272,44 +272,6 @@ readdy-ai-assistant,
   display: none;
 }
 
-/* ===== Mobile form usability ===== */
-@media (max-width: 639px) {
-  input,
-  select,
-  textarea,
-  button {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  input,
-  select,
-  textarea {
-    max-width: 100%;
-  }
-
-  /* iOS Safari는 포커스된 폼 컨트롤의 글자 크기가 16px 미만이면
-     자동으로 화면을 확대하는 경우가 있어 입력 흐름이 튀는 문제가 생긴다. */
-  input[type="text"],
-  input[type="email"],
-  input[type="password"],
-  input[type="date"],
-  input[type="number"],
-  textarea,
-  select {
-    font-size: 16px;
-  }
-
-  /* fixed 하단 UI와 입력창 사이에 충분한 스크롤 여유를 확보한다. */
-  body {
-    scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
-  }
-}
-
-/* iOS 키보드가 올라온 동안 fixed 하단 UI를 가리는 데 쓰는 상태 클래스. */
-body.ios-keyboard-open .pb-safe {
-  padding-bottom: 0 !important;
-}
-
 /* ===== Safe Area Utilities ===== */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -332,6 +294,19 @@ body.ios-keyboard-open .pb-safe {
 .h-dvh {
   height: 100vh;
   height: 100dvh;
+}
+
+
+/* Mobile touch/readability helpers */
+@media (max-width: 639px) {
+  .mobile-readable {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .mobile-touch {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 /* ===== Scroll lock for mobile menu overlay ===== */

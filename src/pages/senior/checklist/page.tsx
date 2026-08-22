@@ -207,7 +207,7 @@ export default function SeniorChecklist() {
                       )}
                     </div>
                     {canEdit && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <button onClick={() => openEdit(item)} className="w-7 h-7 rounded-full flex items-center justify-center text-foreground-400 hover:text-foreground-700 hover:bg-background-100 cursor-pointer">
                           <i className="ri-edit-line text-xs"></i>
                         </button>

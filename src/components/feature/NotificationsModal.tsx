@@ -1,4 +1,3 @@
-import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -188,25 +187,14 @@ export default function NotificationsModal({ open, onClose, user }: Notification
     return () => { supabase.removeChannel(channel); };
   }, [open, user, loadNotifications]);
 
-  const isIOSDevice = typeof navigator !== 'undefined' && (
-    /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  );
-  const isStandalonePWA = typeof window !== 'undefined' && (
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
-  );
-  const shouldShowIOSNotificationHint = isIOSDevice && !isStandalonePWA && typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'granted';
-
-  // iPhone에서는 홈 화면에 추가한 웹앱(PWA)에서만 웹 푸시를 안정적으로 사용할 수 있으므로
-  // 일반 Safari 탭에서는 권한 요청을 자동 실행하지 않고 안내만 보여준다.
+  // 알림함을 열 때 데스크톱 알림 권한을 요청(클릭이라는 사용자 동작 직후라 대부분의 브라우저에서 허용됨)
   useEffect(() => {
     if (!open) return;
     if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission !== 'default') return;
-    if (isIOSDevice && !isStandalonePWA) return;
-    Notification.requestPermission().catch(() => {});
-  }, [open, isIOSDevice, isStandalonePWA]);
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, [open]);
 
   const markAsRead = async (id: string) => {
     try {
@@ -274,13 +262,6 @@ export default function NotificationsModal({ open, onClose, user }: Notification
             </div>
           </div>
 
-          {shouldShowIOSNotificationHint && (
-            <div className="mx-4 mt-3 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800 leading-relaxed">
-              <strong className="font-semibold">iPhone 알림 안내</strong><br />
-              Safari에서 푸시 알림을 받으려면 이 사이트를 <strong>홈 화면에 추가</strong>한 뒤 홈 화면의 앱에서 알림을 허용해주세요.
-            </div>
-          )}
-
           {/* List */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
@@ -314,11 +295,11 @@ export default function NotificationsModal({ open, onClose, user }: Notification
                             )}
                           </div>
                           <p className="text-xs text-foreground-600 mt-0.5 line-clamp-2">{n.message}</p>
-                          <p className="text-[10px] text-foreground-400 mt-1">{formatKoreanDateTime(n.created_at)}</p>
+                          <p className="text-[10px] text-foreground-400 mt-1">{new Date(n.created_at).toLocaleString('ko-KR')}</p>
                         </div>
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
-                          className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-400 hover:text-red-500 cursor-pointer flex-shrink-0 transition-opacity"
+                          className="md:opacity-0 md:group-hover:opacity-100 w-10 h-10 md:w-6 md:h-6 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-400 hover:text-red-500 cursor-pointer flex-shrink-0 transition-opacity"
                         >
                           <i className="ri-delete-bin-line text-xs"></i>
                         </button>
@@ -411,7 +392,7 @@ export function NotificationToast({ user, onOpenList }: NotificationToastProps) 
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); dismiss(t.id); }}
-                className="w-6 h-6 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer flex-shrink-0"
+                className="w-10 h-10 md:w-6 md:h-6 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer flex-shrink-0"
               >
                 <i className="ri-close-line text-xs"></i>
               </button>

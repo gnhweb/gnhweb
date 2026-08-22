@@ -351,7 +351,7 @@ export default function GraduationTransition() {
                             </div>
                             <span className={`flex-1 text-sm ${isCompleted(item.id) ? 'text-foreground-500 line-through' : 'text-foreground-800'}`}>{item.task}</span>
                             {isEditor && (
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                 <button
                                   onClick={() => { setEditingItemId(item.id); setEditingItemTask(item.task); }}
                                   className="min-w-[40px] min-h-[40px] rounded-full flex items-center justify-center text-foreground-400 hover:text-foreground-700 hover:bg-background-200 cursor-pointer"
