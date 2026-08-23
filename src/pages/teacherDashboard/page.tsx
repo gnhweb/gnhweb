@@ -67,7 +67,8 @@ export default function TeacherDashboard() {
 
   const targetClub = (): ClubType | 'all' => {
     if (isChief) return clubFilter;
-    if (isTeacher && assignedTeacherClub) return assignedTeacherClub as ClubType;
+    // 교사는 담당 동아리가 아니라 전체 학생 출결을 확인합니다.
+    if (isTeacher) return 'all';
     return 'all';
   };
 
@@ -220,6 +221,14 @@ export default function TeacherDashboard() {
     }
   };
 
+  const clubAttendanceBars = ALL_CLUBS.map((club) => {
+    const present = attendanceList.attended.filter((m) => m.club === club).length;
+    const absent = attendanceList.absent.filter((m) => m.club === club).length;
+    const unresponsive = attendanceList.unresponsive.filter((m) => m.club === club).length;
+    const total = present + absent + unresponsive;
+    return { club, label: CLUB_LABELS[club].split(' (')[0], present, absent, unresponsive, total, rate: total ? Math.round((present / total) * 100) : 0 };
+  });
+
   const formatDate = (dateStr: string) => {
     return formatKoreanDate(dateStr, { month: 'numeric', day: 'numeric' }).replace(/\s/g, '');
   };
@@ -253,7 +262,7 @@ export default function TeacherDashboard() {
           <div className="mb-10">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">담당 교사 대시보드</h1>
+                <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">교사 대시보드</h1>
                 <p className="text-sm text-foreground-600">
                   {effectiveClub !== 'all' ? `${CLUB_LABELS[effectiveClub]} 담당` : '전체 동아리'} · {profile?.name} 선생님
                 </p>
@@ -314,7 +323,37 @@ export default function TeacherDashboard() {
             </div>
           </div>
 
-          {/* ── 실시간 출석 명단 ── */}
+          {/* ── 전체 출결 3종 막대그래프 ── */}
+          <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
+                <i className="ri-bar-chart-2-line text-primary-600"></i>전체 출결 현황
+              </h3>
+              <span className="text-xs text-foreground-500">전체 학생 기준</span>
+            </div>
+            <div className="space-y-4">
+              {[
+                { label: '출석', value: attendanceList.attended.length, className: 'bg-emerald-500', textClass: 'text-emerald-700' },
+                { label: '불참', value: attendanceList.absent.length, className: 'bg-orange-500', textClass: 'text-orange-700' },
+                { label: '미응답', value: attendanceList.unresponsive.length, className: 'bg-gray-400', textClass: 'text-foreground-600' },
+              ].map((bar) => {
+                const total = attendanceList.attended.length + attendanceList.absent.length + attendanceList.unresponsive.length;
+                const percent = total ? (bar.value / total) * 100 : 0;
+                return (
+                  <div key={bar.label}>
+                    <div className="flex items-center justify-between text-sm mb-1.5">
+                      <span className={`font-bold ${bar.textClass}`}>{bar.label}</span>
+                      <span className="text-foreground-600 font-semibold">{bar.value}명 · {Math.round(percent)}%</span>
+                    </div>
+                    <div className="h-4 rounded-full bg-background-200 overflow-hidden">
+                      <div className={`h-full rounded-full ${bar.className} transition-all duration-500`} style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
               <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
@@ -367,9 +406,12 @@ export default function TeacherDashboard() {
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {attendanceList.unresponsive.map((m, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-700">
+                    <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-700">
                       {m.name}
                       <span className="text-[9px] text-gray-400">· {m.clubName}</span>
+                      <a href="https://t.me/" target="_blank" rel="noreferrer" className="ml-1 text-sky-600 hover:text-sky-700" aria-label={`${m.name} 텔레그램 심방`}>
+                        <i className="ri-telegram-line"></i>
+                      </a>
                     </span>
                   ))}
                 </div>
@@ -393,6 +435,9 @@ export default function TeacherDashboard() {
                       {m.reason && (
                         <span className="text-xs text-orange-600 sm:ml-auto">{m.reason}</span>
                       )}
+                      <a href="https://t.me/" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-full bg-sky-500 text-white text-[11px] font-semibold hover:bg-sky-600 sm:ml-1 whitespace-nowrap">
+                        <i className="ri-telegram-line"></i>텔레그램으로 심방하기
+                      </a>
                     </div>
                   ))}
                 </div>
@@ -409,7 +454,7 @@ export default function TeacherDashboard() {
             )}
 
             <div className="mt-3 pt-3 border-t border-background-200">
-              <Link to="/dashboard/attendance" className="text-xs text-primary-600 hover:text-primary-700 font-medium cursor-pointer flex items-center gap-1">
+              <Link to="/attendance-board" className="text-xs text-primary-600 hover:text-primary-700 font-medium cursor-pointer flex items-center gap-1">
                 실시간 출석 현황판 보기 <i className="ri-arrow-right-line"></i>
               </Link>
             </div>

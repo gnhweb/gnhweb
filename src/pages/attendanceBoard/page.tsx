@@ -73,6 +73,14 @@ const CLUB_TABS: Array<{
     activeClass: 'bg-rose-500 text-white border-rose-500',
     countClass: 'bg-white/20 text-white',
   },
+  {
+    id: 'cheonhwarae_cheongmyeong',
+    label: '천화래와 청명',
+    shortLabel: '천화래·청명',
+    icon: 'ri-music-2-line',
+    activeClass: 'bg-sky-500 text-white border-sky-500',
+    countClass: 'bg-white/20 text-white',
+  },
 ];
 
 const CLUB_IDLE_CLASS = 'bg-background-100 text-foreground-700 border-background-200 hover:border-foreground-300 hover:bg-background-200 dark:bg-background-100 dark:text-foreground-800 dark:border-background-300 dark:hover:border-background-400 dark:hover:bg-background-200';
@@ -132,7 +140,7 @@ export default function AttendanceBoard() {
     try {
       const [attRes, studentRes] = await Promise.all([
         supabase.from('attendance').select('*').eq('attendance_date', todayStr),
-        supabase.from('user_roles').select('user_id, name, club, is_expelled, profile_image').not('role', 'in', '("chief","teacher")'),
+        supabase.from('user_roles').select('user_id, name, club, is_expelled, profile_image').eq('role', 'member'),
       ]);
 
       if (attRes.error) throw attRes.error;
@@ -280,6 +288,26 @@ export default function AttendanceBoard() {
             ))}
           </div>
 
+          {/* Bar chart */}
+          <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-bar-chart-2-line text-emerald-600"></i>출결 막대그래프</h3>
+              <span className="text-xs text-foreground-500">{selectedLabel}</span>
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: '출석', value: presentCount, className: 'bg-emerald-400' },
+                { label: '불참', value: absentCount, className: 'bg-orange-400' },
+                { label: '미응답', value: unresponsiveCount, className: 'bg-gray-400' },
+              ].map((bar) => (
+                <div key={bar.label}>
+                  <div className="flex justify-between text-xs mb-1"><span className="font-semibold text-foreground-800">{bar.label}</span><span className="text-foreground-500">{bar.value}명</span></div>
+                  <div className="h-3 bg-background-200 rounded-full overflow-hidden"><div className={`h-full rounded-full ${bar.className} transition-all`} style={{ width: `${selectedTotal ? Math.max((bar.value / selectedTotal) * 100, bar.value ? 2 : 0) : 0}%` }} /></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Progress bar */}
           <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-6">
             <div className="flex items-center justify-between mb-2">
@@ -345,10 +373,13 @@ export default function AttendanceBoard() {
                 {visibleData.unresponsive.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {visibleData.unresponsive.map((m) => (
-                      <span key={m.user_id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 dark:bg-background-200 dark:border-background-400 dark:text-foreground-800">
+                      <div key={m.user_id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 dark:bg-background-200 dark:border-background-400 dark:text-foreground-800">
                         <ProfileAvatar src={m.profile_image} name={m.name} />
                         <span>{m.name}{selectedTab === 'all' && <span className="text-[10px] text-gray-400 dark:text-foreground-600 ml-1">· {getClubName(m.club)}</span>}</span>
-                      </span>
+                        <a href="https://t.me/" target="_blank" rel="noreferrer" className="ml-1 text-sky-600 hover:text-sky-700" aria-label={`${m.name} 텔레그램 심방`}>
+                          <i className="ri-telegram-line"></i>
+                        </a>
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -374,6 +405,9 @@ export default function AttendanceBoard() {
                         {m.absence_reason && (
                           <span className="text-xs text-orange-600 dark:text-orange-300 sm:ml-auto">{m.absence_reason}</span>
                         )}
+                        <a href="https://t.me/" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-full bg-sky-500 text-white text-[11px] font-semibold hover:bg-sky-600 sm:ml-1 whitespace-nowrap">
+                          <i className="ri-telegram-line"></i>텔레그램으로 심방하기
+                        </a>
                       </div>
                     ))}
                   </div>

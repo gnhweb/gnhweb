@@ -610,7 +610,7 @@ const routes: RouteObject[] = [
       {
         path: "/attendance-board",
         element: (
-          <AuthGuard minRole="member">
+          <AuthGuard minRole="assistant_zone_leader">
             {withSuspense(<AttendanceBoard />)}
           </AuthGuard>
         ),
