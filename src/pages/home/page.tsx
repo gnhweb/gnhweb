@@ -525,7 +525,10 @@ export default function Home() {
             </span>
             <div className="min-w-0 flex-1 pr-3 md:pr-10">
               <p className="text-xs md:text-sm font-extrabold tracking-wide text-white/85 mb-2">오늘의 어록</p>
-              <p className="font-quote text-base md:text-xl font-bold italic text-white leading-8 md:leading-9 whitespace-pre-line break-keep">
+              <p
+                className="font-quote text-base md:text-xl font-medium italic text-white leading-8 md:leading-9 whitespace-pre-line break-keep tracking-[0.01em]"
+                style={{ fontFamily: '"Noto Serif KR", "Nanum Myeongjo", "Batang", "AppleMyungjo", serif' }}
+              >
                 {dailyQuote}
               </p>
             </div>
