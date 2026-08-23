@@ -567,8 +567,16 @@ export default function Home() {
               <div className="relative min-w-0">
                 <span aria-hidden="true" className="absolute -left-0.5 -top-2 min-[360px]:-left-1 min-[360px]:-top-3 md:-left-2 md:-top-4 font-serif text-2xl min-[360px]:text-3xl md:text-4xl font-black text-white/35 leading-none">“</span>
                 <p
-                  className="font-quote text-[clamp(1rem,4.35vw,1.4rem)] font-bold italic text-white leading-[1.8] min-[360px]:leading-[1.85] md:leading-[1.9] whitespace-pre-line break-keep tracking-[0.015em] drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)] pl-3 min-[360px]:pl-4 md:pl-5"
-                  style={{ fontFamily: '"Noto Serif KR", "Nanum Myeongjo", "Batang", "AppleMyungjo", Georgia, serif', fontWeight: 700, fontStyle: 'italic' }}
+                  className="font-quote text-[clamp(1.02rem,4.55vw,1.42rem)] font-extrabold text-white leading-[1.78] min-[360px]:leading-[1.82] md:leading-[1.88] whitespace-pre-line break-keep tracking-[0.01em] drop-shadow-[0_1px_1px_rgba(0,0,0,0.22)] pl-3 min-[360px]:pl-4 md:pl-5"
+                  style={{
+                    fontFamily: '"Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", "Batang", ui-serif, Georgia, "Times New Roman", serif',
+                    fontWeight: 800,
+                    fontStyle: 'normal',
+                    fontSynthesis: 'weight',
+                    letterSpacing: '0.01em',
+                    textShadow: '0 1px 1px rgba(0,0,0,0.16)',
+                    WebkitTextStroke: '0.15px rgba(255,255,255,0.22)'
+                  }}
                 >
                   {dailyQuote}
                 </p>
