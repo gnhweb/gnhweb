@@ -59,7 +59,6 @@ const GAME_CATEGORY: CategoryGroup = {
 interface MissionSubSection { label: string; items: { path?: string; label: string; icon: string; action?: string }[]; }
 const MISSION_SUBSECTIONS: MissionSubSection[] = [
   { label: '출석 관리', items: [
-    { path: '/dashboard/attendance/analytics', label: '출석 통계 분석', icon: 'ri-bar-chart-line' },
     { path: '/attendance-board', label: '실시간 출석 현황판', icon: 'ri-user-heart-line' },
   ]},
   { label: '회의록', items: [
