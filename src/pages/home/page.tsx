@@ -552,7 +552,7 @@ export default function Home() {
 
       {/* ═══ 1. 히어로 캐러셀 ═══ */}
       <section
-        className="relative h-[50vw] sm:h-[50vw] md:h-[560px] overflow-hidden bg-foreground-950 touch-pan-y"
+        className="relative h-[55vw] sm:h-[55vw] md:h-[560px] overflow-hidden bg-foreground-950 touch-pan-y"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
