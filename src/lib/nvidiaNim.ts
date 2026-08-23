@@ -33,14 +33,6 @@ export interface PDSItem {
   deadline?: string;
 }
 
-export interface DashboardInsight {
-  summary: string;
-  criticalGroup: string;
-  recommendedAction: string;
-  weeklyFocus: string[];
-  riskAlert?: string;
-}
-
 export interface SimbangLetter {
   message: string;
   tone: string;
@@ -124,55 +116,6 @@ export async function generatePlan(eventPurpose: string): Promise<PDSChecklist> 
   }
 
   throw new Error('체크리스트 형식이 올바르지 않아요.');
-}
-
-// ============================================================
-// 출석 대시보드 AI 인사이트 → nim-insight Edge Function
-// ============================================================
-
-export async function generateDashboardInsight(attendanceData: {
-  clubName: string;
-  attendanceRate: number;
-  totalMembers: number;
-  absentCount: number;
-}[]): Promise<DashboardInsight> {
-  const cacheKey = `nim-insight-cache-v1:${encodeURIComponent(JSON.stringify(attendanceData))}`;
-
-  try {
-    const raw = localStorage.getItem(cacheKey);
-    if (raw) {
-      const cached = JSON.parse(raw) as { expiresAt: number; data: DashboardInsight };
-      if (cached?.expiresAt > Date.now() && cached.data?.summary) {
-        return cached.data;
-      }
-      localStorage.removeItem(cacheKey);
-    }
-  } catch {
-    // ignore cache errors and continue to the API
-  }
-
-  const { data, error } = await supabase.functions.invoke('nim-insight', {
-    body: { attendanceData },
-  });
-
-  if (error || !data) {
-    throw new Error('AI 인사이트를 불러오지 못했어요.');
-  }
-
-  const result = data as DashboardInsight;
-  if (result && result.summary) {
-    try {
-      localStorage.setItem(
-        cacheKey,
-        JSON.stringify({ expiresAt: Date.now() + 6 * 60 * 60 * 1000, data: result }),
-      );
-    } catch {
-      // ignore cache errors
-    }
-    return result;
-  }
-
-  throw new Error('AI 인사이트 생성에 실패했어요.');
 }
 
 // ============================================================

@@ -62,7 +62,6 @@ const PdsPlanner = lazy(() => import("@/pages/pdsPlanner/page"));
 const LeadershipDiary = lazy(() => import("@/pages/leadershipDiary/page"));
 const AttendanceDashboard = lazy(() => import("@/pages/dashboard/attendance/page"));
 const ToolsPage = lazy(() => import("@/pages/tools/page"));
-const AttendanceAnalyticsPage = lazy(() => import("@/pages/dashboard/attendance/analytics/page"));
 const AbsenceReasonsPage = lazy(() => import("@/pages/settings/absence-reasons/page"));
 const AttendanceLocationPage = lazy(() => import("@/pages/settings/attendance-location/page"));
 const ProfilePage = lazy(() => import("@/pages/profile/page"));
@@ -277,14 +276,6 @@ const routes: RouteObject[] = [
         element: (
           <AuthGuard minRole="member">
             {withSuspense(<AttendanceDashboard />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/dashboard/attendance/analytics",
-        element: (
-          <AuthGuard minRole="member">
-            {withSuspense(<AttendanceAnalyticsPage />)}
           </AuthGuard>
         ),
       },

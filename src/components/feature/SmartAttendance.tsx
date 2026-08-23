@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
-import { generateDashboardInsight } from '@/lib/nvidiaNim';
 import { ROLE_HIERARCHY, CLUB_LABELS } from '@/types/auth';
 import type { ClubType, UserRole } from '@/types/auth';
 import { CLUB_META } from '@/mocks/attendance';
@@ -792,10 +791,6 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
   const [clubSummaries, setClubSummaries] = useState<ClubAttendanceSummary[]>([]);
   const [selectedClub, setSelectedClub] = useState<ClubType>('saeullim');
   const [isLoading, setIsLoading] = useState(true);
-  const [aiInsight, setAiInsight] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiError, setAiError] = useState('');
-  const [showAiPanel, setShowAiPanel] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchAttendanceData = useCallback(async () => {
@@ -903,40 +898,6 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
     };
   }, [fetchAttendanceData]);
 
-  const handleFetchAiInsight = async () => {
-    setIsAiLoading(true);
-    setAiError('');
-    setShowAiPanel(true);
-
-    try {
-      const insightData = clubSummaries.map((c) => ({
-        clubName: c.clubName,
-        attendanceRate: c.attendanceRate,
-        totalMembers: c.totalMembers,
-        absentCount: c.absentToday,
-      }));
-
-      const result = await generateDashboardInsight(insightData);
-
-      if (result) {
-        const formatted = [
-          `📊 ${result.summary}`,
-          `🎯 집중 그룹: ${result.criticalGroup}`,
-          `💡 추천 액션: ${result.recommendedAction}`,
-          result.riskAlert ? `⚠️ 위험 신호: ${result.riskAlert}` : '',
-          result.weeklyFocus?.length ? `📋 이번 주 집중: ${result.weeklyFocus.join(' / ')}` : '',
-        ].filter(Boolean).join('\n\n');
-        setAiInsight(formatted);
-      } else {
-        setAiError('AI 인사이트를 불러오지 못했어요.');
-      }
-    } catch {
-      setAiError('AI 호출 중 오류가 발생했어요.');
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const overallRate = clubSummaries.length > 0
     ? Math.round(clubSummaries.reduce((s, c) => s + c.attendanceRate * c.totalMembers, 0) / clubSummaries.reduce((s, c) => s + c.totalMembers, 0))
     : 0;
@@ -963,23 +924,6 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
             <p className="text-sm text-foreground-500">
               {formatKoreanDate(new Date(), { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
             </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              to="/dashboard/attendance/analytics"
-              className="flex items-center gap-2 px-5 py-2.5 bg-background-100 border border-background-200 rounded-2xl text-sm font-bold text-foreground-700 hover:bg-background-200 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              <i className="ri-bar-chart-line text-lg"></i>
-              통계 분석
-            </Link>
-            <button
-              onClick={handleFetchAiInsight}
-              disabled={isAiLoading}
-              className="flex items-center gap-2 px-5 py-2.5 bg-accent-100 border border-accent-200 rounded-2xl text-sm font-bold text-accent-700 hover:bg-accent-200 transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
-            >
-              <i className={`text-lg ${isAiLoading ? 'ri-loader-4-line animate-spin' : 'ri-lightbulb-line'}`}></i>
-              AI 출석 진단
-            </button>
           </div>
         </div>
 
@@ -1041,53 +985,6 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
             );
           })}
         </div>
-
-        <AnimatePresence>
-          {showAiPanel && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="bg-accent-50 border border-accent-200 rounded-[20px] p-5 md:p-6 mb-6"
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-11 h-11 rounded-xl bg-accent-100 flex items-center justify-center flex-shrink-0">
-                  {isAiLoading ? (
-                    <i className="ri-loader-4-line animate-spin text-xl text-accent-600"></i>
-                  ) : (
-                    <i className="ri-lightbulb-line text-2xl text-accent-600"></i>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-bold text-accent-800">
-                      {isAiLoading ? 'AI 분석 중...' : 'AI 오늘의 출석 진단'}
-                    </h3>
-                    <button
-                      onClick={() => setShowAiPanel(false)}
-                      className="text-accent-500 hover:text-accent-700 cursor-pointer"
-                    >
-                      <i className="ri-close-line text-lg"></i>
-                    </button>
-                  </div>
-                  {aiError && (
-                    <div className="flex items-center gap-2 mb-3">
-                      <p className="text-sm text-accent-700">{aiError}</p>
-                      <button onClick={handleFetchAiInsight} className="text-xs text-accent-700 font-medium underline cursor-pointer whitespace-nowrap">
-                        다시 시도
-                      </button>
-                    </div>
-                  )}
-                  {aiInsight && !isAiLoading && (
-                    <div className="bg-accent-100/50 rounded-xl p-4">
-                      <p className="text-sm text-accent-800 leading-relaxed whitespace-pre-wrap">{aiInsight}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {selectedSummary && (
           <motion.div
