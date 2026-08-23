@@ -234,27 +234,6 @@ export async function fetchMbtiResult(answers: string[]): Promise<MbtiResult> {
 }
 
 // ============================================================
-// 출석 환영 메시지 → nim-welcome Edge Function
-// ============================================================
-
-export async function fetchWelcomeMessage(clubName: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('nim-welcome', {
-    body: { clubName },
-  });
-
-  if (error || !data) {
-    throw new Error('환영 메시지를 불러오지 못했어요.');
-  }
-
-  const result = data as { message?: string };
-  if (result && typeof result.message === 'string' && result.message.length > 5) {
-    return result.message;
-  }
-
-  throw new Error('환영 메시지가 비어있어요.');
-}
-
-// ============================================================
 // 행사 기획 아이디어 추천 → nim-event-ideas Edge Function (Track 1: llama)
 // ============================================================
 

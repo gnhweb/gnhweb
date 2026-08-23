@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
-import { generateDashboardInsight, fetchWelcomeMessage } from '@/lib/nvidiaNim';
+import { generateDashboardInsight } from '@/lib/nvidiaNim';
 import { ROLE_HIERARCHY, CLUB_LABELS } from '@/types/auth';
 import type { ClubType, UserRole } from '@/types/auth';
 import { CLUB_META } from '@/mocks/attendance';
@@ -188,16 +188,19 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
   };
 
   const fetchAiWelcome = async () => {
-    try {
-      const clubName = clubMeta ? clubMeta.name : '학생회';
-      const result = await fetchWelcomeMessage(clubName);
-      if (result) {
-        setAiMessage(result);
-        setShowAiPopup(true);
-      }
-    } catch {
-      // AI call failed, still show success
-    }
+    // 체크인 환영 문구는 매번 NVIDIA API를 호출할 필요가 없는 고정 콘텐츠입니다.
+    // 동아리별 문구를 로컬에서 선택해 API 사용량과 비용을 줄입니다.
+    const clubName = clubMeta?.name || '학생회';
+    const welcomeMessages: Record<string, string> = {
+      '새울림': '북치는 새울림! 오늘도 힘차게 드럼을 두드리며 하나님을 찬양합시다! "여호와는 나의 힘이요 나의 방패시니 내 마음이 그를 의지하여 도움을 얻었도다" (시편 28:7)',
+      '천지풍': '기창 천지풍! 오늘도 깃발을 높이 들고 믿음의 전진을 외칩시다! "오직 여호와를 앙망하는 자는 새 힘을 얻으리니" (이사야 40:31)',
+      '천지후': '댄스 천지후! 오늘도 열정의 춤으로 하나님께 영광을 돌립시다! "너는 마음을 다하여 여호와를 신뢰하고" (잠언 3:5)',
+      '문화부': '미디어 문화부! 오늘도 창의적인 콘텐츠로 복음을 전합시다! "너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요" (마태복음 5:14)',
+      '학생회': '반갑습니다! 오늘도 함께 예배할 수 있어서 기쁩니다! "이는 여호와의 날이니 우리가 그 가운데서 기뻐하리로다" (시편 118:24)',
+    };
+
+    setAiMessage(welcomeMessages[clubName] || welcomeMessages['학생회']);
+    setShowAiPopup(true);
   };
 
   const doCheckIn = async () => {
