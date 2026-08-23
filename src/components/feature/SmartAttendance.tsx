@@ -1102,12 +1102,12 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
                         </div>
                         <button
                           onClick={() => {
-                            window.open('https://kauth.kakao.com/oauth/authorize?client_id=&redirect_uri=&response_type=code', '_blank');
+                            window.open('https://t.me/', '_blank', 'noopener,noreferrer');
                           }}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium hover:bg-yellow-200 transition-colors cursor-pointer whitespace-nowrap"
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-100 text-sky-700 text-xs font-medium hover:bg-sky-200 transition-colors cursor-pointer whitespace-nowrap"
                         >
-                          <i className="ri-kakao-talk-fill text-sm"></i>
-                          카톡 심방하기
+                          <i className="ri-telegram-2-fill text-sm"></i>
+                          텔레그램으로 심방하기
                         </button>
                       </motion.div>
                     ))}
