@@ -548,11 +548,11 @@ export default function Home() {
 
   // ──────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background-50">
+    <div className="min-h-screen bg-background-50 pb-24 md:pb-0">
 
       {/* ═══ 1. 히어로 캐러셀 ═══ */}
       <section
-        className="relative h-[340px] md:h-[560px] overflow-hidden bg-foreground-950 touch-pan-y"
+        className="relative h-[390px] sm:h-[430px] md:h-[560px] overflow-hidden bg-foreground-950 touch-pan-y"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -571,14 +571,14 @@ export default function Home() {
               <img
                 src={heroSlides[slideIndex].image || heroImages[heroSlides[slideIndex].id]}
                 alt={heroSlides[slideIndex].title}
-                className="absolute inset-0 w-full h-full object-cover object-center"
+                className="absolute inset-0 w-full h-full object-contain md:object-cover object-center bg-foreground-950"
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/60"></div>
-            <div className="absolute inset-0 flex items-end justify-center pb-8 md:pb-16 px-4">
+            <div className="absolute inset-0 flex items-end justify-center px-3 pb-14 sm:px-4 sm:pb-16 md:pb-16">
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="text-center max-w-xl w-full">
                 {heroSlides[slideIndex].badge && (
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white mb-3 ${heroSlides[slideIndex].badgeColor}`}>
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold text-white mb-2 sm:mb-3 ${heroSlides[slideIndex].badgeColor}`}>
                     <i className={{
                       main: 'ri-map-pin-line',
                       notice: 'ri-megaphone-line',
@@ -594,10 +594,10 @@ export default function Home() {
                     {heroSlides[slideIndex].badge}
                   </span>
                 )}
-                <h1 className="text-lg md:text-4xl font-black text-white leading-tight mb-1 md:mb-2 whitespace-pre-line drop-shadow-lg">{heroSlides[slideIndex].title}</h1>
-                <p className="text-xs md:text-base text-white/85 mb-4 md:mb-5 whitespace-pre-line leading-relaxed">{heroSlides[slideIndex].subtitle}</p>
+                <h1 className="text-[1.2rem] min-[360px]:text-[1.3rem] sm:text-2xl md:text-4xl font-black text-white leading-[1.25] mb-1.5 md:mb-2 whitespace-pre-line drop-shadow-lg">{heroSlides[slideIndex].title}</h1>
+                <p className="text-[11px] min-[360px]:text-xs sm:text-sm md:text-base text-white/85 mb-3.5 sm:mb-4 md:mb-5 whitespace-pre-line leading-[1.45]">{heroSlides[slideIndex].subtitle}</p>
                 {heroSlides[slideIndex].cta && (
-                  <Link to={heroSlides[slideIndex].cta!.path} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-background-100 text-foreground-950 text-sm font-bold hover:bg-background-100 transition-colors cursor-pointer whitespace-nowrap">
+                  <Link to={heroSlides[slideIndex].cta!.path} className="inline-flex items-center gap-1.5 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-background-100 text-foreground-950 text-[12px] sm:text-sm font-bold hover:bg-background-100 transition-colors cursor-pointer whitespace-nowrap shadow-lg">
                     {heroSlides[slideIndex].cta!.label} <i className="ri-arrow-right-line"></i>
                   </Link>
                 )}
@@ -607,7 +607,7 @@ export default function Home() {
         </AnimatePresence>
         <button onClick={prevSlide} className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-left-s-line text-xl"></i></button>
         <button onClick={nextSlide} className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-right-s-line text-xl"></i></button>
-        <div className="absolute bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 bg-black/20 backdrop-blur-sm rounded-full px-3 py-1.5">
+        <div className="absolute bottom-2.5 sm:bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1.5 max-w-[calc(100%-24px)]">
           <span className="text-[10px] md:text-xs font-semibold text-white/90 tabular-nums">{slideIndex + 1} / {heroSlides.length}</span>
           <div className="flex items-center gap-1.5">
             {heroSlides.map((_, i) => (
@@ -646,7 +646,7 @@ export default function Home() {
             >
               {dailyQuote}
             </p>
-            <div className="mt-3 min-[360px]:mt-3.5 md:mt-4 ml-3 min-[360px]:ml-4 md:ml-5 h-px w-12 min-[360px]:w-14 md:w-20 bg-white/40 rounded-full" />
+            <div className="mt-3 min-[360px]:mt-3.5 md:mt-4 h-px w-full bg-white/55 rounded-full" />
           </div>
         </div>
       </section>
