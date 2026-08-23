@@ -215,7 +215,7 @@ function getCalendarDays(year: number, month: number, schedules: Schedule[]): Ca
 // ──────────────────────────────────────────────
 interface HeroSlide {
   id: string;
-  type: 'main' | 'notice' | 'champion' | 'quiz';
+  type: 'main' | 'notice' | 'champion' | 'quiz' | 'feature';
   image: string;
   badge?: string;
   badgeColor?: string;
@@ -351,56 +351,99 @@ export default function Home() {
   }, []);
 
   // ── 히어로 슬라이드 구성 ──
+  // 홈페이지에 실제로 제공되는 주요 기능을 한눈에 보여주는 히어로 캐러셀입니다.
   const heroSlides: HeroSlide[] = [
     {
-      id: 'main',
-      type: 'main',
+      id: 'main', type: 'main',
       image: 'https://readdy.ai/api/search-image?query=Korean%20Christian%20youth%20worship%20gathering%20in%20warm%20golden%20light%2C%20raised%20hands%20in%20praise%2C%20modern%20church%20interior%20with%20stained%20glass%2C%20passionate%20spiritual%20atmosphere%2C%20vibrant%20community%20energy%2C%20rich%20amber%20and%20gold%20tones%2C%20editorial%20documentary%20photography%20with%20natural%20lighting%20and%20organic%20composition&width=1600&height=800&seq=home-main-slide-v2&orientation=landscape',
-      badge: '강릉 학생회',
-      badgeColor: 'bg-primary-500',
+      badge: '강릉 학생회', badgeColor: 'bg-primary-500',
       title: '스스로 신앙하는\n거침없는 강릉 학생회',
       subtitle: '말씀과 찬양, 동아리 활동을 통해\n전국 1등 학생회로 함께 성장합니다',
       cta: { label: '동아리 둘러보기', path: '/clubs' },
     },
     {
-      id: 'bible-pick',
-      type: 'quiz',
+      id: 'notice', type: 'notice',
+      image: 'https://readdy.ai/api/search-image?query=modern%20church%20bulletin%20board%20with%20warm%20paper%20cards%2C%20soft%20pink%20and%20navy%20accents%2C%20youth%20community%20announcement%20wall%2C%20clean%20editorial%20photography%2C%20inviting%20atmosphere&width=1600&height=800&seq=home-notice-slide-01&orientation=landscape',
+      badge: '공지사항', badgeColor: 'bg-rose-500',
+      title: '새로운 소식과\n중요한 공지를 한눈에',
+      subtitle: '학생회와 동아리의 최신 소식을\n놓치지 않고 확인해보세요',
+      cta: { label: '공지사항 보기', path: '/notices' },
+    },
+    {
+      id: 'schedule', type: 'feature',
+      image: 'https://readdy.ai/api/search-image?query=beautiful%20monthly%20calendar%20planner%20on%20a%20desk%2C%20Christian%20youth%20event%20schedule%2C%20soft%20blue%20and%20violet%20tones%2C%20clean%20modern%20photography%2C%20organized%20and%20welcoming%20mood&width=1600&height=800&seq=home-schedule-slide-01&orientation=landscape',
+      badge: '일정', badgeColor: 'bg-secondary-500',
+      title: '예배부터 행사까지\n이번 달 일정을 한눈에',
+      subtitle: '학생회 일정과 주요 행사를\n미리 확인하고 함께 준비해요',
+      cta: { label: '일정 보기', path: '/schedule' },
+    },
+    {
+      id: 'clubs', type: 'feature',
+      image: 'https://readdy.ai/api/search-image?query=Korean%20youth%20club%20friends%20doing%20creative%20group%20activity%20in%20a%20bright%20community%20space%2C%20diverse%20teamwork%2C%20warm%20pastel%20colors%2C%20natural%20documentary%20photography&width=1600&height=800&seq=home-clubs-slide-01&orientation=landscape',
+      badge: '동아리', badgeColor: 'bg-emerald-500',
+      title: '다섯 동아리,\n각자의 사명으로 함께 성장해요',
+      subtitle: '동아리 소개와 명단, 활동 사진까지\n우리 동아리의 이야기를 만나보세요',
+      cta: { label: '동아리 둘러보기', path: '/clubs' },
+    },
+    {
+      id: 'bible-pick', type: 'quiz',
       image: '',
-      badge: '오늘의 말씀',
-      badgeColor: 'bg-amber-500',
+      badge: '오늘의 말씀', badgeColor: 'bg-amber-500',
       title: '말씀뽑기로\n오늘의 말씀을 받으세요',
       subtitle: 'AI가 감정과 상황에 맞는\n성경 구절을 선물해드립니다',
       cta: { label: '말씀 받기', path: '/bible-pick' },
     },
     ...(monthlyChampion
       ? [{
-          id: 'champion',
-          type: 'champion' as const,
+          id: 'champion', type: 'champion' as const,
           image: 'https://readdy.ai/api/search-image?query=Gold%20trophy%20gleaming%20on%20a%20dark%20velvet%20pedestal%2C%20warm%20amber%20and%20gold%20spotlight%2C%20bokeh%20background%2C%20championship%20award%20ceremony%20atmosphere%2C%20rich%20metallic%20tones%2C%20high-detail%20editorial%20photography&width=1600&height=800&seq=home-champion-slide-01&orientation=landscape',
-          badge: `${new Date().getMonth() + 1}월 챔피언`,
-          badgeColor: 'bg-amber-500',
-          title: monthlyChampion.topClub
-            ? `이달의 1위 동아리\n${monthlyChampion.topClub.club_name}`
-            : '이달의 성경퀴즈 챔피언',
-          subtitle: monthlyChampion.topPlayer
-            ? `개인 MVP: ${monthlyChampion.topPlayer.nickname} (${monthlyChampion.topPlayer.club_name})`
-            : '도전해서 챔피언이 되어보세요!',
+          badge: `${new Date().getMonth() + 1}월 챔피언`, badgeColor: 'bg-amber-500',
+          title: monthlyChampion.topClub ? `이달의 1위 동아리\n${monthlyChampion.topClub.club_name}` : '이달의 성경퀴즈 챔피언',
+          subtitle: monthlyChampion.topPlayer ? `개인 MVP: ${monthlyChampion.topPlayer.nickname} (${monthlyChampion.topPlayer.club_name})` : '도전해서 챔피언이 되어보세요!',
           cta: { label: '성경퀴즈 도전하기', path: '/bible-quiz' },
         }]
       : []),
     {
-      id: 'quiz',
-      type: 'quiz',
+      id: 'quiz', type: 'quiz',
       image: 'https://readdy.ai/api/search-image?query=Open%20Bible%20with%20golden%20pages%20glowing%20under%20soft%20warm%20light%2C%20scattered%20question%20mark%20symbols%2C%20church%20atmosphere%2C%20stained%20glass%20reflections%2C%20reverent%20and%20inspiring%20mood%2C%20deep%20crimson%20and%20gold%20tones%2C%20editorial%20photography&width=1600&height=800&seq=home-quiz-slide-01&orientation=landscape',
-      badge: '성경 퀴즈',
-      badgeColor: 'bg-rose-500',
+      badge: '성경 퀴즈', badgeColor: 'bg-rose-500',
       title: '성경 퀴즈에 도전해서\n믿음을 더 깊게!',
       subtitle: '600개 문제 데이터베이스에서\n동아리별 랭킹을 겨뤄보세요',
       cta: { label: '퀴즈 시작하기', path: '/bible-quiz' },
     },
+    {
+      id: 'qna', type: 'feature',
+      image: 'https://readdy.ai/api/search-image?query=young%20people%20having%20a%20thoughtful%20conversation%20in%20a%20friendly%20community%20space%2C%20question%20and%20answer%20cards%2C%20soft%20sky%20blue%20lighting%2C%20modern%20editorial%20photography&width=1600&height=800&seq=home-qna-slide-01&orientation=landscape',
+      badge: '질문 있어요', badgeColor: 'bg-sky-500',
+      title: '궁금한 건 편하게 물어보고\n함께 답을 찾아가요',
+      subtitle: '신앙과 학생회 생활에 대한 질문을\n함께 나누는 공간이 있어요',
+      cta: { label: '질문하러 가기', path: '/qna-board' },
+    },
+    {
+      id: 'faith-journal', type: 'feature',
+      image: 'https://readdy.ai/api/search-image?query=Christian%20youth%20faith%20journal%20open%20on%20a%20desk%2C%20handwritten%20notes%2C%20warm%20candlelight%2C%20soft%20cream%20and%20pink%20tones%2C%20peaceful%20reflective%20atmosphere%2C%20editorial%20photography&width=1600&height=800&seq=home-journal-slide-01&orientation=landscape',
+      badge: '신앙 일지', badgeColor: 'bg-violet-500',
+      title: '오늘의 믿음을 기록하고\n나의 성장을 돌아봐요',
+      subtitle: '신앙 일지와 말씀 스트릭으로\n매일의 작은 변화를 쌓아보세요',
+      cta: { label: '신앙 일지 보기', path: '/faith-journal' },
+    },
+    {
+      id: 'attendance', type: 'feature',
+      image: 'https://readdy.ai/api/search-image?query=clean%20digital%20attendance%20dashboard%20concept%2C%20youth%20group%20check-in%2C%20simple%20check%20marks%2C%20dark%20navy%20and%20pink%20accent%20interface%2C%20modern%20technology%20editorial%20visual&width=1600&height=800&seq=home-attendance-slide-01&orientation=landscape',
+      badge: '출결', badgeColor: 'bg-pink-500',
+      title: '오늘 출석도 간편하게\n내 동아리 현황을 바로 확인해요',
+      subtitle: '실시간 출석 현황과 동아리별 명단을\n한눈에 확인할 수 있어요',
+      cta: { label: '출결 현황 보기', path: '/dashboard/attendance' },
+    },
   ];
 
   const heroImages: Record<string, string> = {
+    notice: 'https://readdy.ai/api/search-image?query=modern%20church%20bulletin%20board%20with%20warm%20paper%20cards%2C%20soft%20pink%20and%20navy%20accents%2C%20youth%20community%20announcement%20wall%2C%20clean%20editorial%20photography%2C%20inviting%20atmosphere&width=1600&height=800&seq=home-notice-slide-01&orientation=landscape',
+    schedule: 'https://readdy.ai/api/search-image?query=beautiful%20monthly%20calendar%20planner%20on%20a%20desk%2C%20Christian%20youth%20event%20schedule%2C%20soft%20blue%20and%20violet%20tones%2C%20clean%20modern%20photography%2C%20organized%20and%20welcoming%20mood&width=1600&height=800&seq=home-schedule-slide-01&orientation=landscape',
+    clubs: 'https://readdy.ai/api/search-image?query=Korean%20youth%20club%20friends%20doing%20creative%20group%20activity%20in%20a%20bright%20community%20space%2C%20diverse%20teamwork%2C%20warm%20pastel%20colors%2C%20natural%20documentary%20photography&width=1600&height=800&seq=home-clubs-slide-01&orientation=landscape',
+    qna: 'https://readdy.ai/api/search-image?query=young%20people%20having%20a%20thoughtful%20conversation%20in%20a%20friendly%20community%20space%2C%20question%20and%20answer%20cards%2C%20soft%20sky%20blue%20lighting%2C%20modern%20editorial%20photography&width=1600&height=800&seq=home-qna-slide-01&orientation=landscape',
+    'faith-journal': 'https://readdy.ai/api/search-image?query=Christian%20youth%20faith%20journal%20open%20on%20a%20desk%2C%20handwritten%20notes%2C%20warm%20candlelight%2C%20soft%20cream%20and%20pink%20tones%2C%20peaceful%20reflective%20atmosphere%2C%20editorial%20photography&width=1600&height=800&seq=home-journal-slide-01&orientation=landscape',
+    attendance: 'https://readdy.ai/api/search-image?query=clean%20digital%20attendance%20dashboard%20concept%2C%20youth%20group%20check-in%2C%20simple%20check%20marks%2C%20dark%20navy%20and%20pink%20accent%20interface%2C%20modern%20technology%20editorial%20visual&width=1600&height=800&seq=home-attendance-slide-01&orientation=landscape',
     'bible-pick': 'https://readdy.ai/api/search-image?query=Serene%20sunrise%20over%20a%20peaceful%20valley%2C%20open%20scripture%20book%20illuminated%20by%20morning%20light%2C%20soft%20golden%20rays%20streaming%20through%20misty%20air%2C%20tranquil%20spiritual%20atmosphere%2C%20warm%20amber%20tones%2C%20gentle%20nature%20photography&width=1600&height=800&seq=home-biblepick-slide-01&orientation=landscape',
     champion: 'https://readdy.ai/api/search-image?query=Gold%20trophy%20gleaming%20on%20a%20dark%20velvet%20pedestal%2C%20warm%20amber%20and%20gold%20spotlight%2C%20bokeh%20background%2C%20championship%20award%20ceremony%20atmosphere%2C%20rich%20metallic%20tones%2C%20high-detail%20editorial%20photography&width=1600&height=800&seq=home-champion-slide-01&orientation=landscape',
     quiz: 'https://readdy.ai/api/search-image?query=Open%20Bible%20with%20golden%20pages%20glowing%20under%20soft%20warm%20light%2C%20scattered%20question%20mark%20symbols%2C%20church%20atmosphere%2C%20stained%20glass%20reflections%2C%20reverent%20and%20inspiring%20mood%2C%20deep%20crimson%20and%20gold%20tones%2C%20editorial%20photography&width=1600&height=800&seq=home-quiz-slide-01&orientation=landscape',
@@ -411,6 +454,12 @@ export default function Home() {
     'bible-pick': 'from-emerald-700 via-teal-600 to-emerald-900',
     champion: 'from-amber-600 via-yellow-500 to-amber-800',
     quiz: 'from-rose-600 via-pink-500 to-rose-800',
+    notice: 'from-rose-700 via-fuchsia-600 to-violet-800',
+    schedule: 'from-sky-700 via-indigo-600 to-violet-800',
+    clubs: 'from-emerald-700 via-teal-600 to-cyan-800',
+    qna: 'from-sky-700 via-blue-600 to-indigo-800',
+    'faith-journal': 'from-violet-700 via-fuchsia-600 to-pink-800',
+    attendance: 'from-pink-700 via-rose-600 to-orange-700',
   };
 
   // ── 캐러셀 ──
@@ -530,7 +579,18 @@ export default function Home() {
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="text-center max-w-xl w-full">
                 {heroSlides[slideIndex].badge && (
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white mb-3 ${heroSlides[slideIndex].badgeColor}`}>
-                    <i className={heroSlides[slideIndex].id === 'champion' ? 'ri-trophy-line' : heroSlides[slideIndex].id === 'main' ? 'ri-map-pin-line' : heroSlides[slideIndex].id === 'bible-pick' ? 'ri-book-open-line' : 'ri-question-answer-line'}></i>
+                    <i className={{
+                      main: 'ri-map-pin-line',
+                      notice: 'ri-megaphone-line',
+                      schedule: 'ri-calendar-event-line',
+                      clubs: 'ri-group-line',
+                      'bible-pick': 'ri-book-open-line',
+                      champion: 'ri-trophy-line',
+                      quiz: 'ri-question-answer-line',
+                      qna: 'ri-question-answer-line',
+                      'faith-journal': 'ri-edit-line',
+                      attendance: 'ri-checkbox-circle-line',
+                    }[heroSlides[slideIndex].id] || 'ri-sparkling-line'}></i>
                     {heroSlides[slideIndex].badge}
                   </span>
                 )}
@@ -547,10 +607,13 @@ export default function Home() {
         </AnimatePresence>
         <button onClick={prevSlide} className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-left-s-line text-xl"></i></button>
         <button onClick={nextSlide} className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-right-s-line text-xl"></i></button>
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
-          {heroSlides.map((_, i) => (
-            <button key={i} onClick={() => goToSlide(i)} className={`rounded-full transition-all duration-300 cursor-pointer ${i === slideIndex ? 'w-5 h-2 bg-background-100' : 'w-2 h-2 bg-background-100/45 hover:bg-background-100/70'}`} />
-          ))}
+        <div className="absolute bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 bg-black/20 backdrop-blur-sm rounded-full px-3 py-1.5">
+          <span className="text-[10px] md:text-xs font-semibold text-white/90 tabular-nums">{slideIndex + 1} / {heroSlides.length}</span>
+          <div className="flex items-center gap-1.5">
+            {heroSlides.map((_, i) => (
+              <button key={i} aria-label={`${i + 1}번 슬라이드로 이동`} onClick={() => goToSlide(i)} className={`rounded-full transition-all duration-300 cursor-pointer ${i === slideIndex ? 'w-5 h-2 bg-background-100' : 'w-1.5 h-1.5 bg-background-100/45 hover:bg-background-100/70'}`} />
+            ))}
+          </div>
         </div>
       </section>
 
