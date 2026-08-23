@@ -892,9 +892,10 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
 
     channelRef.current = channel;
 
+    // 실시간 구독이 기본 갱신 경로이며, 폴링은 장애 대비 보조 수단으로만 유지합니다.
     const pollInterval = setInterval(() => {
       fetchAttendanceData();
-    }, 10000);
+    }, 30000);
 
     return () => {
       supabase.removeChannel(channel);

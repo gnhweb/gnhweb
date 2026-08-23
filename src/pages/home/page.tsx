@@ -59,6 +59,38 @@ const CLUB_ICON_MAP: Record<string, string> = {
 };
 
 const NOTICE_READS_KEY = 'notice_reads';
+const QUIZ_LEADERBOARD_CACHE_KEY = 'home_quiz_leaderboard_v1';
+const QUIZ_LEADERBOARD_CACHE_TTL_MS = 10 * 60 * 1000;
+
+interface QuizLeaderboardCache {
+  expiresAt: number;
+  data: MonthlyChampion;
+}
+
+function readQuizLeaderboardCache(): MonthlyChampion | null {
+  try {
+    const raw = localStorage.getItem(QUIZ_LEADERBOARD_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as QuizLeaderboardCache;
+    if (parsed?.expiresAt > Date.now() && parsed.data?.topClub && parsed.data?.topPlayer) {
+      return parsed.data;
+    }
+  } catch {
+    // ignore cache errors
+  }
+  return null;
+}
+
+function writeQuizLeaderboardCache(data: MonthlyChampion) {
+  try {
+    localStorage.setItem(
+      QUIZ_LEADERBOARD_CACHE_KEY,
+      JSON.stringify({ expiresAt: Date.now() + QUIZ_LEADERBOARD_CACHE_TTL_MS, data }),
+    );
+  } catch {
+    // ignore cache errors
+  }
+}
 
 function noticeReadsKey(userId?: string | null): string {
   return userId ? `${NOTICE_READS_KEY}:${userId}` : NOTICE_READS_KEY;
@@ -270,15 +302,22 @@ export default function Home() {
       .catch(() => setSchedulesError(true))
       .finally(() => setSchedulesLoading(false));
 
-    // 퀴즈 챔피언
-    supabase.functions.invoke('quiz-leaderboard', {
-      method: 'GET',
-      body: { monthly: 'true' },
-    }).then(({ data }) => {
-      if (data?.topClub || data?.topPlayer) {
-        setMonthlyChampion({ topClub: data.topClub, topPlayer: data.topPlayer });
-      }
-    }).catch(() => {});
+    // 퀴즈 챔피언 — 동일한 결과를 짧게 캐시해 홈페이지 진입마다 Edge Function을 호출하지 않음
+    const cachedLeaderboard = readQuizLeaderboardCache();
+    if (cachedLeaderboard) {
+      setMonthlyChampion(cachedLeaderboard);
+    } else {
+      supabase.functions.invoke('quiz-leaderboard', {
+        method: 'GET',
+        body: { monthly: 'true' },
+      }).then(({ data }) => {
+        if (data?.topClub && data?.topPlayer) {
+          const result = { topClub: data.topClub, topPlayer: data.topPlayer } as MonthlyChampion;
+          setMonthlyChampion(result);
+          writeQuizLeaderboardCache(result);
+        }
+      }).catch(() => {});
+    }
 
     // 강학뉴스
     Promise.resolve(

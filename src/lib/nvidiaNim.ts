@@ -136,6 +136,21 @@ export async function generateDashboardInsight(attendanceData: {
   totalMembers: number;
   absentCount: number;
 }[]): Promise<DashboardInsight> {
+  const cacheKey = `nim-insight-cache-v1:${encodeURIComponent(JSON.stringify(attendanceData))}`;
+
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const cached = JSON.parse(raw) as { expiresAt: number; data: DashboardInsight };
+      if (cached?.expiresAt > Date.now() && cached.data?.summary) {
+        return cached.data;
+      }
+      localStorage.removeItem(cacheKey);
+    }
+  } catch {
+    // ignore cache errors and continue to the API
+  }
+
   const { data, error } = await supabase.functions.invoke('nim-insight', {
     body: { attendanceData },
   });
@@ -146,6 +161,14 @@ export async function generateDashboardInsight(attendanceData: {
 
   const result = data as DashboardInsight;
   if (result && result.summary) {
+    try {
+      localStorage.setItem(
+        cacheKey,
+        JSON.stringify({ expiresAt: Date.now() + 6 * 60 * 60 * 1000, data: result }),
+      );
+    } catch {
+      // ignore cache errors
+    }
     return result;
   }
 

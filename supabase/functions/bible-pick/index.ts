@@ -198,78 +198,35 @@ Deno.serve(async (req) => {
     let analyzedEmotions: string[] = [];
     let emotionLabel = '평안';
 
-    if (apiKey) {
-      const emotionPrompt = `당신은 청소년의 감정을 분석하는 상담사입니다. 사용자가 작성한 고민/감정 텍스트를 읽고, 가장 잘 맞는 감정 카테고리를 1~3개 선택하세요.
+    // 감정 분류는 짧은 키워드 룰로 먼저 처리합니다.
+    // 이렇게 하면 말씀 추천 단계에서 필요한 NVIDIA 호출을 2회 → 1회로 줄일 수 있습니다.
+    const keywordMap: Record<string, string> = {
+      '행복': '기쁨', '좋': '기쁨', '신나': '설렘', '재미': '기쁨',
+      '감사': '감사', '고마': '감사', '덕분': '감사',
+      '슬프': '슬픔', '눈물': '슬픔', '속상': '슬픔', '아프': '슬픔',
+      '불안': '불안', '떨리': '불안', '긴장': '불안',
+      '걱정': '걱정', '고민': '걱정', '스트레스': '걱정',
+      '무서': '두려움', '겁나': '두려움',
+      '답답': '답답함', '막막': '답답함',
+      '화': '화남', '짜증': '화남', '열받': '화남',
+      '힘들': '지침', '지쳤': '지침', '피곤': '지침',
+      '외로': '외로움', '혼자': '외로움',
+      '의미': '무기력', '아무': '무기력',
+      '혼란': '혼란', '모르겠': '혼란',
+      '후회': '후회', '미안': '미안함', '죄송': '미안함',
+      '희망': '희망', '기대': '희망', '설레': '설렘',
+      '우울': '우울', '우울증': '우울',
+      '좌절': '좌절', '실패': '좌절',
+      '용기': '용기', '할수있': '용기', '도전': '용기',
+    };
 
-[감정 카테고리 목록]
-기쁨, 감사, 설렘, 평안, 슬픔, 불안, 걱정, 두려움, 답답함, 화남, 지침, 외로움, 무기력, 혼란, 후회, 미안함, 희망, 우울, 좌절, 용기
-
-[규칙]
-1. 순수 한글 JSON만 출력
-2. 감정은 정확히 위 목록에 있는 것만 사용
-3. 비슷한 감정이면 가장 강한 순서로 최대 3개
-
-[JSON 형식]
-{"emotions":["감정1","감정2"],"primaryLabel":"가장 강한 감정 하나"}`;
-
-      try {
-        const emoRes = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: 'google/gemma-4-31b-it',
-            messages: [
-              { role: 'system', content: emotionPrompt },
-              { role: 'user', content: text },
-            ],
-            temperature: 0.35,
-            max_tokens: 300,
-          }),
-        });
-        logNvidiaUsage("bible-pick", "KEY_BIBLEPICK", emoRes).catch(() => {});
-
-        if (emoRes.ok) {
-          const emoData = await emoRes.json();
-          const emoContent = emoData.choices?.[0]?.message?.content;
-          if (emoContent) {
-            const parsed = extractJson(emoContent);
-            if (parsed) {
-              analyzedEmotions = Array.isArray(parsed.emotions) ? parsed.emotions as string[] : [];
-              emotionLabel = typeof parsed.primaryLabel === 'string' ? parsed.primaryLabel as string : '평안';
-            }
-          }
-        }
-      } catch { /* fallback */ }
+    const matched = new Set<string>();
+    for (const [kw, emo] of Object.entries(keywordMap)) {
+      if (text.includes(kw)) matched.add(emo);
     }
-
-    if (analyzedEmotions.length === 0) {
-      const keywordMap: Record<string, string> = {
-        '행복': '기쁨', '좋': '기쁨', '신나': '설렘', '재미': '기쁨',
-        '감사': '감사', '고마': '감사', '덕분': '감사',
-        '슬프': '슬픔', '눈물': '슬픔', '속상': '슬픔', '아프': '슬픔',
-        '불안': '불안', '떨리': '불안', '긴장': '불안',
-        '걱정': '걱정', '고민': '걱정', '스트레스': '걱정',
-        '무서': '두려움', '겁나': '두려움',
-        '답답': '답답함', '막막': '답답함',
-        '화': '화남', '짜증': '화남', '열받': '화남',
-        '힘들': '지침', '지쳤': '지침', '피곤': '지침',
-        '외로': '외로움', '혼자': '외로움',
-        '의미': '무기력', '아무': '무기력',
-        '혼란': '혼란', '모르겠': '혼란',
-        '후회': '후회', '미안': '미안함', '죄송': '미안함',
-        '희망': '희망', '기대': '희망', '설레': '설렘',
-        '우울': '우울', '우울증': '우울',
-        '좌절': '좌절', '실패': '좌절',
-        '용기': '용기', '할수있': '용기', '도전': '용기',
-      };
-      const matched = new Set<string>();
-      for (const [kw, emo] of Object.entries(keywordMap)) {
-        if (text.includes(kw)) matched.add(emo);
-      }
-      analyzedEmotions = [...matched].slice(0, 3);
-      emotionLabel = analyzedEmotions[0] || '평안';
-      if (analyzedEmotions.length === 0) analyzedEmotions = ['평안', '희망'];
-    }
+    analyzedEmotions = [...matched].slice(0, 3);
+    emotionLabel = analyzedEmotions[0] || '평안';
+    if (analyzedEmotions.length === 0) analyzedEmotions = ['평안', '희망'];
 
     const verseResult = await getVerseForEmotions(analyzedEmotions);
     if (!verseResult) {
