@@ -63,37 +63,91 @@ export interface EventIdea {
 // AI 성경 퀴즈 생성 → nim-quiz Edge Function
 // ============================================================
 
+const QUIZ_DIFFICULTY_KR: Record<'easy' | 'normal' | 'hard', string> = {
+  easy: '하',
+  normal: '중',
+  hard: '상',
+};
+
+function normaliseQuizRows(rows: any[], requestedDifficulty: 'easy' | 'normal' | 'hard'): QuizQuestion[] {
+  return rows
+    .filter((q) => q && typeof q.question === 'string' && Array.isArray(q.options) && q.options.length >= 2 && typeof q.answer === 'string')
+    .map((q, i) => {
+      const difficultyByRow: Record<string, 'easy' | 'normal' | 'hard'> = {
+        '하': 'easy',
+        '중': 'normal',
+        '상': 'hard',
+        easy: 'easy',
+        normal: 'normal',
+        hard: 'hard',
+      };
+      const normalizedDifficulty = difficultyByRow[q.difficulty] || requestedDifficulty;
+      return {
+        id: q.id,
+        question: q.question,
+        options: q.options,
+        answer: q.answer,
+        explanation: q.explanation || '',
+        type: q.type === 'ox' ? 'ox' : 'multiple',
+        difficulty: normalizedDifficulty,
+        points: Number(q.points) || (normalizedDifficulty === 'hard' ? 30 : normalizedDifficulty === 'normal' ? 20 : 10),
+      };
+    });
+}
+
+function filterExcludedQuestions(rows: QuizQuestion[], excludeQuestions: string[]): QuizQuestion[] {
+  const excluded = new Set(excludeQuestions.map((q) => q.substring(0, 30)));
+  const pool = rows.filter((q) => !excluded.has(q.question.substring(0, 30)));
+  return pool.length >= 10 ? pool : rows;
+}
+
 export async function fetchQuizData(
   difficulty?: 'easy' | 'normal' | 'hard',
   excludeQuestions: string[] = []
 ): Promise<QuizQuestion[]> {
+  const requestedDifficulty = difficulty || 'normal';
+
+  // Primary path: server-side Edge Function.
   const { data, error } = await supabase.functions.invoke('nim-quiz', {
-    body: { difficulty: difficulty || 'normal', excludeQuestions },
+    body: { difficulty: requestedDifficulty, excludeQuestions, count: 10, source: 'site' },
   });
+
+  if (!error && Array.isArray(data) && data.length > 0) {
+    return normaliseQuizRows(data, requestedDifficulty);
+  }
+
+  // Recovery path: the quiz bank is already stored in Supabase. If the Edge
+  // Function is unavailable/not deployed, the player can still start a quiz
+  // directly from the approved question bank.
+  const difficultyOrder: string[] = [QUIZ_DIFFICULTY_KR[requestedDifficulty]];
+  if (requestedDifficulty !== 'normal') difficultyOrder.push('중');
+  if (requestedDifficulty !== 'easy') difficultyOrder.push('하');
+  if (requestedDifficulty !== 'hard') difficultyOrder.push('상');
+
+  const rows: any[] = [];
+  for (const kr of difficultyOrder) {
+    const { data: dbRows, error: dbError } = await supabase
+      .from('quiz_questions')
+      .select('id,question,options,answer,explanation,type,difficulty,points')
+      .eq('difficulty', kr)
+      .limit(100);
+    if (!dbError && dbRows) rows.push(...dbRows);
+    if (rows.length >= 10) break;
+  }
+
+  const normalised = normaliseQuizRows(rows, requestedDifficulty);
+  const filtered = filterExcludedQuestions(normalised, excludeQuestions);
+
+  // Shuffle without bringing in another dependency.
+  const shuffled = [...filtered].sort(() => Math.random() - 0.5).slice(0, 10);
+  if (shuffled.length > 0) return shuffled;
 
   if (error) {
     throw new Error('퀴즈 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
   }
-
-  // Check if the response is an error message from the edge function
-  if (data && typeof data === 'object' && !Array.isArray(data) && 'error' in data) {
-    throw new Error(data.error as string);
-  }
-
-  if (Array.isArray(data) && data.length > 0) {
-    return (data as QuizQuestion[]).map((q, i) => ({
-      ...q,
-      type: q.type || 'multiple',
-      difficulty: q.difficulty || (i < 3 ? 'easy' : i < 7 ? 'normal' : 'hard'),
-      points: q.points || (q.difficulty === 'hard' ? 20 : q.difficulty === 'normal' ? 15 : 10),
-    }));
-  }
-
-  // If data is an empty array, also throw with specific error from edge function
   if (Array.isArray(data) && data.length === 0) {
     throw new Error('선택한 난이도의 문제가 부족합니다. 다른 난이도를 선택하거나 관리자에게 문제 추가를 요청해주세요.');
   }
-
   throw new Error('생성된 퀴즈 데이터가 없어요. 다시 시도해주세요.');
 }
 

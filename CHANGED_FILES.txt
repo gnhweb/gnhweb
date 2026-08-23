@@ -1,0 +1,5 @@
+src/lib/nvidiaNim.ts
+src/pages/bibleQuiz/page.tsx
+src/pages/bibleQuiz/components/LeaderboardModal.tsx
+src/pages/bibleQuiz/components/ReportQuestionModal.tsx
+supabase/functions/quiz-report/index.ts

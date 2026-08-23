@@ -12,6 +12,7 @@ const CLUB_COLORS: Record<string, { name: string; icon: string; color: string }>
   cheonjipoong: { name: '천지풍', icon: 'ri-palette-line', color: '#10b981' },
   cheonjihu: { name: '천지후', icon: 'ri-heart-pulse-line', color: '#0ea5e9' },
   munhwabu: { name: '문화부', icon: 'ri-camera-line', color: '#f43f5e' },
+  cheonhwarae_cheongmyeong: { name: '천화래와 청명', icon: 'ri-music-2-line', color: '#8b5cf6' },
 };
 
 const DIFFICULTIES = [
@@ -190,7 +191,11 @@ export default function BibleQuiz() {
             correct_count: correctCount,
             difficulty,
           },
-        }).then(({ data: result }) => {
+        }).then(({ data: result, error: saveError }) => {
+          if (saveError) {
+            console.error('[BibleQuiz] score save failed:', saveError);
+            return;
+          }
           if (result?.cumulative) {
             setCumulativeStats(result.cumulative as CumulativeStats);
           }

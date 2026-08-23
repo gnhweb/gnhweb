@@ -8,6 +8,7 @@ const CLUB_INFO: Record<string, { name: string; color: string }> = {
   '천지풍': { name: '천지풍', color: '#10b981' },
   '천지후': { name: '천지후', color: '#0ea5e9' },
   '문화부': { name: '문화부', color: '#f43f5e' },
+  '천화래와 청명': { name: '천화래와 청명', color: '#8b5cf6' },
 };
 
 interface ScoreEntry {
@@ -49,10 +50,62 @@ export default function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean;
       const { data: result, error: fnError } = await supabase.functions.invoke('quiz-leaderboard', {
         method: 'GET',
       });
-      if (fnError) throw new Error(fnError.message);
-      if (result) {
+      if (!fnError && result?.scores && result?.clubRanking) {
         setData(result as LeaderboardData);
+        return;
       }
+
+      // Edge Function 장애/미배포 시에도 기존 quiz_scores 데이터를 직접 읽어
+      // 리더보드는 계속 표시되도록 안전한 복구 경로를 사용합니다.
+      const { data: rows, error: dbError } = await supabase
+        .from('quiz_scores')
+        .select('user_id,nickname,club_name,score,correct_count,total_questions,created_at');
+      if (dbError) throw new Error(fnError?.message || dbError.message);
+
+      const byUser = new Map<string, ScoreEntry>();
+      for (const row of rows || []) {
+        const existing = byUser.get(row.user_id);
+        if (!existing) {
+          byUser.set(row.user_id, {
+            user_id: row.user_id,
+            nickname: row.nickname || '익명',
+            club_name: row.club_name || '미지정',
+            total_score: Number(row.score) || 0,
+            total_correct: Number(row.correct_count) || 0,
+            total_questions: Number(row.total_questions) || 0,
+            games_played: 1,
+            best_score: Number(row.score) || 0,
+          });
+        } else {
+          existing.total_score += Number(row.score) || 0;
+          existing.total_correct += Number(row.correct_count) || 0;
+          existing.total_questions += Number(row.total_questions) || 0;
+          existing.games_played += 1;
+          existing.best_score = Math.max(existing.best_score, Number(row.score) || 0);
+          if (row.nickname) existing.nickname = row.nickname;
+        }
+      }
+      const scores = [...byUser.values()].sort((a, b) => b.total_score - a.total_score);
+      const clubs = new Map<string, ClubRankEntry>();
+      for (const entry of scores) {
+        const current = clubs.get(entry.club_name) || {
+          club_name: entry.club_name, total_score: 0, member_count: 0, avg_score: 0, accuracy: 0,
+        };
+        current.total_score += entry.total_score;
+        current.member_count += 1;
+        clubs.set(entry.club_name, current);
+      }
+      const clubRanking = [...clubs.values()].map((club) => {
+        const members = scores.filter((s) => s.club_name === club.club_name);
+        const totalQuestions = members.reduce((sum, s) => sum + s.total_questions, 0);
+        const totalCorrect = members.reduce((sum, s) => sum + s.total_correct, 0);
+        return {
+          ...club,
+          avg_score: club.member_count ? Math.round(club.total_score / club.member_count) : 0,
+          accuracy: totalQuestions ? Math.round((totalCorrect / totalQuestions) * 100) : 0,
+        };
+      }).sort((a,b) => b.total_score - a.total_score);
+      setData({ scores: scores.slice(0, 50), clubRanking });
     } catch (err) {
       setError(err instanceof Error ? err.message : '리더보드를 불러오지 못했어요');
     } finally {
