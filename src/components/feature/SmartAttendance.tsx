@@ -19,7 +19,7 @@ interface AttendanceLocationData {
   is_active: boolean;
 }
 
-const CLUB_IDS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu', 'cheonhwarae_cheongmyeong'];
+const CLUB_IDS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu'];
 
 function KpiCard({ title, value, icon, colorClass, delay }: {
   title: string;
@@ -799,7 +799,8 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
         .from('user_roles')
         .select('user_id, name, club, role')
         .eq('is_active', true)
-        .eq('role', 'member');
+        .eq('approval_status', 'approved')
+        .not('role', 'in', '(teacher,chief)')
 
       if (memberError) throw memberError;
 

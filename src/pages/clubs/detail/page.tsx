@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { clubs, clubIcons, type ClubData } from '@/mocks/clubs';
 import ClubBannerManager, { useClubBanner } from '@/components/feature/ClubBannerManager';
-import SmartAttendance from '@/components/feature/SmartAttendance';
 import PhotoLightbox from '@/components/feature/PhotoLightbox';
 import { CategoryChipRow, CategoryChip } from '@/components/base/CategoryChip';
 
@@ -741,12 +740,6 @@ export default function ClubDetail() {
             <p className="text-sm text-accent-700 flex items-center gap-2"><i className="ri-error-warning-line"></i>{error}</p>
             <button onClick={() => { setError(null); loadAllData(); }} className="mt-2 text-xs text-accent-600 underline cursor-pointer">다시 시도</button>
           </div>
-        )}
-
-        {user && profile && profile.club === id && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-            <SmartAttendance clubId={id} />
-          </motion.div>
         )}
 
         {/* Tabs — 모바일: 공용 카테고리 칩 재사용 */}

@@ -1,5 +1,21 @@
-src/lib/nvidiaNim.ts
-src/pages/bibleQuiz/page.tsx
-src/pages/bibleQuiz/components/LeaderboardModal.tsx
-src/pages/bibleQuiz/components/ReportQuestionModal.tsx
-supabase/functions/quiz-report/index.ts
+출석 문제 관련 최종 수정 파일
+
+1. src/pages/attendanceBoard/page.tsx
+   - 활성/승인 학생 기준 집계
+   - teacher/chief 제외
+   - 천화래와 청명(cheonhwarae_cheongmyeong) 제외
+   - user_id 기준 중복 제거
+   - 전체 17명 / 동아리별 집계 기준 통일
+   - 출석/불참/미응답도 동일한 학생 기준 적용
+
+2. src/components/feature/SmartAttendance.tsx
+   - 출석 관리자 화면의 동아리별 집계 기준 통일
+   - 출석판에 사용하는 4개 동아리만 집계
+   - 천화래와 청명은 집계 대상에서 제외
+
+3. src/pages/clubs/detail/page.tsx
+   - 동아리 상세 화면에서 실시간 출석 현황판 렌더링 제거
+   - 출석 현황판은 전용 실시간 출석현황 화면에서만 표시
+
+참고: 이번 ZIP에는 출석 관련 수정 파일만 포함했습니다.
+Supabase 함수/RPC는 이번 작업에서 변경하지 않았습니다.

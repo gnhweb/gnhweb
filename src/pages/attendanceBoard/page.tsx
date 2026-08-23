@@ -73,14 +73,6 @@ const CLUB_TABS: Array<{
     activeClass: 'bg-rose-500 text-white border-rose-500',
     countClass: 'bg-white/20 text-white',
   },
-  {
-    id: 'cheonhwarae_cheongmyeong',
-    label: '천화래와 청명',
-    shortLabel: '천화래·청명',
-    icon: 'ri-music-2-line',
-    activeClass: 'bg-sky-500 text-white border-sky-500',
-    countClass: 'bg-white/20 text-white',
-  },
 ];
 
 const CLUB_IDLE_CLASS = 'bg-background-100 text-foreground-700 border-background-200 hover:border-foreground-300 hover:bg-background-200 dark:bg-background-100 dark:text-foreground-800 dark:border-background-300 dark:hover:border-background-400 dark:hover:bg-background-200';
@@ -140,7 +132,12 @@ export default function AttendanceBoard() {
     try {
       const [attRes, studentRes] = await Promise.all([
         supabase.from('attendance').select('*').eq('attendance_date', todayStr),
-        supabase.from('user_roles').select('user_id, name, club, is_expelled, profile_image').eq('role', 'member'),
+        supabase
+          .from('user_roles')
+          .select('user_id, name, club, is_expelled, profile_image, role, is_active, approval_status')
+          .eq('is_active', true)
+          .eq('approval_status', 'approved')
+          .not('role', 'in', '(teacher,chief)')
       ]);
 
       if (attRes.error) throw attRes.error;
@@ -149,7 +146,8 @@ export default function AttendanceBoard() {
       // 전체 학생 수는 동아리 배정 여부와 무관하게 모든 활성 학생을 포함해야 합니다.
       // 동아리 탭을 선택했을 때만 club 값으로 필터링합니다.
       const attData = ((attRes.data || []) as AttendanceRecord[]).filter(a => a.user_id);
-      const studentRows = ((studentRes.data || []) as StudentRecord[]).filter(s => !s.is_expelled && Boolean(s.user_id));
+      const studentRows = ((studentRes.data || []) as (StudentRecord & { role?: string; is_active?: boolean; approval_status?: string })[])
+        .filter(s => !s.is_expelled && Boolean(s.user_id) && s.club !== 'cheonhwarae_cheongmyeong');
       // user_roles에 동일 학생이 여러 행으로 존재해도 전체 인원은 1명으로 계산합니다.
       const students = Array.from(new Map(studentRows.map(student => [student.user_id, student])).values());
       const validUserIds = new Set(students.map(s => s.user_id));
