@@ -552,7 +552,7 @@ export default function Home() {
 
       {/* ═══ 1. 히어로 캐러셀 ═══ */}
       <section
-        className="relative h-[50vw] sm:h-[50vw] md:h-[560px] overflow-hidden bg-foreground-950 touch-pan-y"
+        className="relative h-[clamp(240px,38vh,360px)] md:h-[560px] overflow-hidden bg-foreground-950 touch-pan-y"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -571,7 +571,7 @@ export default function Home() {
               <img
                 src={heroSlides[slideIndex].image || heroImages[heroSlides[slideIndex].id]}
                 alt={heroSlides[slideIndex].title}
-                className="absolute inset-0 w-full h-full object-contain md:object-cover object-center bg-foreground-950"
+                className="absolute inset-0 w-full h-full object-cover object-center bg-foreground-950"
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/60"></div>
