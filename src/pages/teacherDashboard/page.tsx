@@ -166,20 +166,36 @@ export default function TeacherDashboard() {
       // Get all students (excluding teachers and chiefs, and excluding expelled members)
       let studentsQuery = supabase
         .from('user_roles')
-        .select('user_id, name, club, is_expelled')
-        .not('role', 'in', '("chief","teacher")');
+        .select('user_id, name, club, is_expelled, is_active')
+        .eq('role', 'member');
       if (effectiveClub !== 'all') {
         studentsQuery = studentsQuery.eq('club', effectiveClub);
       }
       const { data: allStudentsRaw } = await studentsQuery;
-      const allStudents = (allStudentsRaw || []).filter(
-        (s: { is_expelled?: boolean }) => !s.is_expelled
-      );
+      // 전체 학생 수는 user_id 기준으로 중복을 제거합니다.
+      // 동아리 미지정 학생도 '전체' 집계에는 포함합니다.
+      const uniqueStudents = new Map<string, { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }>();
+      for (const rawStudent of ((allStudentsRaw || []) as { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }[])) {
+        if (rawStudent.is_expelled || rawStudent.is_active === false) continue;
+        const existing = uniqueStudents.get(rawStudent.user_id);
+        if (!existing || (!existing.club && rawStudent.club)) {
+          uniqueStudents.set(rawStudent.user_id, rawStudent);
+        }
+      }
+      const allStudents = Array.from(uniqueStudents.values());
 
       if (attData && allStudents) {
-        // Only count attendance records for members who are not expelled
+        // 학생 기준(user_id)으로 하루에 한 건만 집계하여 중복 출결 row로 숫자가 부풀지 않게 합니다.
         const validUserIds = new Set(allStudents.map((s: { user_id: string }) => s.user_id));
-        const validAttData = (attData as { user_id: string }[]).filter((a) => validUserIds.has(a.user_id));
+        const latestByUser = new Map<string, any>();
+        for (const record of (attData as any[])) {
+          if (!validUserIds.has(record.user_id)) continue;
+          const prev = latestByUser.get(record.user_id);
+          if (!prev || new Date(record.checked_in_at || 0).getTime() >= new Date(prev.checked_in_at || 0).getTime()) {
+            latestByUser.set(record.user_id, record);
+          }
+        }
+        const validAttData = Array.from(latestByUser.values());
 
         const present = validAttData.filter((a: { status: string }) => a.status === 'attended').length;
         setAttendanceSummary({

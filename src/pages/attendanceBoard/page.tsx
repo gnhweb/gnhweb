@@ -140,24 +140,44 @@ export default function AttendanceBoard() {
     try {
       const [attRes, studentRes] = await Promise.all([
         supabase.from('attendance').select('*').eq('attendance_date', todayStr),
-        supabase.from('user_roles').select('user_id, name, club, is_expelled, profile_image').eq('role', 'member'),
+        supabase.from('user_roles').select('user_id, name, club, is_expelled, profile_image, is_active').eq('role', 'member'),
       ]);
 
       if (attRes.error) throw attRes.error;
       if (studentRes.error) throw studentRes.error;
 
-      const attData = ((attRes.data || []) as AttendanceRecord[]).filter(a => CLUB_TABS.some(tab => tab.id !== 'all' && tab.id === a.club));
-      const students = ((studentRes.data || []) as StudentRecord[]).filter(s => !s.is_expelled && CLUB_TABS.some(tab => tab.id !== 'all' && tab.id === s.club));
+      // 전체 인원은 동아리 지정 여부와 관계없이, 활성 + 제명 제외 학생을 user_id 기준 1명으로 계산합니다.
+      const studentByUserId = new Map<string, StudentRecord>();
+      for (const rawStudent of ((studentRes.data || []) as StudentRecord[])) {
+        if (rawStudent.is_expelled || rawStudent.is_active === false) continue;
+        const existing = studentByUserId.get(rawStudent.user_id);
+        if (!existing || (!existing.club && rawStudent.club)) {
+          studentByUserId.set(rawStudent.user_id, rawStudent);
+        }
+      }
+      const students = Array.from(studentByUserId.values());
       const validUserIds = new Set(students.map(s => s.user_id));
+
+      // 출결 테이블에 중복 row가 있어도 학생 1명은 1명으로만 계산합니다.
+      // 같은 학생에게 기록이 여러 개 있으면 가장 최근 체크인 기록을 사용합니다.
+      const latestByUser = new Map<string, AttendanceRecord>();
+      for (const record of ((attRes.data || []) as AttendanceRecord[])) {
+        if (!validUserIds.has(record.user_id) || !CLUB_TABS.some(tab => tab.id !== 'all' && tab.id === record.club)) continue;
+        const prev = latestByUser.get(record.user_id);
+        if (!prev || new Date(record.checked_in_at || 0).getTime() >= new Date(prev.checked_in_at || 0).getTime()) {
+          latestByUser.set(record.user_id, record);
+        }
+      }
+      const attData = Array.from(latestByUser.values());
       const attendedUserIds = new Set(attData.filter(a => a.status === 'attended').map(a => a.user_id));
       const absentUserIds = new Set(attData.filter(a => a.status === 'absent').map(a => a.user_id));
 
       const studentById = new Map(students.map(student => [student.user_id, student]));
       const attended = attData
-        .filter(a => a.status === 'attended' && validUserIds.has(a.user_id))
+        .filter(a => a.status === 'attended')
         .map(a => ({ ...a, profile_image: studentById.get(a.user_id)?.profile_image || null }));
       const absent = attData
-        .filter(a => a.status === 'absent' && validUserIds.has(a.user_id))
+        .filter(a => a.status === 'absent')
         .map(a => ({ ...a, profile_image: studentById.get(a.user_id)?.profile_image || null }));
 
       setAllStudents(students);
