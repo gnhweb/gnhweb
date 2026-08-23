@@ -62,11 +62,11 @@ interface SmartAttendanceProps {
 export default function SmartAttendance({ clubId }: SmartAttendanceProps) {
   const { profile } = useAuth();
   const role = profile?.role as UserRole;
-  const isAdmin = role === 'teacher' || role === 'chief';
+  const canManageAttendance = role ? ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.assistant_zone_leader : false;
 
   if (!profile) return <Spinner label="프로필을 불러오는 중..." />;
 
-  if (isAdmin) return <AdminAttendanceView profile={profile} />;
+  if (canManageAttendance) return <AdminAttendanceView profile={profile} />;
 
   if (clubId && profile.club !== clubId) {
     return null;
@@ -113,8 +113,6 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
   const today = new Date();
   const dateStr = formatKoreanDate(today, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
   const clubMeta = profile.club && CLUB_META[profile.club as ClubType] ? CLUB_META[profile.club as ClubType] : null;
-
-  const isTeacherOrChief = profile.role === 'teacher' || profile.role === 'chief';
 
   // ── DB에서 활성 위치 가져오기 ──
   const fetchLocation = useCallback(async () => {
@@ -787,7 +785,7 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
   );
 }
 
-function AdminAttendanceView({ profile }: { profile: { name: string; club?: string; user_id: string } }) {
+function AdminAttendanceView({ profile }: { profile: { name: string; club?: string; user_id: string; role?: string } }) {
   const [clubSummaries, setClubSummaries] = useState<ClubAttendanceSummary[]>([]);
   const [selectedClub, setSelectedClub] = useState<ClubType>('saeullim');
   const [isLoading, setIsLoading] = useState(true);
@@ -801,7 +799,7 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
         .from('user_roles')
         .select('user_id, name, club, role')
         .eq('is_active', true)
-        .not('role', 'in', '("teacher","chief")');
+        .eq('role', 'member');
 
       if (memberError) throw memberError;
 
@@ -1065,8 +1063,19 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
                           <span className="text-sm font-medium text-foreground-800">{member.name}</span>
                         </div>
                         {member.absence_reason && (
-                          <p className="text-xs text-orange-600 pl-9">{member.absence_reason}</p>
+                          <p className="text-xs text-orange-600 pl-9 mb-2">{member.absence_reason}</p>
                         )}
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => {
+                              window.open('https://t.me/', '_blank', 'noopener,noreferrer');
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-100 text-sky-700 text-xs font-medium hover:bg-sky-200 transition-colors cursor-pointer whitespace-nowrap"
+                          >
+                            <i className="ri-telegram-2-fill text-sm"></i>
+                            텔레그램으로 심방하기
+                          </button>
+                        </div>
                       </motion.div>
                     ))}
                   </div>
