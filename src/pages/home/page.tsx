@@ -619,33 +619,34 @@ export default function Home() {
 
       {/* ═══ 1.5 오늘의 어록 ═══ */}
       <section className="w-full max-w-6xl mx-auto px-2.5 min-[360px]:px-3 sm:px-4 md:px-6 mt-5 md:mt-6">
-        <div className="relative overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-primary-500 via-primary-600 to-primary-800 px-3.5 py-5 min-[360px]:px-4 sm:px-5 md:px-8 md:py-8 shadow-sm">
+        <div className="relative overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-primary-500 via-primary-600 to-primary-800 px-4 py-5 min-[360px]:px-5 sm:px-6 md:px-8 md:py-8 shadow-sm">
           <i className="ri-double-quotes-l absolute -top-3 right-1 min-[360px]:right-2 sm:right-4 md:right-6 text-white/15 text-[5.5rem] min-[360px]:text-[6.5rem] md:text-[7rem] pointer-events-none"></i>
-          <div className="relative flex items-start gap-2.5 min-[360px]:gap-3 md:gap-4">
-            <span className="mt-0.5 flex w-9 h-9 min-[360px]:w-10 min-[360px]:h-10 md:w-11 md:h-11 flex-shrink-0 items-center justify-center rounded-xl bg-white/15 border border-white/20 shadow-inner">
+
+          {/* 헤더는 한 줄로 묶고, 본문은 카드 전체 폭을 사용해 모바일 좌측 여백을 최소화 */}
+          <div className="relative flex items-center gap-2.5 min-[360px]:gap-3 md:gap-3.5 mb-3 min-[360px]:mb-3.5 md:mb-5">
+            <span className="flex w-10 h-10 min-[360px]:w-11 min-[360px]:h-11 md:w-12 md:h-12 flex-shrink-0 items-center justify-center rounded-xl bg-white/15 border border-white/20 shadow-inner">
               <i className="ri-book-open-line text-white text-base min-[360px]:text-lg md:text-xl"></i>
             </span>
-            <div className="min-w-0 flex-1 pr-0.5 min-[360px]:pr-1 md:pr-10">
-              <p className="text-[clamp(0.68rem,2.7vw,0.78rem)] font-black tracking-[0.16em] text-white/85 mb-1.5 min-[360px]:mb-2 md:mb-3">오늘의 어록</p>
-              <div className="relative min-w-0">
-                <span aria-hidden="true" className="absolute -left-0.5 -top-2 min-[360px]:-left-1 min-[360px]:-top-3 md:-left-2 md:-top-4 font-serif text-2xl min-[360px]:text-3xl md:text-4xl font-black text-white/35 leading-none">“</span>
-                <p
-                  className="font-quote text-[clamp(1.02rem,4.55vw,1.42rem)] font-extrabold text-white leading-[1.78] min-[360px]:leading-[1.82] md:leading-[1.88] whitespace-pre-line break-keep tracking-[0.01em] drop-shadow-[0_1px_1px_rgba(0,0,0,0.22)] pl-3 min-[360px]:pl-4 md:pl-5"
-                  style={{
-                    fontFamily: '"Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", "Batang", ui-serif, Georgia, "Times New Roman", serif',
-                    fontWeight: 800,
-                    fontStyle: 'normal',
-                    fontSynthesis: 'weight',
-                    letterSpacing: '0.01em',
-                    textShadow: '0 1px 1px rgba(0,0,0,0.16)',
-                    WebkitTextStroke: '0.15px rgba(255,255,255,0.22)'
-                  }}
-                >
-                  {dailyQuote}
-                </p>
-                <div className="mt-2.5 min-[360px]:mt-3 md:mt-4 ml-3 min-[360px]:ml-4 md:ml-5 h-px w-8 min-[360px]:w-10 md:w-14 bg-white/35 rounded-full" />
-              </div>
-            </div>
+            <p className="text-[clamp(0.7rem,2.8vw,0.8rem)] font-black tracking-[0.16em] text-white/90">오늘의 어록</p>
+          </div>
+
+          <div className="relative min-w-0">
+            <span aria-hidden="true" className="absolute -left-0.5 -top-2 min-[360px]:-left-1 min-[360px]:-top-3 md:-left-1.5 md:-top-4 font-serif text-2xl min-[360px]:text-3xl md:text-4xl font-black text-white/35 leading-none">“</span>
+            <p
+              className="font-quote text-[clamp(1.04rem,4.6vw,1.44rem)] font-extrabold text-white leading-[1.72] min-[360px]:leading-[1.78] md:leading-[1.88] whitespace-pre-line break-keep tracking-[0.01em] drop-shadow-[0_1px_1px_rgba(0,0,0,0.22)] pl-3 min-[360px]:pl-4 md:pl-5"
+              style={{
+                fontFamily: '"Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", "Batang", ui-serif, Georgia, "Times New Roman", serif',
+                fontWeight: 800,
+                fontStyle: 'normal',
+                fontSynthesis: 'weight',
+                letterSpacing: '0.01em',
+                textShadow: '0 1px 1px rgba(0,0,0,0.16)',
+                WebkitTextStroke: '0.15px rgba(255,255,255,0.22)'
+              }}
+            >
+              {dailyQuote}
+            </p>
+            <div className="mt-3 min-[360px]:mt-3.5 md:mt-4 ml-3 min-[360px]:ml-4 md:ml-5 h-px w-12 min-[360px]:w-14 md:w-20 bg-white/40 rounded-full" />
           </div>
         </div>
       </section>
