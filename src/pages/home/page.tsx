@@ -555,24 +555,24 @@ export default function Home() {
       </section>
 
       {/* ═══ 1.5 오늘의 어록 ═══ */}
-      <section className="max-w-6xl mx-auto px-4 md:px-6 mt-6">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-500 via-primary-600 to-primary-800 px-5 py-6 md:px-8 md:py-8 shadow-sm">
-          <i className="ri-double-quotes-l absolute -top-3 right-2 md:right-6 text-white/15 text-8xl md:text-[7rem] pointer-events-none"></i>
-          <div className="relative flex items-start gap-3 md:gap-4">
-            <span className="mt-0.5 flex w-10 h-10 md:w-11 md:h-11 flex-shrink-0 items-center justify-center rounded-xl bg-white/15 border border-white/20 shadow-inner">
-              <i className="ri-quotes-line text-white text-base md:text-lg"></i>
+      <section className="w-full max-w-6xl mx-auto px-2.5 min-[360px]:px-3 sm:px-4 md:px-6 mt-5 md:mt-6">
+        <div className="relative overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-primary-500 via-primary-600 to-primary-800 px-3.5 py-5 min-[360px]:px-4 sm:px-5 md:px-8 md:py-8 shadow-sm">
+          <i className="ri-double-quotes-l absolute -top-3 right-1 min-[360px]:right-2 sm:right-4 md:right-6 text-white/15 text-[5.5rem] min-[360px]:text-[6.5rem] md:text-[7rem] pointer-events-none"></i>
+          <div className="relative flex items-start gap-2.5 min-[360px]:gap-3 md:gap-4">
+            <span className="mt-0.5 flex w-9 h-9 min-[360px]:w-10 min-[360px]:h-10 md:w-11 md:h-11 flex-shrink-0 items-center justify-center rounded-xl bg-white/15 border border-white/20 shadow-inner">
+              <i className="ri-book-open-line text-white text-base min-[360px]:text-lg md:text-xl"></i>
             </span>
-            <div className="min-w-0 flex-1 pr-3 md:pr-12">
-              <p className="text-[11px] md:text-xs font-black tracking-[0.18em] text-white/80 mb-2 md:mb-3">오늘의 어록</p>
-              <div className="relative">
-                <span aria-hidden="true" className="absolute -left-1 -top-3 md:-left-2 md:-top-4 font-serif text-3xl md:text-4xl font-black text-white/35 leading-none">“</span>
+            <div className="min-w-0 flex-1 pr-0.5 min-[360px]:pr-1 md:pr-10">
+              <p className="text-[clamp(0.68rem,2.7vw,0.78rem)] font-black tracking-[0.16em] text-white/85 mb-1.5 min-[360px]:mb-2 md:mb-3">오늘의 어록</p>
+              <div className="relative min-w-0">
+                <span aria-hidden="true" className="absolute -left-0.5 -top-2 min-[360px]:-left-1 min-[360px]:-top-3 md:-left-2 md:-top-4 font-serif text-2xl min-[360px]:text-3xl md:text-4xl font-black text-white/35 leading-none">“</span>
                 <p
-                  className="font-quote text-[1.075rem] md:text-[1.4rem] font-bold italic text-white leading-[1.95] md:leading-[1.9] whitespace-pre-line break-keep tracking-[0.025em] drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)] pl-4 md:pl-5"
+                  className="font-quote text-[clamp(1rem,4.35vw,1.4rem)] font-bold italic text-white leading-[1.8] min-[360px]:leading-[1.85] md:leading-[1.9] whitespace-pre-line break-keep tracking-[0.015em] drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)] pl-3 min-[360px]:pl-4 md:pl-5"
                   style={{ fontFamily: '"Noto Serif KR", "Nanum Myeongjo", "Batang", "AppleMyungjo", Georgia, serif', fontWeight: 700, fontStyle: 'italic' }}
                 >
                   {dailyQuote}
                 </p>
-                <div className="mt-3 md:mt-4 ml-4 md:ml-5 h-px w-10 md:w-14 bg-white/35 rounded-full" />
+                <div className="mt-2.5 min-[360px]:mt-3 md:mt-4 ml-3 min-[360px]:ml-4 md:ml-5 h-px w-8 min-[360px]:w-10 md:w-14 bg-white/35 rounded-full" />
               </div>
             </div>
           </div>
