@@ -62,11 +62,14 @@ interface SmartAttendanceProps {
 export default function SmartAttendance({ clubId }: SmartAttendanceProps) {
   const { profile } = useAuth();
   const role = profile?.role as UserRole;
+  const roleName = (role || '') as string;
+  // 부구역장 이상 사명자는 기존 출결 현황을 이용하고, 교사도 전체 학생 출결을 볼 수 있습니다.
   const canManageAttendance = role ? ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.assistant_zone_leader : false;
+  const canViewAllStudentAttendance = canManageAttendance || ['teacher', 'church_teacher', '교사'].includes(roleName);
 
   if (!profile) return <Spinner label="프로필을 불러오는 중..." />;
 
-  if (canManageAttendance) return <AdminAttendanceView profile={profile} />;
+  if (canViewAllStudentAttendance) return <AdminAttendanceView profile={profile} />;
 
   if (clubId && profile.club !== clubId) {
     return null;
@@ -785,6 +788,95 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
   );
 }
 
+function AttendanceOverviewCharts({ summaries }: { summaries: ClubAttendanceSummary[] }) {
+  const total = summaries.reduce((sum, club) => sum + club.totalMembers, 0);
+  const attended = summaries.reduce((sum, club) => sum + club.attendedToday, 0);
+  const absent = summaries.reduce((sum, club) => sum + club.memberList.filter((m) => m.status === 'absent').length, 0);
+  const noResponse = summaries.reduce((sum, club) => sum + club.memberList.filter((m) => m.status === 'no_response').length, 0);
+
+  const stats = [
+    { label: '출석', count: attended, color: 'bg-emerald-500', track: 'bg-emerald-100', icon: 'ri-check-line' },
+    { label: '불참', count: absent, color: 'bg-orange-500', track: 'bg-orange-100', icon: 'ri-calendar-close-line' },
+    { label: '미응답', count: noResponse, color: 'bg-rose-500', track: 'bg-rose-100', icon: 'ri-user-unfollow-line' },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
+      <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 md:p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <p className="text-base font-bold text-foreground-950">전체 학생 출결 분포</p>
+            <p className="text-xs text-foreground-500 mt-1">전체 {total}명 기준</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-primary-100 text-primary-600 flex items-center justify-center">
+            <i className="ri-pie-chart-2-line text-xl"></i>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {stats.map((item) => {
+            const percent = total > 0 ? Math.round((item.count / total) * 100) : 0;
+            return (
+              <div key={item.label}>
+                <div className="flex items-center justify-between mb-1.5 text-xs">
+                  <div className="flex items-center gap-2">
+                    <i className={`${item.icon} text-sm`}></i>
+                    <span className="font-medium text-foreground-700">{item.label}</span>
+                  </div>
+                  <span className="font-bold text-foreground-800">{item.count}명 · {percent}%</span>
+                </div>
+                <div className={`w-full h-3 rounded-full ${item.track} overflow-hidden`}>
+                  <motion.div
+                    className={`h-full rounded-full ${item.color}`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${percent}%` }}
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 md:p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <p className="text-base font-bold text-foreground-950">동아리별 출석률</p>
+            <p className="text-xs text-foreground-500 mt-1">오늘 출석 완료 비율</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-accent-100 text-accent-600 flex items-center justify-center">
+            <i className="ri-bar-chart-grouped-line text-xl"></i>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {summaries.map((club) => (
+            <div key={club.club}>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${club.clubColor}15` }}>
+                    <i className={`${club.clubIcon} text-sm`} style={{ color: club.clubColor }}></i>
+                  </span>
+                  <span className="text-xs font-semibold text-foreground-800 truncate">{club.clubName}</span>
+                </div>
+                <span className="text-xs font-bold text-foreground-800 ml-3">{club.attendanceRate}%</span>
+              </div>
+              <div className="w-full h-3 rounded-full bg-background-200 overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ backgroundColor: club.clubColor }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${club.attendanceRate}%` }}
+                  transition={{ duration: 0.6, ease: 'easeOut' }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminAttendanceView({ profile }: { profile: { name: string; club?: string; user_id: string; role?: string } }) {
   const [clubSummaries, setClubSummaries] = useState<ClubAttendanceSummary[]>([]);
   const [selectedClub, setSelectedClub] = useState<ClubType>('saeullim');
@@ -931,6 +1023,8 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
           <KpiCard title="불참 신고" value={`${totalDeclaredAbsent}명`} icon="ri-calendar-close-line" colorClass="bg-orange-100 text-orange-600" delay={0.12} />
           <KpiCard title="미응답" value={`${totalAbsent}명`} icon="ri-user-unfollow-line" colorClass="bg-rose-100 text-rose-600" delay={0.16} />
         </div>
+
+        <AttendanceOverviewCharts summaries={clubSummaries} />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {clubSummaries.map((club, i) => {
