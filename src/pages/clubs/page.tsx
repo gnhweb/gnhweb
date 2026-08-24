@@ -95,9 +95,9 @@ export default function Clubs() {
               >
                 <Link
                   to={`/clubs/${club.id}`}
-                  className="block bg-background-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group h-full"
+                  className="block bg-background-100 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 group h-full"
                 >
-                  <div className="relative aspect-[16/10] overflow-hidden">
+                  <div className="relative aspect-[16/10] overflow-hidden rounded-t-2xl">
                     {clubBanner?.card_image_url ? (
                       <img
                         src={clubBanner.card_image_url}
@@ -116,7 +116,7 @@ export default function Clubs() {
                       <div className={`w-10 h-10 rounded-xl ${club.iconBg} flex items-center justify-center`}>
                         <i className={`${clubIcons[club.id]} text-xl ${club.iconText}`}></i>
                       </div>
-                      <h2 className="text-xl font-bold text-foreground-950 whitespace-nowrap overflow-hidden text-ellipsis">{club.name}</h2>
+                      <h2 className="text-xl font-bold text-foreground-950 break-words">{club.name}</h2>
                     </div>
                     <p className="text-sm text-foreground-600 leading-relaxed mb-4">{displayDescription}</p>
                     <div className="flex flex-wrap gap-2 mb-4">
@@ -160,34 +160,36 @@ export default function Clubs() {
                 <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }}>
                   <Link
                     to={`/clubs/${club.id}`}
-                    className="relative z-10 block rounded-[20px] overflow-hidden shadow-card cursor-pointer h-56 touch-manipulation"
+                    className="relative z-10 block rounded-[20px] shadow-card cursor-pointer min-h-[280px] touch-manipulation"
                   >
-                    {clubBanner?.card_image_url ? (
-                      <img
-                        src={clubBanner.card_image_url}
-                        alt={club.name}
-                        className="absolute inset-0 w-full h-full object-cover object-top"
-                      />
-                    ) : (
-                      <div className={`absolute inset-0 w-full h-full bg-gradient-to-br ${club.color}`}></div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                    <div className="absolute inset-0 overflow-hidden rounded-[20px]">
+                      {clubBanner?.card_image_url ? (
+                        <img
+                          src={clubBanner.card_image_url}
+                          alt={club.name}
+                          className="w-full h-full object-cover object-top"
+                        />
+                      ) : (
+                        <div className={`w-full h-full bg-gradient-to-br ${club.color}`}></div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                    </div>
 
-                    <div className="absolute top-3 left-3 flex items-center gap-2">
+                    <div className="relative z-10 pt-3 pl-3 flex items-center gap-2">
                       <div className={`w-8 h-8 rounded-full ${club.iconBg} flex items-center justify-center backdrop-blur`}>
                         <i className={`${clubIcons[club.id]} text-sm ${club.iconText}`}></i>
                       </div>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 right-0 z-10 p-4 pb-5">
+                    <div className="relative z-10 mt-[210px] p-4 pb-5">
                       <h2 className="text-lg font-bold text-white leading-tight mb-1">{club.name}</h2>
-                      <p className="text-[11px] text-white/80 line-clamp-1 mb-2">{displayDescription}</p>
+                      <p className="text-[11px] text-white/80 leading-relaxed break-words mb-2">{displayDescription}</p>
                       <div className="flex flex-wrap gap-1.5">
-                        <span className="text-[10px] font-semibold bg-background-100/20 backdrop-blur text-white px-2 py-1 rounded-full whitespace-nowrap">
+                        <span className="text-[10px] font-semibold bg-background-100/20 backdrop-blur text-white px-2 py-1 rounded-full break-words">
                           <i className="ri-calendar-line mr-1"></i>{displaySchedule.split(' / ')[0]}
                         </span>
                         {displayActivities.slice(0, 1).map((act, i) => (
-                          <span key={i} className="text-[10px] font-semibold bg-background-100/20 backdrop-blur text-white px-2 py-1 rounded-full whitespace-nowrap">
+                          <span key={i} className="text-[10px] font-semibold bg-background-100/20 backdrop-blur text-white px-2 py-1 rounded-full break-words">
                             {act.length > 14 ? act.slice(0, 14) + '...' : act}
                           </span>
                         ))}
