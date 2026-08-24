@@ -92,7 +92,7 @@ export default function WeeklyReports() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12">
+    <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 md:py-12 relative z-[1] touch-manipulation">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
@@ -104,7 +104,7 @@ export default function WeeklyReports() {
           {profile && profile.role !== 'member' && (
             <Link
               to="/reports/weekly/write"
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-primary-500 text-background-50 text-sm font-medium hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap self-start"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-primary-500 text-background-50 text-sm font-medium hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap self-start touch-manipulation"
             >
               <i className="ri-add-line"></i>
               새 보고서 작성
@@ -183,7 +183,7 @@ export default function WeeklyReports() {
             <p className="text-sm text-accent-700 flex items-center gap-2">
               <i className="ri-error-warning-line"></i>{error}
             </p>
-            <button onClick={refetch} className="mt-2 text-xs text-accent-600 underline cursor-pointer">다시 시도</button>
+            <button onClick={refetch} className="mt-2 text-xs text-accent-600 underline cursor-pointer touch-manipulation">다시 시도</button>
           </div>
         )}
 
@@ -193,7 +193,7 @@ export default function WeeklyReports() {
               <i className="ri-file-list-3-line text-2xl text-foreground-500"></i>
             </div>
             <p className="text-foreground-600 text-sm mb-4">아직 작성된 보고서가 없어요</p>
-            <Link to="/reports/weekly/write" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary-500 text-background-50 text-sm font-medium hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap">
+            <Link to="/reports/weekly/write" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary-500 text-background-50 text-sm font-medium hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap touch-manipulation">
               <i className="ri-add-line"></i>첫 보고서 작성하기
             </Link>
           </div>
@@ -203,7 +203,7 @@ export default function WeeklyReports() {
             <div className="hidden md:block space-y-3">
               {reports.map((report, i) => (
                 <motion.div key={report.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: i * 0.05 }}>
-                  <Link to={`/reports/weekly/${report.id}`} className="block bg-background-100 border border-background-200 rounded-[20px] p-5 hover:border-background-300/60 transition-all duration-300 cursor-pointer">
+                  <Link to={`/reports/weekly/${report.id}`} className="block bg-background-100 border border-background-200 rounded-[20px] p-5 hover:border-background-300/60 transition-all duration-300 cursor-pointer touch-manipulation">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
@@ -234,8 +234,8 @@ export default function WeeklyReports() {
             {/* 모바일: 작성자 아바타 + 우측 상단 상태 칩 카드 */}
             <div className="md:hidden space-y-3">
               {reports.map((report, i) => (
-                <motion.div key={`m-${report.id}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.3) }} whileTap={{ scale: 0.97 }}>
-                  <Link to={`/reports/weekly/${report.id}`} className="relative flex gap-3 bg-background-100 border border-background-200 rounded-[20px] p-4 pl-3 overflow-hidden cursor-pointer">
+                <motion.div key={`m-${report.id}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.3) }} className="relative z-[1] touch-manipulation">
+                  <Link to={`/reports/weekly/${report.id}`} className="relative flex gap-3 bg-background-100 border border-background-200 rounded-[20px] p-4 pl-3 overflow-hidden cursor-pointer touch-manipulation" style={{ WebkitTapHighlightColor: 'transparent' }}>
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${STATUS_BAR[report.status]}`}></div>
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ml-1">
                       {report.author_name?.charAt(0) || '?'}
