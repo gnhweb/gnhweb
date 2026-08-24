@@ -1023,7 +1023,7 @@ export default function Home() {
             오늘의 출석 현황
           </h2>
           {hasRole && hasRole('assistant_zone_leader') && (
-            <Link to="/dashboard/attendance" className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">부석 수 <i className="ri-arrow-right-s-line text-sm"></i></Link>
+            <Link to="/attendance-board" className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">실시간 출석 현황판 <i className="ri-arrow-right-s-line text-sm"></i></Link>
           )}
         </div>
         <div className="grid grid-cols-3 gap-2 md:gap-4">
