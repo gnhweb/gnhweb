@@ -201,10 +201,10 @@ export default function WeeklyReportWrite() {
   if (!profile) return null;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12 relative z-[1] touch-manipulation">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <div className="mb-8">
-          <button onClick={() => navigate('/reports/weekly')} className="flex items-center gap-1.5 text-sm text-foreground-600 hover:text-foreground-950 transition-colors mb-3 cursor-pointer">
+          <button onClick={() => navigate('/reports/weekly')} className="flex items-center gap-1.5 text-sm text-foreground-600 hover:text-foreground-950 transition-colors mb-3 cursor-pointer touch-manipulation">
             <i className="ri-arrow-left-line" /> 보고서 목록으로
           </button>
           <h1 className="text-2xl font-bold text-foreground-950 mb-1">주간 보고서 작성</h1>
