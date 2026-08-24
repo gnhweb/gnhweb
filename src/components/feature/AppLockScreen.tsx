@@ -206,7 +206,7 @@ export default function AppLockScreen() {
               setPasskeyChecking(false);
             }}
             disabled={passkeyChecking || checking}
-            className="w-full mb-4 py-3 rounded-xl bg-foreground-900 text-white text-sm font-semibold disabled:opacity-50 cursor-pointer whitespace-nowrap"
+            className="w-full mb-4 py-3 rounded-xl border-2 border-amber-500 bg-amber-50 text-amber-900 text-sm font-semibold shadow-sm hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-background-50 dark:border-amber-300 dark:bg-amber-950/70 dark:text-amber-100 dark:hover:bg-amber-900/80 dark:focus:ring-amber-300 dark:focus:ring-offset-background-950 disabled:opacity-50 cursor-pointer whitespace-nowrap"
           >
             <span className="flex items-center justify-center gap-2">
               <i className="ri-fingerprint-line text-lg"></i>

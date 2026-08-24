@@ -576,7 +576,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Email change */}
-            <div className="bg-background-50 border border-background-200 rounded-[16px] p-4">
+            <div className="bg-background-50 border-2 border-amber-300 rounded-[16px] p-4">
               <label className="text-sm font-medium text-foreground-950">이메일</label>
               <p className="text-xs text-foreground-600 mt-0.5 mb-3">현재 이메일: {user?.email}</p>
               <div className="flex gap-2">
@@ -685,33 +685,33 @@ export default function ProfilePage() {
 
             {/* 생체인증(패스키) */}
             {isPasskeySupported() && (
-              <div className="bg-background-50 border border-background-200 rounded-[16px] p-4">
+              <div className="bg-background-50 border border-background-200 dark:border-background-300 rounded-[16px] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <label className="text-sm font-medium text-foreground-950">이 기기 지문 / Face ID 로그인</label>
                     <p className="text-xs text-foreground-600 mt-0.5">이 기기의 생체인증으로 비밀번호 없이 로그인할 수 있어요.</p>
                   </div>
-                  <i className="ri-fingerprint-line text-2xl text-amber-500"></i>
+                  <i className="ri-fingerprint-line text-2xl text-amber-500 dark:text-amber-300"></i>
                 </div>
                 <button
                   onClick={handleRegisterPasskey}
                   disabled={passkeyLoading}
-                  className="w-full mt-3 py-2 rounded-full bg-foreground-900 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                  className="w-full mt-3 py-2.5 rounded-full border-2 border-amber-500 bg-amber-50 text-amber-900 text-sm font-semibold shadow-sm hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:border-amber-300 dark:bg-amber-950/70 dark:text-amber-100 dark:hover:bg-amber-900/80 dark:focus:ring-amber-300 dark:focus:ring-offset-background-950 disabled:opacity-40 cursor-pointer whitespace-nowrap"
                 >
                   {passkeyLoading ? '확인 중...' : passkeys.length ? '다른 생체인증 추가' : '이 기기 지문 / Face ID 등록'}
                 </button>
                 {passkeys.length > 0 && (
                   <div className="mt-3 space-y-2">
                     {passkeys.map((pk) => (
-                      <div key={pk.id} className="flex items-center justify-between rounded-xl border border-background-200 bg-background-100 px-3 py-2">
+                      <div key={pk.id} className="flex items-center justify-between rounded-xl border border-background-200 dark:border-background-300 bg-background-100 px-3 py-2">
                         <div className="min-w-0">
-                          <p className="text-xs font-medium text-foreground-800 truncate">{pk.friendly_name || '이 기기의 생체인증'}</p>
-                          <p className="text-[11px] text-foreground-500">등록 {new Date(pk.created_at).toLocaleDateString('ko-KR')}</p>
+                          <p className="text-xs font-medium text-foreground-800 dark:text-foreground-100 truncate">{pk.friendly_name || '이 기기의 생체인증'}</p>
+                          <p className="text-[11px] text-foreground-500 dark:text-foreground-300">등록 {new Date(pk.created_at).toLocaleDateString('ko-KR')}</p>
                         </div>
                         <button
                           onClick={() => handleDeletePasskey(pk.id)}
                           disabled={passkeyLoading}
-                          className="text-[11px] text-rose-600 px-2 py-1 cursor-pointer whitespace-nowrap"
+                          className="text-[11px] text-rose-700 dark:text-rose-200 font-semibold px-2 py-1 rounded-md border border-rose-300 dark:border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/50 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer whitespace-nowrap"
                         >
                           해제
                         </button>
