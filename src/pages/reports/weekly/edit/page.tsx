@@ -132,9 +132,9 @@ export default function WeeklyReportEdit() {
   if (loading) return <div className="max-w-4xl mx-auto px-4 md:px-6 py-12 flex justify-center"><i className="ri-loader-4-line animate-spin text-2xl text-primary-500" /></div>;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12 relative z-[1] touch-manipulation">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <div className="mb-8"><button onClick={() => navigate(`/reports/weekly/${id}`)} className="flex items-center gap-1.5 text-sm text-foreground-600 mb-3 cursor-pointer"><i className="ri-arrow-left-line" /> 보고서 상세로</button><h1 className="text-2xl font-bold text-foreground-950 mb-1">주간 보고서 수정</h1><p className="text-sm text-foreground-600">{clubLabel}</p></div>
+        <div className="mb-8"><button onClick={() => navigate(`/reports/weekly/${id}`)} className="flex items-center gap-1.5 text-sm text-foreground-600 mb-3 cursor-pointer touch-manipulation"><i className="ri-arrow-left-line" /> 보고서 상세로</button><h1 className="text-2xl font-bold text-foreground-950 mb-1">주간 보고서 수정</h1><p className="text-sm text-foreground-600">{clubLabel}</p></div>
         {error && <div className="bg-accent-100 border border-accent-200 rounded-[20px] p-4 mb-6 text-sm text-accent-700">{error}</div>}
 
         <div className="space-y-6">
