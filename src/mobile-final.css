@@ -48,3 +48,19 @@
     overflow-wrap: break-word;
   }
 }
+
+
+/* Keyboard-open scrolling: allow users to drag the page vertically while typing. */
+@media (max-width: 767px) {
+  body.keyboard-open:not(.scroll-lock) {
+    touch-action: pan-y;
+    overscroll-behavior-y: auto;
+    overflow-y: auto !important;
+    position: static !important;
+  }
+
+  html:has(body.keyboard-open:not(.scroll-lock)) {
+    overflow-y: auto;
+    touch-action: pan-y;
+  }
+}

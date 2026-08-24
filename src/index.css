@@ -385,9 +385,15 @@ body.scroll-lock {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* 키보드가 열린 동안 visualViewport 대응을 위한 여백 */
-  body.keyboard-open {
-    overscroll-behavior: none;
+  /* 키보드가 열린 동안에도 페이지 자체는 자유롭게 위/아래로 스크롤할 수 있어야 한다.
+     이전에는 overscroll-behavior:none이 전역 키보드 상태에 걸려 모바일 브라우저의
+     자연스러운 세로 제스처를 막는 경우가 있었다. scroll-lock이 실제로 걸린 메뉴/게임은
+     예외로 두고, 일반 입력 화면에서는 세로 pan/스크롤을 명시적으로 허용한다. */
+  body.keyboard-open:not(.scroll-lock) {
+    overscroll-behavior-y: auto;
+    touch-action: pan-y;
+    overflow-y: auto;
+    position: static;
   }
 
   /* Android Chrome의 text-selection/callout이 인터랙티브 카드까지 번지는 것을 억제 */
