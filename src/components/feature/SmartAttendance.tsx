@@ -90,7 +90,13 @@ type AttendanceState = 'idle' | 'loading-attend' | 'loading-absent' | 'loading-c
 // client-side duplicate notifications. The trigger targets only:
 // 1) assigned teacher, 2) same-club assistant_zone_leader, 3) same-club zone_leader.
 
-function StudentAttendanceView({ profile }: { profile: { name: string; club?: string; user_id: string; role?: string } }) {
+function StudentAttendanceView({ profile }: { profile: { name: string; club?: string; user_id: string; role?: string; roles?: string[] } }) {
+  const isTeacherOrChief =
+    profile.role === 'teacher' ||
+    profile.role === 'chief' ||
+    profile.roles?.includes('teacher') ||
+    profile.roles?.includes('chief');
+
   const [attendanceStatus, setAttendanceStatus] = useState<AttendanceState>('idle');
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [showAiPopup, setShowAiPopup] = useState(false);
