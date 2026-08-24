@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
-import { ROLE_HIERARCHY, CLUB_LABELS } from '@/types/auth';
-import type { ClubType, UserRole } from '@/types/auth';
+import { CLUB_LABELS } from '@/types/auth';
+import type { ClubType } from '@/types/auth';
 import { CLUB_META } from '@/mocks/attendance';
 import type { ClubAttendanceSummary, ClubMemberStatus, AttendanceRecord } from '@/mocks/attendance';
 import { todayKey, formatKoreanDate } from '@/lib/date';
@@ -61,12 +61,8 @@ interface SmartAttendanceProps {
 
 export default function SmartAttendance({ clubId }: SmartAttendanceProps) {
   const { profile } = useAuth();
-  const role = profile?.role as UserRole;
-  const canManageAttendance = role ? ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.assistant_zone_leader : false;
-
   if (!profile) return <Spinner label="프로필을 불러오는 중..." />;
 
-  if (canManageAttendance) return <AdminAttendanceView profile={profile} />;
 
   if (clubId && profile.club !== clubId) {
     return null;
