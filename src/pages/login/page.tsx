@@ -511,7 +511,7 @@ export default function Login() {
             >
               <span className="flex items-center justify-center gap-2">
                 <i className="ri-fingerprint-line text-lg text-amber-500"></i>
-                {passkeySubmitting ? '생체인증 확인 중...' : '지문 / Face ID로 로그인'}
+                {passkeySubmitting ? '생체인증 확인 중...' : '이 기기 지문 / Face ID로 로그인'}
               </span>
             </button>
           )}

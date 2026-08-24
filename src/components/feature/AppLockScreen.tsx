@@ -189,7 +189,7 @@ export default function AppLockScreen() {
           >
             <span className="flex items-center justify-center gap-2">
               <i className="ri-fingerprint-line text-lg"></i>
-              {passkeyChecking ? '생체인증 확인 중...' : '지문 / Face ID로 잠금 해제'}
+              {passkeyChecking ? '생체인증 확인 중...' : '이 기기 지문 / Face ID로 잠금 해제'}
             </span>
           </button>
         )}

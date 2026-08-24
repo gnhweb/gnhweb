@@ -1,21 +1,7 @@
-# Final Android + iPhone mobile cleanup patch
+# 기기 생체인증(Passkey) 수정
 
-This patch is based on the current mobile changes and fixes the latest Vercel JSX build error in `NotificationsModal.tsx`.
-
-Included:
-- Fix malformed JSX that caused `Expected ">" but found "["` at NotificationsModal.tsx:374.
-- Remove global `window.alert` override from mobile runtime; alerts remain semantically intact.
-- Reduce image MutationObserver work: only inspect newly added DOM nodes instead of rescanning every image on every mutation.
-- Keep hidden PIN input accessibility selector aligned with AppLockScreen (`data-gnh-pin-input`).
-- Keep scroll-lock position restoration and iOS/Android vibration no-op behavior.
-- Change notification permission request to explicit user action via an `알림 허용` button.
-- Make notification close/delete actions touch-friendly (44px), remove hover-only delete behavior.
-- Add safe-area-aware notification toast positioning and mobile-friendly text wrapping.
-
-Excluded:
-- PWA automatic reload policy.
-- Chief account / setup logic.
-- NVIDIA / NIM / meeting AI security logic.
-- Game rules.
-
-Important: This is a code patch. A production `vite build` must still be verified by Vercel after upload.
+- WebAuthn 등록 시 `platform` authenticator + `userVerification: required` 사용
+- `client-device` 힌트로 이 기기 인증기를 우선 요청
+- Android/iOS/Windows의 지문·Face ID·Windows Hello 등 플랫폼 생체인증 사용
+- 로그인/앱 잠금 해제도 동일한 패스키로 인증
+- 웹사이트는 지문/얼굴 생체정보를 저장하지 않음
