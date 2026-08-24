@@ -395,26 +395,14 @@ export default function ClubDetail() {
         photos: newDetail.photos,
       };
 
-      const detailPayload = {
-        club: id,
-        type: 'detail',
-        author_id: user?.id || '',
-        author_name: profile?.name || '',
-        title: `${club?.name || id} 상세 정보`,
-        content,
-      };
-
-      // club_posts는 일반 게시글(post)은 여러 개 허용하고, 상세 정보(detail)만
-      // 동아리당 1개로 제한하는 partial unique index를 사용한다.
-      // 따라서 onConflict: 'club,type' 방식의 upsert는 PostgREST에서
-      // partial index를 conflict target으로 인식하지 못해 저장에 실패할 수 있다.
-      // 기존 detail 행을 조회한 뒤 있으면 UPDATE, 없으면 INSERT로 저장한다.
+      // `club_posts` uses a partial unique index for detail rows, so
+      // `upsert(..., { onConflict: 'club,type' })` is not a valid conflict target.
+      // Resolve the detail row explicitly, then UPDATE it or INSERT it.
       const { data: existingDetail, error: findError } = await supabase
         .from('club_posts')
         .select('id')
         .eq('club', id)
         .eq('type', 'detail')
-        .limit(1)
         .maybeSingle();
 
       if (findError) throw findError;
@@ -423,7 +411,11 @@ export default function ClubDetail() {
         const { error: updateError } = await supabase
           .from('club_posts')
           .update({
-            ...detailPayload,
+            author_id: user?.id || null,
+            author_name: profile?.name || '',
+            title: `${club?.name || id} 상세 정보`,
+            content,
+            updated_at: new Date().toISOString(),
           })
           .eq('id', existingDetail.id);
 
@@ -431,13 +423,21 @@ export default function ClubDetail() {
       } else {
         const { error: insertError } = await supabase
           .from('club_posts')
-          .insert(detailPayload);
+          .insert({
+            club: id,
+            type: 'detail',
+            author_id: user?.id || null,
+            author_name: profile?.name || '',
+            title: `${club?.name || id} 상세 정보`,
+            content,
+          });
 
         if (insertError) throw insertError;
       }
     } catch (e) {
       console.error('Failed to save club detail:', e);
-      setError('저장 중 오류가 발생했습니다.');
+      setError(e instanceof Error ? e.message : '저장 중 오류가 발생했습니다.');
+      throw e;
     } finally {
       setSaving(false);
     }
@@ -449,37 +449,47 @@ export default function ClubDetail() {
     setUploading(true);
     setError(null);
     try {
-      const uploadedPaths: string[] = [];
-      const uploadPromises = Array.from(files).map(async (file, index) => {
-        const rawExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-        const ext = rawExt === 'heic' || rawExt === 'heif' ? 'jpg' : rawExt;
-        const contentType = file.type || (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`);
-        const path = `club-photos/${id}-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const safeExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'].includes(ext) ? ext : 'jpg';
+        const path = `club-photos/${id}-${crypto.randomUUID()}.${safeExt}`;
         const { error: uploadError } = await supabase.storage
           .from('Public')
-          .upload(path, file, { upsert: true, contentType });
+          .upload(path, file, {
+            upsert: false,
+            contentType: file.type || undefined,
+            cacheControl: '3600',
+          });
 
-        if (uploadError) throw uploadError;
-        uploadedPaths.push(path);
+        if (uploadError) {
+          throw new Error(`사진 업로드 실패: ${uploadError.message}`);
+        }
 
         const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
-        return urlData.publicUrl;
+        if (!urlData?.publicUrl) {
+          throw new Error('사진 URL을 생성하지 못했습니다.');
+        }
+        return { path, url: urlData.publicUrl };
       });
-
-      const newUrls = await Promise.all(uploadPromises);
+      const uploaded = await Promise.all(uploadPromises);
+      const newUrls = uploaded.map(item => item.url);
       const updatedPhotos = [...clubDetail.photos, ...newUrls];
 
       try {
         await saveClubDetail({ photos: updatedPhotos });
       } catch (saveError) {
-        // DB 저장이 실패하면 방금 올린 파일을 정리해 orphan 파일이 남지 않도록 한다.
-        if (uploadedPaths.length > 0) {
-          await supabase.storage.from('Public').remove(uploadedPaths);
+        const paths = uploaded.map(item => item.path);
+        if (paths.length > 0) {
+          await supabase.storage.from('Public').remove(paths);
         }
-        throw saveError;
+        throw saveError instanceof Error
+          ? new Error(`사진은 업로드되었지만 저장하지 못했습니다: ${saveError.message}`)
+          : new Error('사진은 업로드되었지만 저장하지 못했습니다.');
       }
-    } catch {
-      setError('사진 업로드 중 오류가 발생했습니다.');
+    } catch (uploadError) {
+      console.error('Failed to upload/save club photos:', uploadError);
+      const message = uploadError instanceof Error ? uploadError.message : '사진 업로드 중 오류가 발생했습니다.';
+      setError(message);
     } finally {
       setUploading(false);
       // Reset the file input
