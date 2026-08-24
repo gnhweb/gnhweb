@@ -15,7 +15,7 @@ interface ClubPost {
   author_id: string;
   author_name: string;
   content: string;
-  images?: string[];
+  images?: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -110,7 +110,13 @@ export default function ClubCommunity() {
 
       if (fetchError) throw fetchError;
 
-      setPosts((data as ClubPost[]) || []);
+      const normalized = ((data as ClubPost[]) || []).map((post) => ({
+        ...post,
+        images: Array.isArray(post.images)
+          ? post.images.filter((url): url is string => typeof url === 'string')
+          : [],
+      }));
+      setPosts(normalized);
     } catch (e) {
       console.error('Failed to fetch club posts:', e);
       setError('게시글을 불러오지 못했습니다.');
@@ -133,44 +139,41 @@ export default function ClubCommunity() {
 
     try {
       let imageUrls: string[] = [];
-      const uploadedPaths: string[] = [];
 
       // Upload images first
       if (postImages.length > 0) {
         setUploadingImages(true);
         for (const file of postImages) {
           const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-          const safeExt = /^[a-z0-9]+$/.test(ext) ? ext : 'jpg';
-          const path = `club-posts/${clubId}-${Date.now()}-${crypto.randomUUID()}.${safeExt}`;
+          const path = `club-posts/${clubId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
           const { error: uploadErr } = await supabase.storage.from('Public').upload(path, file, {
             upsert: false,
+            contentType: file.type || 'image/jpeg',
             cacheControl: '3600',
-            contentType: file.type || 'application/octet-stream',
           });
-          if (uploadErr) throw new Error(`사진 업로드 실패: ${uploadErr.message}`);
-          uploadedPaths.push(path);
+          if (uploadErr) throw uploadErr;
           const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
           imageUrls.push(urlData.publicUrl);
         }
         setUploadingImages(false);
       }
 
+      const payload = {
+        club: clubId,
+        type: 'post',
+        author_id: user.id,
+        author_name: profile.name,
+        content: newPost.trim(),
+        images: imageUrls.length > 0 ? imageUrls : null,
+      };
+
       const { error: insertError } = await supabase
         .from('club_posts')
-        .insert({
-          club: clubId,
-          type: 'post',
-          author_id: user.id,
-          author_name: profile.name,
-          content: newPost.trim(),
-          images: imageUrls.length > 0 ? imageUrls : null,
-        });
+        .insert(payload);
 
       if (insertError) {
-        if (uploadedPaths.length > 0) {
-          await supabase.storage.from('Public').remove(uploadedPaths);
-        }
-        throw new Error(`게시글 저장 실패: ${insertError.message}`);
+        console.error('[ClubCommunity] post insert failed:', insertError, payload);
+        throw new Error(insertError.message || '게시글 등록에 실패했습니다.');
       }
 
       setNewPost('');
@@ -182,7 +185,7 @@ export default function ClubCommunity() {
       await fetchPosts();
     } catch (e) {
       console.error('Failed to submit post:', e);
-      setError(e instanceof Error ? e.message : '게시글 등록 중 오류가 발생했습니다.');
+      setError(e instanceof Error ? `게시글 등록 실패: ${e.message}` : '게시글 등록 중 오류가 발생했습니다.');
     } finally {
       setSubmitting(false);
       setUploadingImages(false);
@@ -296,7 +299,7 @@ export default function ClubCommunity() {
   return (
     <div className="min-h-screen bg-background-50">
       {/* Club Header */}
-      <div className="relative aspect-[16/10] md:aspect-[21/7] overflow-hidden">
+      <div className="relative aspect-[16/10] md:aspect-[21/7] overflow-hidden isolate">
         {clubBanner?.hero_image_url ? (
           <img
             src={clubBanner.hero_image_url}
@@ -310,14 +313,14 @@ export default function ClubCommunity() {
             className="w-full h-full object-cover object-top"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/60"></div>
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/30 via-black/20 to-black/70"></div>
 
         {/* 이미지 관리 버튼 — 제목과 겹치지 않도록 우상단에 따로 배치 */}
-        <div className="absolute top-3 right-3 md:top-5 md:right-5 z-20">
+        <div className="absolute top-3 right-3 md:top-5 md:right-5 z-30">
           <ClubBannerManager club={club.id} onBannerChange={refreshBanner} />
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8">
+        <div className="absolute inset-x-0 bottom-0 z-20 p-4 pb-5 md:p-8 md:pb-8">
           <div className="max-w-4xl mx-auto">
             <button
               onClick={() => navigate(`/clubs/${clubId}`)}
@@ -332,7 +335,7 @@ export default function ClubCommunity() {
               </div>
               <div>
                 <h1 className="text-lg md:text-2xl font-bold text-white">{club.name} 소통 공간</h1>
-                <p className="text-white/70 text-[11px] md:text-sm">동아리원들과 자유롭게 소통하는 공간입니다</p>
+                <p className="text-white/90 text-xs md:text-sm">동아리원들과 소통하는 공간</p>
               </div>
             </div>
           </div>
@@ -344,7 +347,7 @@ export default function ClubCommunity() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-background-100 border border-background-200 rounded-[20px] p-4 md:p-5 mb-6"
+          className="bg-background-100 border border-background-200 rounded-[20px] p-3.5 md:p-5 mb-5 md:mb-6 shadow-sm"
         >
           <form onSubmit={handleSubmit}>
             <div className="flex gap-3">
@@ -360,7 +363,7 @@ export default function ClubCommunity() {
                   placeholder={`${club.name} 동아리원들과 공유할 이야기를 적어주세요...`}
                   maxLength={500}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-[13px] border border-background-200 text-sm bg-background-50 resize-none focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition-all"
+                  className="w-full px-4 py-3 rounded-[13px] border border-background-300 text-sm text-foreground-950 bg-background-50 placeholder:text-foreground-500 resize-none focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all touch-manipulation"
                 />
                 {/* Image previews */}
                 {postImagePreviews.length > 0 && (
@@ -415,7 +418,7 @@ export default function ClubCommunity() {
                   <button
                     type="submit"
                     disabled={(!newPost.trim() && postImages.length === 0) || submitting}
-                    className="px-5 py-2 rounded-full bg-primary-500 text-background-50 text-sm font-medium hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
+                    className="min-h-[44px] px-5 py-2 rounded-full bg-primary-500 text-white text-sm font-semibold hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap touch-manipulation"
                   >
                     {submitting ? (
                       <span className="flex items-center gap-1.5">
@@ -431,7 +434,7 @@ export default function ClubCommunity() {
             </div>
           </form>
           {error && (
-            <div className="mt-3 flex items-center gap-2 p-3 rounded-xl bg-accent-100 text-accent-600 text-sm">
+            <div className="mt-3 flex items-center gap-2 p-3 rounded-xl bg-accent-100 border border-accent-300 text-accent-800 text-sm font-medium">
               <i className="ri-error-warning-line flex-shrink-0"></i>
               {error}
             </div>
