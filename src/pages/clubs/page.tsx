@@ -60,7 +60,7 @@ export default function Clubs() {
 
   return (
     <div className="min-h-screen bg-background-50">
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-16">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 pb-24 md:py-16 scroll-mt-28">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -160,7 +160,7 @@ export default function Clubs() {
                 <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }}>
                   <Link
                     to={`/clubs/${club.id}`}
-                    className="relative block rounded-[20px] overflow-hidden shadow-card cursor-pointer h-56"
+                    className="relative z-10 block rounded-[20px] overflow-hidden shadow-card cursor-pointer h-56 touch-manipulation"
                   >
                     {clubBanner?.card_image_url ? (
                       <img
@@ -179,7 +179,7 @@ export default function Clubs() {
                       </div>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <div className="absolute bottom-0 left-0 right-0 z-10 p-4 pb-5">
                       <h2 className="text-lg font-bold text-white leading-tight mb-1">{club.name}</h2>
                       <p className="text-[11px] text-white/80 line-clamp-1 mb-2">{displayDescription}</p>
                       <div className="flex flex-wrap gap-1.5">
