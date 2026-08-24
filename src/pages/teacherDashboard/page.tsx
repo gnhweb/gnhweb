@@ -425,7 +425,7 @@ export default function TeacherDashboard() {
                     <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-700">
                       {m.name}
                       <span className="text-[9px] text-gray-400">· {m.clubName}</span>
-                      <a href="https://t.me/" target="_blank" rel="noreferrer" className="ml-1 text-sky-600 hover:text-sky-700" aria-label={`${m.name} 텔레그램 심방`}>
+                      <a href="tg://" className="ml-1 text-sky-600 hover:text-sky-700" aria-label={`${m.name} 텔레그램 심방`}>
                         <i className="ri-telegram-line"></i>
                       </a>
                     </span>
@@ -451,7 +451,7 @@ export default function TeacherDashboard() {
                       {m.reason && (
                         <span className="text-xs text-orange-600 sm:ml-auto">{m.reason}</span>
                       )}
-                      <a href="https://t.me/" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-full bg-sky-500 text-white text-[11px] font-semibold hover:bg-sky-600 sm:ml-1 whitespace-nowrap">
+                      <a href="tg://" className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-full bg-sky-500 text-white text-[11px] font-semibold hover:bg-sky-600 sm:ml-1 whitespace-nowrap">
                         <i className="ri-telegram-line"></i>텔레그램으로 심방하기
                       </a>
                     </div>

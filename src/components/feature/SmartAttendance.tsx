@@ -1071,7 +1071,7 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
                         <div className="flex justify-end">
                           <button
                             onClick={() => {
-                              window.open('https://t.me/', '_blank', 'noopener,noreferrer');
+                              window.location.href = 'tg://';
                             }}
                             className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-100 text-sky-700 text-xs font-medium hover:bg-sky-200 transition-colors cursor-pointer whitespace-nowrap"
                           >
@@ -1114,7 +1114,7 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
                         </div>
                         <button
                           onClick={() => {
-                            window.open('https://t.me/', '_blank', 'noopener,noreferrer');
+                            window.location.href = 'tg://';
                           }}
                           className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-100 text-sky-700 text-xs font-medium hover:bg-sky-200 transition-colors cursor-pointer whitespace-nowrap"
                         >
