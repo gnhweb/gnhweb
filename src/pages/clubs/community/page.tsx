@@ -20,6 +20,27 @@ interface ClubPost {
   updated_at: string;
 }
 
+interface StoredPostContent {
+  text: string;
+  images?: string[];
+}
+
+function parseStoredPostContent(value: unknown): StoredPostContent {
+  if (typeof value !== 'string') return { text: '' };
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string') {
+      return {
+        text: parsed.text,
+        images: Array.isArray(parsed.images) ? parsed.images.filter((item: unknown): item is string => typeof item === 'string') : [],
+      };
+    }
+  } catch {
+    // Legacy plain-text posts are kept as-is.
+  }
+  return { text: value, images: [] };
+}
+
 // 사진 여러 장이 달린 글의 모바일 표시 — 좌우 스와이프 캐러셀 + 하단 점 인디케이터
 function PostImageCarousel({ images }: { images: string[] }) {
   const [active, setActive] = useState(0);
@@ -110,7 +131,15 @@ export default function ClubCommunity() {
 
       if (fetchError) throw fetchError;
 
-      setPosts((data as ClubPost[]) || []);
+      const mappedPosts: ClubPost[] = ((data as ClubPost[]) || []).map((row) => {
+        const stored = parseStoredPostContent(row.content);
+        return {
+          ...row,
+          content: stored.text,
+          images: stored.images || [],
+        };
+      });
+      setPosts(mappedPosts);
     } catch (e) {
       console.error('Failed to fetch club posts:', e);
       setError('게시글을 불러오지 못했습니다.');
@@ -148,6 +177,13 @@ export default function ClubCommunity() {
         setUploadingImages(false);
       }
 
+      // club_posts currently has no dedicated images column in the live DB.
+      // Store the text + uploaded image URLs together in the existing content column.
+      const storedContent = JSON.stringify({
+        text: newPost.trim(),
+        images: imageUrls,
+      });
+
       const { error: insertError } = await supabase
         .from('club_posts')
         .insert({
@@ -155,8 +191,7 @@ export default function ClubCommunity() {
           type: 'post',
           author_id: user.id,
           author_name: profile.name,
-          content: newPost.trim(),
-          images: imageUrls.length > 0 ? imageUrls : null,
+          content: storedContent,
         });
 
       if (insertError) throw insertError;
@@ -284,7 +319,7 @@ export default function ClubCommunity() {
   return (
     <div className="min-h-screen bg-background-50">
       {/* Club Header */}
-      <div className="relative aspect-[16/10] md:aspect-[21/7] overflow-hidden">
+      <div className="relative aspect-[16/10] md:aspect-[21/7] overflow-hidden scroll-mt-28">
         {clubBanner?.hero_image_url ? (
           <img
             src={clubBanner.hero_image_url}
@@ -305,7 +340,7 @@ export default function ClubCommunity() {
           <ClubBannerManager club={club.id} onBannerChange={refreshBanner} />
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8">
+        <div className="absolute bottom-0 left-0 right-0 z-10 p-4 pb-5 md:p-8">
           <div className="max-w-4xl mx-auto">
             <button
               onClick={() => navigate(`/clubs/${clubId}`)}
@@ -332,7 +367,7 @@ export default function ClubCommunity() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-background-100 border border-background-200 rounded-[20px] p-4 md:p-5 mb-6"
+          className="relative z-10 bg-background-100 border border-background-200 rounded-[20px] p-4 md:p-5 mb-6 touch-manipulation"
         >
           <form onSubmit={handleSubmit}>
             <div className="flex gap-3">
@@ -348,7 +383,7 @@ export default function ClubCommunity() {
                   placeholder={`${club.name} 동아리원들과 공유할 이야기를 적어주세요...`}
                   maxLength={500}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-[13px] border border-background-200 text-sm bg-background-50 resize-none focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition-all"
+                  className="w-full min-h-[112px] px-4 py-3 rounded-[13px] border border-background-200 text-sm bg-background-50 resize-none focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition-all touch-manipulation" style={{ touchAction: 'manipulation' }}
                 />
                 {/* Image previews */}
                 {postImagePreviews.length > 0 && (
