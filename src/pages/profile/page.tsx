@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { BADGE_DEFINITIONS } from '@/constants/missionBadges';
 import { notifyAutoLogoutMinutesChanged } from '@/lib/simplePin';
 import { ROLE_LABELS } from '@/types/auth';
+import { deletePasskey, isPasskeySupported, listPasskeys, registerPasskey } from '@/lib/passkey';
 
 const INTERESTS_LIST = ['악기', '운동', '독서', '그림', '코딩', '사진', '춤', '노래', '영화', '게임', '요리', '여행', '봉사', '글쓰기'];
 
@@ -36,6 +37,9 @@ export default function ProfilePage() {
   const [pinNewConfirm, setPinNewConfirm] = useState('');
   const [pinSaving, setPinSaving] = useState(false);
   const [pinMessage, setPinMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyMessage, setPasskeyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [passkeys, setPasskeys] = useState<{ id: string; friendly_name?: string; created_at: string; last_used_at?: string }[]>([]);
 
   const [name, setName] = useState('');
   const [birthYear, setBirthYear] = useState('');
@@ -62,7 +66,47 @@ export default function ProfilePage() {
     if (!user || !profile) return;
     loadProfile();
     loadBadges();
+    loadPasskeys();
   }, [user, profile]);
+
+  const loadPasskeys = async () => {
+    if (!isPasskeySupported()) return;
+    const { data, error } = await listPasskeys();
+    if (!error && data) setPasskeys(data);
+  };
+
+  const handleRegisterPasskey = async () => {
+    setPasskeyLoading(true);
+    setPasskeyMessage(null);
+    try {
+      const { data, error } = await registerPasskey(`${profile?.name || '강릉 학생회'} 생체인증`);
+      if (error) {
+        setPasskeyMessage({ type: 'error', text: error.message });
+        return;
+      }
+      if (data) {
+        setPasskeyMessage({ type: 'success', text: '생체인증(지문/Face ID/Windows Hello)이 등록되었습니다.' });
+        await loadPasskeys();
+      }
+    } catch (e) {
+      setPasskeyMessage({ type: 'error', text: e instanceof Error ? e.message : '생체인증 등록 중 오류가 발생했습니다.' });
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
+
+  const handleDeletePasskey = async (id: string) => {
+    setPasskeyLoading(true);
+    setPasskeyMessage(null);
+    const { error } = await deletePasskey(id);
+    if (error) {
+      setPasskeyMessage({ type: 'error', text: error.message });
+    } else {
+      setPasskeys(prev => prev.filter(p => p.id !== id));
+      setPasskeyMessage({ type: 'success', text: '생체인증 등록을 해제했습니다.' });
+    }
+    setPasskeyLoading(false);
+  };
 
   const loadProfile = async () => {
     setLoading(true);
@@ -638,6 +682,50 @@ export default function ProfilePage() {
                 </p>
               )}
             </div>
+
+            {/* 생체인증(패스키) */}
+            {isPasskeySupported() && (
+              <div className="bg-background-50 border border-background-200 rounded-[16px] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-foreground-950">지문 / Face ID 로그인</label>
+                    <p className="text-xs text-foreground-600 mt-0.5">이 기기의 생체인증으로 비밀번호 없이 로그인할 수 있어요.</p>
+                  </div>
+                  <i className="ri-fingerprint-line text-2xl text-amber-500"></i>
+                </div>
+                <button
+                  onClick={handleRegisterPasskey}
+                  disabled={passkeyLoading}
+                  className="w-full mt-3 py-2 rounded-full bg-foreground-900 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                >
+                  {passkeyLoading ? '확인 중...' : passkeys.length ? '다른 생체인증 추가' : '지문 / Face ID 등록'}
+                </button>
+                {passkeys.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {passkeys.map((pk) => (
+                      <div key={pk.id} className="flex items-center justify-between rounded-xl border border-background-200 bg-background-100 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-foreground-800 truncate">{pk.friendly_name || '이 기기의 생체인증'}</p>
+                          <p className="text-[11px] text-foreground-500">등록 {new Date(pk.created_at).toLocaleDateString('ko-KR')}</p>
+                        </div>
+                        <button
+                          onClick={() => handleDeletePasskey(pk.id)}
+                          disabled={passkeyLoading}
+                          className="text-[11px] text-rose-600 px-2 py-1 cursor-pointer whitespace-nowrap"
+                        >
+                          해제
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {passkeyMessage && (
+                  <p className={`text-xs mt-2 ${passkeyMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {passkeyMessage.text}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Auto logout timeout setting */}
             <div className="bg-background-50 border border-background-200 rounded-[16px] p-4">

@@ -69,6 +69,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     lock: inMemoryLock,
+    experimental: { passkey: true },
   },
   // Realtime: supabase-js defaults this to 10 outbound broadcast messages/sec,
   // shared across the ONE websocket for every channel the app opens (all coop

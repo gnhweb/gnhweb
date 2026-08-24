@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { getSimplePinLength } from '@/lib/simplePin';
+import { isPasskeySupported } from '@/lib/passkey';
 
 export default function AppLockScreen() {
-  const { user, profile, unlockWithPin, signOut } = useAuth();
+  const { user, profile, unlockWithPin, unlockWithPasskey, signOut } = useAuth();
   // 이 기기에 실제로 저장된 PIN 자릿수(4~6)에 맞춰 원(dot) 개수를 표시한다.
   // 4자리로 설정한 사용자에게 항상 6개의 원을 보여주던 문제를 해결.
   const [pinLength] = useState(() => (user ? getSimplePinLength(user.id) : 4));
@@ -13,6 +14,7 @@ export default function AppLockScreen() {
   const [checking, setChecking] = useState(false);
   const [shake, setShake] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
+  const [passkeyChecking, setPasskeyChecking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -167,6 +169,29 @@ export default function AppLockScreen() {
 
         {checking && (
           <p className="text-xs text-foreground-400 mb-3">확인 중...</p>
+        )}
+
+        {isPasskeySupported() && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (passkeyChecking) return;
+              setPasskeyChecking(true);
+              setError('');
+              const ok = await unlockWithPasskey();
+              if (!ok) {
+                setError('생체인증을 확인하지 못했습니다. 다시 시도하거나 PIN을 입력해주세요.');
+              }
+              setPasskeyChecking(false);
+            }}
+            disabled={passkeyChecking || checking}
+            className="w-full mb-4 py-3 rounded-xl bg-foreground-900 text-white text-sm font-semibold disabled:opacity-50 cursor-pointer whitespace-nowrap"
+          >
+            <span className="flex items-center justify-center gap-2">
+              <i className="ri-fingerprint-line text-lg"></i>
+              {passkeyChecking ? '생체인증 확인 중...' : '지문 / Face ID로 잠금 해제'}
+            </span>
+          </button>
         )}
 
         {!confirmingLogout ? (
