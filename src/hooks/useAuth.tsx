@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
-import { signInWithPasskey as signInWithPasskeyFlow } from '@/lib/passkey';
 import type { User } from '@supabase/supabase-js';
 import type { UserProfile, UserRole } from '@/types/auth';
 import { ROLE_HIERARCHY } from '@/types/auth';
@@ -8,6 +7,7 @@ import {
   hasSimplePin, setSimplePin, verifySimplePin, clearSimplePin, isValidPinFormat,
   markPinActivity, setPinExplicitLock,
 } from '@/lib/simplePin';
+import { authenticateRegisteredPasskey, isPasskeySupported } from '@/lib/passkey';
 
 interface AuthContextValue {
   user: User | null;
@@ -17,7 +17,6 @@ interface AuthContextValue {
   profileRetrying: boolean;
   retryProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null; user: User | null }>;
-  signInWithPasskey: () => Promise<{ error: string | null; user: User | null }>;
   signUp: (email: string, password: string, name: string, role: UserRole, club?: string, birthYear?: number, gender?: string, birthMonth?: number, birthDay?: number, interests?: string, grade?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -488,18 +487,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchProfile]);
 
-  const signInWithPasskey = useCallback(async () => {
-    try {
-      const { data, error } = await signInWithPasskeyFlow();
-      if (error) return { error: error.message, user: null };
-      const passkeyUser = data?.user as User | null;
-      return { error: null, user: passkeyUser };
-    } catch (e) {
-      console.error('[Auth] passkey sign-in exception:', e);
-      return { error: e instanceof Error ? e.message : '생체인증 로그인 중 오류가 발생했습니다.', user: null };
-    }
-  }, []);
-
   const signUp = useCallback(async (email: string, password: string, name: string, role: UserRole, club?: string, birthYear?: number, gender?: string, birthMonth?: number, birthDay?: number, interests?: string, grade?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -717,18 +704,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const unlockWithPasskey = useCallback(async () => {
-    try {
-      const { data, error } = await signInWithPasskeyFlow();
-      if (error || !data?.user) return false;
+    if (!user || !isPasskeySupported()) return false;
+    const result = await authenticateRegisteredPasskey();
+    if (!result.error) {
       setPinLocked(false);
-      if (user) {
-        setPinExplicitLock(user.id, false);
-        markPinActivity(user.id);
-      }
+      setPinExplicitLock(user.id, false);
+      markPinActivity(user.id);
       return true;
-    } catch {
-      return false;
     }
+    console.warn('[Auth] Passkey unlock failed:', result.error);
+    return false;
   }, [user]);
 
   // 일정 시간 활동이 없을 때(useAutoLogout) 완전 로그아웃 대신 PIN 잠금만 다시 건다.
@@ -741,7 +726,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signInWithPasskey, signUp, signOut, resetPassword, updatePassword, updateEmail, hasRole, assignedTeacherClub, secondaryClubs, pinLocked, hasPin, pinSetupNeeded, dismissPinSetupPrompt, setupPin, changePin, removePin, unlockWithPin, unlockWithPasskey, lockApp }}>
+    <AuthContext.Provider value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signUp, signOut, resetPassword, updatePassword, updateEmail, hasRole, assignedTeacherClub, secondaryClubs, pinLocked, hasPin, pinSetupNeeded, dismissPinSetupPrompt, setupPin, changePin, removePin, unlockWithPin, unlockWithPasskey, lockApp }}>
       {children}
     </AuthContext.Provider>
   );

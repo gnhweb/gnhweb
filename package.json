@@ -56,6 +56,5 @@
     "vite": "^6.0.0",
     "vite-plugin-pwa": "^0.21.1",
     "vitest": "^3.0.2"
-  },
-  "packageManager": "npm@10"
+  }
 }

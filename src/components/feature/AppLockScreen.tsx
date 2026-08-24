@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { getSimplePinLength } from '@/lib/simplePin';
-import { isPasskeySupported, listPasskeys } from '@/lib/passkey';
+import { isPasskeySupported } from '@/lib/passkey';
 
 export default function AppLockScreen() {
   const { user, profile, unlockWithPin, unlockWithPasskey, signOut } = useAuth();
@@ -15,8 +15,6 @@ export default function AppLockScreen() {
   const [shake, setShake] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [passkeyChecking, setPasskeyChecking] = useState(false);
-  const [passkeysLoaded, setPasskeysLoaded] = useState(false);
-  const [hasRegisteredPasskey, setHasRegisteredPasskey] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -24,25 +22,6 @@ export default function AppLockScreen() {
       && window.matchMedia?.('(pointer: coarse)').matches;
     if (!isTouchDevice) inputRef.current?.focus({ preventScroll: true });
   }, []);
-
-  // 잠금 화면에서는 이미 등록된 패스키가 있을 때만 '생체인증으로 잠금 해제'를 보여준다.
-  // 아직 등록하지 않은 사용자가 인증을 시도해 '생체인증 확인 실패'가 뜨는 혼란을 막는다.
-  useEffect(() => {
-    let cancelled = false;
-    const loadRegisteredPasskey = async () => {
-      if (!isPasskeySupported() || !user) {
-        if (!cancelled) setPasskeysLoaded(true);
-        return;
-      }
-      const { data } = await listPasskeys();
-      if (!cancelled) {
-        setHasRegisteredPasskey(Boolean(data?.length));
-        setPasskeysLoaded(true);
-      }
-    };
-    loadRegisteredPasskey();
-    return () => { cancelled = true; };
-  }, [user]);
 
   const handleDigit = (d: string) => {
     if (checking) return;
@@ -192,37 +171,30 @@ export default function AppLockScreen() {
           <p className="text-xs text-foreground-400 mb-3">확인 중...</p>
         )}
 
-        {isPasskeySupported() && passkeysLoaded && hasRegisteredPasskey && (
+        {isPasskeySupported() && (
           <button
             type="button"
             onClick={async () => {
-              if (passkeyChecking) return;
+              if (passkeyChecking || checking) return;
               setPasskeyChecking(true);
               setError('');
               const ok = await unlockWithPasskey();
               if (!ok) {
-                setError('생체인증을 확인하지 못했습니다. 다시 시도하거나 PIN을 입력해주세요.');
+                setError('지문/Face ID 인증에 실패했습니다. 다시 시도하거나 PIN을 입력해주세요.');
+                setShake(true);
+                setTimeout(() => setShake(false), 400);
               }
               setPasskeyChecking(false);
             }}
             disabled={passkeyChecking || checking}
-            className="w-full mb-4 py-3 rounded-xl border-2 border-amber-500 bg-amber-50 text-amber-900 text-sm font-semibold shadow-sm hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-background-50 dark:border-amber-300 dark:bg-amber-950/70 dark:text-amber-100 dark:hover:bg-amber-900/80 dark:focus:ring-amber-300 dark:focus:ring-offset-background-950 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+            aria-label="저장된 지문 / Face ID로 잠금 해제"
+            className="w-full mb-4 py-3 rounded-xl bg-amber-900/90 dark:bg-amber-950 border-2 border-amber-500 text-amber-50 dark:text-amber-100 text-sm font-semibold shadow-sm disabled:opacity-50 cursor-pointer"
           >
             <span className="flex items-center justify-center gap-2">
               <i className="ri-fingerprint-line text-lg"></i>
-              {passkeyChecking ? '생체인증 확인 중...' : '이 기기 지문 / Face ID로 잠금 해제'}
+              {passkeyChecking ? '지문 / Face ID 확인 중...' : '이 기기 지문 / Face ID로 잠금 해제'}
             </span>
           </button>
-        )}
-
-        {isPasskeySupported() && passkeysLoaded && !hasRegisteredPasskey && (
-          <div className="mb-4 rounded-xl border border-background-200 bg-background-100 px-4 py-3 text-center">
-            <p className="text-xs text-foreground-600 leading-5">
-              아직 이 기기에 지문/Face ID가 등록되지 않았습니다.
-              <br />
-              <span className="text-foreground-500">PIN으로 잠금 해제한 뒤 프로필에서 등록해주세요.</span>
-            </p>
-          </div>
         )}
 
         {!confirmingLogout ? (
