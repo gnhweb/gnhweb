@@ -10,6 +10,7 @@ import type { ReviewItem, ReportType } from '@/components/feature/FeedbackPanel'
 import SuggestionReviewPanel from '@/pages/reports/review/components/SuggestionReviewPanel';
 import type { SuggestionItem } from '@/pages/reports/review/components/SuggestionReviewPanel';
 import { CategoryChipRow, CategoryChip } from '@/components/base/CategoryChip';
+import { formatPracticeDate, getAttendanceSummary, parsePracticeEntries } from '@/lib/weeklyReport';
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
   weekly: '주간 보고서',
@@ -134,7 +135,13 @@ export default function ReviewPage() {
             id: r.id as string,
             report_type: 'weekly',
             title: `${CLUB_LABELS[r.club as ClubType]} 주간 보고`,
-            subtitle: `출석 ${r.attendance_count}/${r.total_members}명`,
+            subtitle: (() => {
+              const entries = parsePracticeEntries(r.practice_entries);
+              const summary = getAttendanceSummary(entries);
+              return entries.length > 0
+                ? `${summary.practiceCount}회 연습 · 평균 출석 ${summary.averageAttendance}/${r.total_members}명`
+                : `출석 ${r.attendance_count}/${r.total_members}명`;
+            })(),
             author_name: (r.author_name as string) || '',
             author_id: (r.author_id as string) || '',
             club: r.club as ClubType,
@@ -144,8 +151,9 @@ export default function ReviewPage() {
             reviewer_name: (r.reviewer_name as string) || '',
             feedback: (r.feedback as string) || '',
             content_sections: [
-              { label: '진행 상황', icon: 'ri-file-text-line', color: 'amber', content: (r.progress_summary as string) || '' },
-              { label: '특이 사항', icon: 'ri-error-warning-line', color: 'sky', content: (r.special_notes as string) || '' },
+              { label: '연습일별 기록', icon: 'ri-calendar-check-line', color: 'amber', content: parsePracticeEntries(r.practice_entries).map((entry) => `${formatPracticeDate(entry.practice_date)} · 출석 ${entry.attendance_count ?? '-'}명\n${entry.progress_summary}${entry.special_notes ? `\n특이: ${entry.special_notes}` : ''}`).join('\n\n') || (r.progress_summary as string) || '' },
+              { label: '주간 총평', icon: 'ri-file-text-line', color: 'amber', content: (r.progress_summary as string) || '' },
+              { label: '주간 특이 사항', icon: 'ri-error-warning-line', color: 'sky', content: (r.special_notes as string) || '' },
             ],
           });
         });
