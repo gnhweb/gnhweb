@@ -8,6 +8,7 @@ import type { ClubType } from '@/types/auth';
 import { STATUS_LABELS, STATUS_COLORS } from '@/mocks/weeklyReports';
 import type { WeeklyReport } from '@/mocks/weeklyReports';
 import { CategoryChip, CategoryChipRow } from '@/components/base/CategoryChip';
+import { createPracticeEntry, getAttendanceSummary, parsePracticeEntries } from '@/lib/weeklyReport';
 
 const ALL_CLUBS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu'];
 
@@ -54,6 +55,15 @@ export default function WeeklyReports() {
       week_start: r.week_start as string,
       attendance_count: r.attendance_count as number,
       total_members: r.total_members as number,
+      practice_entries: (() => {
+        const parsed = parsePracticeEntries(r.practice_entries);
+        if (parsed.length > 0) return parsed;
+        const legacy = createPracticeEntry(r.week_start as string);
+        legacy.attendance_count = typeof r.attendance_count === 'number' ? r.attendance_count as number : null;
+        legacy.progress_summary = (r.progress_summary as string) || '';
+        legacy.special_notes = (r.special_notes as string) || '';
+        return legacy.practice_date ? [legacy] : [];
+      })(),
       progress_summary: r.progress_summary as string,
       special_notes: (r.special_notes as string) || '',
       status: r.status as WeeklyReport['status'],
@@ -61,6 +71,8 @@ export default function WeeklyReports() {
       updated_at: r.updated_at as string,
     }),
   });
+
+  const getSummary = (report: WeeklyReport) => getAttendanceSummary(report.practice_entries);
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -203,12 +215,12 @@ export default function WeeklyReports() {
                         <p className="text-sm text-foreground-700 line-clamp-2 mb-2">{report.progress_summary}</p>
                         <div className="flex items-center gap-4 text-xs text-foreground-600">
                           <span className="flex items-center gap-1"><i className="ri-user-line"></i>{report.author_name}</span>
-                          <span className="flex items-center gap-1"><i className="ri-team-line"></i>{report.attendance_count}/{report.total_members}명 출석</span>
+                          <span className="flex items-center gap-1"><i className="ri-team-line"></i>{getSummary(report).practiceCount}회 연습 · 평균 {getSummary(report).averageAttendance}/{report.total_members}명</span>
                           <span className="flex items-center gap-1"><i className="ri-building-line"></i>{CLUB_LABELS[report.club]}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-foreground-600">{Math.round((report.attendance_count / report.total_members) * 100)}%</span>
+                        <span className="text-xs text-foreground-600">{report.practice_entries.length > 0 && report.total_members > 0 ? Math.round((getSummary(report).averageAttendance / report.total_members) * 100) : 0}%</span>
                         <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
                           <i className="ri-arrow-right-s-line text-primary-500"></i>
                         </div>
@@ -238,7 +250,7 @@ export default function WeeklyReports() {
                       <p className="text-xs text-foreground-600 line-clamp-1 mb-1.5">{report.progress_summary}</p>
                       <div className="flex items-center gap-3 text-[11px] text-foreground-500">
                         <span>{report.author_name} · {CLUB_LABELS[report.club]}</span>
-                        <span className="font-semibold text-primary-600">{Math.round((report.attendance_count / report.total_members) * 100)}%</span>
+                        <span className="font-semibold text-primary-600">{report.practice_entries.length > 0 && report.total_members > 0 ? Math.round((getSummary(report).averageAttendance / report.total_members) * 100) : 0}%</span>
                       </div>
                     </div>
                   </Link>
