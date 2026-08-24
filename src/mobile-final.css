@@ -47,6 +47,13 @@
   p, h1, h2, h3, h4, h5, h6, label {
     overflow-wrap: break-word;
   }
+
+  /* Club detail mobile hero: the content panel overlaps the lower edge of the
+     16:10 hero by design, so lift the club title block above that overlap.
+     The banner/image size and aspect ratio remain unchanged. */
+  .aspect-\[16\/10\] > .absolute.bottom-0 {
+    bottom: 1.5rem !important;
+  }
 }
 
 
