@@ -385,15 +385,9 @@ body.scroll-lock {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* 키보드가 열린 동안에도 페이지 자체는 자유롭게 위/아래로 스크롤할 수 있어야 한다.
-     이전에는 overscroll-behavior:none이 전역 키보드 상태에 걸려 모바일 브라우저의
-     자연스러운 세로 제스처를 막는 경우가 있었다. scroll-lock이 실제로 걸린 메뉴/게임은
-     예외로 두고, 일반 입력 화면에서는 세로 pan/스크롤을 명시적으로 허용한다. */
-  body.keyboard-open:not(.scroll-lock) {
-    overscroll-behavior-y: auto;
-    touch-action: pan-y;
-    overflow-y: auto;
-    position: static;
+  /* 키보드가 열린 동안 visualViewport 대응을 위한 여백 */
+  body.keyboard-open {
+    overscroll-behavior: none;
   }
 
   /* Android Chrome의 text-selection/callout이 인터랙티브 카드까지 번지는 것을 억제 */
@@ -444,3 +438,201 @@ body.scroll-lock {
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* ========================================================================
+   Global Text Contrast Layer
+   - WCAG AA-oriented baseline for normal-size text.
+   - Keeps the existing visual palette while making low-contrast utility
+     colors readable on both light and dark themes.
+   - Added globally so individual screens do not need one-off fixes.
+   ======================================================================== */
+:root:not(.dark) {
+  /* Neutral foreground tokens: avoid faint body/supporting text. */
+  --foreground-400: 0.60 0.025 260;
+  --foreground-500: 0.52 0.028 260;
+  --foreground-600: 0.43 0.032 260;
+  --foreground-700: 0.36 0.035 260;
+  --foreground-800: 0.29 0.038 260;
+  --foreground-900: 0.22 0.035 260;
+  --foreground-950: 0.16 0.02 260;
+
+  /* Text-oriented brand tokens: darker values on light surfaces. */
+  --primary-400: 0.50 0.15 350;
+  --primary-500: 0.45 0.16 350;
+  --primary-600: 0.40 0.14 350;
+  --primary-700: 0.35 0.12 350;
+  --primary-800: 0.30 0.10 350;
+
+  --accent-400: 0.54 0.17 40;
+  --accent-500: 0.48 0.18 40;
+  --accent-600: 0.42 0.16 40;
+  --accent-700: 0.36 0.14 40;
+  --accent-800: 0.31 0.11 40;
+
+  --secondary-400: 0.50 0.11 270;
+  --secondary-500: 0.45 0.12 270;
+  --secondary-600: 0.40 0.11 270;
+  --secondary-700: 0.35 0.09 270;
+  --secondary-800: 0.30 0.07 270;
+}
+
+/* Tailwind gray text classes are hard-coded colors, so token changes alone
+   cannot improve them. These selectors provide a global contrast fallback. */
+:root:not(.dark) .text-gray-50,
+:root:not(.dark) .text-gray-100,
+:root:not(.dark) .text-gray-200,
+:root:not(.dark) .text-gray-300 {
+  color: #374151 !important;
+}
+
+:root:not(.dark) .text-gray-400 {
+  color: #4b5563 !important;
+}
+
+:root:not(.dark) .text-gray-500 {
+  color: #4b5563 !important;
+}
+
+:root:not(.dark) .text-gray-600 {
+  color: #374151 !important;
+}
+
+:root:not(.dark) .text-gray-700,
+:root:not(.dark) .text-gray-800,
+:root:not(.dark) .text-gray-900 {
+  color: #1f2937 !important;
+}
+
+/* Dark-mode counterparts: keep neutral text bright enough against dark UI. */
+.dark .text-gray-50,
+.dark .text-gray-100,
+.dark .text-gray-200 {
+  color: #f3f4f6 !important;
+}
+
+.dark .text-gray-300,
+.dark .text-gray-400 {
+  color: #d1d5db !important;
+}
+
+.dark .text-gray-500 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-gray-600 {
+  color: #e5e7eb !important;
+}
+
+.dark .text-gray-700,
+.dark .text-gray-800,
+.dark .text-gray-900 {
+  color: #f9fafb !important;
+}
+
+/* Placeholder text should remain visibly distinct from the field surface. */
+:root:not(.dark) input::placeholder,
+:root:not(.dark) textarea::placeholder {
+  color: #4b5563 !important;
+  opacity: 1;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #cbd5e1 !important;
+  opacity: 1;
+}
+
+/* Keep white-opacity utilities intact: they are intentionally used on dark/brand surfaces. */
+
+/* Keyboard/focus visibility: maintain a strong non-color cue. */
+input:focus,
+textarea:focus,
+select:focus,
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid oklch(var(--primary-500) / 0.55);
+  outline-offset: 2px;
+}
+
+/* Low-contrast semantic Tailwind colors: text-safe fallbacks. */
+:root:not(.dark) .text-rose-200,
+:root:not(.dark) .text-rose-300,
+:root:not(.dark) .text-rose-400,
+:root:not(.dark) .text-rose-500 { color: #9f1239 !important; }
+:root:not(.dark) .text-amber-200,
+:root:not(.dark) .text-amber-300,
+:root:not(.dark) .text-amber-400,
+:root:not(.dark) .text-amber-500 { color: #92400e !important; }
+:root:not(.dark) .text-emerald-200,
+:root:not(.dark) .text-emerald-300,
+:root:not(.dark) .text-emerald-400,
+:root:not(.dark) .text-emerald-500 { color: #065f46 !important; }
+:root:not(.dark) .text-sky-200,
+:root:not(.dark) .text-sky-300,
+:root:not(.dark) .text-sky-400,
+:root:not(.dark) .text-sky-500 { color: #075985 !important; }
+:root:not(.dark) .text-indigo-200,
+:root:not(.dark) .text-indigo-300,
+:root:not(.dark) .text-indigo-400,
+:root:not(.dark) .text-indigo-500 { color: #3730a3 !important; }
+:root:not(.dark) .text-violet-200,
+:root:not(.dark) .text-violet-300,
+:root:not(.dark) .text-violet-400,
+:root:not(.dark) .text-violet-500 { color: #6b21a8 !important; }
+:root:not(.dark) .text-orange-200,
+:root:not(.dark) .text-orange-300,
+:root:not(.dark) .text-orange-400,
+:root:not(.dark) .text-orange-500 { color: #9a3412 !important; }
+:root:not(.dark) .text-red-200,
+:root:not(.dark) .text-red-300,
+:root:not(.dark) .text-red-400,
+:root:not(.dark) .text-red-500 { color: #991b1b !important; }
+:root:not(.dark) .text-pink-200,
+:root:not(.dark) .text-pink-300,
+:root:not(.dark) .text-pink-400,
+:root:not(.dark) .text-pink-500 { color: #9d174d !important; }
+:root:not(.dark) .text-yellow-200,
+:root:not(.dark) .text-yellow-300,
+:root:not(.dark) .text-yellow-400,
+:root:not(.dark) .text-yellow-500 { color: #854d0e !important; }
+
+.dark .text-rose-200,
+.dark .text-rose-300,
+.dark .text-rose-400,
+.dark .text-rose-500 { color: #fda4af !important; }
+.dark .text-amber-200,
+.dark .text-amber-300,
+.dark .text-amber-400,
+.dark .text-amber-500 { color: #fde68a !important; }
+.dark .text-emerald-200,
+.dark .text-emerald-300,
+.dark .text-emerald-400,
+.dark .text-emerald-500 { color: #6ee7b7 !important; }
+.dark .text-sky-200,
+.dark .text-sky-300,
+.dark .text-sky-400,
+.dark .text-sky-500 { color: #7dd3fc !important; }
+.dark .text-indigo-200,
+.dark .text-indigo-300,
+.dark .text-indigo-400,
+.dark .text-indigo-500 { color: #c7d2fe !important; }
+.dark .text-violet-200,
+.dark .text-violet-300,
+.dark .text-violet-400,
+.dark .text-violet-500 { color: #ddd6fe !important; }
+.dark .text-orange-200,
+.dark .text-orange-300,
+.dark .text-orange-400,
+.dark .text-orange-500 { color: #fdba74 !important; }
+.dark .text-red-200,
+.dark .text-red-300,
+.dark .text-red-400,
+.dark .text-red-500 { color: #fca5a5 !important; }
+.dark .text-pink-200,
+.dark .text-pink-300,
+.dark .text-pink-400,
+.dark .text-pink-500 { color: #f9a8d4 !important; }
+.dark .text-yellow-200,
+.dark .text-yellow-300,
+.dark .text-yellow-400,
+.dark .text-yellow-500 { color: #fde68a !important; }
