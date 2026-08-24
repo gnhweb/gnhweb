@@ -47,6 +47,47 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
+// SPA/PWA에서 브라우저가 이전 스크롤 위치를 복원해서
+// 동아리 상세 화면이 아래쪽부터 보이는 문제를 막는다.
+// React Router의 pushState/replaceState와 브라우저 뒤로가기 모두를 감시하고,
+// 실제 경로가 바뀐 경우 새 화면은 항상 상단에서 시작한다.
+if (typeof window !== 'undefined') {
+  try {
+    window.history.scrollRestoration = 'manual';
+  } catch {}
+
+  const resetScroll = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  };
+
+  let lastPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const notifyRouteChange = () => {
+    const nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextPath === lastPath) return;
+    lastPath = nextPath;
+    requestAnimationFrame(resetScroll);
+  };
+
+  const originalPushState = window.history.pushState.bind(window.history);
+  const originalReplaceState = window.history.replaceState.bind(window.history);
+  window.history.pushState = function (...args) {
+    const result = originalPushState(...args);
+    notifyRouteChange();
+    return result;
+  };
+  window.history.replaceState = function (...args) {
+    const result = originalReplaceState(...args);
+    notifyRouteChange();
+    return result;
+  };
+  window.addEventListener('popstate', () => {
+    lastPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    requestAnimationFrame(resetScroll);
+  });
+}
+
 if (typeof window !== 'undefined' && 'visualViewport' in window) {
   const updateKeyboardState = () => {
     const vv = window.visualViewport;
