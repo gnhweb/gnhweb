@@ -132,7 +132,7 @@ export default function ClubCommunity() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!newPost.trim() && postImages.length === 0) || !user || !profile || !clubId) return;
+    if (!newPost.trim() || !user || !profile || !clubId) return;
 
     setSubmitting(true);
     setError('');
@@ -144,13 +144,9 @@ export default function ClubCommunity() {
       if (postImages.length > 0) {
         setUploadingImages(true);
         for (const file of postImages) {
-          const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+          const ext = file.name.split('.').pop();
           const path = `club-posts/${clubId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-          const { error: uploadErr } = await supabase.storage.from('Public').upload(path, file, {
-            upsert: false,
-            contentType: file.type || 'image/jpeg',
-            cacheControl: '3600',
-          });
+          const { error: uploadErr } = await supabase.storage.from('Public').upload(path, file, { upsert: true });
           if (uploadErr) throw uploadErr;
           const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
           imageUrls.push(urlData.publicUrl);
@@ -185,26 +181,71 @@ export default function ClubCommunity() {
       await fetchPosts();
     } catch (e) {
       console.error('Failed to submit post:', e);
-      setError(e instanceof Error ? `게시글 등록 실패: ${e.message}` : '게시글 등록 중 오류가 발생했습니다.');
+      setError('게시글 등록 중 오류가 발생했습니다.');
     } finally {
       setSubmitting(false);
       setUploadingImages(false);
     }
   };
 
+  const extractStoragePath = (publicUrl: string) => {
+    try {
+      const url = new URL(publicUrl);
+      const marker = '/storage/v1/object/public/Public/';
+      const idx = url.pathname.indexOf(marker);
+      return idx >= 0 ? decodeURIComponent(url.pathname.slice(idx + marker.length)) : null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleDelete = async (postId: string) => {
     setDeletingId(postId);
+    setError('');
     try {
-      const { error: deleteError } = await supabase
+      // 게시글 데이터와 이미지 URL을 먼저 확보합니다.
+      const { data: post, error: fetchError } = await supabase
+        .from('club_posts')
+        .select('id, images')
+        .eq('id', postId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+      if (!post) throw new Error('게시글을 찾을 수 없습니다.');
+
+      // DB에서 실제로 삭제된 행을 받아 삭제가 RLS 등에 막히지 않았는지 확인합니다.
+      const { data: deletedRows, error: deleteError } = await supabase
         .from('club_posts')
         .delete()
-        .eq('id', postId);
+        .eq('id', postId)
+        .select('id');
 
       if (deleteError) throw deleteError;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('게시글 삭제 권한이 없거나 삭제 대상이 이미 없습니다.');
+      }
+
+      // DB 삭제가 확인된 뒤에만 Storage 이미지를 정리합니다.
+      const imageUrls = Array.isArray(post.images)
+        ? post.images.filter((url): url is string => typeof url === 'string')
+        : [];
+      const storagePaths = imageUrls.map(extractStoragePath).filter((path): path is string => !!path);
+      if (storagePaths.length > 0) {
+        const { error: storageDeleteError } = await supabase.storage
+          .from('Public')
+          .remove(storagePaths);
+        if (storageDeleteError) {
+          console.warn('Post deleted but image cleanup failed:', storageDeleteError);
+        }
+      }
+
       setPosts(prev => prev.filter(p => p.id !== postId));
+
+      // 캐시/실시간 상태와 DB가 일치하는지 한 번 더 확인합니다.
+      await fetchPosts();
     } catch (e) {
       console.error('Failed to delete post:', e);
-      setError('게시글 삭제 중 오류가 발생했습니다.');
+      setError(e instanceof Error ? e.message : '게시글 삭제 중 오류가 발생했습니다.');
     } finally {
       setDeletingId(null);
     }
@@ -417,7 +458,7 @@ export default function ClubCommunity() {
                   <span className="text-xs text-foreground-600">{newPost.length}/500</span>
                   <button
                     type="submit"
-                    disabled={(!newPost.trim() && postImages.length === 0) || submitting}
+                    disabled={!newPost.trim() || submitting}
                     className="min-h-[44px] px-5 py-2 rounded-full bg-primary-500 text-white text-sm font-semibold hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap touch-manipulation"
                   >
                     {submitting ? (
