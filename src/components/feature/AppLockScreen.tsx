@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { getSimplePinLength } from '@/lib/simplePin';
-import { isPasskeySupported } from '@/lib/passkey';
+import { isPasskeySupported, listPasskeys } from '@/lib/passkey';
 
 export default function AppLockScreen() {
   const { user, profile, unlockWithPin, unlockWithPasskey, signOut } = useAuth();
@@ -15,6 +15,7 @@ export default function AppLockScreen() {
   const [shake, setShake] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [passkeyChecking, setPasskeyChecking] = useState(false);
+  const [hasRegisteredBiometric, setHasRegisteredBiometric] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -22,6 +23,24 @@ export default function AppLockScreen() {
       && window.matchMedia?.('(pointer: coarse)').matches;
     if (!isTouchDevice) inputRef.current?.focus({ preventScroll: true });
   }, []);
+
+  // 프로필에서 생체인증을 실제로 등록한 경우에만 잠금화면에
+  // 작은 지문 버튼을 표시한다. 등록되지 않았다면 기존 화면에는 표시하지 않는다.
+  useEffect(() => {
+    let mounted = true;
+    if (!isPasskeySupported()) return;
+
+    listPasskeys().then(({ data }) => {
+      if (!mounted) return;
+      setHasRegisteredBiometric(Array.isArray(data) && data.length > 0);
+    }).catch(() => {
+      if (mounted) setHasRegisteredBiometric(false);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id]);
 
   const handleDigit = (d: string) => {
     if (checking) return;
@@ -51,8 +70,7 @@ export default function AppLockScreen() {
 
   // 물리 키보드 입력(엔터 제출 포함)을 위한 핸들러. 모바일에서는 화면 키패드
   // 버튼만 쓰도록 하고, 이 input에는 시스템 가상 키보드가 뜨지 않게 한다
-  // (아래 inputMode="none" 참고) — 화면 키패드와 시스템 키패드가 동시에
-  // 뜨던 문제를 해결.
+  // (아래 inputMode="none" 참고).
   const onHiddenInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, pinLength);
     setPin(digitsOnly);
@@ -65,6 +83,19 @@ export default function AppLockScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, pinLength]);
+
+  const handleBiometricUnlock = async () => {
+    if (passkeyChecking || checking) return;
+    setPasskeyChecking(true);
+    setError('');
+    const ok = await unlockWithPasskey();
+    if (!ok) {
+      setError('지문/Face ID 인증에 실패했습니다. 다시 시도하거나 PIN을 입력해주세요.');
+      setShake(true);
+      setTimeout(() => setShake(false), 400);
+    }
+    setPasskeyChecking(false);
+  };
 
   return (
     <div className="fixed inset-0 z-[100] bg-background-50 flex items-center justify-center px-4">
@@ -103,12 +134,6 @@ export default function AppLockScreen() {
           ))}
         </motion.div>
 
-        {/*
-          물리 키보드로 입력하는 경우를 위해 숨겨진 input을 하나 유지하되,
-          inputMode="none"으로 모바일 시스템 숫자 키패드는 절대 뜨지 않게 한다.
-          화면에 이미 전용 숫자 키패드가 있으므로, 시스템 키패드까지 함께 뜨면
-          입력창이 두 개(숫자 버튼 + 시스템 키패드)로 보이는 문제가 생긴다.
-        */}
         <input
           ref={inputRef}
           type="password"
@@ -138,7 +163,6 @@ export default function AppLockScreen() {
           </AnimatePresence>
         </div>
 
-        {/* 숫자 키패드 — 화면 버튼으로만 입력받는다(시스템 키패드는 뜨지 않음) */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
             <button
@@ -171,29 +195,16 @@ export default function AppLockScreen() {
           <p className="text-xs text-foreground-400 mb-3">확인 중...</p>
         )}
 
-        {isPasskeySupported() && (
+        {hasRegisteredBiometric && (
           <button
             type="button"
-            onClick={async () => {
-              if (passkeyChecking || checking) return;
-              setPasskeyChecking(true);
-              setError('');
-              const ok = await unlockWithPasskey();
-              if (!ok) {
-                setError('지문/Face ID 인증에 실패했습니다. 다시 시도하거나 PIN을 입력해주세요.');
-                setShake(true);
-                setTimeout(() => setShake(false), 400);
-              }
-              setPasskeyChecking(false);
-            }}
+            onClick={handleBiometricUnlock}
             disabled={passkeyChecking || checking}
-            aria-label="저장된 지문 / Face ID로 잠금 해제"
-            className="w-full mb-4 py-3 rounded-xl bg-amber-900/90 dark:bg-amber-950 border-2 border-amber-500 text-amber-50 dark:text-amber-100 text-sm font-semibold shadow-sm disabled:opacity-50 cursor-pointer"
+            aria-label="등록된 지문 / Face ID로 잠금 해제"
+            title="등록된 지문 / Face ID로 잠금 해제"
+            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-amber-500 bg-amber-900/90 text-amber-50 shadow-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer dark:bg-amber-950"
           >
-            <span className="flex items-center justify-center gap-2">
-              <i className="ri-fingerprint-line text-lg"></i>
-              {passkeyChecking ? '지문 / Face ID 확인 중...' : '이 기기 지문 / Face ID로 잠금 해제'}
-            </span>
+            <i className={`ri-fingerprint-line text-3xl ${passkeyChecking ? 'animate-pulse' : ''}`}></i>
           </button>
         )}
 
