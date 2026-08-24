@@ -1,7 +1,12 @@
-# 기기 생체인증(Passkey) 수정
+# 동아리 사진 저장 오류 수정
 
-- WebAuthn 등록 시 `platform` authenticator + `userVerification: required` 사용
-- `client-device` 힌트로 이 기기 인증기를 우선 요청
-- Android/iOS/Windows의 지문·Face ID·Windows Hello 등 플랫폼 생체인증 사용
-- 로그인/앱 잠금 해제도 동일한 패스키로 인증
-- 웹사이트는 지문/얼굴 생체정보를 저장하지 않음
+수정 파일
+- `src/pages/clubs/detail/page.tsx`
+
+핵심 수정
+- `club_posts`의 partial unique index(`club_posts_detail_club_unique`) 때문에 `onConflict: club,type` upsert가 실패하는 문제를 제거
+- 기존 `detail` 행 조회 후 UPDATE, 없으면 INSERT하도록 변경
+- 사진 업로드 결과의 Storage 오류를 명시적으로 확인
+- 사진 여러 장 업로드 시 고유 경로 생성
+- DB 저장 실패 시 방금 업로드한 Storage 파일 자동 정리
+- 업로드 MIME type 명시
