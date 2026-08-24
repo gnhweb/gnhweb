@@ -23,7 +23,6 @@ import java.util.concurrent.Executors;
 public class MainActivity extends Activity {
     private static final String APP_URL = "https://gnhweb.vercel.app/";
     private WebView webView;
-    private View lockView;
     private boolean authenticated = false;
     private boolean promptShowing = false;
     private boolean webReady = false;
@@ -39,7 +38,6 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (authenticated && !promptShowing) {
-            // Native app security: returning from background requires biometric again.
             showBiometricPrompt();
         }
     }
@@ -75,7 +73,6 @@ public class MainActivity extends Activity {
         root.addView(retry, buttonParams);
 
         setContentView(root);
-        lockView = root;
         showBiometricPrompt();
     }
 
@@ -105,7 +102,7 @@ public class MainActivity extends Activity {
 
                 @Override
                 public void onAuthenticationFailed() {
-                    // Keep the prompt active; Android will allow another attempt.
+                    // The system prompt remains available for another attempt.
                 }
 
                 @Override
@@ -156,8 +153,7 @@ public class MainActivity extends Activity {
                 if (scheme.equals("http") || scheme.equals("https")) return false;
 
                 try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-                    startActivity(intent);
+                    startActivity(new Intent(Intent.ACTION_VIEW, uri));
                 } catch (Exception ignored) {}
                 return true;
             }
@@ -185,7 +181,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (authenticated) {
+        if (authenticated && !promptShowing) {
             // Hide the site until the next native biometric check on resume.
             if (webView != null) webView.setVisibility(View.INVISIBLE);
             authenticated = false;
