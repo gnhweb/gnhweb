@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { markPinActivity, AUTO_LOGOUT_STORAGE_KEY, DEFAULT_AUTO_LOGOUT_MINUTES, AUTO_LOGOUT_CHANGE_EVENT } from '@/lib/simplePin';
 
@@ -20,11 +21,8 @@ export function useAutoLogout() {
 
   const timeoutAction = useCallback(() => {
     if (nativeAndroid) return;
-    if (hasPin) {
-      lockApp();
-    } else {
-      signOut();
-    }
+    if (hasPin) lockApp();
+    else signOut();
   }, [nativeAndroid, hasPin, lockApp, signOut]);
 
   const resetTimer = useCallback(() => {
@@ -41,9 +39,7 @@ export function useAutoLogout() {
 
     const mins = timeoutMinutesRef.current;
     if (mins <= 0 || !user) return;
-    timerRef.current = setTimeout(() => {
-      timeoutAction();
-    }, mins * 60 * 1000);
+    timerRef.current = setTimeout(timeoutAction, mins * 60 * 1000);
   }, [nativeAndroid, user, hasPin, timeoutAction]);
 
   const loadTimeoutSetting = useCallback(async () => {
@@ -54,7 +50,7 @@ export function useAutoLogout() {
       if (!isNaN(mins)) timeoutMinutesRef.current = mins;
     }
     try {
-      const { data } = await (await import('@/lib/supabase')).supabase
+      const { data } = await supabase
         .from('user_roles')
         .select('auto_logout_minutes')
         .eq('user_id', user.id)
@@ -95,9 +91,7 @@ export function useAutoLogout() {
     if (nativeAndroid) return;
     if (user) localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(minutes));
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (minutes > 0 && user) {
-      timerRef.current = setTimeout(() => timeoutAction(), minutes * 60 * 1000);
-    }
+    if (minutes > 0 && user) timerRef.current = setTimeout(timeoutAction, minutes * 60 * 1000);
   }, [nativeAndroid, user, timeoutAction]);
 
   useEffect(() => {
