@@ -65,16 +65,16 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
     { path: '/meetings', label: '회의록', icon: 'ri-chat-check-line' },
     { path: '/meeting-copilot', label: '회의 코파일럿 AI', icon: 'ri-lightbulb-flash-line' },
   ]},
-  { label: '사명 도구', items: [
-    { path: '/pds-planner', label: '행사 기획 마법사', icon: 'ri-todo-line' },
-    { path: '/event-ideas', label: '행사 기획 아이디어', icon: 'ri-lightbulb-flash-line' },
-    { path: '/leadership-diary', label: '리더십 코칭', icon: 'ri-book-read-line' },
-  ]},
   { label: '보고서', items: [
     { path: '/reports/weekly', label: '주간 보고서', icon: 'ri-file-list-3-line' },
     { path: '/reports/growth', label: '성장 기록', icon: 'ri-plant-line' },
     { path: '/reports/events', label: '행사 보고서', icon: 'ri-calendar-event-line' },
     { path: '/visitations', label: '심방 스케줄', icon: 'ri-heart-pulse-line' },
+  ]},
+  { label: '사명 도구', items: [
+    { path: '/pds-planner', label: '행사 기획 마법사', icon: 'ri-todo-line' },
+    { path: '/event-ideas', label: '행사 기획 아이디어', icon: 'ri-lightbulb-flash-line' },
+    { path: '/leadership-diary', label: '리더십 코칭', icon: 'ri-book-read-line' },
   ]},
   { label: '미션', items: [
     { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },
