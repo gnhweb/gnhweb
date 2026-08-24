@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.hardware.biometrics.BiometricPrompt;
 import android.os.Bundle;
+import android.os.CancellationSignal;
 import android.provider.Settings;
 import android.content.Intent;
 import android.net.Uri;
@@ -37,9 +38,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (authenticated && !promptShowing) {
-            showBiometricPrompt();
-        }
+        if (authenticated && !promptShowing) showBiometricPrompt();
     }
 
     private void showLockScreen() {
@@ -85,12 +84,11 @@ public class MainActivity extends Activity {
                     .setTitle("강릉 학생회")
                     .setSubtitle("지문 또는 Face ID로 잠금 해제")
                     .setDescription("등록된 기기 생체인증을 사용합니다.")
-                    .setNegativeButton("취소", executor, (dialogInterface, which) -> {
-                        promptShowing = false;
-                    })
+                    .setNegativeButton("취소", executor, (dialogInterface, which) -> promptShowing = false)
                     .build();
 
-            prompt.authenticate(executor, new BiometricPrompt.AuthenticationCallback() {
+            CancellationSignal cancellationSignal = new CancellationSignal();
+            prompt.authenticate(cancellationSignal, executor, new BiometricPrompt.AuthenticationCallback() {
                 @Override
                 public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
                     runOnUiThread(() -> {
@@ -102,7 +100,7 @@ public class MainActivity extends Activity {
 
                 @Override
                 public void onAuthenticationFailed() {
-                    // The system prompt remains available for another attempt.
+                    // Keep the Android prompt available for another attempt.
                 }
 
                 @Override
@@ -182,7 +180,6 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         if (authenticated && !promptShowing) {
-            // Hide the site until the next native biometric check on resume.
             if (webView != null) webView.setVisibility(View.INVISIBLE);
             authenticated = false;
         }
@@ -195,6 +192,7 @@ public class MainActivity extends Activity {
             webView.destroy();
             webView = null;
         }
+        executor.shutdownNow();
         super.onDestroy();
     }
 }
