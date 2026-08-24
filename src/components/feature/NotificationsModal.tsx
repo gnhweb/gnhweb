@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
+import { enableWebPush, getWebPushSubscription, isWebPushSupported, syncWebPushSubscription, disableWebPush } from '@/lib/webPush';
 import type { User } from '@supabase/supabase-js';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -63,11 +64,15 @@ function playChime() {
 }
 
 // 브라우저(데스크톱) 알림 — 권한이 허용되어 있고 탭이 백그라운드일 때만 표시
-function showBrowserNotification(n: Notification, onClick?: () => void) {
+async function showBrowserNotification(n: Notification, onClick?: () => void) {
   try {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
     if (typeof document !== 'undefined' && document.visibilityState === 'visible') return;
+
+    // Web Push가 활성화된 기기에서는 백그라운드 OS 알림을 서비스워커가 담당하므로
+    // 현재 탭의 Notification API로 중복 알림을 만들지 않는다.
+    if (await getWebPushSubscription()) return;
 
     const browserNoti = new Notification(n.title, {
       body: n.message,
@@ -145,7 +150,47 @@ interface NotificationsModalProps {
 export default function NotificationsModal({ open, onClose, user }: NotificationsModalProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMessage, setPushMessage] = useState('');
   useMobileBackHandler(open, onClose);
+
+  useEffect(() => {
+    if (!user) { setPushEnabled(false); return; }
+    let cancelled = false;
+    (async () => {
+      if (!isWebPushSupported()) return;
+      const sub = await getWebPushSubscription();
+      if (sub) {
+        await syncWebPushSubscription(user.id);
+        if (!cancelled) setPushEnabled(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const togglePush = async () => {
+    if (!user || pushBusy) return;
+    setPushBusy(true);
+    setPushMessage('');
+    try {
+      if (pushEnabled) {
+        await disableWebPush(user.id);
+        setPushEnabled(false);
+        setPushMessage('휴대폰 알림을 껐어요.');
+      } else {
+        const result = await enableWebPush(user.id);
+        if (result.ok) {
+          setPushEnabled(true);
+          setPushMessage('휴대폰 알림이 켜졌어요. 이제 앱 밖에서도 알림을 받을 수 있어요.');
+        } else {
+          setPushMessage(result.reason || '휴대폰 알림을 켜지 못했어요.');
+        }
+      }
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
@@ -234,10 +279,22 @@ export default function NotificationsModal({ open, onClose, user }: Notification
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <h3 className="text-sm font-bold text-foreground-950">알림</h3>
               {unreadCount > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">{unreadCount}</span>
+              )}
+              {isWebPushSupported() && (
+                <button
+                  type="button"
+                  onClick={togglePush}
+                  disabled={pushBusy}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border font-medium whitespace-nowrap ${pushEnabled ? 'border-emerald-500/60 text-emerald-600 bg-emerald-500/10' : 'border-amber-500/60 text-amber-600 bg-amber-500/10'}`}
+                  title={pushEnabled ? '휴대폰 알림 끄기' : '휴대폰 알림 켜기'}
+                >
+                  <i className={`${pushEnabled ? 'ri-notification-off-line' : 'ri-notification-3-line'} mr-1`}></i>
+                  {pushBusy ? '설정 중' : pushEnabled ? '휴대폰 알림 끄기' : '휴대폰 알림 켜기'}
+                </button>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -256,6 +313,11 @@ export default function NotificationsModal({ open, onClose, user }: Notification
           </div>
 
           {/* List */}
+          {pushMessage && (
+            <div className="mx-4 mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-foreground-700" role="status">
+              {pushMessage}
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-12">
