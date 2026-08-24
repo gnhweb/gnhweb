@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { getSimplePinLength } from '@/lib/simplePin';
-import { isPasskeySupported } from '@/lib/passkey';
+import { isPasskeySupported, listPasskeys } from '@/lib/passkey';
 
 export default function AppLockScreen() {
   const { user, profile, unlockWithPin, unlockWithPasskey, signOut } = useAuth();
@@ -15,6 +15,8 @@ export default function AppLockScreen() {
   const [shake, setShake] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [passkeyChecking, setPasskeyChecking] = useState(false);
+  const [passkeysLoaded, setPasskeysLoaded] = useState(false);
+  const [hasRegisteredPasskey, setHasRegisteredPasskey] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -22,6 +24,25 @@ export default function AppLockScreen() {
       && window.matchMedia?.('(pointer: coarse)').matches;
     if (!isTouchDevice) inputRef.current?.focus({ preventScroll: true });
   }, []);
+
+  // 잠금 화면에서는 이미 등록된 패스키가 있을 때만 '생체인증으로 잠금 해제'를 보여준다.
+  // 아직 등록하지 않은 사용자가 인증을 시도해 '생체인증 확인 실패'가 뜨는 혼란을 막는다.
+  useEffect(() => {
+    let cancelled = false;
+    const loadRegisteredPasskey = async () => {
+      if (!isPasskeySupported() || !user) {
+        if (!cancelled) setPasskeysLoaded(true);
+        return;
+      }
+      const { data } = await listPasskeys();
+      if (!cancelled) {
+        setHasRegisteredPasskey(Boolean(data?.length));
+        setPasskeysLoaded(true);
+      }
+    };
+    loadRegisteredPasskey();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const handleDigit = (d: string) => {
     if (checking) return;
@@ -171,7 +192,7 @@ export default function AppLockScreen() {
           <p className="text-xs text-foreground-400 mb-3">확인 중...</p>
         )}
 
-        {isPasskeySupported() && (
+        {isPasskeySupported() && passkeysLoaded && hasRegisteredPasskey && (
           <button
             type="button"
             onClick={async () => {
@@ -192,6 +213,16 @@ export default function AppLockScreen() {
               {passkeyChecking ? '생체인증 확인 중...' : '이 기기 지문 / Face ID로 잠금 해제'}
             </span>
           </button>
+        )}
+
+        {isPasskeySupported() && passkeysLoaded && !hasRegisteredPasskey && (
+          <div className="mb-4 rounded-xl border border-background-200 bg-background-100 px-4 py-3 text-center">
+            <p className="text-xs text-foreground-600 leading-5">
+              아직 이 기기에 지문/Face ID가 등록되지 않았습니다.
+              <br />
+              <span className="text-foreground-500">PIN으로 잠금 해제한 뒤 프로필에서 등록해주세요.</span>
+            </p>
+          </div>
         )}
 
         {!confirmingLogout ? (
