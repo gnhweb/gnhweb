@@ -1,4 +1,5 @@
 import type { ClubType } from '@/types/auth';
+import type { PracticeEntry } from '@/lib/weeklyReport';
 
 export interface WeeklyReport {
   id: string;
@@ -8,6 +9,7 @@ export interface WeeklyReport {
   week_start: string;
   attendance_count: number;
   total_members: number;
+  practice_entries: PracticeEntry[];
   progress_summary: string;
   special_notes: string;
   status: 'draft' | 'submitted' | 'president_reviewed' | 'reviewed' | 'approved' | 'rejected';
