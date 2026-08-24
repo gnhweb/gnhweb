@@ -188,7 +188,15 @@ export async function signInWithPasskey(): Promise<PasskeyResult<{ session: unkn
   }
 }
 
-/** Authenticate using the currently signed-in user's registered device credential(s). */
+/**
+ * Authenticate a signed-in user with the passkey already registered to the
+ * current account. Supabase's `passkey.list()` returns a management UUID,
+ * not the WebAuthn credential ID, so it must NOT be copied into
+ * PublicKeyCredentialRequestOptions.allowCredentials. Doing that causes
+ * Android to show "사용 가능한 패스키 없음" even when a passkey is registered.
+ * We therefore use the server-issued discoverable-credential options and ask
+ * for a platform/device authenticator with required user verification.
+ */
 export async function authenticateRegisteredPasskey(): Promise<PasskeyResult<unknown>> {
   if (!isPasskeySupported()) return { data: null, error: biometricUnavailableError() };
 
@@ -196,15 +204,8 @@ export async function authenticateRegisteredPasskey(): Promise<PasskeyResult<unk
     passkey: {
       startAuthentication: () => Promise<{ data: { challenge_id: string; options: any } | null; error: Error | null }>;
       verifyAuthentication: (params: { challengeId: string; credential: Record<string, unknown> }) => Promise<{ data: unknown | null; error: Error | null }>;
-      list: () => Promise<{ data: PasskeyMeta[] | null; error: Error | null }>;
     };
   };
-
-  const { data: passkeys, error: listError } = await auth.passkey.list();
-  if (listError) return { data: null, error: listError };
-  if (!passkeys || passkeys.length === 0) {
-    return { data: null, error: new Error('이 기기에 등록된 지문/Face ID가 없습니다. 프로필에서 먼저 등록해주세요.') };
-  }
 
   const { data: authentication, error: startError } = await auth.passkey.startAuthentication();
   if (startError || !authentication) {
@@ -213,11 +214,6 @@ export async function authenticateRegisteredPasskey(): Promise<PasskeyResult<unk
 
   try {
     const publicKey = deserializeRequestOptions(authentication.options) as PublicKeyCredentialRequestOptions & { hints?: string[] };
-    publicKey.allowCredentials = passkeys.map((passkey) => ({
-      id: toArrayBuffer(passkey.id),
-      type: 'public-key' as const,
-      transports: ['internal'] as AuthenticatorTransport[],
-    }));
     publicKey.hints = ['client-device'];
     publicKey.userVerification = 'required';
 
