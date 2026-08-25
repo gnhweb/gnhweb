@@ -941,8 +941,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.channel.send({ type: "broadcast", event: "meeting_start", payload });
   }
 
-  private applyMeetingStart(payload: {
-    this.activeSabotageKind = null; reason: string; callerName: string; emergencyCallsUsed: number }) {
+  private applyMeetingStart(payload: { reason: string; callerName: string; emergencyCallsUsed: number }) {
+    this.activeSabotageKind = null;
     if (this.phase !== "playing" || this.winner) return;
     let interruptedSabotage = false;
     if (this.blackoutActive) { this.blackoutActive = false; interruptedSabotage = true; this.emit("blackout-change"); }
