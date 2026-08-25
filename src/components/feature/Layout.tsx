@@ -7,7 +7,7 @@ import DynamicWatermark from '@/components/feature/DynamicWatermark';
 import AppLockScreen from '@/components/feature/AppLockScreen';
 import PinSetupPrompt from '@/components/feature/PinSetupPrompt';
 import { useAutoLogout } from '@/hooks/useAutoLogout';
-import { MobileMenuProvider } from '@/hooks/useMobileMenu';
+import { MobileMenuProvider, useMobileMenu } from '@/hooks/useMobileMenu';
 
 const FULLSCREEN_GAME_PATHS = ['/wolves-and-sheep', '/pharisee', '/pilgrims-run', '/jonah-hide-seek', '/galilee-phone'];
 
@@ -24,6 +24,43 @@ function isIosPwa(): boolean {
   return iosDevice && (standalone || displayModeStandalone);
 }
 
+function IosPwaBackButton() {
+  const { mobileOpen } = useMobileMenu();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [iosPwa, setIosPwa] = useState(false);
+
+  useEffect(() => {
+    const update = () => setIosPwa(isIosPwa());
+    update();
+    const media = window.matchMedia?.('(display-mode: standalone)');
+    media?.addEventListener?.('change', update);
+    return () => media?.removeEventListener?.('change', update);
+  }, []);
+
+  if (!iosPwa || !mobileOpen) return null;
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    if (location.pathname !== '/') navigate('/');
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleBack}
+      aria-label="뒤로 가기"
+      title="뒤로 가기"
+      className="fixed right-[4.25rem] top-[calc(env(safe-area-inset-top)+0.5rem)] z-[100] flex h-10 w-10 items-center justify-center rounded-full bg-background-200 text-foreground-700 shadow-sm active:scale-95"
+    >
+      <i className="ri-arrow-left-line text-xl" aria-hidden="true" />
+    </button>
+  );
+}
+
 export default function Layout() {
   const { user, profile, loading, profileError, retryProfile, profileRetrying, pinLocked, pinSetupNeeded } = useAuth();
   const location = useLocation();
@@ -31,9 +68,6 @@ export default function Layout() {
   const nativeAndroid = isNativeAndroidApp();
   useAutoLogout();
 
-
-  // Native Android wrapper performs the real OS-level biometric prompt before
-  // the WebView is shown, so the web PIN/passkey screen must not appear there.
   if (!nativeAndroid && pinLocked) {
     return <AppLockScreen />;
   }
@@ -51,18 +85,11 @@ export default function Layout() {
     return <Outlet />;
   }
 
-  const handleIosBack = () => {
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-    if (location.pathname !== '/') navigate('/');
-  };
-
   return (
     <MobileMenuProvider>
       <div className="min-h-screen bg-background-50">
         {showNavbar && <Navbar />}
+        <IosPwaBackButton />
         {user && <DynamicWatermark />}
         {user && !profile && !loading && profileError && (
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-center gap-3">
@@ -92,7 +119,6 @@ export default function Layout() {
         </main>
 
         {showNavbar && <BottomTabBar />}
-
       </div>
     </MobileMenuProvider>
   );
