@@ -206,6 +206,21 @@ export default function Navbar() {
   const handleSignOut = async () => { await signOut(); setProfileOpen(false); setMobileOpen(false); };
   const toggleMobileAccordion = (key: string) => setMobileAccordion(prev => ({ ...prev, [key]: !prev[key] }));
 
+  const handleMobileBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else if (location.pathname !== '/') {
+      navigate('/');
+    }
+  };
+
+  const isIosPwa = () => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    const displayModeStandalone = window.matchMedia?.('(display-mode: standalone)').matches === true;
+    return /iPhone|iPad|iPod/.test(navigator.userAgent) && (standalone || displayModeStandalone);
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
     if (!mobileOpen) return;
@@ -293,7 +308,7 @@ export default function Navbar() {
         </div>
         <AnimatePresence>
           {mobileOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="md:hidden fixed inset-0 z-[60] bg-background-50 flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-background-200 flex-shrink-0"><Link to="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 cursor-pointer"><div className="w-7 h-7 rounded-lg bg-primary-100 flex items-center justify-center"><i className="ri-cross-line text-primary-600 text-sm"></i></div><span className="text-sm font-bold text-foreground-950">강릉 학생회</span></Link><button onClick={() => setMobileOpen(false)} className="w-10 h-10 rounded-full bg-background-200 flex items-center justify-center cursor-pointer"><i className="ri-close-line text-xl text-foreground-700"></i></button></div>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-background-200 flex-shrink-0"><Link to="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 cursor-pointer"><div className="w-7 h-7 rounded-lg bg-primary-100 flex items-center justify-center"><i className="ri-cross-line text-primary-600 text-sm"></i></div><span className="text-sm font-bold text-foreground-950">강릉 학생회</span></Link><div className="flex items-center gap-1.5">{isIosPwa() && <button onClick={handleMobileBack} aria-label="뒤로 가기" title="뒤로 가기" className="w-10 h-10 rounded-full bg-background-100 border border-background-200 flex items-center justify-center cursor-pointer active:scale-95"><i className="ri-arrow-left-line text-xl text-foreground-700"></i></button>}<button onClick={() => setMobileOpen(false)} aria-label="메뉴 닫기" className="w-10 h-10 rounded-full bg-background-200 flex items-center justify-center cursor-pointer"><i className="ri-close-line text-xl text-foreground-700"></i></button></div></div>
             <div className="flex-1 overflow-y-auto px-4 py-4 pb-safe">
               {user ? <MotionLink to="/profile" onClick={() => setMobileOpen(false)} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }} className="flex items-center gap-3 p-4 mb-4 rounded-[20px] bg-gradient-to-br from-primary-500 to-accent-500 text-white shadow-card cursor-pointer"><div className="w-14 h-14 rounded-full overflow-hidden bg-background-100/20 border-2 border-white/40 flex items-center justify-center flex-shrink-0">{profile?.profile_image ? <img src={profile.profile_image} alt="프로필" className="w-full h-full object-cover" /> : <span className="text-lg font-bold">{profile?.name?.charAt(0) || '?'}</span>}</div><div className="min-w-0 flex-1">{profile ? <><p className="text-sm font-bold truncate">{profile.name}</p><p className="text-[11px] text-white/80 truncate">{profile.club ? CLUB_LABELS[profile.club] : '동아리 미배정'}</p><span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full bg-background-100/25 text-[10px] font-semibold whitespace-nowrap max-w-full truncate">{roleEmoji(profile.role)} {profile.roles && profile.roles.length > 1 ? profile.roles.map(r => ROLE_LABELS[r]).join(' · ') : ROLE_LABELS[profile.role]}</span></> : <p className="text-sm">불러오는 중...</p>}</div><i className="ri-arrow-right-s-line text-xl text-white/70 flex-shrink-0"></i></MotionLink> : <MotionLink to="/login" onClick={() => setMobileOpen(false)} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }} className="flex items-center justify-center gap-2 p-4 mb-4 rounded-[20px] bg-gradient-to-br from-primary-500 to-accent-500 text-white text-sm font-semibold shadow-card cursor-pointer"><i className="ri-login-box-line"></i> 로그인하기</MotionLink>}
               <div className="grid grid-cols-3 gap-2 mb-4">{TOP_ITEMS.map(item => <MotionLink key={`mobile-top-${item.path}`} to={item.path} onClick={() => setMobileOpen(false)} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }} className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-colors cursor-pointer ${isActive(item.path) ? 'bg-background-100 shadow-card text-primary-700' : 'text-foreground-600 hover:bg-background-100/60'}`}><div className={`w-10 h-10 rounded-full flex items-center justify-center ${isActive(item.path) ? 'bg-gradient-to-br from-primary-500 to-accent-500' : 'bg-background-100'}`}><i className={`${item.icon} text-lg ${isActive(item.path) ? 'text-white' : 'text-foreground-500'}`}></i></div><span className="text-[11px] font-medium whitespace-nowrap">{item.label}</span></MotionLink>)}</div>
