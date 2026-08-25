@@ -180,6 +180,23 @@ export class GameManager extends Phaser.Events.EventEmitter {
   private activeSabotageKind: "blackout" | "reactor" | "door" | "candle" | "pipe" | null = null;
   private activeMeetingId: string | null = null;
 
+  // WOLVES-HARDENING-V2
+  private isValidCoordinate(value: number, max: number) {
+    return Number.isFinite(value) && value >= 0 && value <= max;
+  }
+
+  private isAlivePlayer(id: string) {
+    return this.players.get(id)?.alive === true;
+  }
+
+  private hasActiveSabotage() {
+    return this.activeSabotageKind !== null;
+  }
+
+  private clearActiveSabotage(kind?: typeof this.activeSabotageKind) {
+    if (!kind || this.activeSabotageKind === kind) this.activeSabotageKind = null;
+  }
+
   private scheduleTimeout(fn: () => void, delay: number) {
     const id = setTimeout(() => {
       this.pendingTimeouts.delete(id);
@@ -707,24 +724,30 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   sendMove(x: number, y: number) {
+    if (this.phase !== "playing" || !this.me?.alive) return;
+    if (!this.isValidCoordinate(x, 3600) || !this.isValidCoordinate(y, 2800)) return;
     const p = this.players.get(this.userId);
-    if (p) {
-      p.x = x;
-      p.y = y;
-    }
+    if (!p) return;
+    if (Math.hypot(x - p.x, y - p.y) > 360) return;
+    p.x = x;
+    p.y = y;
     this.channel.send({ type: "broadcast", event: "move", payload: { id: this.userId, x, y } });
   }
 
   private applyMove(payload: { id: string; x: number; y: number }) {
+    if (this.phase !== "playing") return;
+    if (!this.isValidCoordinate(payload.x, 3600) || !this.isValidCoordinate(payload.y, 2800)) return;
     const p = this.players.get(payload.id);
-    if (p) {
-      p.x = payload.x;
-      p.y = payload.y;
-      this.emit("player-moved", payload.id);
-    }
+    if (!p || !p.alive) return;
+    if (Math.hypot(payload.x - p.x, payload.y - p.y) > 360) return;
+    p.x = payload.x;
+    p.y = payload.y;
+    this.emit("player-moved", payload.id);
   }
 
   completeTask(taskId: string) {
+    if (this.phase !== "playing" || !this.me?.alive) return;
+    if (!(this.taskAssignments[this.userId] ?? []).includes(taskId)) return;
     if (this.myCompletedTasks.has(taskId)) return;
     this.myCompletedTasks.add(taskId);
     recordTaskCompletion();
@@ -733,6 +756,9 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyTaskProgress(payload: { playerId: string; taskId: string }) {
+    if (this.phase !== "playing") return;
+    if (!this.isAlivePlayer(payload.playerId)) return;
+    if (!(this.taskAssignments[payload.playerId] ?? []).includes(payload.taskId)) return;
     const done = this.completedTaskIds[payload.playerId] ?? (this.completedTaskIds[payload.playerId] = []);
     if (done.includes(payload.taskId)) return;
     done.push(payload.taskId);
@@ -748,6 +774,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   killPlayer(victimId: string) {
+    if (!this.canKill(Date.now()) || victimId === this.userId) return;
     const victim = this.players.get(victimId);
     if (!victim || !victim.alive) return;
     this.killCooldownUntil = Date.now() + this.settings.killCooldownMs;
@@ -757,6 +784,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyKill(payload: { victimId: string; x: number; y: number; victimName: string }) {
+    if (this.phase !== "playing") return;
     if (this.blockedKillVictims.has(payload.victimId)) return;
     const p = this.players.get(payload.victimId);
     if (!p || !p.alive) return;
@@ -789,6 +817,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyProtect(payload: { targetId: string }) {
+    if (this.phase !== "playing") return;
     const target = this.players.get(payload.targetId);
     if (!target || !target.alive) return;
     this.protectedId = payload.targetId;
@@ -866,6 +895,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyIntercession(payload: { targetId: string; targetName: string; x: number; y: number; byName: string }) {
+    if (this.phase !== "playing") return;
     const p = this.players.get(payload.targetId);
     if (p && !p.alive) {
       p.alive = true;
@@ -883,6 +913,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   callMeeting(reason: string) {
+    if (this.phase !== "playing" || !this.me?.alive) return;
+    if (reason !== "emergency" && reason !== "body") return;
     if (this.phase !== "playing") return;
     if (reason === "emergency" && this.emergencyCallsUsed >= this.settings.maxEmergencyMeetings) return;
     const nextEmergencyCallsUsed = reason === "emergency" ? this.emergencyCallsUsed + 1 : this.emergencyCallsUsed;
@@ -892,6 +924,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyMeetingStart(payload: { reason: string; callerName: string; emergencyCallsUsed: number }) {
+    if (this.phase !== "playing" || this.winner) return;
     let interruptedSabotage = false;
     if (this.blackoutActive) { this.blackoutActive = false; interruptedSabotage = true; this.emit("blackout-change"); }
     if (this.reactorActive) { this.reactorActive = false; interruptedSabotage = true; this.emit("reactor-change"); }
@@ -968,16 +1001,19 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyVote(payload: { voterId: string; targetId: string }) {
+    if (this.phase !== "meeting" || this.meetingSubPhase !== "vote") return;
     const voter = this.players.get(payload.voterId);
     if (!voter || !voter.alive) return;
     const target = payload.targetId ? this.players.get(payload.targetId) : null;
-    if (payload.targetId && !target) return;
+    if (payload.targetId && (!target || !target.alive)) return;
     this.votes.set(payload.voterId, payload.targetId);
     this.emit("vote-update");
     this.maybeResolveMeetingEarly();
   }
 
   private applyVoteCancel(payload: { voterId: string }) {
+    if (this.phase !== "meeting" || this.meetingSubPhase !== "vote") return;
+    if (!this.isAlivePlayer(payload.voterId)) return;
     this.votes.delete(payload.voterId);
     this.emit("vote-update");
   }
@@ -1026,10 +1062,12 @@ export class GameManager extends Phaser.Events.EventEmitter {
   private hasActiveSabotage() { return this.activeSabotageKind !== null; }
 
   canSabotage(now: number) {
-    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.hasActiveSabotage();
+    return this.isWolfSide && this.me?.alive === true && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.hasActiveSabotage();
   }
 
   triggerBlackout() {
+    if (!this.canSabotage(Date.now())) return;
+
     if (!this.canSabotage(Date.now())) return;
     this.activeSabotageKind = "blackout";
     const payload = { endsAt: Date.now() + this.settings.blackoutDurationMs };
@@ -1038,6 +1076,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyBlackoutStart(payload: { endsAt: number }) {
+    if (this.phase !== "playing" || this.hasActiveSabotage()) return;
+    this.activeSabotageKind = "blackout";
     this.blackoutActive = true;
     this.blackoutEndsAt = payload.endsAt;
     this.blackoutProgress = 0;
@@ -1046,6 +1086,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   progressBlackout() {
+    if (!this.me?.alive || this.phase !== "playing") return;
     if (!this.blackoutActive) return;
     this.hasContributedToBlackout = true;
     const pressId = `${this.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -1065,6 +1106,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private endBlackout(broadcast: boolean) {
+    this.clearActiveSabotage("blackout");
     this.blackoutActive = false;
     this.activeSabotageKind = null;
     this.sabotageCooldownUntil = Date.now() + this.settings.sabotageCooldownMs;
@@ -1073,6 +1115,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyBlackoutEnd() {
+    this.clearActiveSabotage("blackout");
     this.blackoutActive = false;
     this.sabotageCooldownUntil = Date.now() + this.settings.sabotageCooldownMs;
     this.emit("blackout-change");
@@ -1083,6 +1126,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   triggerReactorSabotage() {
+    if (!this.canReactorSabotage(Date.now()) || this.hasActiveSabotage()) return;
+
     if (!this.canReactorSabotage(Date.now())) return;
     this.activeSabotageKind = "reactor";
     const payload = { endsAt: Date.now() + this.settings.reactorSabotageDurationMs };
@@ -1091,6 +1136,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyReactorStart(payload: { endsAt: number }) {
+    if (this.phase !== "playing" || this.hasActiveSabotage()) return;
+    this.activeSabotageKind = "reactor";
     this.reactorActive = true;
     this.reactorEndsAt = payload.endsAt;
     this.reactorLeftFixed = false;
@@ -1105,6 +1152,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   fixReactorPanel(side: "left" | "right") {
+    if (!this.me?.alive || this.phase !== "playing") return;
     if (!this.reactorActive) return;
     const payload = { side };
     this.applyReactorFix(payload);
@@ -1126,6 +1174,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyReactorEnd() {
+    this.clearActiveSabotage("reactor");
     this.reactorActive = false;
     this.sabotageCooldownUntil = Date.now() + this.settings.sabotageCooldownMs;
     this.emit("reactor-change");
@@ -1136,6 +1185,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   triggerDoorLock(roomId: string) {
+    if (!this.canDoorSabotage(Date.now()) || this.hasActiveSabotage()) return;
+
     if (!this.canDoorSabotage(Date.now())) return;
     this.activeSabotageKind = "door";
     const payload = { roomId, endsAt: Date.now() + this.settings.doorLockDurationMs };
@@ -1144,6 +1195,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyDoorLock(payload: { roomId: string; endsAt: number }) {
+    if (this.phase !== "playing" || this.hasActiveSabotage()) return;
+    this.activeSabotageKind = "door";
     if (this.phase !== "playing") return;
     this.doorLockRoomId = payload.roomId;
     this.doorLockEndsAt = payload.endsAt;
@@ -1154,6 +1207,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private endDoorLock(broadcast: boolean) {
+    this.clearActiveSabotage("door");
     this.doorLockRoomId = null;
     this.doorLockEndsAt = 0;
     this.sabotageCooldownUntil = Date.now() + this.settings.sabotageCooldownMs;
@@ -1162,6 +1216,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyDoorUnlock() {
+    this.clearActiveSabotage("door");
     this.doorLockRoomId = null;
     this.doorLockEndsAt = 0;
     this.sabotageCooldownUntil = Date.now() + this.settings.sabotageCooldownMs;
@@ -1173,6 +1228,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   triggerCandleSabotage() {
+    if (!this.canCandleSabotage(Date.now()) || this.hasActiveSabotage()) return;
+
     if (!this.canCandleSabotage(Date.now())) return;
     this.activeSabotageKind = "candle";
     const shuffled = [...CANDLE_SPOT_IDS].sort(() => Math.random() - 0.5);
@@ -1183,6 +1240,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyCandleStart(payload: { endsAt: number; spotIds: [CandleSpotId, CandleSpotId] }) {
+    if (this.phase !== "playing" || this.hasActiveSabotage()) return;
+    this.activeSabotageKind = "candle";
     this.candleActive = true;
     this.candleEndsAt = payload.endsAt;
     this.candleSpotIds = payload.spotIds;
@@ -1200,6 +1259,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   extinguishCandle(role: "a" | "b") {
+    if (!this.me?.alive || this.phase !== "playing") return;
     if (!this.candleActive) return;
     if (role === "a" ? this.candleAFixed : this.candleBFixed) return;
     const payload = { role };
@@ -1229,6 +1289,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyCandleEnd() {
+    this.clearActiveSabotage("candle");
     this.candleActive = false;
     this.candleEndsAt = 0;
     this.sabotageCooldownUntil = Date.now() + this.settings.sabotageCooldownMs;
@@ -1240,6 +1301,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   triggerPipeSabotage() {
+    if (!this.canPipeSabotage(Date.now()) || this.hasActiveSabotage()) return;
+
     if (!this.canPipeSabotage(Date.now())) return;
     this.activeSabotageKind = "pipe";
     const payload = { endsAt: Date.now() + this.settings.pipeSabotageDurationMs };
@@ -1248,6 +1311,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyPipeStart(payload: { endsAt: number }) {
+    if (this.phase !== "playing" || this.hasActiveSabotage()) return;
+    this.activeSabotageKind = "pipe";
     this.pipeActive = true;
     this.pipeEndsAt = payload.endsAt;
     this.pipeAFixed = false;
@@ -1262,6 +1327,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   fixPipePanel(panel: "a" | "b") {
+    if (!this.me?.alive || this.phase !== "playing") return;
     if (!this.pipeActive) return;
     const payload = { panel };
     this.applyPipeFix(payload);
@@ -1283,6 +1349,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyPipeEnd() {
+    this.clearActiveSabotage("pipe");
     this.pipeActive = false;
     this.pipeEndsAt = 0;
     this.sabotageCooldownUntil = Date.now() + this.settings.sabotageCooldownMs;
