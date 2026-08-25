@@ -1,4 +1,5 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Navbar from '@/components/feature/Navbar';
 import BottomTabBar from '@/components/feature/BottomTabBar';
@@ -15,11 +16,29 @@ function isNativeAndroidApp(): boolean {
   return navigator.userAgent.includes('GNHWebAndroid/');
 }
 
+function isIosPwa(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const displayModeStandalone = window.matchMedia?.('(display-mode: standalone)').matches === true;
+  const iosDevice = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  return iosDevice && (standalone || displayModeStandalone);
+}
+
 export default function Layout() {
   const { user, profile, loading, profileError, retryProfile, profileRetrying, pinLocked, pinSetupNeeded } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const nativeAndroid = isNativeAndroidApp();
+  const [iosPwa, setIosPwa] = useState(false);
   useAutoLogout();
+
+  useEffect(() => {
+    const updatePwaState = () => setIosPwa(isIosPwa());
+    updatePwaState();
+    const media = window.matchMedia?.('(display-mode: standalone)');
+    media?.addEventListener?.('change', updatePwaState);
+    return () => media?.removeEventListener?.('change', updatePwaState);
+  }, []);
 
   // Native Android wrapper performs the real OS-level biometric prompt before
   // the WebView is shown, so the web PIN/passkey screen must not appear there.
@@ -39,6 +58,14 @@ export default function Layout() {
   if (isFullscreenGameRoute) {
     return <Outlet />;
   }
+
+  const handleIosBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    if (location.pathname !== '/') navigate('/');
+  };
 
   return (
     <MobileMenuProvider>
@@ -73,6 +100,18 @@ export default function Layout() {
         </main>
 
         {showNavbar && <BottomTabBar />}
+
+        {iosPwa && location.pathname !== '/' && (
+          <button
+            type="button"
+            onClick={handleIosBack}
+            aria-label="뒤로 가기"
+            title="뒤로 가기"
+            className="fixed left-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[70] flex h-11 w-11 items-center justify-center rounded-full border border-background-200 bg-white/95 text-foreground-700 shadow-lg backdrop-blur-md active:scale-95 md:hidden"
+          >
+            <i className="ri-arrow-left-line text-xl" aria-hidden="true"></i>
+          </button>
+        )}
       </div>
     </MobileMenuProvider>
   );
