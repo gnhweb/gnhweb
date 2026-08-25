@@ -166,6 +166,20 @@ if (typeof window !== 'undefined') {
   setTimeout(() => void initPrayerRelayAuthorDelete(), 0);
 }
 
+// 모바일 브라우저의 페이지 확대/축소(핀치줌·두 손가락 제스처)를 전역 차단한다.
+// 일반적인 한 손 스크롤/탭/입력 동작은 그대로 유지한다.
+if (typeof document !== 'undefined') {
+  const preventGestureZoom = (event: Event) => event.preventDefault();
+  const preventMultiTouchZoom = (event: TouchEvent) => {
+    if (event.touches.length > 1) event.preventDefault();
+  };
+
+  document.addEventListener('gesturestart', preventGestureZoom, { passive: false });
+  document.addEventListener('gesturechange', preventGestureZoom, { passive: false });
+  document.addEventListener('gestureend', preventGestureZoom, { passive: false });
+  document.addEventListener('touchmove', preventMultiTouchZoom, { passive: false });
+}
+
 if (typeof window !== 'undefined' && 'visualViewport' in window) {
   const updateKeyboardState = () => {
     const vv = window.visualViewport;
