@@ -185,6 +185,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   private lastMoveReceivedAt = new Map<string, number>();
 
   // WOLVES-FINAL-REGRESSION-FIX-V1
+  // WOLVES-HIDE-SENDER-FIX-V1
 
   // WOLVES-HARDENING-V2
   // WOLVES-SABOTAGE-RESET-V1
@@ -871,12 +872,13 @@ export class GameManager extends Phaser.Events.EventEmitter {
     if (!me) return;
     if (!hidden && !me.hidden) return;
     me.hidden = hidden;
-    this.channel.send({ type: "broadcast", event: "hide_state", payload: { id: this.userId, hidden } });
+    this.channel.send({ type: "broadcast", event: "hide_state", payload: { id: this.userId, senderId: this.userId, hidden } });
     this.emit("hide-change", this.userId);
   }
 
-  private applyHideState(payload: { id: string; hidden: boolean }) {
+  private applyHideState(payload: { id: string; senderId?: string; hidden: boolean }) {
     if (!payload?.id || typeof payload.hidden !== "boolean") return;
+    if (!payload.senderId || payload.senderId !== payload.id) return;
     const p = this.players.get(payload.id);
     if (!p) return;
     if (!p.alive && payload.hidden) return;
