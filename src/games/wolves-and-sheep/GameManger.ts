@@ -172,6 +172,13 @@ export class GameManager extends Phaser.Events.EventEmitter {
   private pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
   private lastRoleAssignment: Record<string, Role> | null = null;
   private returnToLobbyInFlight = false;
+  private roleChannel: RealtimeChannel | null = null;
+  private hostId: string | null = null;
+  private gameNonce = "";
+  private revealedRoles: Record<string, Role> = {};
+  private processedBlackoutPresses = new Set<string>();
+  private activeSabotageKind: "blackout" | "reactor" | "door" | "candle" | "pipe" | null = null;
+  private activeMeetingId: string | null = null;
 
   private scheduleTimeout(fn: () => void, delay: number) {
     const id = setTimeout(() => {
@@ -192,12 +199,54 @@ export class GameManager extends Phaser.Events.EventEmitter {
       config: { presence: { key: userId }, broadcast: { self: false } },
     });
     this.bind();
+    this.bindRoleChannel();
     this.bindVisibility();
   }
 
   get isHost(): boolean {
-    if (this.presenceOrder.length === 0) return false;
-    return this.presenceOrder[0].id === this.userId;
+    if (this.hostId) return this.hostId === this.userId;
+    return this.presenceOrder.length > 0 && this.presenceOrder[0].id === this.userId;
+  }
+
+  private bindRoleChannel() {
+    this.roleChannel = supabase.channel(`wolves-role-${this.roomCode}-${this.userId}`, { config: { broadcast: { self: false } } });
+    this.roleChannel
+      .on("broadcast", { event: "role" }, ({ payload }) => this.applyPrivateRole(payload))
+      .on("broadcast", { event: "investigation_result" }, ({ payload }) => {
+        if (payload?.requesterId === this.userId) {
+          this.investigationResult = payload.result ?? null;
+          this.emit("ability-update");
+        }
+      })
+      .subscribe();
+  }
+
+  private applyPrivateRole(payload: { role?: Role; gameNonce?: string }) {
+    if (!payload?.role || (payload.gameNonce && this.gameNonce && payload.gameNonce !== this.gameNonce)) return;
+    this.myRole = payload.role;
+    const me = this.players.get(this.userId);
+    if (me) me.role = payload.role;
+    this.emit("role-update", payload.role);
+  }
+
+  private sendPrivateRoles(roles: Record<string, Role>) {
+    const nonce = this.gameNonce;
+    Object.entries(roles).forEach(([id, role]) => {
+      if (id === this.userId) {
+        this.applyPrivateRole({ role, gameNonce: nonce });
+        return;
+      }
+      const channelName = `wolves-role-${this.roomCode}-${id}`;
+      const send = () => {
+        const ch = supabase.channel(channelName);
+        ch.send({ type: "broadcast", event: "role", payload: { role, gameNonce: nonce } }).finally(() => {
+          setTimeout(() => supabase.removeChannel(ch), 300);
+        });
+      };
+      send();
+      this.scheduleTimeout(send, 600);
+      this.scheduleTimeout(send, 1400);
+    });
   }
 
   get me(): PlayerState | undefined {
@@ -216,6 +265,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.channel
       .on("presence", { event: "sync" }, () => this.onPresenceSync())
       .on("broadcast", { event: "settings_update" }, ({ payload }) => this.applySettingsUpdate(payload))
+      .on("broadcast", { event: "host_announce" }, ({ payload }) => { if (payload?.hostId) this.hostId = payload.hostId; })
       .on("broadcast", { event: "return_to_lobby" }, () => this.applyReturnToLobby())
       .on("broadcast", { event: "game_start" }, ({ payload }) => this.applyGameStart(payload))
       .on("broadcast", { event: "state_sync" }, ({ payload }) => this.applyStateSync(payload))
@@ -286,6 +336,10 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.unbindVisibility = null;
     for (const id of this.pendingTimeouts) clearTimeout(id);
     this.pendingTimeouts.clear();
+    if (this.roleChannel) {
+      supabase.removeChannel(this.roleChannel);
+      this.roleChannel = null;
+    }
     supabase.removeChannel(this.channel);
   }
 
@@ -298,12 +352,17 @@ export class GameManager extends Phaser.Events.EventEmitter {
     });
     order.sort((a, b) => a.joinedAt - b.joinedAt);
     this.presenceOrder = order;
+    if (!this.hostId || !order.some((p) => p.id === this.hostId)) this.hostId = order[0]?.id ?? null;
     this.emit("lobby-update");
+    if (this.isHost) {
+      this.channel.send({ type: "broadcast", event: "host_announce", payload: { hostId: this.hostId } });
+    }
     if (this.isHost && this.phase === "lobby") {
       this.channel.send({ type: "broadcast", event: "settings_update", payload: this.settings });
     }
     if (this.isHost && this.phase !== "lobby") {
       this.channel.send({ type: "broadcast", event: "state_sync", payload: this.serializeState() });
+      this.sendPrivateRoles(Object.fromEntries([...this.players.entries()].map(([id, p]) => [id, p.role])));
     }
   }
 
@@ -335,6 +394,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.killCooldownUntil = 0;
     this.sabotageCooldownUntil = 0;
     this.blackoutActive = false;
+    this.activeSabotageKind = null;
+    this.processedBlackoutPresses.clear();
     this.blackoutEndsAt = 0;
     this.blackoutProgress = 0;
     this.reactorActive = false;
@@ -432,9 +493,12 @@ export class GameManager extends Phaser.Events.EventEmitter {
       sheepIds.filter((id) => isSheepFaction(roles[id])),
       this.settings.taskPoolSize
     );
+    this.gameNonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const payload = {
+      playerIds: ids,
       roles,
       spawns,
+      gameNonce: this.gameNonce,
       names: Object.fromEntries(this.presenceOrder.map((p) => [p.id, p.name])),
       hats: Object.fromEntries(this.presenceOrder.filter((p) => p.hat).map((p) => [p.id, p.hat!])),
       pets: Object.fromEntries(this.presenceOrder.filter((p) => p.pet).map((p) => [p.id, p.pet!])),
@@ -442,21 +506,29 @@ export class GameManager extends Phaser.Events.EventEmitter {
       taskAssignments,
     };
     this.applyGameStart(payload);
-    this.channel.send({ type: "broadcast", event: "game_start", payload });
+    const publicPayload = { ...payload, roles: undefined };
+    this.channel.send({ type: "broadcast", event: "game_start", payload: publicPayload });
+    this.sendPrivateRoles(roles);
   }
 
   private applyGameStart(payload: {
-    roles: Record<string, Role>;
+    roles?: Record<string, Role>;
+    playerIds?: string[];
     spawns: Record<string, { x: number; y: number }>;
     names: Record<string, string>;
     hats?: Record<string, string>;
     pets?: Record<string, string>;
     settings?: GameSettings;
     taskAssignments?: Record<string, string[]>;
+    gameNonce?: string;
   }) {
     if (payload.settings) this.settings = { ...DEFAULT_GAME_SETTINGS, ...payload.settings };
+    this.gameNonce = payload.gameNonce ?? this.gameNonce;
+    const ids = payload.playerIds ?? Object.keys(payload.roles ?? {});
+    const roles = payload.roles ?? {};
     this.players.clear();
-    Object.entries(payload.roles).forEach(([id, role]) => {
+    ids.forEach((id) => {
+      const role = roles[id] ?? (id === this.userId ? this.myRole : "sheep");
       const spawn = payload.spawns[id] ?? { x: 1800, y: 1400 };
       this.players.set(id, {
         id,
@@ -471,7 +543,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
         pet: payload.pets?.[id],
       });
     });
-    this.myRole = payload.roles[this.userId] ?? "sheep";
+    if (payload.roles?.[this.userId]) this.myRole = payload.roles[this.userId];
     this.taskAssignments = payload.taskAssignments ?? {};
     this.totalTasksRequired = Object.values(this.taskAssignments).reduce((sum, ids) => sum + ids.length, 0);
     this.totalTasksCompleted = 0;
@@ -525,7 +597,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     return {
       phase: this.phase,
       settings: this.settings,
-      players: Object.fromEntries(this.players),
+      players: Object.fromEntries([...this.players.entries()].map(([id, p]) => [id, { ...p, role: this.revealedRoles[id] ?? "sheep" }])),
       deadBodies: this.deadBodies,
       votes: Object.fromEntries(this.votes),
       meetingReason: this.meetingReason,
@@ -573,7 +645,11 @@ export class GameManager extends Phaser.Events.EventEmitter {
   private applyStateSync(payload: GameStateSnapshot) {
     this.phase = payload.phase;
     this.settings = { ...DEFAULT_GAME_SETTINGS, ...payload.settings };
-    this.players = new Map(Object.entries(payload.players));
+    const currentMyRole = this.myRole;
+    const publicPlayers = Object.fromEntries(Object.entries(payload.players).map(([id, p]) => [id, { ...p, role: this.revealedRoles[id] ?? "sheep" }]));
+    this.players = new Map(Object.entries(publicPlayers));
+    const myPlayer = this.players.get(this.userId);
+    if (myPlayer) myPlayer.role = currentMyRole;
     this.deadBodies = payload.deadBodies;
     this.votes = new Map(Object.entries(payload.votes));
     this.meetingReason = payload.meetingReason;
@@ -616,7 +692,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.winner = payload.winner;
     this.emergencyCallsUsed = payload.emergencyCallsUsed;
 
-    this.myRole = this.players.get(this.userId)?.role ?? "sheep";
+    this.myRole = this.myRole || this.players.get(this.userId)?.role || "sheep";
     this.myCompletedTasks = new Set(this.completedTaskIds[this.userId] ?? []);
 
     this.emit("phase-change", this.phase);
@@ -926,7 +1002,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
       else if (count === max) tie = true;
     });
     if (tie) ejectedId = null;
-    const payload = { ejectedId };
+    const payload = { ejectedId, role: ejectedId ? this.players.get(ejectedId)?.role ?? null : null };
     this.applyMeetingEnd(payload);
     this.channel.send({ type: "broadcast", event: "meeting_end", payload });
   }
@@ -934,7 +1010,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   private applyMeetingEnd(payload: { ejectedId: string | null }) {
     if (payload.ejectedId) {
       const p = this.players.get(payload.ejectedId);
-      if (p) p.alive = false;
+      if (p) { p.alive = false; if (payload.role) { p.role = payload.role; this.revealedRoles[payload.ejectedId] = payload.role; } }
     }
     this.phase = "playing";
     this.resetRoundAbilities();
@@ -947,11 +1023,15 @@ export class GameManager extends Phaser.Events.EventEmitter {
     return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.blackoutActive && !this.reactorActive && !this.doorLockRoomId && !this.candleActive && !this.pipeActive;
   }
 
+  private hasActiveSabotage() { return this.activeSabotageKind !== null; }
+
   canSabotage(now: number) {
-    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.blackoutActive;
+    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.hasActiveSabotage();
   }
 
   triggerBlackout() {
+    if (!this.canSabotage(Date.now())) return;
+    this.activeSabotageKind = "blackout";
     const payload = { endsAt: Date.now() + this.settings.blackoutDurationMs };
     this.applyBlackoutStart(payload);
     this.channel.send({ type: "broadcast", event: "sabotage_blackout", payload });
@@ -968,12 +1048,17 @@ export class GameManager extends Phaser.Events.EventEmitter {
   progressBlackout() {
     if (!this.blackoutActive) return;
     this.hasContributedToBlackout = true;
-    this.applyBlackoutProgress();
-    this.channel.send({ type: "broadcast", event: "blackout_progress", payload: {} });
+    const pressId = `${this.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    this.applyBlackoutProgress({ pressId });
+    this.channel.send({ type: "broadcast", event: "blackout_progress", payload: { pressId } });
   }
 
-  private applyBlackoutProgress() {
+  private applyBlackoutProgress(payload: { pressId?: string } = {}) {
     if (!this.blackoutActive) return;
+    if (payload.pressId) {
+      if (this.processedBlackoutPresses.has(payload.pressId)) return;
+      this.processedBlackoutPresses.add(payload.pressId);
+    }
     this.blackoutProgress += 1;
     this.emit("blackout-change");
     if (this.blackoutProgress >= BLACKOUT_PROGRESS_NEEDED) this.endBlackout(true);
@@ -981,6 +1066,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
 
   private endBlackout(broadcast: boolean) {
     this.blackoutActive = false;
+    this.activeSabotageKind = null;
     this.sabotageCooldownUntil = Date.now() + this.settings.sabotageCooldownMs;
     this.emit("blackout-change");
     if (broadcast) this.channel.send({ type: "broadcast", event: "blackout_end", payload: {} });
@@ -993,10 +1079,12 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   canReactorSabotage(now: number) {
-    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.reactorActive;
+    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.hasActiveSabotage();
   }
 
   triggerReactorSabotage() {
+    if (!this.canReactorSabotage(Date.now())) return;
+    this.activeSabotageKind = "reactor";
     const payload = { endsAt: Date.now() + this.settings.reactorSabotageDurationMs };
     this.applyReactorStart(payload);
     this.channel.send({ type: "broadcast", event: "sabotage_reactor", payload });
@@ -1030,6 +1118,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.emit("reactor-change");
     if (this.reactorLeftFixed && this.reactorRightFixed) {
       this.reactorActive = false;
+      this.activeSabotageKind = null;
       this.sabotageCooldownUntil = Date.now() + this.settings.sabotageCooldownMs;
       this.emit("reactor-change");
       this.channel.send({ type: "broadcast", event: "reactor_end", payload: {} });
@@ -1043,10 +1132,12 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   canDoorSabotage(now: number) {
-    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.doorLockRoomId;
+    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.hasActiveSabotage();
   }
 
   triggerDoorLock(roomId: string) {
+    if (!this.canDoorSabotage(Date.now())) return;
+    this.activeSabotageKind = "door";
     const payload = { roomId, endsAt: Date.now() + this.settings.doorLockDurationMs };
     this.applyDoorLock(payload);
     this.channel.send({ type: "broadcast", event: "sabotage_door", payload });
@@ -1078,10 +1169,12 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   canCandleSabotage(now: number) {
-    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.candleActive;
+    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.hasActiveSabotage();
   }
 
   triggerCandleSabotage() {
+    if (!this.canCandleSabotage(Date.now())) return;
+    this.activeSabotageKind = "candle";
     const shuffled = [...CANDLE_SPOT_IDS].sort(() => Math.random() - 0.5);
     const spotIds: [CandleSpotId, CandleSpotId] = [shuffled[0], shuffled[1]];
     const payload = { endsAt: Date.now() + this.settings.candleSabotageDurationMs, spotIds };
@@ -1143,10 +1236,12 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   canPipeSabotage(now: number) {
-    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.pipeActive;
+    return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.hasActiveSabotage();
   }
 
   triggerPipeSabotage() {
+    if (!this.canPipeSabotage(Date.now())) return;
+    this.activeSabotageKind = "pipe";
     const payload = { endsAt: Date.now() + this.settings.pipeSabotageDurationMs };
     this.applyPipeStart(payload);
     this.channel.send({ type: "broadcast", event: "sabotage_pipe", payload });
@@ -1195,6 +1290,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private checkWin() {
+    if (!this.isHost) return;
     if (this.phase === "ended" || this.winner) return;
     const alive = this.alivePlayers;
     const aliveWolves = alive.filter((p) => isWolfFaction(p.role)).length;
@@ -1205,14 +1301,18 @@ export class GameManager extends Phaser.Events.EventEmitter {
     else if (this.totalTasksRequired > 0 && this.totalTasksCompleted >= this.totalTasksRequired) winner = "sheep";
     if (winner) {
       const payload = { winner };
-      this.applyGameEnd(payload);
-      if (this.isHost) this.channel.send({ type: "broadcast", event: "game_end", payload });
+      this.applyGameEnd({ ...payload, roles: Object.fromEntries([...this.players.entries()].map(([id, p]) => [id, p.role])) });
+      if (this.isHost) this.channel.send({ type: "broadcast", event: "game_end", payload: { ...payload, roles: Object.fromEntries([...this.players.entries()].map(([id, p]) => [id, p.role])) } });
     }
   }
 
-  private applyGameEnd(payload: { winner: "sheep" | "wolf" }) {
+  private applyGameEnd(payload: { winner: "sheep" | "wolf"; roles?: Record<string, Role> }) {
     if (this.phase === "ended") return;
     this.winner = payload.winner;
+    if (payload.roles) {
+      this.revealedRoles = payload.roles;
+      Object.entries(payload.roles).forEach(([id, role]) => { const p = this.players.get(id); if (p) p.role = role; });
+    }
     this.phase = "ended";
     const myFaction = isWolfFaction(this.myRole) ? "wolf" : "sheep";
     recordGameCompletion(myFaction === payload.winner);
