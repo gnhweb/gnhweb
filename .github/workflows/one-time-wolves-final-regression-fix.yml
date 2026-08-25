@@ -1,0 +1,85 @@
+name: One-time wolves final regression fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch wolves regression issues
+        shell: python
+        run: |
+          from pathlib import Path
+          import re, subprocess
+
+          path = Path('src/games/wolves-and-sheep/GameManger.ts')
+          s = path.read_text()
+          marker = '// WOLVES-FINAL-REGRESSION-FIX-V1'
+          if marker in s:
+              raise SystemExit(0)
+
+          # State guards / timestamps.
+          anchor = '  private activeMeetingId: string | null = null;\n'
+          inject = '''  private activeMeetingId: string | null = null;\n  private roleReady = false;\n  private lastStateSyncAt = 0;\n  private lastMoveSentAt = 0;\n  private lastMoveReceivedAt = new Map<string, number>();\n\n  // WOLVES-FINAL-REGRESSION-FIX-V1\n'''
+          if anchor not in s:
+              raise RuntimeError('state anchor not found')
+          s = s.replace(anchor, inject, 1)
+
+          # Role readiness: never treat a stale/default role as authoritative.
+          s = s.replace('  get isWolfSide(): boolean {\n    return isWolfFaction(this.myRole);\n  }', '  get isWolfSide(): boolean {\n    return this.roleReady && isWolfFaction(this.myRole);\n  }', 1)
+          s = s.replace('  private applyPrivateRole(payload: { role?: Role; gameNonce?: string; recipientId?: string; taskIds?: string[]; completedTaskIds?: string[] }) {', '  private applyPrivateRole(payload: { role?: Role; gameNonce?: string; recipientId?: string; taskIds?: string[]; completedTaskIds?: string[] }) {', 1)
+          s = s.replace('    this.myRole = payload.role;\n', '    this.myRole = payload.role;\n    this.roleReady = true;\n', 1)
+
+          # Reset readiness on a new round / lobby.
+          s = s.replace('    this.phase = "playing";\n    this.emit("phase-change", "playing");', '    this.roleReady = Boolean(payload.roles?.[this.userId]);\n    this.phase = "playing";\n    this.emit("phase-change", "playing");', 1)
+          s = s.replace('    this.myRole = "sheep";\n    this.taskAssignments = {};', '    this.myRole = "sheep";\n    this.roleReady = false;\n    this.taskAssignments = {};', 1)
+
+          # Forward full blackout progress payload to handlers.
+          s = s.replace('.on("broadcast", { event: "blackout_progress" }, () => this.applyBlackoutProgress())', '.on("broadcast", { event: "blackout_progress" }, ({ payload }) => this.applyBlackoutProgress(payload))', 1)
+
+          # Make chat/ghost chat identify the sender; recipients trust only the local player record.
+          s = s.replace('    const msg = { id: `${this.userId}-${Date.now()}`, senderName: this.userName, text: trimmed };\n    this.applyChat(msg);\n    this.channel.send({ type: "broadcast", event: "chat", payload: msg });', '    const msg = { id: `${this.userId}-${Date.now()}`, senderId: this.userId, senderName: this.userName, text: trimmed };\n    this.applyChat(msg);\n    this.channel.send({ type: "broadcast", event: "chat", payload: msg });', 1)
+          s = s.replace('  private applyChat(msg: ChatMsg) {\n    this.chatLog.push(msg);', '  private applyChat(msg: ChatMsg & { senderId?: string }) {\n    if (msg.senderId) {\n      const sender = this.players.get(msg.senderId);\n      if (!sender || !sender.alive || sender.name !== msg.senderName) return;\n      msg = { ...msg, senderName: sender.name };\n    }\n    this.chatLog.push(msg);', 1)
+          s = s.replace('    const msg = { id: `${this.userId}-${Date.now()}`, senderName: this.userName, text: trimmed };\n    this.applyGhostChat(msg);\n    this.channel.send({ type: "broadcast", event: "ghost_chat", payload: msg });', '    const msg = { id: `${this.userId}-${Date.now()}`, senderId: this.userId, senderName: this.userName, text: trimmed };\n    this.applyGhostChat(msg);\n    this.channel.send({ type: "broadcast", event: "ghost_chat", payload: msg });', 1)
+          s = s.replace('  private applyGhostChat(msg: ChatMsg) {\n    this.ghostChatLog.push(msg);', '  private applyGhostChat(msg: ChatMsg & { senderId?: string }) {\n    if (msg.senderId) {\n      const sender = this.players.get(msg.senderId);\n      if (!sender || sender.alive || sender.name !== msg.senderName) return;\n      msg = { ...msg, senderName: sender.name };\n    }\n    this.ghostChatLog.push(msg);', 1)
+
+          # Hide state: only the originating player can change their own state.
+          s = s.replace('    this.channel.send({ type: "broadcast", event: "hide_state", payload: { id: this.userId, hidden } });', '    this.channel.send({ type: "broadcast", event: "hide_state", payload: { id: this.userId, hidden } });', 1)
+          s = s.replace('  private applyHideState(payload: { id: string; hidden: boolean }) {\n    const p = this.players.get(payload.id);\n    if (p) p.hidden = payload.hidden;', '  private applyHideState(payload: { id: string; hidden: boolean }) {\n    if (!payload?.id || typeof payload.hidden !== "boolean") return;\n    const p = this.players.get(payload.id);\n    if (!p) return;\n    if (!p.alive && payload.hidden) return;\n    p.hidden = payload.hidden;', 1)
+
+          # Movement: rate-limit by elapsed time rather than a single arbitrary jump threshold.
+          s = s.replace('    if (Math.hypot(x - p.x, y - p.y) > 360) return;\n    p.x = x;\n    p.y = y;', '    const now = Date.now();\n    const elapsed = Math.max(16, now - this.lastMoveSentAt);\n    const maxDistance = Math.max(180, Math.min(700, (elapsed / 1000) * 850 + 80));\n    if (Math.hypot(x - p.x, y - p.y) > maxDistance) return;\n    this.lastMoveSentAt = now;\n    p.x = x;\n    p.y = y;', 1)
+          s = s.replace('    if (Math.hypot(payload.x - p.x, payload.y - p.y) > 360) return;\n    p.x = payload.x;\n    p.y = payload.y;', '    const now = Date.now();\n    const previous = this.lastMoveReceivedAt.get(payload.id) ?? now - 250;\n    const elapsed = Math.max(16, now - previous);\n    const maxDistance = Math.max(180, Math.min(700, (elapsed / 1000) * 850 + 80));\n    if (Math.hypot(payload.x - p.x, payload.y - p.y) > maxDistance) return;\n    this.lastMoveReceivedAt.set(payload.id, now);\n    p.x = payload.x;\n    p.y = payload.y;', 1)
+
+          # Presence sync throttling: avoid a full-state rebroadcast on every transient presence update.
+          old = '''    if (this.isHost && this.phase !== "lobby") {\n      this.channel.send({ type: "broadcast", event: "state_sync", payload: this.serializeState() });\n      this.sendPrivateRoles(Object.fromEntries([...this.players.entries()].map(([id, p]) => [id, p.role])));\n    }'''
+          new = '''    if (this.isHost && this.phase !== "lobby") {\n      const now = Date.now();\n      if (now - this.lastStateSyncAt >= 1000) {\n        this.lastStateSyncAt = now;\n        this.channel.send({ type: "broadcast", event: "state_sync", payload: this.serializeState() });\n        this.sendPrivateRoles(Object.fromEntries([...this.players.entries()].map(([id, p]) => [id, p.role])));\n      }\n    }'''
+          if old not in s:
+              raise RuntimeError('presence sync block not found')
+          s = s.replace(old, new, 1)
+
+          # State sync never overwrites an already acquired private role with a public fallback.
+          s = s.replace('    const currentMyRole = this.myRole;\n', '    const currentMyRole = this.myRole;\n    const currentRoleReady = this.roleReady;\n', 1)
+          s = s.replace('    if (!this.myRole) this.myRole = this.players.get(this.userId)?.role || "sheep";\n', '    this.myRole = currentMyRole;\n    this.roleReady = currentRoleReady;\n', 1)
+
+          path.write_text(s)
+          subprocess.run(['git','config','user.name','github-actions[bot]'], check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          subprocess.run(['git','add',str(path)], check=True)
+          subprocess.run(['git','commit','-m','fix: harden wolves chat movement role readiness and sync'], check=True)
+          subprocess.run(['git','push'], check=True)
+      - name: Remove workflow
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-time-wolves-final-regression-fix.yml
+          git commit -m "chore: remove one-time wolves final regression fix workflow"
+          git push
