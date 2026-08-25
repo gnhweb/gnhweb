@@ -15,6 +15,7 @@ export const SITE_SEARCH_ITEMS: SiteSearchItem[] = [
   { path: '/suggestions', label: '건의사항', description: '학생회에 의견 보내기', icon: 'ri-lightbulb-line', group: '소통·공동체', keywords: ['건의', '의견', '제안', 'suggestion'] },
   { path: '/qna-board', label: '질문 있어요', description: '질문과 답변 게시판', icon: 'ri-question-answer-line', group: '소통·공동체', keywords: ['질문', '답변', 'qna', '문의'] },
   { path: '/bible-pick', label: '말씀뽑기', description: 'AI와 함께 말씀 추천받기', icon: 'ri-book-open-line', group: '말씀 도구', keywords: ['말씀', '성경', '말씀뽑기', 'ai'] },
+  { path: '/bible-streak', label: '말씀 스트릭', description: '말씀 묵상 연속 기록과 배지', icon: 'ri-fire-line', group: '말씀 도구', keywords: ['말씀', '스트릭', '연속', '묵상', '배지', '말씀스트릭', '성경습관'] },
   { path: '/bible-quiz', label: '성경 퀴즈', description: '성경 퀴즈와 문제 풀이', icon: 'ri-question-answer-line', group: '말씀 도구', keywords: ['성경', '퀴즈', '문제', '게임'] },
   { path: '/bible-mbti', label: '말씀 MBTI', description: '성경 인물 MBTI 매칭', icon: 'ri-user-heart-line', group: '말씀 도구', keywords: ['mbti', '성경인물', '성경'] },
   { path: '/bible-by-age', label: '연령별 말씀', description: '연령에 맞는 말씀 찾기', icon: 'ri-book-read-line', group: '말씀 도구', keywords: ['연령', '말씀', '성경'] },
