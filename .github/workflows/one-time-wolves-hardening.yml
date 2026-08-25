@@ -28,89 +28,76 @@ jobs:
               print('Already hardened')
               raise SystemExit(0)
 
-          # 1) Add central validation helpers.
           anchor = '  private activeMeetingId: string | null = null;\n'
           helpers = '''  private activeMeetingId: string | null = null;\n\n  // WOLVES-HARDENING-V2\n  private isValidCoordinate(value: number, max: number) {\n    return Number.isFinite(value) && value >= 0 && value <= max;\n  }\n\n  private isAlivePlayer(id: string) {\n    return this.players.get(id)?.alive === true;\n  }\n\n  private hasActiveSabotage() {\n    return this.activeSabotageKind !== null;\n  }\n\n  private clearActiveSabotage(kind?: typeof this.activeSabotageKind) {\n    if (!kind || this.activeSabotageKind === kind) this.activeSabotageKind = null;\n  }\n'''
           if anchor not in s:
               raise RuntimeError('helper anchor not found')
           s = s.replace(anchor, helpers, 1)
 
-          # 2) Validate movement at both send and receive boundaries.
-          s = re.sub(r'''  sendMove\(x: number, y: number\) \{.*?\n  \}\n\n  private applyMove\(payload: \{ id: string; x: number; y: number \}\) \{.*?\n  \}\n''', '''  sendMove(x: number, y: number) {\n    if (this.phase !== "playing" || !this.me?.alive) return;\n    if (!this.isValidCoordinate(x, 3600) || !this.isValidCoordinate(y, 2800)) return;\n    const p = this.players.get(this.userId);\n    if (!p) return;\n    const maxStep = 360;\n    if (Math.hypot(x - p.x, y - p.y) > maxStep) return;\n    p.x = x;\n    p.y = y;\n    this.channel.send({ type: "broadcast", event: "move", payload: { id: this.userId, x, y } });\n  }\n\n  private applyMove(payload: { id: string; x: number; y: number }) {\n    if (this.phase !== "playing") return;\n    if (!this.isValidCoordinate(payload.x, 3600) || !this.isValidCoordinate(payload.y, 2800)) return;\n    const p = this.players.get(payload.id);\n    if (!p || !p.alive) return;\n    if (Math.hypot(payload.x - p.x, payload.y - p.y) > 360) return;\n    p.x = payload.x;\n    p.y = payload.y;\n    this.emit("player-moved", payload.id);\n  }\n''', s, count=1, flags=re.S)
+          s, n = re.subn(r'(?ms)^  sendMove\(x: number, y: number\) \{.*?^  \}\n\n  private applyMove\(payload: \{ id: string; x: number; y: number \}\) \{.*?^  \}\n', '''  sendMove(x: number, y: number) {\n    if (this.phase !== "playing" || !this.me?.alive) return;\n    if (!this.isValidCoordinate(x, 3600) || !this.isValidCoordinate(y, 2800)) return;\n    const p = this.players.get(this.userId);\n    if (!p) return;\n    if (Math.hypot(x - p.x, y - p.y) > 360) return;\n    p.x = x;\n    p.y = y;\n    this.channel.send({ type: "broadcast", event: "move", payload: { id: this.userId, x, y } });\n  }\n\n  private applyMove(payload: { id: string; x: number; y: number }) {\n    if (this.phase !== "playing") return;\n    if (!this.isValidCoordinate(payload.x, 3600) || !this.isValidCoordinate(payload.y, 2800)) return;\n    const p = this.players.get(payload.id);\n    if (!p || !p.alive) return;\n    if (Math.hypot(payload.x - p.x, payload.y - p.y) > 360) return;\n    p.x = payload.x;\n    p.y = payload.y;\n    this.emit("player-moved", payload.id);\n  }\n''', s, count=1)
+          if n != 1: raise RuntimeError('movement block not found')
 
-          # 3) Kill entry points must re-check role, phase, cooldown and self-targeting.
-          s = re.sub(r'''  killPlayer\(victimId: string\) \{\n    const victim = this.players.get\(victimId\);\n    if \(!victim \|\| !victim\.alive\) return;\n    this\.killCooldownUntil = Date\.now\(\) \+ this\.settings\.killCooldownMs;''', '''  killPlayer(victimId: string) {\n    if (!this.canKill(Date.now())) return;\n    if (victimId === this.userId) return;\n    const victim = this.players.get(victimId);\n    if (!victim || !victim.alive) return;\n    this.killCooldownUntil = Date.now() + this.settings.killCooldownMs;''', s, count=1)
-          s = re.sub(r'''  private applyKill\(payload: \{ victimId: string; x: number; y: number; victimName: string \}\) \{\n    if \(this\.blockedKillVictims\.has\(payload\.victimId\)\) return;''', '''  private applyKill(payload: { victimId: string; x: number; y: number; victimName: string }) {\n    if (this.phase !== "playing") return;\n    if (this.blockedKillVictims.has(payload.victimId)) return;''', s, count=1)
+          s, n = re.subn(r'(?ms)^  killPlayer\(victimId: string\) \{\n', '  killPlayer(victimId: string) {\n    if (!this.canKill(Date.now()) || victimId === this.userId) return;\n', s, count=1)
+          if n != 1: raise RuntimeError('killPlayer not found')
+          s, n = re.subn(r'(?ms)^  private applyKill\([^\n]+\) \{\n', lambda m: m.group(0) + '    if (this.phase !== "playing") return;\n', s, count=1)
+          if n != 1: raise RuntimeError('applyKill not found')
 
-          # 4) Tasks can only be completed by the assigned player and only once.
-          s = re.sub(r'''  completeTask\(taskId: string\) \{\n    if \(this\.myCompletedTasks\.has\(taskId\)\) return;''', '''  completeTask(taskId: string) {\n    if (this.phase !== "playing" || !this.me?.alive) return;\n    if (!(this.taskAssignments[this.userId] ?? []).includes(taskId)) return;\n    if (this.myCompletedTasks.has(taskId)) return;''', s, count=1)
-          s = re.sub(r'''  private applyTaskProgress\(payload: \{ playerId: string; taskId: string \}\) \{\n    const done =''', '''  private applyTaskProgress(payload: { playerId: string; taskId: string }) {\n    if (this.phase !== "playing") return;\n    if (!this.isAlivePlayer(payload.playerId)) return;\n    if (!(this.taskAssignments[payload.playerId] ?? []).includes(payload.taskId)) return;\n    const done =''', s, count=1)
+          s, n = re.subn(r'(?ms)^  completeTask\(taskId: string\) \{\n', '  completeTask(taskId: string) {\n    if (this.phase !== "playing" || !this.me?.alive) return;\n    if (!(this.taskAssignments[this.userId] ?? []).includes(taskId)) return;\n', s, count=1)
+          if n != 1: raise RuntimeError('completeTask not found')
+          s, n = re.subn(r'(?ms)^  private applyTaskProgress\([^\n]+\) \{\n', lambda m: m.group(0) + '    if (this.phase !== "playing") return;\n    if (!this.isAlivePlayer(payload.playerId)) return;\n    if (!(this.taskAssignments[payload.playerId] ?? []).includes(payload.taskId)) return;\n', s, count=1)
+          if n != 1: raise RuntimeError('applyTaskProgress not found')
 
-          # 5) Protect/intercession/misc abilities re-check life/phase at mutation boundary.
-          s = re.sub(r'''  private applyProtect\(payload: \{ targetId: string \}\) \{\n    const target =''', '''  private applyProtect(payload: { targetId: string }) {\n    if (this.phase !== "playing") return;\n    const target =''', s, count=1)
-          s = re.sub(r'''  private applyIntercession\(payload: \{ targetId: string; targetName: string; x: number; y: number; byName: string \}\) \{\n    const p =''', '''  private applyIntercession(payload: { targetId: string; targetName: string; x: number; y: number; byName: string }) {\n    if (this.phase !== "playing") return;\n    const p =''', s, count=1)
+          for name, guard in [
+            ('triggerBlackout', '    if (!this.canSabotage(Date.now())) return;\n'),
+            ('triggerReactorSabotage', '    if (!this.canReactorSabotage(Date.now()) || this.hasActiveSabotage()) return;\n'),
+            ('triggerDoorLock', '    if (!this.canDoorSabotage(Date.now()) || this.hasActiveSabotage()) return;\n'),
+            ('triggerCandleSabotage', '    if (!this.canCandleSabotage(Date.now()) || this.hasActiveSabotage()) return;\n'),
+            ('triggerPipeSabotage', '    if (!this.canPipeSabotage(Date.now()) || this.hasActiveSabotage()) return;\n'),
+          ]:
+            pat = rf'(?m)^(  {name}\([^\n]*\) \{{)$'
+            s, n = re.subn(pat, rf'\1\n{guard}', s, count=1)
+            if n != 1: raise RuntimeError(f'{name} not found')
 
-          # 6) Meeting/ voting must be alive, valid-phase, and target-alive.
-          s = re.sub(r'''  callMeeting\(reason: string\) \{\n    if \(this\.phase !== "playing"\) return;''', '''  callMeeting(reason: string) {\n    if (this.phase !== "playing" || !this.me?.alive) return;\n    if (reason !== "emergency" && reason !== "body") return;''', s, count=1)
-          s = re.sub(r'''  private applyMeetingStart\(payload: \{ reason: string; callerName: string; emergencyCallsUsed: number \}\) \{\n    let interruptedSabotage''', '''  private applyMeetingStart(payload: { reason: string; callerName: string; emergencyCallsUsed: number }) {\n    if (this.phase !== "playing" || this.winner) return;\n    this.activeMeetingId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;\n    let interruptedSabotage''', s, count=1)
-          s = re.sub(r'''  private applyVote\(payload: \{ voterId: string; targetId: string \}\) \{\n    const voter =''', '''  private applyVote(payload: { voterId: string; targetId: string }) {\n    if (this.phase !== "meeting" || this.meetingSubPhase !== "vote") return;\n    const voter =''', s, count=1)
-          s = re.sub(r'''    if \(payload\.targetId && !target\) return;\n    this\.votes\.set''', '''    if (payload.targetId && (!target || !target.alive)) return;\n    this.votes.set''', s, count=1)
-          s = re.sub(r'''  private applyVoteCancel\(payload: \{ voterId: string \}\) \{\n    this\.votes\.delete''', '''  private applyVoteCancel(payload: { voterId: string }) {\n    if (this.phase !== "meeting" || this.meetingSubPhase !== "vote") return;\n    if (!this.isAlivePlayer(payload.voterId)) return;\n    this.votes.delete''', s, count=1)
+          s, n = re.subn(r'(?ms)^  canSabotage\(now: number\) \{\n.*?^  \}\n', '''  canSabotage(now: number) {\n    return this.isWolfSide && this.me?.alive === true && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.hasActiveSabotage();\n  }\n''', s, count=1)
+          if n != 1: raise RuntimeError('canSabotage not found')
 
-          # 7) Sabotage triggers require a wolf, playing phase, cooldown, and no competing sabotage.
-          s = re.sub(r'''  canSabotage\(now: number\) \{\n    return this\.isWolfSide && now >= this\.sabotageCooldownUntil && this\.phase === "playing" && !this\.blackoutActive;\n  \}''', '''  canSabotage(now: number) {\n    return this.isWolfSide && this.me?.alive === true && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.hasActiveSabotage();\n  }''', s, count=1)
+          for fn, kind in [
+            ('applyBlackoutStart', 'blackout'),
+            ('applyReactorStart', 'reactor'),
+            ('applyDoorLock', 'door'),
+            ('applyCandleStart', 'candle'),
+            ('applyPipeStart', 'pipe'),
+          ]:
+            pat = rf'(?m)^(  private {fn}\([^\n]*\) \{{)$'
+            s, n = re.subn(pat, rf'\1\n    if (this.phase !== "playing" || this.hasActiveSabotage()) return;\n    this.activeSabotageKind = "{kind}";', s, count=1)
+            if n != 1: raise RuntimeError(f'{fn} not found')
 
-          replacements = [
-            (r'''  triggerBlackout\(\) \{\n    const payload''', '''  triggerBlackout() {\n    if (!this.canSabotage(Date.now())) return;\n    const payload'''),
-            (r'''  triggerReactorSabotage\(\) \{\n    const payload''', '''  triggerReactorSabotage() {\n    if (!this.canReactorSabotage(Date.now()) || this.hasActiveSabotage()) return;\n    const payload'''),
-            (r'''  triggerDoorLock\(roomId: string\) \{\n    const payload''', '''  triggerDoorLock(roomId: string) {\n    if (!this.canDoorSabotage(Date.now()) || this.hasActiveSabotage()) return;\n    if (!roomId || roomId.length > 64) return;\n    const payload'''),
-            (r'''  triggerCandleSabotage\(\) \{\n    const shuffled''', '''  triggerCandleSabotage() {\n    if (!this.canCandleSabotage(Date.now()) || this.hasActiveSabotage()) return;\n    const shuffled'''),
-            (r'''  triggerPipeSabotage\(\) \{\n    const payload''', '''  triggerPipeSabotage() {\n    if (!this.canPipeSabotage(Date.now()) || this.hasActiveSabotage()) return;\n    const payload'''),
-          ]
-          for pat, repl in replacements:
-              s, n = re.subn(pat, repl, s, count=1)
-              if n != 1:
-                  raise RuntimeError(f'guard replacement failed: {pat}')
+          s = re.sub(r'(?m)^(  callMeeting\(reason: string\) \{)$', r'\1\n    if (this.phase !== "playing" || !this.me?.alive) return;\n    if (reason !== "emergency" && reason !== "body") return;', s, count=1)
+          s = re.sub(r'(?m)^(  private applyMeetingStart\([^\n]*\) \{)$', r'\1\n    if (this.phase !== "playing" || this.winner) return;', s, count=1)
+          s = re.sub(r'(?m)^(  private applyVote\([^\n]*\) \{)$', r'\1\n    if (this.phase !== "meeting" || this.meetingSubPhase !== "vote") return;', s, count=1)
+          s = s.replace('    if (payload.targetId && !target) return;\n', '    if (payload.targetId && (!target || !target.alive)) return;\n', 1)
+          s = re.sub(r'(?m)^(  private applyVoteCancel\([^\n]*\) \{)$', r'\1\n    if (this.phase !== "meeting" || this.meetingSubPhase !== "vote") return;\n    if (!this.isAlivePlayer(payload.voterId)) return;', s, count=1)
 
-          # Mark active sabotage in every start handler.
-          starts = [
-              ('applyBlackoutStart', 'blackoutActive', 'blackout'),
-              ('applyReactorStart', 'reactorActive', 'reactor'),
-              ('applyDoorLock', 'doorLockRoomId', 'door'),
-              ('applyCandleStart', 'candleActive', 'candle'),
-              ('applyPipeStart', 'pipeActive', 'pipe'),
-          ]
-          for fn, state, kind in starts:
-              marker_line = f'  private {fn}'
-              pos = s.find(marker_line)
-              if pos < 0:
-                  raise RuntimeError(f'{fn} not found')
-              body_start = s.find('{', pos)
-              insert = f'\n    if (this.phase !== "playing" || this.hasActiveSabotage()) return;\n    this.activeSabotageKind = "{kind}";'
-              s = s[:body_start+1] + insert + s[body_start+1:]
-
-          # Clear active sabotage on all successful/forced ends.
-          s = re.sub(r'(private endBlackout\(broadcast: boolean\) \{)', r'\1\n    this.clearActiveSabotage("blackout");', s, count=1)
-          s = re.sub(r'(private applyBlackoutEnd\(\) \{)', r'\1\n    this.clearActiveSabotage("blackout");', s, count=1)
-          s = re.sub(r'(private applyReactorEnd\(\) \{)', r'\1\n    this.clearActiveSabotage("reactor");', s, count=1)
-          s = re.sub(r'(private endDoorLock\(broadcast: boolean\) \{)', r'\1\n    this.clearActiveSabotage("door");', s, count=1)
-          s = re.sub(r'(private applyDoorUnlock\(\) \{)', r'\1\n    this.clearActiveSabotage("door");', s, count=1)
-          s = re.sub(r'(private applyCandleEnd\(\) \{)', r'\1\n    this.clearActiveSabotage("candle");', s, count=1)
-          s = re.sub(r'(private applyPipeEnd\(\) \{)', r'\1\n    this.clearActiveSabotage("pipe");', s, count=1)
-
-          # Active sabotage progress/fix inputs require living players and active matching state.
           for fn in ['progressBlackout', 'fixReactorPanel', 'extinguishCandle', 'fixPipePanel']:
-              pos = s.find(f'  {fn}')
-              if pos < 0:
-                  raise RuntimeError(f'{fn} not found')
-              brace = s.find('{', pos)
-              s = s[:brace+1] + '\n    if (!this.me?.alive || this.phase !== "playing") return;' + s[brace+1:]
+            pat = rf'(?m)^(  {fn}\([^\n]*\) \{{)$'
+            s, n = re.subn(pat, r'\1\n    if (!this.me?.alive || this.phase !== "playing") return;', s, count=1)
+            if n != 1: raise RuntimeError(f'{fn} not found')
+
+          for fn in ['endBlackout', 'applyBlackoutEnd']:
+            s = re.sub(rf'(?m)^(  (?:private )?{fn}\([^\n]*\) \{{)$', rf'\1\n    this.clearActiveSabotage("blackout");', s, count=1)
+          for fn, kind in [('applyReactorEnd','reactor'),('endDoorLock','door'),('applyDoorUnlock','door'),('applyCandleEnd','candle'),('applyPipeEnd','pipe')]:
+            s = re.sub(rf'(?m)^(  (?:private )?{fn}\([^\n]*\) \{{)$', rf'\1\n    this.clearActiveSabotage("{kind}");', s, count=1)
+
+          s, n = re.subn(r'(?m)^(  private applyProtect\([^\n]*\) \{)$', r'\1\n    if (this.phase !== "playing") return;', s, count=1)
+          if n != 1: raise RuntimeError('applyProtect not found')
+          s, n = re.subn(r'(?m)^(  private applyIntercession\([^\n]*\) \{)$', r'\1\n    if (this.phase !== "playing") return;', s, count=1)
+          if n != 1: raise RuntimeError('applyIntercession not found')
 
           path.write_text(s)
           subprocess.run(['git','config','user.name','github-actions[bot]'], check=True)
           subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'], check=True)
           subprocess.run(['git','add', str(path)], check=True)
-          subprocess.run(['git','commit','-m','fix: harden wolves gameplay authority and validation'], check=True)
+          subprocess.run(['git','commit','-m','fix: harden wolves gameplay validation'], check=True)
           subprocess.run(['git','push'], check=True)
 
       - name: Remove one-time workflow
