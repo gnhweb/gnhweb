@@ -27,7 +27,6 @@ const BIBLE_CATEGORY: CategoryGroup = {
   name: '말씀 도구', icon: 'ri-book-open-line', colorClass: 'amber',
   items: [
     { path: '/bible-pick', label: '말씀뽑기', icon: 'ri-book-open-line' },
-    { path: '/bible-pick/history', label: '말씀 히스토리', icon: 'ri-history-line' },
     { path: '/bible-quiz', label: '성경 퀴즈', icon: 'ri-question-answer-line' },
     { path: '/bible-mbti', label: '말씀 MBTI', icon: 'ri-user-heart-line' },
     { path: '/bible-by-age', label: '연령별 말씀', icon: 'ri-book-read-line' },
@@ -93,6 +92,8 @@ const ADMIN_CATEGORY_ITEMS: AdminItem[] = [
 ];
 
 const PROFILE_FAITH_ITEMS: CategoryItem[] = [
+  { path: '/bible-pick/history', label: '말씀 히스토리', icon: 'ri-history-line' },
+  { path: '/bible-streak', label: '말씀 스트릭', icon: 'ri-fire-line' },
   { path: '/faith-storybook', label: '신앙 스토리북', icon: 'ri-bookmark-line' },
   { path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },
   { path: '/repentance-journal', label: '회개 저널', icon: 'ri-hand-heart-line' },

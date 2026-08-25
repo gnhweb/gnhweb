@@ -13,6 +13,8 @@ const INTERESTS_LIST = ['악기', '운동', '독서', '그림', '코딩', '사�
 // 모바일 "인스타 프로필형" 헤더 아래 노출할 비공개 기능들 — 3열 아이콘 그리드
 // (기존에 데스크톱 네비게이션 드롭다운에서만 보이던 항목들을 모바일 프로필 화면에서도 동일하게 노출)
 const PRIVATE_FEATURE_ITEMS: { path: string; label: string; icon: string }[] = [
+  { path: '/bible-pick/history', label: '말씀 히스토리', icon: 'ri-history-line' },
+  { path: '/bible-streak', label: '말씀 스트릭', icon: 'ri-fire-line' },
   { path: '/faith-storybook', label: '신앙 스토리북', icon: 'ri-bookmark-line' },
   { path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },
   { path: '/repentance-journal', label: '회개 저널', icon: 'ri-hand-heart-line' },
