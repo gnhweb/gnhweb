@@ -181,6 +181,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   private activeMeetingId: string | null = null;
 
   // WOLVES-HARDENING-V2
+  // WOLVES-SABOTAGE-RESET-V1
   private isValidCoordinate(value: number, max: number) {
     return Number.isFinite(value) && value >= 0 && value <= max;
   }
@@ -403,6 +404,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyReturnToLobby() {
+    this.activeSabotageKind = null;
     this.players.clear();
     this.deadBodies = [];
     this.votes.clear();
@@ -529,6 +531,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyGameStart(payload: {
+    this.activeSabotageKind = null;
     roles?: Record<string, Role>;
     playerIds?: string[];
     spawns: Record<string, { x: number; y: number }>;
@@ -923,7 +926,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.channel.send({ type: "broadcast", event: "meeting_start", payload });
   }
 
-  private applyMeetingStart(payload: { reason: string; callerName: string; emergencyCallsUsed: number }) {
+  private applyMeetingStart(payload: {
+    this.activeSabotageKind = null; reason: string; callerName: string; emergencyCallsUsed: number }) {
     if (this.phase !== "playing" || this.winner) return;
     let interruptedSabotage = false;
     if (this.blackoutActive) { this.blackoutActive = false; interruptedSabotage = true; this.emit("blackout-change"); }
@@ -1373,7 +1377,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
     }
   }
 
-  private applyGameEnd(payload: { winner: "sheep" | "wolf"; roles?: Record<string, Role> }) {
+  private applyGameEnd(payload: {
+    this.activeSabotageKind = null; winner: "sheep" | "wolf"; roles?: Record<string, Role> }) {
     if (this.phase === "ended") return;
     this.winner = payload.winner;
     if (payload.roles) {
