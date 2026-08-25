@@ -31,6 +31,8 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
   const [error, setError] = useState<string | null>(null);
   const [peerCount, setPeerCount] = useState(0);
   const [speaking, setSpeaking] = useState(false);
+  const activeRef = useRef(false);
+  const speakerMutedRef = useRef(false);
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -70,9 +72,10 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
       audioRefs.current.set(peerId, audio);
     }
     audio.srcObject = stream;
-    audio.muted = speakerMuted;
+    audio.muted = speakerMutedRef.current;
+    audio.setAttribute("playsinline", "true");
     void audio.play().catch(() => {
-      // iOS may wait for a user gesture; the next explicit interaction retries playback.
+      // iOS may block autoplay. start()/toggleSpeaker() retries after a user gesture.
     });
   };
 
@@ -89,7 +92,7 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
   };
 
   const createPeer = async (peerId: string, initiator: boolean) => {
-    if (!active || peerId === gm.userId || peersRef.current.has(peerId)) return;
+    if (!activeRef.current || peerId === gm.userId || peersRef.current.has(peerId)) return;
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peersRef.current.set(peerId, pc);
@@ -140,9 +143,12 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("이 브라우저에서는 마이크 기능을 사용할 수 없습니다.");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       localStreamRef.current = stream;
+      activeRef.current = true;
       stream.getAudioTracks().forEach((track) => { track.enabled = true; });
       setMuted(false);
       setActive(true);
+      // User gesture: resume audio output so later remote tracks can play on iOS.
+      await audioContextRef.current?.resume().catch(() => undefined);
 
       const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (AudioContextCtor) {
@@ -171,6 +177,7 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
     analyserRef.current = null;
     await audioContextRef.current?.close().catch(() => undefined);
     audioContextRef.current = null;
+    activeRef.current = false;
     setActive(false);
     setSpeaking(false);
   };
@@ -189,7 +196,7 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
       if (payload.targetId && payload.targetId !== gm.userId) return;
 
       if (payload.kind === "hello") {
-        if (!active) return;
+        if (!activeRef.current) return;
         if (gm.userId < payload.senderId) await createPeer(payload.senderId, true);
         return;
       }
@@ -199,7 +206,7 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
         return;
       }
 
-      if (!active) return;
+      if (!activeRef.current) return;
 
       if (payload.kind === "offer" && payload.description) {
         const pc = (await createPeer(payload.senderId, false)) ?? peersRef.current.get(payload.senderId);
@@ -232,9 +239,7 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
       }
     };
 
-    channel.on("broadcast", { event: "voice_signal" }, onSignal).subscribe((status) => {
-      if (status === "SUBSCRIBED") void channel.send({ type: "broadcast", event: "voice_signal", payload: { room: gm.roomCode, phase: gm.phase, senderId: gm.userId, kind: "hello" } satisfies VoiceSignal });
-    });
+    channel.on("broadcast", { event: "voice_signal" }, onSignal).subscribe();
 
     return () => {
       channelRef.current = null;
@@ -244,6 +249,11 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
     // phaseEndsAt intentionally causes a fresh voice room each phase.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, voiceRoom]);
+
+  useEffect(() => {
+    if (!active) return;
+    void sendSignal({ kind: "hello" });
+  }, [active, voiceRoom]);
 
   useEffect(() => {
     if (!active) return;
@@ -269,11 +279,20 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
   }, [active]);
 
   useEffect(() => {
+    speakerMutedRef.current = speakerMuted;
     audioRefs.current.forEach((audio) => {
       audio.muted = speakerMuted;
-      if (!speakerMuted) void audio.play().catch(() => undefined);
+      if (!speakerMuted && activeRef.current) void audio.play().catch(() => undefined);
     });
   }, [speakerMuted]);
+
+  const toggleSpeaker = async () => {
+    setSpeakerMuted((v) => !v);
+    await audioContextRef.current?.resume().catch(() => undefined);
+    if (speakerMutedRef.current) {
+      audioRefs.current.forEach((audio) => { audio.muted = false; void audio.play().catch(() => undefined); });
+    }
+  };
 
   const toggleMic = () => {
     const next = !muted;
@@ -299,7 +318,7 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
               <button onClick={toggleMic} className={`w-10 h-10 rounded-full flex items-center justify-center border ${muted ? "bg-rose-900/70 border-rose-700 text-rose-200" : "bg-emerald-900/60 border-emerald-700 text-emerald-200"}`} aria-label={muted ? "마이크 켜기" : "마이크 끄기"}>
                 {muted ? <MicOff size={17} /> : <Mic size={17} />}
               </button>
-              <button onClick={() => setSpeakerMuted((v) => !v)} className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-900 border border-gray-700 text-gray-200" aria-label={speakerMuted ? "스피커 켜기" : "스피커 끄기"}>
+              <button onClick={() => void toggleSpeaker()} className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-900 border border-gray-700 text-gray-200" aria-label={speakerMuted ? "스피커 켜기" : "스피커 끄기"}>
                 {speakerMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
               </button>
               <button onClick={() => void stop()} className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-900 border border-gray-700 text-gray-300" aria-label="음성 나가기">
