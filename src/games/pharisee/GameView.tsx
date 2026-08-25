@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { MAX_CHAT_LENGTH } from "@/lib/chatSafety";
 import { GameManager, ReactionEvent } from "./GameManager";
 import LegendLayer from "./LegendLayer";
+import VoiceChat from "./VoiceChat";
 import LeaderboardModal from "./LeaderboardModal";
 import { soundEngine } from "./SoundEngine";
 import {
@@ -559,6 +560,7 @@ function RoomView({
       {phase === "day-vote" && <DayVoteView gm={gm} />}
       {phase === "day-lastwords" && <LastWordsView gm={gm} />}
       {phase === "day-lastwords-vote" && <FinalWordsVoteView gm={gm} />}
+      <VoiceChat gm={gm} />
       <LegendLayer gm={gm} />
       {!gm.me?.alive && <GhostChatPanel gm={gm} />}
       <FloatingReactions reactions={floatingReactions} />
