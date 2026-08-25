@@ -7,6 +7,7 @@ import { MAX_CHAT_LENGTH } from "@/lib/chatSafety";
 import { GameManager, ReactionEvent } from "./GameManager";
 import LeaderboardModal from "./LeaderboardModal";
 import { soundEngine } from "./SoundEngine";
+import ScriptureTrialCard from "./ScriptureTrialCard";
 import {
   MIN_PLAYERS,
   ROLE_INFO,
@@ -85,6 +86,7 @@ function RulesModal({ onClose }: { onClose: () => void }) {
               <p>🌙 <b>밤</b>: 다 같이 눈을 감아요. 나쁜 편은 몰래 한 명을 골라요.</p>
               <p>💬 <b>낮</b>: 눈을 뜨고 누가 나쁜 편인지 이야기해요.</p>
               <p>🗳️ <b>투표</b>: 제일 의심스러운 사람에게 투표해요. 제일 많이 뽑힌 사람은 나가요.</p>
+              <p>📖 <b>말씀 사건</b>: 낮마다 하나의 실제 상황을 놓고 모두가 선택합니다. 결과는 익명 집계되고, 선택의 이유가 심리전의 단서가 됩니다.</p>
             </div>
             <p className="bg-gray-900 rounded-lg p-3">
               🏆 <b>이기는 법</b>: 나쁜 편을 모두 찾아내면 착한 편이 이겨요! 나쁜 편 수가 착한 편 수와 같아지면 나쁜 편이 이겨요.
@@ -362,6 +364,7 @@ function RoomView({
     gm.on("vote-update", rerender);
     gm.on("lastwords-update", rerender);
     gm.on("mvp-update", rerender);
+    gm.on("scripture-trial-update", rerender);
     gm.on("chat-blocked", () => {
       setTextBanner("✋ 메시지를 너무 빠르게 보내고 있어요. 잠시 후 다시 시도해주세요.");
       setTimeout(() => setTextBanner(null), 2000);
@@ -548,7 +551,10 @@ function RoomView({
       )}
       {phase === "night" && <NightSequenceBanner gm={gm} />}
       {phase === "night" && <NightView gm={gm} />}
-      {phase === "day-discuss" && <DayDiscussView gm={gm} />}
+      {phase === "day-discuss" && (<>
+        <ScriptureTrialCard gm={gm} />
+        <DayDiscussView gm={gm} />
+      </>)}
       {phase === "day-vote" && <DayVoteView gm={gm} />}
       {phase === "day-lastwords" && <LastWordsView gm={gm} />}
       {!gm.me?.alive && <GhostChatPanel gm={gm} />}
