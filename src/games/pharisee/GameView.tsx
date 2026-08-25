@@ -1170,7 +1170,6 @@ function NightView({ gm }: { gm: GameManager }) {
 function DayDiscussView({ gm }: { gm: GameManager }) {
   const left = useCountdown(gm.phaseEndsAt);
   const [chatInput, setChatInput] = useState("");
-  const [proclaimed, setProclaimed] = useState(false);
   const canSpeak = !!gm.me?.alive;
 
   const sendChat = () => {
@@ -1184,15 +1183,6 @@ function DayDiscussView({ gm }: { gm: GameManager }) {
     gm.sendChat(`📖 [${v.ref}] "${v.text}"`);
   };
 
-  const proclaimRevelation = () => {
-    if (!gm.investigationResult || proclaimed) return;
-    const { targetName, isPharisee } = gm.investigationResult;
-    gm.sendChat(`📖 [계시] ${targetName}님은 ${isPharisee ? "바리새인" : "성도"}입니다.`);
-    setProclaimed(true);
-  };
-
-  const canProclaim = canSpeak && gm.myRole === "prophet" && !!gm.investigationResult && !proclaimed;
-
   return (
     <div className="bg-gray-800 rounded-xl p-4">
       <p className="text-xs text-gray-400 mb-2">
@@ -1200,15 +1190,6 @@ function DayDiscussView({ gm }: { gm: GameManager }) {
           ? `말씀과 신앙 고백으로 자신을 변론하고, 의심스러운 사람을 살펴보세요 (남은 시간 ${left}초)`
           : `${gm.isSpectator ? "👀 관전 중입니다" : "당신은 침묵당했습니다"} — 낮 토론을 읽기만 할 수 있어요 (남은 시간 ${left}초)`}
       </p>
-
-      {canProclaim && (
-        <button
-          onClick={proclaimRevelation}
-          className="mb-3 w-full py-2 rounded-lg bg-amber-800/80 hover:bg-amber-700 cursor-pointer text-sm font-medium"
-        >
-          📖 계시 선포하기 ({gm.investigationResult!.targetName}님 분별 결과 공개)
-        </button>
-      )}
 
       {canSpeak && <ReactionBar gm={gm} />}
 

@@ -188,8 +188,23 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
       return;
     }
 
-    const channel = supabase.channel(voiceRoom, { config: { broadcast: { self: false } } });
+    const channel = supabase.channel(voiceRoom, {
+      config: {
+        broadcast: { self: false },
+        presence: { key: gm.userId },
+      },
+    });
     channelRef.current = channel;
+
+    const connectVisiblePeers = async () => {
+      if (!activeRef.current) return;
+      const state = channel.presenceState();
+      const peerIds = new Set(Object.keys(state).filter((id) => id !== gm.userId));
+      await Promise.all([...peerIds].map((peerId) => {
+        // One side becomes the initiator deterministically to avoid offer glare.
+        return gm.userId < peerId ? createPeer(peerId, true) : Promise.resolve();
+      }));
+    };
 
     const onSignal = async ({ payload }: { payload: VoiceSignal }) => {
       if (!payload || payload.room !== gm.roomCode || payload.phase !== gm.phase || payload.senderId === gm.userId) return;
@@ -239,7 +254,23 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
       }
     };
 
-    channel.on("broadcast", { event: "voice_signal" }, onSignal).subscribe();
+    channel
+      .on("presence", { event: "sync" }, () => {
+        void connectVisiblePeers();
+      })
+      .on("broadcast", { event: "voice_signal" }, onSignal)
+      .subscribe(async (status) => {
+        if (status !== "SUBSCRIBED") return;
+        try {
+          await channel.track({ userId: gm.userId });
+        } catch {
+          // Presence is a discovery optimization; broadcast signaling remains available.
+        }
+        void connectVisiblePeers();
+        if (activeRef.current) {
+          void sendSignal({ kind: "hello" });
+        }
+      });
 
     return () => {
       channelRef.current = null;
@@ -253,6 +284,20 @@ export default function VoiceChat({ gm }: { gm: GameManager }) {
   useEffect(() => {
     if (!active) return;
     void sendSignal({ kind: "hello" });
+    const channel = channelRef.current;
+    if (!channel) return;
+    void (async () => {
+      try {
+        await channel.track({ userId: gm.userId });
+      } catch {
+        // Presence may be unavailable briefly while Realtime is reconnecting.
+      }
+      const state = channel.presenceState();
+      const peerIds = Object.keys(state).filter((id) => id !== gm.userId);
+      await Promise.all(peerIds.map((peerId) => gm.userId < peerId ? createPeer(peerId, true) : Promise.resolve()));
+    })();
+    // gm identity and voice room are stable for this component instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, voiceRoom]);
 
   useEffect(() => {
