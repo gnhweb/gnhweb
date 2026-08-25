@@ -1,0 +1,54 @@
+name: one-time-pharisee-legend-integrate
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Integrate legend layer and seed UI fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/games/pharisee/GameView.tsx')
+          s = p.read_text()
+          if 'import LegendLayer from "./LegendLayer";' not in s:
+              s = s.replace('import { GameManager, ReactionEvent } from "./GameManager";', 'import { GameManager, ReactionEvent } from "./GameManager";\nimport LegendLayer from "./LegendLayer";')
+          if '<LegendLayer gm={gm} />' not in s:
+              needle = '      {!gm.me?.alive && <GhostChatPanel gm={gm} />}\n'
+              if needle not in s:
+                  raise SystemExit('GameView insertion point not found')
+              s = s.replace(needle, '      <LegendLayer gm={gm} />\n' + needle, 1)
+          p.write_text(s)
+          
+          # Make the legend broadcast channel reusable instead of creating an untracked channel for sends.
+          p = Path('src/games/pharisee/LegendLayer.tsx')
+          s = p.read_text()
+          if 'const channelRef = useRef<any>(null);' not in s:
+              s = s.replace('  const processedGameRef = useRef<string>("");', '  const processedGameRef = useRef<string>("");\n  const channelRef = useRef<any>(null);')
+          s = s.replace('    const channel = supabase.channel(`${CHANNEL_PREFIX}${gm.roomCode}`);', '    const channel = supabase.channel(`${CHANNEL_PREFIX}${gm.roomCode}`);\n    channelRef.current = channel;')
+          s = s.replace('    return () => { supabase.removeChannel(channel); };', '    return () => { channelRef.current = null; supabase.removeChannel(channel); };')
+          s = s.replace('    await supabase.channel(`${CHANNEL_PREFIX}${gm.roomCode}`).send({ type: "broadcast", event: COUNSEL_EVENT, payload: msg });', '    if (channelRef.current) await channelRef.current.send({ type: "broadcast", event: COUNSEL_EVENT, payload: msg });')
+          s = s.replace('    await supabase.channel(`${CHANNEL_PREFIX}${gm.roomCode}`).send({ type: "broadcast", event: SCRIPTURE_EVENT, payload: { userId: myId, optionId, round: gm.round } });', '    if (channelRef.current) await channelRef.current.send({ type: "broadcast", event: SCRIPTURE_EVENT, payload: { userId: myId, optionId, round: gm.round } });')
+          s = s.replace('    await supabase.channel(`${CHANNEL_PREFIX}${gm.roomCode}`).send({ type: "broadcast", event: TRUST_EVENT, payload: { voterId: myId, targetId, kind, round: gm.round } });', '    if (channelRef.current) await channelRef.current.send({ type: "broadcast", event: TRUST_EVENT, payload: { voterId: myId, targetId, kind, round: gm.round } });')
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/games/pharisee/GameView.tsx src/games/pharisee/LegendLayer.tsx
+          git diff --cached --quiet || git commit -m 'feat: integrate Pharisee legend gameplay'
+          git push
+      - name: Remove one-time workflow
+        if: success()
+        run: |
+          rm -f .github/workflows/one-time-pharisee-legend-integrate.yml
+          git add .github/workflows/one-time-pharisee-legend-integrate.yml
+          git diff --cached --quiet || git commit -m 'chore: remove one-time Pharisee legend integration workflow'
+          git push
