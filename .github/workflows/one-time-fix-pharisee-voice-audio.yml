@@ -1,0 +1,22 @@
+name: One-time Pharisee Voice Audio Fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply audio playback fix
+        run: python .github/scripts/fix_pharisee_voice_audio.py
+      - name: Commit fix and remove one-time files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/games/pharisee/VoiceChat.tsx
+          git rm -f .github/workflows/one-time-fix-pharisee-voice-audio.yml .github/scripts/fix_pharisee_voice_audio.py
+          git commit -m "fix: restore Pharisee remote voice playback"
+          git push
