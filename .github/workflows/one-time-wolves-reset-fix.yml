@@ -1,0 +1,85 @@
+name: One-time wolves replay fix
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/one-time-wolves-reset-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Patch GameManager replay/reset logic
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/games/wolves-and-sheep/GameManger.ts')
+          s = p.read_text()
+
+          s = s.replace(
+              '  private pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();\n',
+              '  private pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();\n  private lastRoleAssignment: Record<string, Role> | null = null;\n  private returnToLobbyInFlight = false;\n'
+          )
+
+          s = s.replace(
+              '  returnToLobby() {\n    if (!this.isHost || this.phase !== "ended") return;\n',
+              '  returnToLobby() {\n    if (!this.isHost || this.phase !== "ended" || this.returnToLobbyInFlight) return;\n    this.returnToLobbyInFlight = true;\n'
+          )
+
+          s = s.replace(
+              '    this.winner = null;\n    this.intercessorUsedThisGame = false;\n',
+              '    this.winner = null;\n    this.myRole = "sheep";\n    this.taskAssignments = {};\n    this.completedTaskIds = {};\n    this.totalTasksRequired = 0;\n    this.totalTasksCompleted = 0;\n    this.myCompletedTasks.clear();\n    this.meetingReason = "";\n    this.meetingCallType = null;\n    this.meetingEndsAt = 0;\n    this.meetingSubPhase = "discuss";\n    this.meetingVotesResetForReplay();\n    this.killCooldownUntil = 0;\n    this.sabotageCooldownUntil = 0;\n    this.blackoutEndsAt = 0;\n    this.blackoutProgress = 0;\n    this.reactorEndsAt = 0;\n    this.reactorLeftFixed = false;\n    this.reactorRightFixed = false;\n    this.doorLockEndsAt = 0;\n    this.candleEndsAt = 0;\n    this.candleAProgress = 0;\n    this.candleBProgress = 0;\n    this.candleAFixed = false;\n    this.candleBFixed = false;\n    this.pipeEndsAt = 0;\n    this.pipeAFixed = false;\n    this.pipeBFixed = false;\n    this.intercessorUsedThisGame = false;\n'
+          )
+
+          s = s.replace(
+              '    this.phase = "lobby";\n    this.emit("phase-change", "lobby");\n',
+              '    this.phase = "lobby";\n    this.returnToLobbyInFlight = false;\n    this.emit("phase-change", "lobby");\n'
+          )
+
+          marker = '  // ---------- game start ----------\n'
+          helper = '''  private meetingVotesResetForReplay() {\n    this.votes.clear();\n    this.chatLog = [];\n    this.ghostChatLog = [];\n  }\n\n  private shuffleIds(ids: string[]) {\n    const shuffled = [...ids];\n    for (let i = shuffled.length - 1; i > 0; i -= 1) {\n      const j = Math.floor(Math.random() * (i + 1));\n      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];\n    }\n    return shuffled;\n  }\n\n  private sameRoleAssignment(a: Record<string, Role> | null, b: Record<string, Role>) {\n    if (!a) return false;\n    const aIds = Object.keys(a);\n    const bIds = Object.keys(b);\n    if (aIds.length !== bIds.length) return false;\n    return aIds.every((id) => a[id] === b[id]);\n  }\n\n'''
+          if helper not in s:\n              s = s.replace(marker, helper + marker)
+
+          s = s.replace(
+              '  startGame() {\n    if (!this.isHost || this.presenceOrder.length < 3) return;\n    const ids = this.presenceOrder.map((p) => p.id);\n    const shuffled = [...ids].sort(() => Math.random() - 0.5);\n',
+              '  startGame() {\n    if (!this.isHost || this.phase !== "lobby" || this.presenceOrder.length < 3) return;\n    const ids = this.presenceOrder.map((p) => p.id);\n    let shuffled = this.shuffleIds(ids);\n'
+          )
+
+          old = '''    const roles: Record<string, Role> = {};\n    wolfIds.forEach((id, i) => {\n      roles[id] = useSpecial && i === 0 ? "falseProphet" : "wolf";\n    });\n    sheepIds.forEach((id, i) => {\n      if (useSpecial && i === 0) roles[id] = "shepherd";\n      else if (useSpecial && i === 1 && sheepIds.length >= 2) roles[id] = "prophet";\n      else if (useSpecial && useIntercessor && i === 2 && sheepIds.length >= 3) roles[id] = "intercessor";\n      else roles[id] = "sheep";\n    });\n'''
+
+          new = '''    let roles: Record<string, Role> = {};\n    for (let attempt = 0; attempt < 12; attempt += 1) {\n      if (attempt > 0) shuffled = this.shuffleIds(ids);\n      const candidateWolfCount = Math.max(1, Math.floor(ids.length / 4));\n      const candidateWolfIds = shuffled.slice(0, candidateWolfCount);\n      const candidateSheepIds = shuffled.slice(candidateWolfCount);\n      const candidate: Record<string, Role> = {};\n      candidateWolfIds.forEach((id, i) => {\n        candidate[id] = useSpecial && i === 0 ? "falseProphet" : "wolf";\n      });\n      candidateSheepIds.forEach((id, i) => {\n        if (useSpecial && i === 0) candidate[id] = "shepherd";\n        else if (useSpecial && i === 1 && candidateSheepIds.length >= 2) candidate[id] = "prophet";\n        else if (useSpecial && useIntercessor && i === 2 && candidateSheepIds.length >= 3) candidate[id] = "intercessor";\n        else candidate[id] = "sheep";\n      });\n      roles = candidate;\n      if (!this.sameRoleAssignment(this.lastRoleAssignment, roles) || attempt === 11) break;\n    }\n    const wolfIds = Object.entries(roles).filter(([, role]) => isWolfFaction(role)).map(([id]) => id);\n    const sheepIds = Object.entries(roles).filter(([, role]) => isSheepFaction(role)).map(([id]) => id);\n    this.lastRoleAssignment = { ...roles };\n'''
+          if old not in s:\n              raise SystemExit('role block not found')\n          s = s.replace(old, new)
+
+          # Remove now-obsolete initial wolf/sheep declarations from the old block if present.
+          s = s.replace(
+              '    const wolfCount = Math.max(1, Math.floor(ids.length / 4));\n    const wolfIds = shuffled.slice(0, wolfCount);\n    const sheepIds = shuffled.slice(wolfCount);\n',
+              ''
+          )
+
+          p.write_text(s)
+      - name: Check TypeScript source for accidental duplicate declarations
+        run: |
+          grep -n "const wolfIds\|const sheepIds\|lastRoleAssignment\|returnToLobbyInFlight" src/games/wolves-and-sheep/GameManger.ts
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/games/wolves-and-sheep/GameManger.ts
+          git commit -m "fix: reroll roles and fully reset wolves replay state" || exit 0
+          git push
+
+      - name: Remove one-time workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/one-time-wolves-reset-fix.yml || true
+          git commit -m "chore: remove one-time wolves replay workflow" || true
+          git push || true
