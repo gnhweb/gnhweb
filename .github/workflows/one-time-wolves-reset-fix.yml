@@ -56,9 +56,9 @@ jobs:
           old = '''    const roles: Record<string, Role> = {};\n    wolfIds.forEach((id, i) => {\n      roles[id] = useSpecial && i === 0 ? "falseProphet" : "wolf";\n    });\n    sheepIds.forEach((id, i) => {\n      if (useSpecial && i === 0) roles[id] = "shepherd";\n      else if (useSpecial && i === 1 && sheepIds.length >= 2) roles[id] = "prophet";\n      else if (useSpecial && useIntercessor && i === 2 && sheepIds.length >= 3) roles[id] = "intercessor";\n      else roles[id] = "sheep";\n    });\n'''
 
           new = '''    let roles: Record<string, Role> = {};\n    for (let attempt = 0; attempt < 12; attempt += 1) {\n      if (attempt > 0) shuffled = this.shuffleIds(ids);\n      const candidateWolfCount = Math.max(1, Math.floor(ids.length / 4));\n      const candidateWolfIds = shuffled.slice(0, candidateWolfCount);\n      const candidateSheepIds = shuffled.slice(candidateWolfCount);\n      const candidate: Record<string, Role> = {};\n      candidateWolfIds.forEach((id, i) => {\n        candidate[id] = useSpecial && i === 0 ? "falseProphet" : "wolf";\n      });\n      candidateSheepIds.forEach((id, i) => {\n        if (useSpecial && i === 0) candidate[id] = "shepherd";\n        else if (useSpecial && i === 1 && candidateSheepIds.length >= 2) candidate[id] = "prophet";\n        else if (useSpecial && useIntercessor && i === 2 && candidateSheepIds.length >= 3) candidate[id] = "intercessor";\n        else candidate[id] = "sheep";\n      });\n      roles = candidate;\n      if (!this.sameRoleAssignment(this.lastRoleAssignment, roles) || attempt === 11) break;\n    }\n    const wolfIds = Object.entries(roles).filter(([, role]) => isWolfFaction(role)).map(([id]) => id);\n    const sheepIds = Object.entries(roles).filter(([, role]) => isSheepFaction(role)).map(([id]) => id);\n    this.lastRoleAssignment = { ...roles };\n'''
-          if old not in s:\n              raise SystemExit('role block not found')\n          s = s.replace(old, new)
+          if old not in s:\n              raise SystemExit('role block not found')
+          s = s.replace(old, new)
 
-          # Remove now-obsolete initial wolf/sheep declarations from the old block if present.
           s = s.replace(
               '    const wolfCount = Math.max(1, Math.floor(ids.length / 4));\n    const wolfIds = shuffled.slice(0, wolfCount);\n    const sheepIds = shuffled.slice(wolfCount);\n',
               ''
@@ -83,3 +83,5 @@ jobs:
           git rm .github/workflows/one-time-wolves-reset-fix.yml || true
           git commit -m "chore: remove one-time wolves replay workflow" || true
           git push || true
+
+# one-time trigger
