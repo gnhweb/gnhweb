@@ -1206,11 +1206,7 @@ function DayDiscussView({ gm }: { gm: GameManager }) {
           ))}
         </div>
       )}
-
-      {canSpeak &&
-}
-
-      <div className="bg-gray-900 rounded-lg h-56 overflow-y-auto p-3 mb-3 space-y-1 text-sm">
+<div className="bg-gray-900 rounded-lg h-56 overflow-y-auto p-3 mb-3 space-y-1 text-sm">
         {gm.chatLog.length === 0 && <p className="text-gray-500">아직 변론이 없습니다...</p>}
         {gm.chatLog.map((m) => (
           <p key={m.id}>
