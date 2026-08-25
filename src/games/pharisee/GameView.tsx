@@ -85,8 +85,8 @@ function RulesModal({ onClose }: { onClose: () => void }) {
             <div className="bg-gray-900 rounded-lg p-3 space-y-2">
               <p>🌙 <b>밤</b>: 다 같이 눈을 감아요. 나쁜 편은 몰래 한 명을 골라요.</p>
               <p>💬 <b>낮</b>: 눈을 뜨고 누가 나쁜 편인지 이야기해요.</p>
-              <p>🗳️ <b>투표</b>: 제일 의심스러운 사람에게 투표해요. 제일 많이 뽑힌 사람은 나가요.</p>
-              <p>📖 <b>말씀 사건</b>: 낮마다 하나의 실제 상황을 놓고 모두가 선택합니다. 결과는 익명 집계되고, 선택의 이유가 심리전의 단서가 됩니다.</p>
+              <p>🗳️ <b>지목 투표</b>: 가장 의심스러운 사람을 고르면 그 사람이 최후의 발언을 합니다.</p>
+              <p>⚖️ <b>생사 결정</b>: 최후의 발언을 들은 뒤, 다른 생존자들이 죽일지 살릴지 찬반 투표를 합니다. 죽임 찬성이 엄격한 과반수일 때만 사망하고, 과반 미달이나 동점이면 살아남습니다.</p>
             </div>
             <p className="bg-gray-900 rounded-lg p-3">
               🏆 <b>이기는 법</b>: 나쁜 편을 모두 찾아내면 착한 편이 이겨요! 나쁜 편 수가 착한 편 수와 같아지면 나쁜 편이 이겨요.
@@ -440,8 +440,9 @@ function RoomView({
           ]);
         }
       } else {
+        if (gm.lastWordsVoteResult) return;
         soundEngine.play("tie");
-        setTextBanner("⚖️ 동점으로 아무도 출교되지 않았습니다.");
+        setTextBanner("⚖️ 동점으로 아무도 지목되지 않았습니다.");
         setTimeout(() => setTextBanner(null), 4500);
       }
     });
