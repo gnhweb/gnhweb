@@ -1,0 +1,147 @@
+name: One-time wolves final hardening
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply final wolves hardening
+        shell: python
+        run: |
+          from pathlib import Path
+          import re, subprocess
+
+          path = Path('src/games/wolves-and-sheep/GameManger.ts')
+          s = path.read_text()
+          marker = '// WOLVES-FINAL-HARDENING-V1'
+          if marker in s:
+              raise SystemExit(0)
+
+          # Repair malformed signatures introduced by the previous reset patch.
+          s = re.sub(
+              r'private applyGameStart\(payload: \{\s*this\.activeSabotageKind = null;\s*roles\?:',
+              'private applyGameStart(payload: {\n    roles?:', s, count=1
+          )
+          s = re.sub(
+              r'private applyGameEnd\(payload: \{\s*this\.activeSabotageKind = null;\s*winner:',
+              'private applyGameEnd(payload: {\n    winner:', s, count=1
+          )
+
+          # Marker + nonce-aware private state reception.
+          anchor = '  private isValidCoordinate(value: number, max: number) {\n'
+          if anchor not in s:
+              raise RuntimeError('hardening helper anchor not found')
+          s = s.replace(anchor, '  // WOLVES-FINAL-HARDENING-V1\n' + anchor, 1)
+
+          # Keep task assignments out of public state sync; only the current player receives their own list privately.
+          s = s.replace('      taskAssignments: this.taskAssignments,', '      taskAssignments: { [this.userId]: this.taskAssignments[this.userId] ?? [] },', 1)
+          s = s.replace('      completedTaskIds: this.completedTaskIds,', '      completedTaskIds: { [this.userId]: this.completedTaskIds[this.userId] ?? [] },', 1)
+
+          # Private role channel also carries only that player\'s task data, tagged for the intended recipient.
+          s = s.replace(
+              '  private applyPrivateRole(payload: { role?: Role; gameNonce?: string }) {\n    if (!payload?.role || (payload.gameNonce && this.gameNonce && payload.gameNonce !== this.gameNonce)) return;',
+              '''  private applyPrivateRole(payload: { role?: Role; gameNonce?: string; recipientId?: string; taskIds?: string[]; completedTaskIds?: string[] }) {\n    if (!payload?.role) return;\n    if (payload.recipientId && payload.recipientId !== this.userId) return;\n    if (this.gameNonce && payload.gameNonce !== this.gameNonce) return;''', 1
+          )
+          s = s.replace(
+              '    this.myRole = payload.role;\n    const me = this.players.get(this.userId);\n    if (me) me.role = payload.role;',
+              '''    this.myRole = payload.role;\n    const me = this.players.get(this.userId);\n    if (me) {\n      me.role = payload.role;\n      if (payload.taskIds) {\n        this.taskAssignments[this.userId] = [...payload.taskIds];\n        this.totalTasksRequired = Math.max(this.totalTasksRequired, this.taskAssignments[this.userId].length);\n      }\n      if (payload.completedTaskIds) {\n        this.completedTaskIds[this.userId] = [...payload.completedTaskIds];\n        this.myCompletedTasks = new Set(payload.completedTaskIds);\n        me.tasksCompleted = payload.completedTaskIds.length;\n      }\n    }''', 1
+          )
+          s = s.replace(
+              '  private sendPrivateRoles(roles: Record<string, Role>) {\n    const nonce = this.gameNonce;',
+              '  private sendPrivateRoles(roles: Record<string, Role>) {\n    const nonce = this.gameNonce;', 1
+          )
+          s = s.replace(
+              '        this.applyPrivateRole({ role, gameNonce: nonce });',
+              '        this.applyPrivateRole({ role, gameNonce: nonce, recipientId: id, taskIds: this.taskAssignments[id] ?? [], completedTaskIds: this.completedTaskIds[id] ?? [] });', 1
+          )
+          s = s.replace(
+              '        ch.send({ type: "broadcast", event: "role", payload: { role, gameNonce: nonce } })',
+              '        ch.send({ type: "broadcast", event: "role", payload: { role, gameNonce: nonce, recipientId: id, taskIds: this.taskAssignments[id] ?? [], completedTaskIds: this.completedTaskIds[id] ?? [] } })', 1
+          )
+
+          # Public game_start contains only total task count; task details stay private.
+          s = s.replace(
+              '      settings: this.settings,\n      taskAssignments,\n    };\n    this.applyGameStart(payload);\n    const publicPayload = { ...payload, roles: undefined };',
+              '      settings: this.settings,\n      taskAssignments,\n      totalTasksRequired: Object.values(taskAssignments).reduce((sum, ids) => sum + ids.length, 0),\n    };\n    this.applyGameStart(payload);\n    const publicPayload = { ...payload, roles: undefined, taskAssignments: undefined };', 1
+          )
+          s = s.replace(
+              '    taskAssignments?: Record<string, string[]>;\n    gameNonce?: string;',
+              '    taskAssignments?: Record<string, string[]>;\n    totalTasksRequired?: number;\n    gameNonce?: string;', 1
+          )
+          s = s.replace(
+              '    this.taskAssignments = payload.taskAssignments ?? {};\n    this.totalTasksRequired = Object.values(this.taskAssignments).reduce((sum, ids) => sum + ids.length, 0);',
+              '    this.taskAssignments = payload.taskAssignments ?? {};\n    this.totalTasksRequired = payload.totalTasksRequired ?? Object.values(this.taskAssignments).reduce((sum, ids) => sum + ids.length, 0);', 1
+          )
+
+          # Repair-event authority: every fixer identifies themselves and must be alive/in-game.
+          s = s.replace(
+              '    const pressId = `${this.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;\n    this.applyBlackoutProgress({ pressId });\n    this.channel.send({ type: "broadcast", event: "blackout_progress", payload: { pressId } });',
+              '    const pressId = `${this.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;\n    this.applyBlackoutProgress({ pressId, playerId: this.userId });\n    this.channel.send({ type: "broadcast", event: "blackout_progress", payload: { pressId, playerId: this.userId } });', 1
+          )
+          s = s.replace(
+              '  private applyBlackoutProgress(payload: { pressId?: string } = {}) {\n    if (!this.blackoutActive) return;',
+              '  private applyBlackoutProgress(payload: { pressId?: string; playerId?: string } = {}) {\n    if (!this.blackoutActive || this.phase !== "playing") return;\n    if (!payload.playerId || !this.isAlivePlayer(payload.playerId)) return;', 1
+          )
+          s = s.replace(
+              '    const payload = { side };\n    this.applyReactorFix(payload);\n    this.channel.send({ type: "broadcast", event: "reactor_fix", payload });',
+              '    const payload = { side, playerId: this.userId };\n    this.applyReactorFix(payload);\n    this.channel.send({ type: "broadcast", event: "reactor_fix", payload });', 1
+          )
+          s = s.replace(
+              '  private applyReactorFix(payload: { side: "left" | "right" }) {\n    if (!this.reactorActive) return;',
+              '  private applyReactorFix(payload: { side: "left" | "right"; playerId?: string }) {\n    if (!this.reactorActive || this.phase !== "playing" || !payload.playerId || !this.isAlivePlayer(payload.playerId)) return;', 1
+          )
+          s = s.replace(
+              '    const payload = { role };\n    this.applyCandleProgress(payload);\n    this.channel.send({ type: "broadcast", event: "candle_progress", payload });',
+              '    const payload = { role, playerId: this.userId };\n    this.applyCandleProgress(payload);\n    this.channel.send({ type: "broadcast", event: "candle_progress", payload });', 1
+          )
+          s = s.replace(
+              '  private applyCandleProgress(payload: { role: "a" | "b" }) {\n    if (!this.candleActive) return;',
+              '  private applyCandleProgress(payload: { role: "a" | "b"; playerId?: string }) {\n    if (!this.candleActive || this.phase !== "playing" || !payload.playerId || !this.isAlivePlayer(payload.playerId)) return;', 1
+          )
+          s = s.replace(
+              '    const payload = { panel };\n    this.applyPipeFix(payload);\n    this.channel.send({ type: "broadcast", event: "pipe_fix", payload });',
+              '    const payload = { panel, playerId: this.userId };\n    this.applyPipeFix(payload);\n    this.channel.send({ type: "broadcast", event: "pipe_fix", payload });', 1
+          )
+          s = s.replace(
+              '  private applyPipeFix(payload: { panel: "a" | "b" }) {\n    if (!this.pipeActive) return;',
+              '  private applyPipeFix(payload: { panel: "a" | "b"; playerId?: string }) {\n    if (!this.pipeActive || this.phase !== "playing" || !payload.playerId || !this.isAlivePlayer(payload.playerId)) return;', 1
+          )
+
+          # Sabotage timeouts are authoritative only on the host; other clients wait for game_end broadcast.
+          s = s.replace(
+              '        this.applyGameEnd({ winner: "wolf" });\n        if (this.isHost) this.channel.send({ type: "broadcast", event: "game_end", payload: { winner: "wolf" } });',
+              '        if (this.isHost) {\n          this.applyGameEnd({ winner: "wolf" });\n          this.channel.send({ type: "broadcast", event: "game_end", payload: { winner: "wolf" } });\n        }',
+          )
+
+          # Game-end itself clears transient sabotage state and reveals roles only at the end.
+          sig = '  private applyGameEnd(payload: {\n    winner: "sheep" | "wolf"; roles?: Record<string, Role> }) {'
+          if sig not in s:
+              raise RuntimeError('applyGameEnd signature repair failed')
+          s = s.replace(sig, '  private applyGameEnd(payload: {\n    winner: "sheep" | "wolf"; roles?: Record<string, Role> }) {\n    this.activeSabotageKind = null;', 1)
+
+          # Ensure the local player never falls back to sheep after a state sync when a private role is already known.
+          s = s.replace('    this.myRole = this.myRole || this.players.get(this.userId)?.role || "sheep";', '    if (!this.myRole) this.myRole = this.players.get(this.userId)?.role || "sheep";', 1)
+
+          path.write_text(s)
+          subprocess.run(['git','config','user.name','github-actions[bot]'], check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          subprocess.run(['git','add',str(path)], check=True)
+          subprocess.run(['git','commit','-m','fix: finalize wolves privacy, repair authority, and game-end sync'], check=True)
+          subprocess.run(['git','push'], check=True)
+
+      - name: Remove one-time workflow
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-time-wolves-final-hardening.yml
+          git commit -m "chore: remove one-time wolves final hardening workflow"
+          git push
