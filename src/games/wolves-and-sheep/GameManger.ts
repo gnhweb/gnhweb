@@ -182,6 +182,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
 
   // WOLVES-HARDENING-V2
   // WOLVES-SABOTAGE-RESET-V1
+  // WOLVES-FINAL-HARDENING-V1
   private isValidCoordinate(value: number, max: number) {
     return Number.isFinite(value) && value >= 0 && value <= max;
   }
@@ -239,11 +240,24 @@ export class GameManager extends Phaser.Events.EventEmitter {
       .subscribe();
   }
 
-  private applyPrivateRole(payload: { role?: Role; gameNonce?: string }) {
-    if (!payload?.role || (payload.gameNonce && this.gameNonce && payload.gameNonce !== this.gameNonce)) return;
+  private applyPrivateRole(payload: { role?: Role; gameNonce?: string; recipientId?: string; taskIds?: string[]; completedTaskIds?: string[] }) {
+    if (!payload?.role) return;
+    if (payload.recipientId && payload.recipientId !== this.userId) return;
+    if (this.gameNonce && payload.gameNonce !== this.gameNonce) return;
     this.myRole = payload.role;
     const me = this.players.get(this.userId);
-    if (me) me.role = payload.role;
+    if (me) {
+      me.role = payload.role;
+      if (payload.taskIds) {
+        this.taskAssignments[this.userId] = [...payload.taskIds];
+        this.totalTasksRequired = Math.max(this.totalTasksRequired, this.taskAssignments[this.userId].length);
+      }
+      if (payload.completedTaskIds) {
+        this.completedTaskIds[this.userId] = [...payload.completedTaskIds];
+        this.myCompletedTasks = new Set(payload.completedTaskIds);
+        me.tasksCompleted = payload.completedTaskIds.length;
+      }
+    }
     this.emit("role-update", payload.role);
   }
 
@@ -251,13 +265,13 @@ export class GameManager extends Phaser.Events.EventEmitter {
     const nonce = this.gameNonce;
     Object.entries(roles).forEach(([id, role]) => {
       if (id === this.userId) {
-        this.applyPrivateRole({ role, gameNonce: nonce });
+        this.applyPrivateRole({ role, gameNonce: nonce, recipientId: id, taskIds: this.taskAssignments[id] ?? [], completedTaskIds: this.completedTaskIds[id] ?? [] });
         return;
       }
       const channelName = `wolves-role-${this.roomCode}-${id}`;
       const send = () => {
         const ch = supabase.channel(channelName);
-        ch.send({ type: "broadcast", event: "role", payload: { role, gameNonce: nonce } }).finally(() => {
+        ch.send({ type: "broadcast", event: "role", payload: { role, gameNonce: nonce, recipientId: id, taskIds: this.taskAssignments[id] ?? [], completedTaskIds: this.completedTaskIds[id] ?? [] } }).finally(() => {
           setTimeout(() => supabase.removeChannel(ch), 300);
         });
       };
@@ -523,15 +537,15 @@ export class GameManager extends Phaser.Events.EventEmitter {
       pets: Object.fromEntries(this.presenceOrder.filter((p) => p.pet).map((p) => [p.id, p.pet!])),
       settings: this.settings,
       taskAssignments,
+      totalTasksRequired: Object.values(taskAssignments).reduce((sum, ids) => sum + ids.length, 0),
     };
     this.applyGameStart(payload);
-    const publicPayload = { ...payload, roles: undefined };
+    const publicPayload = { ...payload, roles: undefined, taskAssignments: undefined };
     this.channel.send({ type: "broadcast", event: "game_start", payload: publicPayload });
     this.sendPrivateRoles(roles);
   }
 
   private applyGameStart(payload: {
-    this.activeSabotageKind = null;
     roles?: Record<string, Role>;
     playerIds?: string[];
     spawns: Record<string, { x: number; y: number }>;
@@ -540,6 +554,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     pets?: Record<string, string>;
     settings?: GameSettings;
     taskAssignments?: Record<string, string[]>;
+    totalTasksRequired?: number;
     gameNonce?: string;
   }) {
     if (payload.settings) this.settings = { ...DEFAULT_GAME_SETTINGS, ...payload.settings };
@@ -565,7 +580,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     });
     if (payload.roles?.[this.userId]) this.myRole = payload.roles[this.userId];
     this.taskAssignments = payload.taskAssignments ?? {};
-    this.totalTasksRequired = Object.values(this.taskAssignments).reduce((sum, ids) => sum + ids.length, 0);
+    this.totalTasksRequired = payload.totalTasksRequired ?? Object.values(this.taskAssignments).reduce((sum, ids) => sum + ids.length, 0);
     this.totalTasksCompleted = 0;
     this.myCompletedTasks.clear();
     this.completedTaskIds = {};
@@ -655,8 +670,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
       lastIntercessionResult: this.lastIntercessionResult,
       totalTasksRequired: this.totalTasksRequired,
       totalTasksCompleted: this.totalTasksCompleted,
-      taskAssignments: this.taskAssignments,
-      completedTaskIds: this.completedTaskIds,
+      taskAssignments: { [this.userId]: this.taskAssignments[this.userId] ?? [] },
+      completedTaskIds: { [this.userId]: this.completedTaskIds[this.userId] ?? [] },
       winner: this.winner,
       emergencyCallsUsed: this.emergencyCallsUsed,
     };
@@ -712,7 +727,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.winner = payload.winner;
     this.emergencyCallsUsed = payload.emergencyCallsUsed;
 
-    this.myRole = this.myRole || this.players.get(this.userId)?.role || "sheep";
+    if (!this.myRole) this.myRole = this.players.get(this.userId)?.role || "sheep";
     this.myCompletedTasks = new Set(this.completedTaskIds[this.userId] ?? []);
 
     this.emit("phase-change", this.phase);
@@ -1094,12 +1109,13 @@ export class GameManager extends Phaser.Events.EventEmitter {
     if (!this.blackoutActive) return;
     this.hasContributedToBlackout = true;
     const pressId = `${this.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    this.applyBlackoutProgress({ pressId });
-    this.channel.send({ type: "broadcast", event: "blackout_progress", payload: { pressId } });
+    this.applyBlackoutProgress({ pressId, playerId: this.userId });
+    this.channel.send({ type: "broadcast", event: "blackout_progress", payload: { pressId, playerId: this.userId } });
   }
 
-  private applyBlackoutProgress(payload: { pressId?: string } = {}) {
-    if (!this.blackoutActive) return;
+  private applyBlackoutProgress(payload: { pressId?: string; playerId?: string } = {}) {
+    if (!this.blackoutActive || this.phase !== "playing") return;
+    if (!payload.playerId || !this.isAlivePlayer(payload.playerId)) return;
     if (payload.pressId) {
       if (this.processedBlackoutPresses.has(payload.pressId)) return;
       this.processedBlackoutPresses.add(payload.pressId);
@@ -1149,8 +1165,10 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.emit("reactor-change");
     this.scheduleTimeout(() => {
       if (this.reactorActive && this.reactorEndsAt === payload.endsAt) {
-        this.applyGameEnd({ winner: "wolf" });
-        if (this.isHost) this.channel.send({ type: "broadcast", event: "game_end", payload: { winner: "wolf" } });
+        if (this.isHost) {
+          this.applyGameEnd({ winner: "wolf" });
+          this.channel.send({ type: "broadcast", event: "game_end", payload: { winner: "wolf" } });
+        }
       }
     }, Math.max(0, payload.endsAt - Date.now()));
   }
@@ -1158,13 +1176,13 @@ export class GameManager extends Phaser.Events.EventEmitter {
   fixReactorPanel(side: "left" | "right") {
     if (!this.me?.alive || this.phase !== "playing") return;
     if (!this.reactorActive) return;
-    const payload = { side };
+    const payload = { side, playerId: this.userId };
     this.applyReactorFix(payload);
     this.channel.send({ type: "broadcast", event: "reactor_fix", payload });
   }
 
-  private applyReactorFix(payload: { side: "left" | "right" }) {
-    if (!this.reactorActive) return;
+  private applyReactorFix(payload: { side: "left" | "right"; playerId?: string }) {
+    if (!this.reactorActive || this.phase !== "playing" || !payload.playerId || !this.isAlivePlayer(payload.playerId)) return;
     if (payload.side === "left") this.reactorLeftFixed = true;
     else this.reactorRightFixed = true;
     this.emit("reactor-change");
@@ -1256,8 +1274,10 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.emit("candle-change");
     this.scheduleTimeout(() => {
       if (this.candleActive && this.candleEndsAt === payload.endsAt) {
-        this.applyGameEnd({ winner: "wolf" });
-        if (this.isHost) this.channel.send({ type: "broadcast", event: "game_end", payload: { winner: "wolf" } });
+        if (this.isHost) {
+          this.applyGameEnd({ winner: "wolf" });
+          this.channel.send({ type: "broadcast", event: "game_end", payload: { winner: "wolf" } });
+        }
       }
     }, Math.max(0, payload.endsAt - Date.now()));
   }
@@ -1266,13 +1286,13 @@ export class GameManager extends Phaser.Events.EventEmitter {
     if (!this.me?.alive || this.phase !== "playing") return;
     if (!this.candleActive) return;
     if (role === "a" ? this.candleAFixed : this.candleBFixed) return;
-    const payload = { role };
+    const payload = { role, playerId: this.userId };
     this.applyCandleProgress(payload);
     this.channel.send({ type: "broadcast", event: "candle_progress", payload });
   }
 
-  private applyCandleProgress(payload: { role: "a" | "b" }) {
-    if (!this.candleActive) return;
+  private applyCandleProgress(payload: { role: "a" | "b"; playerId?: string }) {
+    if (!this.candleActive || this.phase !== "playing" || !payload.playerId || !this.isAlivePlayer(payload.playerId)) return;
     if (payload.role === "a") {
       if (this.candleAFixed) return;
       this.candleAProgress += 1;
@@ -1324,8 +1344,10 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.emit("pipe-change");
     this.scheduleTimeout(() => {
       if (this.pipeActive && this.pipeEndsAt === payload.endsAt) {
-        this.applyGameEnd({ winner: "wolf" });
-        if (this.isHost) this.channel.send({ type: "broadcast", event: "game_end", payload: { winner: "wolf" } });
+        if (this.isHost) {
+          this.applyGameEnd({ winner: "wolf" });
+          this.channel.send({ type: "broadcast", event: "game_end", payload: { winner: "wolf" } });
+        }
       }
     }, Math.max(0, payload.endsAt - Date.now()));
   }
@@ -1333,13 +1355,13 @@ export class GameManager extends Phaser.Events.EventEmitter {
   fixPipePanel(panel: "a" | "b") {
     if (!this.me?.alive || this.phase !== "playing") return;
     if (!this.pipeActive) return;
-    const payload = { panel };
+    const payload = { panel, playerId: this.userId };
     this.applyPipeFix(payload);
     this.channel.send({ type: "broadcast", event: "pipe_fix", payload });
   }
 
-  private applyPipeFix(payload: { panel: "a" | "b" }) {
-    if (!this.pipeActive) return;
+  private applyPipeFix(payload: { panel: "a" | "b"; playerId?: string }) {
+    if (!this.pipeActive || this.phase !== "playing" || !payload.playerId || !this.isAlivePlayer(payload.playerId)) return;
     if (payload.panel === "a") this.pipeAFixed = true;
     else this.pipeBFixed = true;
     this.emit("pipe-change");
@@ -1378,7 +1400,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyGameEnd(payload: {
-    this.activeSabotageKind = null; winner: "sheep" | "wolf"; roles?: Record<string, Role> }) {
+    winner: "sheep" | "wolf"; roles?: Record<string, Role> }) {
+    this.activeSabotageKind = null;
     if (this.phase === "ended") return;
     this.winner = payload.winner;
     if (payload.roles) {
