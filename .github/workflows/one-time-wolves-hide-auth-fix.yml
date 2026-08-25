@@ -1,0 +1,50 @@
+name: One-time wolves hide auth fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch hide sender validation
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess
+          path = Path('src/games/wolves-and-sheep/GameManger.ts')
+          s = path.read_text()
+          marker = '// WOLVES-HIDE-SENDER-FIX-V1'
+          if marker in s:
+              raise SystemExit(0)
+          target = '    this.channel.send({ type: "broadcast", event: "hide_state", payload: { id: this.userId, hidden } });'
+          repl = '    this.channel.send({ type: "broadcast", event: "hide_state", payload: { id: this.userId, senderId: this.userId, hidden } });'
+          if target not in s:
+              raise RuntimeError('hide send target not found')
+          s = s.replace(target, repl, 1)
+          old = '  private applyHideState(payload: { id: string; hidden: boolean }) {\n    if (!payload?.id || typeof payload.hidden !== "boolean") return;\n    const p = this.players.get(payload.id);\n    if (!p) return;'
+          new = '  private applyHideState(payload: { id: string; senderId?: string; hidden: boolean }) {\n    if (!payload?.id || typeof payload.hidden !== "boolean") return;\n    if (!payload.senderId || payload.senderId !== payload.id) return;\n    const p = this.players.get(payload.id);\n    if (!p) return;'
+          if old not in s:
+              raise RuntimeError('hide apply target not found')
+          s = s.replace(old, new, 1)
+          s = s.replace('  // WOLVES-FINAL-REGRESSION-FIX-V1\n', '  // WOLVES-FINAL-REGRESSION-FIX-V1\n  // WOLVES-HIDE-SENDER-FIX-V1\n', 1)
+          path.write_text(s)
+          subprocess.run(['git','config','user.name','github-actions[bot]'], check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          subprocess.run(['git','add',str(path)], check=True)
+          subprocess.run(['git','commit','-m','fix: validate wolves hide sender identity'], check=True)
+          subprocess.run(['git','push'], check=True)
+      - name: Remove workflow
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-time-wolves-hide-auth-fix.yml
+          git commit -m "chore: remove one-time wolves hide auth fix workflow"
+          git push
