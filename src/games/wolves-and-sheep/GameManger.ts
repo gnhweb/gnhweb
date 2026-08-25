@@ -197,7 +197,11 @@ export class GameManager extends Phaser.Events.EventEmitter {
   winner: "sheep" | "wolf" | null = null;
 
   private subscribed = false;
+  /** 현재 GameManager 인스턴스가 방에 처음 들어온 시각. 재연결/앱 복귀 때도 유지해서 호스트 순서가 흔들리지 않게 한다. */
+  private joinedAt: number;
   private unbindVisibility: (() => void) | null = null;
+  /** 동일한 보호 대상에 대한 동시 kill 이벤트가 중복 도착해 보호가 뚫리는 것을 막는다. */
+  private blockedKillVictims = new Set<string>();
   private pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
 
   private scheduleTimeout(fn: () => void, delay: number) {
@@ -214,6 +218,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.roomCode = roomCode;
     this.userId = userId;
     this.userName = userName;
+    this.joinedAt = Date.now();
     this.channel = supabase.channel(`wolves-room-${roomCode}`, {
       config: { presence: { key: userId }, broadcast: { self: false } },
     });
@@ -306,7 +311,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     await this.channel.track({
       userId: this.userId,
       userName: this.userName,
-      joinedAt: Date.now(),
+      joinedAt: this.joinedAt,
       hat: this.myEquipped.hat ?? undefined,
       pet: this.myEquipped.pet ?? undefined,
     });
@@ -499,6 +504,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   /** 라운드(회의 종료 후)마다 목자 보호 / 선지자 조사 가능 횟수를 초기화 */
   private resetRoundAbilities() {
     this.protectedId = null;
+    this.blockedKillVictims.clear();
     this.shepherdUsedThisRound = false;
     this.prophetUsedThisRound = false;
     this.investigationResult = null;
@@ -685,15 +691,24 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyKill(payload: { victimId: string; x: number; y: number; victimName: string }) {
+    // 네트워크 지연/동시 입력으로 같은 kill 이벤트가 여러 번 들어와도 한 번만 처리한다.
+    if (this.blockedKillVictims.has(payload.victimId)) return;
+
+    const p = this.players.get(payload.victimId);
+    if (!p || !p.alive) return;
+
     if (payload.victimId === this.protectedId) {
-      // 목자의 보호로 생존 — 보호는 1회성으로 소모되고 아무도 이 사실을 알 수 없음
+      // 목자의 보호로 생존 — 같은 순간에 여러 kill 이벤트가 도착해도 모두 차단한다.
       this.protectedId = null;
+      this.blockedKillVictims.add(payload.victimId);
       this.emit("kill-blocked", payload.victimId);
       return;
     }
-    const p = this.players.get(payload.victimId);
-    if (p) p.alive = false;
-    this.deadBodies.push({ id: payload.victimId, x: payload.x, y: payload.y, victimName: payload.victimName });
+
+    p.alive = false;
+    if (!this.deadBodies.some((body) => body.id === payload.victimId)) {
+      this.deadBodies.push({ id: payload.victimId, x: payload.x, y: payload.y, victimName: payload.victimName });
+    }
     this.emit("player-killed", payload.victimId);
     this.checkWin();
   }
@@ -799,6 +814,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     const p = this.players.get(payload.targetId);
     if (p && !p.alive) {
       p.alive = true;
+      this.blockedKillVictims.delete(payload.targetId);
       p.x = payload.x;
       p.y = payload.y;
     }
