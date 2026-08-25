@@ -1,0 +1,133 @@
+name: One-time Pharisee legend upgrade
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/one-time-pharisee-legend-upgrade.yml
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Patch Pharisee game engine and UI
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          gm = Path('src/games/pharisee/GameManager.ts')
+          s = gm.read_text()
+
+          def once(old, new, label):
+              if old not in s:
+                  raise SystemExit(f'{label}: marker not found')
+              return s.replace(old, new, 1)
+
+          s = once(
+              '  isPhariseeAlignedForWin,\n} from "./types";\n',
+              '  isPhariseeAlignedForWin,\n} from "./types";\nimport type { ScriptureTrialCounts } from "./scriptureTrials";\nimport { getScriptureTrialForRound } from "./scriptureTrials";\n',
+              'gm imports'
+          )
+
+          s = once(
+              '  deaconUsedThisRound = false;\n\n  winner: "citizen" | "pharisee" | null = null;\n',
+              '  deaconUsedThisRound = false;\n\n  // ---- 말씀 사건(낮 심리전) ----\n  scriptureTrialPromptId = getScriptureTrialForRound(1).id;\n  scriptureTrialChoices: Map<string, string> = new Map();\n  scriptureTrialResolved = false;\n  scriptureTrialCounts: ScriptureTrialCounts = {};\n\n  winner: "citizen" | "pharisee" | null = null;\n',
+              'gm scripture fields'
+          )
+
+          s = once(
+              '      .on("broadcast", { event: "martyr_accuse" }, ({ payload }) => this.applyMartyrAccuse(payload))\n',
+              '      .on("broadcast", { event: "martyr_accuse" }, ({ payload }) => this.applyMartyrAccuse(payload))\n      .on("broadcast", { event: "scripture_trial_answer" }, ({ payload }) => this.applyScriptureTrialAnswer(payload))\n      .on("broadcast", { event: "scripture_trial_result" }, ({ payload }) => this.applyScriptureTrialResult(payload))\n',
+              'gm bind'
+          )
+
+          s = once(
+              '      martyrAccusedTargetId: this.martyrAccusedTargetId,\n    };\n',
+              '      martyrAccusedTargetId: this.martyrAccusedTargetId,\n      scriptureTrialPromptId: this.scriptureTrialPromptId,\n      scriptureTrialResolved: this.scriptureTrialResolved,\n      scriptureTrialCounts: this.scriptureTrialCounts,\n      scriptureTrialChoices: Object.fromEntries(this.scriptureTrialChoices),\n    };\n',
+              'gm snapshot write'
+          )
+
+          s = once(
+              '            martyrAccusedTargetId?: string | null;\n          }\n',
+              '            martyrAccusedTargetId?: string | null;\n            scriptureTrialPromptId?: string;\n            scriptureTrialResolved?: boolean;\n            scriptureTrialCounts?: ScriptureTrialCounts;\n            scriptureTrialChoices?: Record<string, string>;\n          }\n',
+              'gm snapshot type'
+          )
+
+          s = once(
+              '      this.martyrAccusedTargetId = snap.martyrAccusedTargetId ?? null;\n      this.hydrated = true;\n',
+              '      this.martyrAccusedTargetId = snap.martyrAccusedTargetId ?? null;\n      this.scriptureTrialPromptId = snap.scriptureTrialPromptId ?? getScriptureTrialForRound(this.round).id;\n      this.scriptureTrialResolved = snap.scriptureTrialResolved ?? false;\n      this.scriptureTrialCounts = snap.scriptureTrialCounts ?? {};\n      this.scriptureTrialChoices = new Map(Object.entries(snap.scriptureTrialChoices ?? {}));\n      this.hydrated = true;\n',
+              'gm snapshot restore'
+          )
+
+          s = once(
+              '    this.lastNightVictimIds = [];\n    if (this.mvpTimer) clearTimeout(this.mvpTimer);\n',
+              '    this.lastNightVictimIds = [];\n    this.resetScriptureTrial();\n    if (this.mvpTimer) clearTimeout(this.mvpTimer);\n',
+              'gm game start reset'
+          )
+
+          s = once(
+              '    this.votes.clear();\n    this.phaseEndsAt = Date.now() + this.settings.discussMs;\n',
+              '    this.votes.clear();\n    this.resetScriptureTrial();\n    this.phaseEndsAt = Date.now() + this.settings.discussMs;\n',
+              'gm day reset'
+          )
+
+          s = once(
+              '        this.applyDayVoteStart();\n        this.channel.send({ type: "broadcast", event: "day_vote_start", payload: {} });\n',
+              '        this.resolveScriptureTrial();\n        this.applyDayVoteStart();\n        this.channel.send({ type: "broadcast", event: "day_vote_start", payload: {} });\n',
+              'gm day timer resolve'
+          )
+
+          s = once(
+              '  // ---------- 낮 채팅 ----------\n',
+              '''  // ---------- 말씀 사건: 낮마다 한 번만 참여하는 익명 심리전 ----------\n  get scriptureTrial() {\n    return getScriptureTrialForRound(this.round);\n  }\n\n  canAnswerScriptureTrial() {\n    return this.phase === "day-discuss" && !!this.me?.alive && !this.scriptureTrialResolved && !this.scriptureTrialChoices.has(this.userId);\n  }\n\n  answerScriptureTrial(optionId: string) {\n    if (!this.canAnswerScriptureTrial()) return;\n    if (!this.scriptureTrial.options.some((option) => option.id === optionId)) return;\n    const payload = { voterId: this.userId, promptId: this.scriptureTrial.id, optionId };\n    this.applyScriptureTrialAnswer(payload);\n    this.channel.send({ type: "broadcast", event: "scripture_trial_answer", payload });\n  }\n\n  private applyScriptureTrialAnswer(payload: { voterId: string; promptId: string; optionId: string }) {\n    if (this.phase !== "day-discuss") return;\n    if (payload.promptId !== this.scriptureTrial.id) return;\n    const voter = this.players.get(payload.voterId);\n    if (!voter?.alive) return;\n    if (!this.scriptureTrial.options.some((option) => option.id === payload.optionId)) return;\n    if (this.scriptureTrialChoices.has(payload.voterId)) return;\n    this.scriptureTrialChoices.set(payload.voterId, payload.optionId);\n    this.emit("scripture-trial-update");\n\n    if (this.isHost && this.alivePlayers.length > 0) {\n      const answered = this.alivePlayers.filter((p) => this.scriptureTrialChoices.has(p.id)).length;\n      if (answered >= this.alivePlayers.length) this.resolveScriptureTrial();\n    }\n  }\n\n  private resolveScriptureTrial() {\n    if (!this.isHost || this.scriptureTrialResolved) return;\n    const counts: ScriptureTrialCounts = {};\n    this.scriptureTrial.options.forEach((option) => { counts[option.id] = 0; });\n    this.scriptureTrialChoices.forEach((optionId, voterId) => {\n      if (this.players.get(voterId)?.alive && counts[optionId] !== undefined) counts[optionId] += 1;\n    });\n    this.scriptureTrialResolved = true;\n    this.scriptureTrialCounts = counts;\n    const payload = { promptId: this.scriptureTrial.id, counts };\n    this.applyScriptureTrialResult(payload);\n    this.channel.send({ type: "broadcast", event: "scripture_trial_result", payload });\n  }\n\n  private applyScriptureTrialResult(payload: { promptId: string; counts: ScriptureTrialCounts }) {\n    if (payload.promptId !== this.scriptureTrial.id) return;\n    this.scriptureTrialResolved = true;\n    this.scriptureTrialCounts = payload.counts ?? {};\n    this.emit("scripture-trial-update");\n  }\n\n  private resetScriptureTrial() {\n    this.scriptureTrialPromptId = this.scriptureTrial.id;\n    this.scriptureTrialChoices.clear();\n    this.scriptureTrialResolved = false;\n    this.scriptureTrialCounts = {};\n    this.emit("scripture-trial-update");\n  }\n\n  // ---------- 낮 채팅 ----------\n''',
+              'gm scripture methods'
+          )
+
+          gm.write_text(s)
+
+          view = Path('src/games/pharisee/GameView.tsx')
+          v = view.read_text()
+          v = v.replace('import { soundEngine } from "./SoundEngine";\n', 'import { soundEngine } from "./SoundEngine";\nimport ScriptureTrialCard from "./ScriptureTrialCard";\n', 1)
+          v = v.replace('    gm.on("mvp-update", rerender);\n', '    gm.on("mvp-update", rerender);\n    gm.on("scripture-trial-update", rerender);\n', 1)
+          v = v.replace('      {phase === "day-discuss" && <DayDiscussView gm={gm} />}\n', '      {phase === "day-discuss" && (<>\n        <ScriptureTrialCard gm={gm} />\n        <DayDiscussView gm={gm} />\n      </>)}\n', 1)
+          v = v.replace('              <p>🗳️ <b>투표</b>: 제일 의심스러운 사람에게 투표해요. 제일 많이 뽑힌 사람은 나가요.</p>\n', '              <p>🗳️ <b>투표</b>: 제일 의심스러운 사람에게 투표해요. 제일 많이 뽑힌 사람은 나가요.</p>\n              <p>📖 <b>말씀 사건</b>: 낮마다 하나의 실제 상황을 놓고 모두가 선택합니다. 결과는 익명 집계되고, 선택의 이유가 심리전의 단서가 됩니다.</p>\n', 1)
+          view.write_text(v)
+
+          wolves = Path('src/games/wolves-and-sheep/GameManger.ts')
+          if wolves.exists():
+              w = wolves.read_text()
+              needle = '  private hasActiveSabotage() { return this.activeSabotageKind !== null; }\n'
+              if w.count(needle) > 1:
+                  first = w.find(needle)
+                  second = w.find(needle, first + len(needle))
+                  w = w[:second] + w[second + len(needle):]
+                  wolves.write_text(w)
+      - name: Validate touched source
+        run: |
+          test -f src/games/pharisee/scriptureTrials.ts
+          test -f src/games/pharisee/ScriptureTrialCard.tsx
+          grep -n "scriptureTrial" src/games/pharisee/GameManager.ts
+          grep -n "ScriptureTrialCard" src/games/pharisee/GameView.tsx
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/games/pharisee/GameManager.ts src/games/pharisee/GameView.tsx src/games/pharisee/scriptureTrials.ts src/games/pharisee/ScriptureTrialCard.tsx src/games/wolves-and-sheep/GameManger.ts
+          git commit -m "feat: turn Pharisee into a scripture-driven social deduction game" || exit 0
+          git push
+
+      - name: Remove one-time workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/one-time-pharisee-legend-upgrade.yml || true
+          git commit -m "chore: remove one-time Pharisee legend workflow" || true
+          git push || true
