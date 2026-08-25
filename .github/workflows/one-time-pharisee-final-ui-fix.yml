@@ -1,0 +1,38 @@
+name: One-time Pharisee Final UI Fix
+"on":
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch UI copy and final vote banner
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/games/pharisee/GameView.tsx')
+          s = p.read_text()
+          old = '              <p>🗳️ <b>투표</b>: 제일 의심스러운 사람에게 투표해요. 제일 많이 뽑힌 사람은 나가요.</p>\n              <p>📖 <b>말씀 사건</b>: 낮마다 하나의 실제 상황을 놓고 모두가 선택합니다. 결과는 익명 집계되고, 선택의 이유가 심리전의 단서가 됩니다.</p>'
+          new = '              <p>🗳️ <b>지목 투표</b>: 가장 의심스러운 사람을 고르면 그 사람이 최후의 발언을 합니다.</p>\n              <p>⚖️ <b>생사 결정</b>: 최후의 발언을 들은 뒤, 다른 생존자들이 죽일지 살릴지 찬반 투표를 합니다. 죽임 찬성이 엄격한 과반수일 때만 사망하고, 과반 미달이나 동점이면 살아남습니다.</p>'
+          if old not in s:
+              raise SystemExit('rules copy target not found')
+          s = s.replace(old, new, 1)
+          old2 = '''      } else {\n        soundEngine.play("tie");\n        setTextBanner("⚖️ 동점으로 아무도 출교되지 않았습니다.");\n        setTimeout(() => setTextBanner(null), 4500);\n      }'''
+          new2 = '''      } else {\n        if (gm.lastWordsVoteResult) return;\n        soundEngine.play("tie");\n        setTextBanner("⚖️ 동점으로 아무도 지목되지 않았습니다.");\n        setTimeout(() => setTextBanner(null), 4500);\n      }'''
+          if old2 not in s:
+              raise SystemExit('vote result empty branch not found')
+          s = s.replace(old2, new2, 1)
+          p.write_text(s)
+          PY
+      - name: Cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/games/pharisee/GameView.tsx .github/workflows/one-time-pharisee-final-ui-fix.yml
+          git rm -f .github/workflows/one-time-pharisee-final-ui-fix.yml
+          git commit -m "fix: align Pharisee final vote UI"
+          git push
