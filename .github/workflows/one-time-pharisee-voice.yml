@@ -1,0 +1,22 @@
+name: One-time Pharisee Voice Integration
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply voice integration
+        run: python .github/scripts/add_pharisee_voice.py
+      - name: Commit integration and remove one-time files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/games/pharisee/GameView.tsx src/games/pharisee/VoiceChat.tsx .github/workflows/one-time-pharisee-voice.yml .github/scripts/add_pharisee_voice.py
+          git rm -f .github/workflows/one-time-pharisee-voice.yml .github/scripts/add_pharisee_voice.py
+          git commit -m "feat: integrate voice chat into Pharisee phases"
+          git push
