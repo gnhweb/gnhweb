@@ -87,6 +87,7 @@ const MissionBoardPage = lazy(() => import("@/pages/missions/board/page"));
 const MissionLeaderboardPage = lazy(() => import("@/pages/missions/leaderboard/page"));
 const MissionWallPage = lazy(() => import("@/pages/missions/wall/page"));
 const AttendanceBoard = lazy(() => import("@/pages/attendanceBoard/page"));
+const SearchPage = lazy(() => import("@/pages/search/page"));
 
 const pageFallback = (label = "로딩 중…") => (
   <div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">
@@ -102,6 +103,7 @@ const routes: RouteObject[] = [
   {
     element: <Layout />,
     children: [
+      { path: "/search", element: withSuspense(<SearchPage />) },
       {
         path: "/",
         element: (
@@ -472,52 +474,24 @@ const routes: RouteObject[] = [
         ),
       },
       {
-        path: "/admin/storage-cleanup",
-        element: (
-          <AuthGuard minRole="teacher">
-            {withSuspense(<StorageCleanupPage />)}
-          </AuthGuard>
-        ),
+        path: "/reset-password",
+        element: withSuspense(<ResetPassword />),
       },
       {
-        path: "/ganghak-news",
-        element: withSuspense(<GanghakNewsList />),
+        path: "/login",
+        element: withSuspense(<Login />),
       },
       {
-        path: "/ganghak-news/write",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<GanghakNewsWrite />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/ganghak-news/:id/edit",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<GanghakNewsEdit />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/ganghak-news/:id",
-        element: withSuspense(<GanghakNewsDetail />),
+        path: "/setup",
+        element: withSuspense(<Setup />),
       },
       {
         path: "/suggestions",
-        element: (
-          <AuthGuard minRole="member">
-            {withSuspense(<SuggestionsPage />)}
-          </AuthGuard>
-        ),
+        element: withSuspense(<SuggestionsPage />),
       },
       {
         path: "/visitations",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<VisitationsPage />)}
-          </AuthGuard>
-        ),
+        element: withSuspense(<VisitationsPage />),
       },
       {
         path: "/visitations/write",
@@ -529,41 +503,17 @@ const routes: RouteObject[] = [
       },
       {
         path: "/visitations/:id",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<VisitationDetail />)}
-          </AuthGuard>
-        ),
+        element: withSuspense(<VisitationDetail />),
       },
       {
         path: "/meetings",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<MeetingsPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/meeting-copilot",
-        element: (
-          <AuthGuard minRole="member">
-            {withSuspense(<MeetingCopilotPage />)}
-          </AuthGuard>
-        ),
+        element: withSuspense(<MeetingsPage />),
       },
       {
         path: "/meetings/write",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
             {withSuspense(<MeetingWritePage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/meetings/:id",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<MeetingDetailPage />)}
           </AuthGuard>
         ),
       },
@@ -576,6 +526,18 @@ const routes: RouteObject[] = [
         ),
       },
       {
+        path: "/meetings/:id",
+        element: withSuspense(<MeetingDetailPage />),
+      },
+      {
+        path: "/meeting-copilot",
+        element: (
+          <AuthGuard minRole="assistant_zone_leader">
+            {withSuspense(<MeetingCopilotPage />)}
+          </AuthGuard>
+        ),
+      },
+      {
         path: "/missions",
         element: (
           <AuthGuard minRole="assistant_zone_leader">
@@ -584,18 +546,18 @@ const routes: RouteObject[] = [
         ),
       },
       {
-        path: "/missions/leaderboard",
+        path: "/missions/board",
         element: (
-          <AuthGuard minRole="member">
-            {withSuspense(<MissionLeaderboardPage />)}
+          <AuthGuard minRole="assistant_zone_leader">
+            {withSuspense(<MissionBoardPage />)}
           </AuthGuard>
         ),
       },
       {
-        path: "/missions/board",
+        path: "/missions/leaderboard",
         element: (
           <AuthGuard minRole="member">
-            {withSuspense(<MissionBoardPage />)}
+            {withSuspense(<MissionLeaderboardPage />)}
           </AuthGuard>
         ),
       },
@@ -609,29 +571,13 @@ const routes: RouteObject[] = [
       },
       {
         path: "/attendance-board",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<AttendanceBoard />)}
-          </AuthGuard>
-        ),
+        element: withSuspense(<AttendanceBoard />),
       },
       {
         path: "*",
         element: withSuspense(<NotFound />),
       },
     ],
-  },
-  {
-    path: "/login",
-    element: withSuspense(<Login />),
-  },
-  {
-    path: "/setup",
-    element: withSuspense(<Setup />),
-  },
-  {
-    path: "/reset-password",
-    element: withSuspense(<ResetPassword />),
   },
 ];
 
