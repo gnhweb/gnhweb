@@ -28,6 +28,7 @@ export default function LegendLayer({ gm }: LegendLayerProps) {
   const [meta, setMeta] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const processedGameRef = useRef<string>("");
+  const channelRef = useRef<any>(null);
 
   const trial = useMemo(() => getScriptureTrialForRound(gm.round), [gm.round]);
   const myId = gm.userId;
@@ -39,6 +40,7 @@ export default function LegendLayer({ gm }: LegendLayerProps) {
 
   useEffect(() => {
     const channel = supabase.channel(`${CHANNEL_PREFIX}${gm.roomCode}`);
+    channelRef.current = channel;
     channel
       .on("broadcast", { event: COUNSEL_EVENT }, ({ payload }) => {
         if (payload?.round !== gm.round) return;
@@ -60,7 +62,7 @@ export default function LegendLayer({ gm }: LegendLayerProps) {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { channelRef.current = null; supabase.removeChannel(channel); };
   }, [gm.roomCode, gm.round]);
 
   useEffect(() => {
@@ -130,14 +132,14 @@ export default function LegendLayer({ gm }: LegendLayerProps) {
     if (!phariseeSide || gm.phase !== "night" || !counselText.trim()) return;
     const msg: CounselMsg = { id: `${myId}-${Date.now()}`, senderId: myId, senderName: gm.userName, text: counselText.trim().slice(0, 140), round: gm.round };
     setCounsel((prev) => [...prev, msg].slice(-30));
-    await supabase.channel(`${CHANNEL_PREFIX}${gm.roomCode}`).send({ type: "broadcast", event: COUNSEL_EVENT, payload: msg });
+    if (channelRef.current) await channelRef.current.send({ type: "broadcast", event: COUNSEL_EVENT, payload: msg });
     setCounselText("");
   };
 
   const answerScripture = async (optionId: string) => {
     if (gm.phase !== "day-discuss" || !me?.alive || answers[myId]) return;
     setAnswers((prev) => ({ ...prev, [myId]: optionId }));
-    await supabase.channel(`${CHANNEL_PREFIX}${gm.roomCode}`).send({ type: "broadcast", event: SCRIPTURE_EVENT, payload: { userId: myId, optionId, round: gm.round } });
+    if (channelRef.current) await channelRef.current.send({ type: "broadcast", event: SCRIPTURE_EVENT, payload: { userId: myId, optionId, round: gm.round } });
   };
 
   const voteTrust = async (kind: "trust" | "doubt", targetId: string) => {
@@ -145,7 +147,7 @@ export default function LegendLayer({ gm }: LegendLayerProps) {
     if (kind === "trust" && myTrustTarget) return;
     if (kind === "doubt" && myDoubtTarget) return;
     if (kind === "trust") setMyTrustTarget(targetId); else setMyDoubtTarget(targetId);
-    await supabase.channel(`${CHANNEL_PREFIX}${gm.roomCode}`).send({ type: "broadcast", event: TRUST_EVENT, payload: { voterId: myId, targetId, kind, round: gm.round } });
+    if (channelRef.current) await channelRef.current.send({ type: "broadcast", event: TRUST_EVENT, payload: { voterId: myId, targetId, kind, round: gm.round } });
   };
 
   if (gm.phase === "ended") {
