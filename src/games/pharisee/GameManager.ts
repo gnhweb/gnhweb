@@ -18,8 +18,6 @@ import {
   isPhariseeFaction,
   isPhariseeAlignedForWin,
 } from "./types";
-import type { ScriptureTrialCounts } from "./scriptureTrials";
-import { getScriptureTrialForRound } from "./scriptureTrials";
 
 export interface ReactionEvent {
   id: string;
@@ -99,11 +97,9 @@ export class GameManager extends MiniEmitter {
   deaconGuardId: string | null = null;
   deaconUsedThisRound = false;
 
-  // ---- 말씀 사건(낮 심리전) ----
-  scriptureTrialPromptId = getScriptureTrialForRound(1).id;
-  scriptureTrialChoices: Map<string, string> = new Map();
-  scriptureTrialResolved = false;
-  scriptureTrialCounts: ScriptureTrialCounts = {};
+  // ---- 최후의 발언 이후 생사 찬반 투표 ----
+  finalWordsVotes: Map<string, "execute" | "spare"> = new Map();
+  lastWordsVoteResult: { targetId: string; executed: boolean; yesCount: number; noCount: number; voterCount: number } | null = null;
 
   winner: "citizen" | "pharisee" | null = null;
 
@@ -127,6 +123,7 @@ export class GameManager extends MiniEmitter {
   private nightTimer: ReturnType<typeof setTimeout> | null = null;
   private voteTimer: ReturnType<typeof setTimeout> | null = null;
   private lastWordsTimer: ReturnType<typeof setTimeout> | null = null;
+  private finalWordsVoteTimer: ReturnType<typeof setTimeout> | null = null;
   private mvpTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(roomCode: string, userId: string, userName: string) {
@@ -177,6 +174,9 @@ export class GameManager extends MiniEmitter {
       .on("broadcast", { event: "night_end" }, ({ payload }) => this.applyNightEnd(payload))
       .on("broadcast", { event: "day_vote_start" }, () => this.applyDayVoteStart())
       .on("broadcast", { event: "last_words_start" }, ({ payload }) => this.applyLastWordsStart(payload))
+      .on("broadcast", { event: "last_words_vote_start" }, ({ payload }) => this.applyLastWordsVoteStart(payload))
+      .on("broadcast", { event: "last_words_vote" }, ({ payload }) => this.applyFinalWordsVote(payload))
+      .on("broadcast", { event: "last_words_vote_result" }, ({ payload }) => this.applyFinalWordsVoteResult(payload))
       .on("broadcast", { event: "last_words_msg" }, ({ payload }) => this.applyLastWordsMsg(payload))
       .on("broadcast", { event: "vote_end" }, ({ payload }) => this.applyEjection(payload))
       .on("broadcast", { event: "reaction" }, ({ payload }) => this.applyReaction(payload))
@@ -185,8 +185,6 @@ export class GameManager extends MiniEmitter {
       .on("broadcast", { event: "mvp_result" }, ({ payload }) => this.applyMvpResult(payload))
       .on("broadcast", { event: "room_settings" }, ({ payload }) => this.applyRoomSettings(payload))
       .on("broadcast", { event: "martyr_accuse" }, ({ payload }) => this.applyMartyrAccuse(payload))
-      .on("broadcast", { event: "scripture_trial_answer" }, ({ payload }) => this.applyScriptureTrialAnswer(payload))
-      .on("broadcast", { event: "scripture_trial_result" }, ({ payload }) => this.applyScriptureTrialResult(payload))
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED" && !this.subscribed) {
           this.subscribed = true;
@@ -199,10 +197,12 @@ export class GameManager extends MiniEmitter {
     if (this.nightTimer) clearTimeout(this.nightTimer);
     if (this.voteTimer) clearTimeout(this.voteTimer);
     if (this.lastWordsTimer) clearTimeout(this.lastWordsTimer);
+    if (this.finalWordsVoteTimer) clearTimeout(this.finalWordsVoteTimer);
     if (this.mvpTimer) clearTimeout(this.mvpTimer);
     this.nightTimer = null;
     this.voteTimer = null;
     this.lastWordsTimer = null;
+    this.finalWordsVoteTimer = null;
     this.mvpTimer = null;
     supabase.removeChannel(this.channel);
   }
@@ -264,6 +264,8 @@ export class GameManager extends MiniEmitter {
     } else if (this.phase === "day-lastwords" && !this.lastWordsTimer && this.lastWordsTargetId) {
       const targetId = this.lastWordsTargetId;
       this.lastWordsTimer = setTimeout(() => this.finalizeEjection(targetId), remaining + 500);
+    } else if (this.phase === "day-lastwords-vote" && !this.finalWordsVoteTimer) {
+      this.finalWordsVoteTimer = setTimeout(() => this.resolveFinalWordsVote(), remaining + 500);
     }
   }
 
@@ -296,10 +298,8 @@ export class GameManager extends MiniEmitter {
       lastWordsTargetId: this.lastWordsTargetId,
       winner: this.winner,
       martyrAccusedTargetId: this.martyrAccusedTargetId,
-      scriptureTrialPromptId: this.scriptureTrialPromptId,
-      scriptureTrialResolved: this.scriptureTrialResolved,
-      scriptureTrialCounts: this.scriptureTrialCounts,
-      scriptureTrialChoices: Object.fromEntries(this.scriptureTrialChoices),
+      finalWordsVotes: Object.fromEntries(this.finalWordsVotes),
+      lastWordsVoteResult: this.lastWordsVoteResult,
     };
     try {
       const { error } = await supabase
@@ -341,10 +341,8 @@ export class GameManager extends MiniEmitter {
             lastWordsTargetId: string | null;
             winner: "citizen" | "pharisee" | null;
             martyrAccusedTargetId?: string | null;
-            scriptureTrialPromptId?: string;
-            scriptureTrialResolved?: boolean;
-            scriptureTrialCounts?: ScriptureTrialCounts;
-            scriptureTrialChoices?: Record<string, string>;
+            finalWordsVotes?: Record<string, "execute" | "spare">;
+            lastWordsVoteResult?: { targetId: string; executed: boolean; yesCount: number; noCount: number; voterCount: number } | null;
           }
         | undefined;
       if (!snap || snap.phase === "lobby" || snap.phase === "ended") return;
@@ -370,10 +368,8 @@ export class GameManager extends MiniEmitter {
       this.lastWordsTargetId = snap.lastWordsTargetId;
       this.winner = snap.winner;
       this.martyrAccusedTargetId = snap.martyrAccusedTargetId ?? null;
-      this.scriptureTrialPromptId = snap.scriptureTrialPromptId ?? getScriptureTrialForRound(this.round).id;
-      this.scriptureTrialResolved = snap.scriptureTrialResolved ?? false;
-      this.scriptureTrialCounts = snap.scriptureTrialCounts ?? {};
-      this.scriptureTrialChoices = new Map(Object.entries(snap.scriptureTrialChoices ?? {}));
+      this.finalWordsVotes = new Map(Object.entries(snap.finalWordsVotes ?? {}));
+      this.lastWordsVoteResult = snap.lastWordsVoteResult ?? null;
       this.hydrated = true;
       if (wasParticipant) {
         this.reconnected = true;
@@ -446,7 +442,6 @@ export class GameManager extends MiniEmitter {
     this.martyrAccusedTargetId = null;
     this.martyrStrikeResultId = null;
     this.lastNightVictimIds = [];
-    this.resetScriptureTrial();
     if (this.mvpTimer) clearTimeout(this.mvpTimer);
     this.resetRoundState();
     this.phase = "night";
@@ -615,7 +610,6 @@ export class GameManager extends MiniEmitter {
     this.phase = "day-discuss";
     this.chatLog = [];
     this.votes.clear();
-    this.resetScriptureTrial();
     this.phaseEndsAt = Date.now() + this.settings.discussMs;
     this.emit("phase-change", "day-discuss");
     if (!this.checkWin() && this.isHost) {
@@ -635,68 +629,6 @@ export class GameManager extends MiniEmitter {
       this.voteTimer = setTimeout(() => this.resolveVote(), this.settings.voteMs + 500);
       this.persistSnapshot();
     }
-  }
-
-  // ---------- 말씀 사건: 낮마다 한 번만 참여하는 익명 심리전 ----------
-  get scriptureTrial() {
-    return getScriptureTrialForRound(this.round);
-  }
-
-  canAnswerScriptureTrial() {
-    return this.phase === "day-discuss" && !!this.me?.alive && !this.scriptureTrialResolved && !this.scriptureTrialChoices.has(this.userId);
-  }
-
-  answerScriptureTrial(optionId: string) {
-    if (!this.canAnswerScriptureTrial()) return;
-    if (!this.scriptureTrial.options.some((option) => option.id === optionId)) return;
-    const payload = { voterId: this.userId, promptId: this.scriptureTrial.id, optionId };
-    this.applyScriptureTrialAnswer(payload);
-    this.channel.send({ type: "broadcast", event: "scripture_trial_answer", payload });
-  }
-
-  private applyScriptureTrialAnswer(payload: { voterId: string; promptId: string; optionId: string }) {
-    if (this.phase !== "day-discuss") return;
-    if (payload.promptId !== this.scriptureTrial.id) return;
-    const voter = this.players.get(payload.voterId);
-    if (!voter?.alive) return;
-    if (!this.scriptureTrial.options.some((option) => option.id === payload.optionId)) return;
-    if (this.scriptureTrialChoices.has(payload.voterId)) return;
-    this.scriptureTrialChoices.set(payload.voterId, payload.optionId);
-    this.emit("scripture-trial-update");
-
-    if (this.isHost && this.alivePlayers.length > 0) {
-      const answered = this.alivePlayers.filter((p) => this.scriptureTrialChoices.has(p.id)).length;
-      if (answered >= this.alivePlayers.length) this.resolveScriptureTrial();
-    }
-  }
-
-  private resolveScriptureTrial() {
-    if (!this.isHost || this.scriptureTrialResolved) return;
-    const counts: ScriptureTrialCounts = {};
-    this.scriptureTrial.options.forEach((option) => { counts[option.id] = 0; });
-    this.scriptureTrialChoices.forEach((optionId, voterId) => {
-      if (this.players.get(voterId)?.alive && counts[optionId] !== undefined) counts[optionId] += 1;
-    });
-    this.scriptureTrialResolved = true;
-    this.scriptureTrialCounts = counts;
-    const payload = { promptId: this.scriptureTrial.id, counts };
-    this.applyScriptureTrialResult(payload);
-    this.channel.send({ type: "broadcast", event: "scripture_trial_result", payload });
-  }
-
-  private applyScriptureTrialResult(payload: { promptId: string; counts: ScriptureTrialCounts }) {
-    if (payload.promptId !== this.scriptureTrial.id) return;
-    this.scriptureTrialResolved = true;
-    this.scriptureTrialCounts = payload.counts ?? {};
-    this.emit("scripture-trial-update");
-  }
-
-  private resetScriptureTrial() {
-    this.scriptureTrialPromptId = this.scriptureTrial.id;
-    this.scriptureTrialChoices.clear();
-    this.scriptureTrialResolved = false;
-    this.scriptureTrialCounts = {};
-    this.emit("scripture-trial-update");
   }
 
   // ---------- 낮 채팅 ----------
@@ -827,6 +759,97 @@ export class GameManager extends MiniEmitter {
     }
   }
 
+  // ---------- 최후의 발언 후 생사 찬반 투표 ----------
+  private applyLastWordsVoteStart(payload: { targetId: string }) {
+    if (this.phase === "ended") return;
+    const target = this.players.get(payload.targetId);
+    if (!target?.alive) return;
+    if (this.lastWordsTimer) clearTimeout(this.lastWordsTimer);
+    this.lastWordsTimer = null;
+    this.finalWordsVotes.clear();
+    this.lastWordsVoteResult = null;
+    this.phase = "day-lastwords-vote";
+    this.phaseEndsAt = Date.now() + this.settings.voteMs;
+    this.emit("phase-change", "day-lastwords-vote");
+    this.emit("final-words-vote-update");
+    if (this.isHost) {
+      this.finalWordsVoteTimer = setTimeout(() => this.resolveFinalWordsVote(), this.settings.voteMs + 500);
+      this.persistSnapshot();
+    }
+  }
+
+  castFinalWordsVote(decision: "execute" | "spare") {
+    if (this.phase !== "day-lastwords-vote") return;
+    if (!this.me?.alive || this.userId === this.lastWordsTargetId) return;
+    const payload = { voterId: this.userId, targetId: this.lastWordsTargetId!, decision };
+    this.applyFinalWordsVote(payload);
+    this.channel.send({ type: "broadcast", event: "last_words_vote", payload });
+  }
+
+  private applyFinalWordsVote(payload: { voterId: string; targetId: string; decision: "execute" | "spare" }) {
+    if (this.phase !== "day-lastwords-vote") return;
+    if (payload.targetId !== this.lastWordsTargetId) return;
+    if (payload.decision !== "execute" && payload.decision !== "spare") return;
+    const voter = this.players.get(payload.voterId);
+    if (!voter?.alive || payload.voterId === payload.targetId) return;
+    if (this.finalWordsVotes.has(payload.voterId)) return;
+    this.finalWordsVotes.set(payload.voterId, payload.decision);
+    this.emit("final-words-vote-update");
+    this.maybeAutoResolveFinalWordsVote();
+  }
+
+  private maybeAutoResolveFinalWordsVote() {
+    if (!this.isHost || this.phase !== "day-lastwords-vote") return;
+    const eligibleCount = this.alivePlayers.filter((p) => p.id !== this.lastWordsTargetId).length;
+    if (eligibleCount > 0 && this.finalWordsVotes.size >= eligibleCount) {
+      if (this.finalWordsVoteTimer) clearTimeout(this.finalWordsVoteTimer);
+      this.finalWordsVoteTimer = null;
+      this.resolveFinalWordsVote();
+    }
+  }
+
+  private resolveFinalWordsVote() {
+    if (!this.isHost || this.phase !== "day-lastwords-vote") return;
+    if (this.finalWordsVoteTimer) clearTimeout(this.finalWordsVoteTimer);
+    this.finalWordsVoteTimer = null;
+    const eligibleCount = this.alivePlayers.filter((p) => p.id !== this.lastWordsTargetId).length;
+    const yesCount = [...this.finalWordsVotes.values()].filter((v) => v === "execute").length;
+    const noCount = [...this.finalWordsVotes.values()].filter((v) => v === "spare").length;
+    const executed = eligibleCount > 0 && yesCount > eligibleCount / 2;
+    let martyrStrikeId: string | null = null;
+    if (executed && this.lastWordsTargetId && this.martyrAccusedTargetId) {
+      const martyr = this.players.get(this.lastWordsTargetId);
+      const accused = this.players.get(this.martyrAccusedTargetId);
+      if (martyr?.role === "martyr" && accused?.alive && isPhariseeAlignedForWin(accused.role)) {
+        martyrStrikeId = accused.id;
+      }
+    }
+    const payload = {
+      targetId: this.lastWordsTargetId!,
+      executed,
+      yesCount,
+      noCount,
+      voterCount: eligibleCount,
+      martyrStrikeId,
+    };
+    this.applyFinalWordsVoteResult(payload);
+    this.channel.send({ type: "broadcast", event: "last_words_vote_result", payload });
+  }
+
+  private applyFinalWordsVoteResult(payload: { targetId: string; executed: boolean; yesCount: number; noCount: number; voterCount: number; martyrStrikeId?: string | null }) {
+    if (this.phase !== "day-lastwords-vote") return;
+    this.lastWordsVoteResult = {
+      targetId: payload.targetId,
+      executed: payload.executed,
+      yesCount: payload.yesCount,
+      noCount: payload.noCount,
+      voterCount: payload.voterCount,
+    };
+    this.emit("final-words-vote-result", this.lastWordsVoteResult);
+    const ejectedId = payload.executed ? payload.targetId : null;
+    this.applyEjection({ ejectedId, martyrStrikeId: payload.executed ? (payload.martyrStrikeId ?? null) : null });
+  }
+
   /** 지목된 본인만 보낼 수 있는 마지막 발언 */
   sendLastWords(text: string) {
     if (this.phase !== "day-lastwords" || this.userId !== this.lastWordsTargetId) return;
@@ -850,19 +873,9 @@ export class GameManager extends MiniEmitter {
 
   private finalizeEjection(targetId: string) {
     if (!this.isHost) return;
-    const ejectedId = targetId;
-    // 출교당하는 사람이 순교자이고 실제로 누군가를 고발했다면, 그 대상이 진짜 바리새인 편인지 판정한다
-    let martyrStrikeId: string | null = null;
-    if (ejectedId && this.martyrAccusedTargetId) {
-      const martyr = this.players.get(ejectedId);
-      const accused = this.players.get(this.martyrAccusedTargetId);
-      if (martyr?.role === "martyr" && accused?.alive && isPhariseeAlignedForWin(accused.role)) {
-        martyrStrikeId = accused.id;
-      }
-    }
-    const payload = { ejectedId, martyrStrikeId };
-    this.applyEjection(payload);
-    this.channel.send({ type: "broadcast", event: "vote_end", payload });
+    const payload = { targetId };
+    this.applyLastWordsVoteStart(payload);
+    this.channel.send({ type: "broadcast", event: "last_words_vote_start", payload });
   }
 
   private applyEjection(payload: { ejectedId: string | null; martyrStrikeId?: string | null }) {
@@ -924,6 +937,7 @@ export class GameManager extends MiniEmitter {
     if (this.nightTimer) clearTimeout(this.nightTimer);
     if (this.voteTimer) clearTimeout(this.voteTimer);
     if (this.lastWordsTimer) clearTimeout(this.lastWordsTimer);
+    if (this.finalWordsVoteTimer) clearTimeout(this.finalWordsVoteTimer);
     this.winner = payload.winner;
     this.phase = "ended";
     this.emit("phase-change", "ended");

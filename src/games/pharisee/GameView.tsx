@@ -8,7 +8,6 @@ import { GameManager, ReactionEvent } from "./GameManager";
 import LegendLayer from "./LegendLayer";
 import LeaderboardModal from "./LeaderboardModal";
 import { soundEngine } from "./SoundEngine";
-import ScriptureTrialCard from "./ScriptureTrialCard";
 import {
   MIN_PLAYERS,
   ROLE_INFO,
@@ -346,7 +345,7 @@ function RoomView({
 }) {
   const gmRef = useRef<GameManager | null>(null);
   const [, tick] = useState(0);
-  const [phase, setPhase] = useState<"lobby" | "night" | "day-discuss" | "day-vote" | "day-lastwords" | "ended">("lobby");
+  const [phase, setPhase] = useState<"lobby" | "night" | "day-discuss" | "day-vote" | "day-lastwords" | "day-lastwords-vote" | "ended">("lobby");
   const [roleRevealDone, setRoleRevealDone] = useState(false);
   const [textBanner, setTextBanner] = useState<string | null>(null);
   const [revealQueue, setRevealQueue] = useState<{ id: string; name: string; role: Role; cause: "night" | "vote" }[]>([]);
@@ -365,7 +364,6 @@ function RoomView({
     gm.on("vote-update", rerender);
     gm.on("lastwords-update", rerender);
     gm.on("mvp-update", rerender);
-    gm.on("scripture-trial-update", rerender);
     gm.on("chat-blocked", () => {
       setTextBanner("✋ 메시지를 너무 빠르게 보내고 있어요. 잠시 후 다시 시도해주세요.");
       setTimeout(() => setTextBanner(null), 2000);
@@ -398,6 +396,7 @@ function RoomView({
       if (p === "night") soundEngine.play("nightStart");
       if (p === "day-vote") soundEngine.play("voteStart");
       if (p === "day-lastwords") soundEngine.play("lastWords");
+      if (p === "day-lastwords-vote") soundEngine.play("voteStart");
       if (p === "ended") soundEngine.play(gm.winner === "citizen" ? "winCitizen" : "winPharisee");
       if (p === "day-discuss") {
         if (gm.lastNightVictimIds.length > 0) {
@@ -537,6 +536,8 @@ function RoomView({
             ? "☀️ 낮 토론"
             : phase === "day-lastwords"
             ? "🕯️ 마지막 유언"
+            : phase === "day-lastwords-vote"
+            ? "⚖️ 생사 결정"
             : "🗳️ 투표"}
           <TimerBadge left={headerLeft} />
         </h2>
@@ -552,12 +553,10 @@ function RoomView({
       )}
       {phase === "night" && <NightSequenceBanner gm={gm} />}
       {phase === "night" && <NightView gm={gm} />}
-      {phase === "day-discuss" && (<>
-        <ScriptureTrialCard gm={gm} />
-        <DayDiscussView gm={gm} />
-      </>)}
+      {phase === "day-discuss" && <DayDiscussView gm={gm} />}
       {phase === "day-vote" && <DayVoteView gm={gm} />}
       {phase === "day-lastwords" && <LastWordsView gm={gm} />}
+      {phase === "day-lastwords-vote" && <FinalWordsVoteView gm={gm} />}
       <LegendLayer gm={gm} />
       {!gm.me?.alive && <GhostChatPanel gm={gm} />}
       <FloatingReactions reactions={floatingReactions} />
@@ -615,6 +614,75 @@ function ReactionBar({ gm }: { gm: GameManager }) {
 }
 
 /** 투표로 지목된 사람이 출교 확정 전 마지막으로 발언하는 페이즈 */
+function FinalWordsVoteView({ gm }: { gm: GameManager }) {
+  const left = useCountdown(gm.phaseEndsAt);
+  const target = gm.lastWordsTargetId ? gm.players.get(gm.lastWordsTargetId) : null;
+  const isTarget = gm.userId === gm.lastWordsTargetId;
+  const me = gm.me;
+  const myVote = gm.finalWordsVotes.get(gm.userId);
+
+  if (!me?.alive || isTarget) {
+    return (
+      <div className="bg-gray-800 rounded-xl p-4 space-y-3">
+        <div className="text-center">
+          <p className="text-base font-bold text-amber-300">⚖️ 최후의 발언을 들었습니다</p>
+          <p className="text-sm text-gray-300 mt-1">
+            {isTarget ? `${target?.name ?? "해당 플레이어"}님은 생사 투표에 참여할 수 없습니다.` : "당신은 더 이상 생사 투표에 참여할 수 없습니다."}
+          </p>
+          <p className="text-xs text-gray-500 mt-2">다른 살아있는 플레이어의 결정을 기다리는 중… {left}초</p>
+        </div>
+        {gm.lastWordsVoteResult && <FinalWordsVoteResultBanner gm={gm} />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-4 space-y-4">
+      <div className="text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-900 text-xs text-gray-400">⚖️ 생사 결정 · {left}초</div>
+        <p className="text-lg font-bold text-white mt-3">{target?.name ?? "누군가"}님의 마지막 발언이 끝났습니다</p>
+        <p className="text-sm text-gray-400 mt-1">이 사람을 공동체에 남길까요, 여기서 끝낼까요?</p>
+        <p className="text-xs text-gray-500 mt-2">모든 생존 플레이어 중 본인을 제외한 사람만 투표하며, 찬성이 과반수일 때만 사망합니다.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => gm.castFinalWordsVote("execute")}
+          disabled={!!myVote}
+          className={`min-h-16 rounded-xl border text-sm font-bold cursor-pointer disabled:cursor-default ${
+            myVote === "execute" ? "bg-rose-800 border-rose-500 text-white" : "bg-gray-900 border-rose-900 text-rose-200 hover:bg-rose-950"
+          }`}
+        >
+          ☠️ 죽인다
+        </button>
+        <button
+          onClick={() => gm.castFinalWordsVote("spare")}
+          disabled={!!myVote}
+          className={`min-h-16 rounded-xl border text-sm font-bold cursor-pointer disabled:cursor-default ${
+            myVote === "spare" ? "bg-emerald-800 border-emerald-500 text-white" : "bg-gray-900 border-emerald-900 text-emerald-200 hover:bg-emerald-950"
+          }`}
+        >
+          🕊️ 살려준다
+        </button>
+      </div>
+
+      <p className="text-xs text-center text-gray-500">{myVote ? "투표 완료. 다른 플레이어의 결정을 기다리는 중입니다." : "한 번 선택하면 바꿀 수 없습니다."}</p>
+      {gm.lastWordsVoteResult && <FinalWordsVoteResultBanner gm={gm} />}
+    </div>
+  );
+}
+
+function FinalWordsVoteResultBanner({ gm }: { gm: GameManager }) {
+  const result = gm.lastWordsVoteResult;
+  if (!result) return null;
+  return (
+    <div className={`rounded-xl p-3 text-center border ${result.executed ? "bg-rose-950/60 border-rose-800" : "bg-emerald-950/60 border-emerald-800"}`}>
+      <p className="font-bold text-sm">{result.executed ? "☠️ 과반수 찬성으로 사망이 확정되었습니다." : "🕊️ 과반수 찬성이 성립되지 않아 살아남았습니다."}</p>
+      <p className="text-xs text-gray-400 mt-1">죽인다 {result.yesCount} · 살려준다 {result.noCount} · 투표 자격자 {result.voterCount}</p>
+    </div>
+  );
+}
+
 function LastWordsView({ gm }: { gm: GameManager }) {
   const left = useCountdown(gm.phaseEndsAt);
   const [input, setInput] = useState("");

@@ -6,7 +6,7 @@ export type Role =
   | "deacon"
   | "traitor"
   | "martyr";
-export type Phase = "lobby" | "night" | "day-discuss" | "day-vote" | "day-lastwords" | "ended";
+export type Phase = "lobby" | "night" | "day-discuss" | "day-vote" | "day-lastwords" | "day-lastwords-vote" | "ended";
 
 export interface PlayerState {
   id: string;
