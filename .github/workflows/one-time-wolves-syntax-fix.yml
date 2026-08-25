@@ -1,0 +1,38 @@
+name: One-time wolves syntax fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix meeting signature
+        shell: python
+        run: |
+          from pathlib import Path
+          import re, subprocess
+          path = Path('src/games/wolves-and-sheep/GameManger.ts')
+          s = path.read_text()
+          bad = re.compile(r'private applyMeetingStart\(payload: \{\s*this\.activeSabotageKind = null;\s*reason: string; callerName: string; emergencyCallsUsed: number \}\) \{')
+          good = 'private applyMeetingStart(payload: { reason: string; callerName: string; emergencyCallsUsed: number }) {\n    this.activeSabotageKind = null;'
+          s, n = bad.subn(good, s, count=1)
+          if n != 1:
+              raise RuntimeError('meeting signature not found')
+          path.write_text(s)
+          subprocess.run(['git','config','user.name','github-actions[bot]'], check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          subprocess.run(['git','add',str(path)], check=True)
+          subprocess.run(['git','commit','-m','fix: repair wolves meeting handler signature'], check=True)
+          subprocess.run(['git','push'], check=True)
+      - name: Remove workflow
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-time-wolves-syntax-fix.yml
+          git commit -m "chore: remove one-time wolves syntax fix workflow"
+          git push
