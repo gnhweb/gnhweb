@@ -10,5 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify workflow execution
-        run: echo "pharisee final words migration runner active"
+      - name: Apply final words vote migration
+        run: python .github/scripts/apply_final_words_migration.py
+      - name: Remove one-time migration files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/games/pharisee .github/workflows/one-time-pharisee-finalwords.yml .github/scripts/apply_final_words_migration.py
+          git rm -f .github/workflows/one-time-pharisee-finalwords.yml .github/scripts/apply_final_words_migration.py
+          git commit -m "feat: replace final words with majority survival vote"
+          git push
