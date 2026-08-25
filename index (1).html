@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png?v=2" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#0b0e1a" />
+    <title>강학</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('theme');
+          var isDark = stored === 'dark' || (!stored && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) { document.documentElement.classList.add('dark'); document.documentElement.style.colorScheme = 'dark'; }
+          else { document.documentElement.style.colorScheme = 'light'; }
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      /* iPhone Safari: 페이지 확대/축소 방지. 일반 세로/가로 스크롤은 유지 */
+      html, body {
+        -webkit-text-size-adjust: 100%;
+        touch-action: pan-x pan-y;
+        overscroll-behavior-x: none;
+      }
+      body {
+        -webkit-user-select: text;
+      }
+      /* 강학뉴스 신문 지면은 라이트 테마 고정: 다크모드 토큰 상속으로 글자가 날아가는 문제 방지 */
+      .bg-\[\#f5f0e8\] .text-foreground-950 { color:#171717 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-900 { color:#222 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-800 { color:#333 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-700 { color:#444 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-600 { color:#555 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-500 { color:#666 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-400 { color:#777 !important; }
+      .bg-\[\#f5f0e8\] .text-foreground-300 { color:#888 !important; }
+      .bg-\[\#f5f0e8\] .border-foreground-950 { border-color:#171717 !important; }
+      .bg-\[\#f5f0e8\] .border-foreground-900 { border-color:#222 !important; }
+      .bg-\[\#f5f0e8\] .border-foreground-300 { border-color:#c8c2b8 !important; }
+      .bg-\[\#f5f0e8\] .border-foreground-200 { border-color:#d8d1c7 !important; }
+      .bg-\[\#f5f0e8\] .border-foreground-100 { border-color:#e7e0d7 !important; }
+      .bg-\[\#f5f0e8\] .bg-foreground-950 { background-color:#171717 !important; }
+      .bg-\[\#f5f0e8\] .text-background-50 { color:#fff !important; }
+      .bg-\[\#f5f0e8\] .bg-foreground-200 { background-color:#e6dfd5 !important; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://readdy.ai">
+    <link rel="dns-prefetch" href="https://readdy.ai">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.5.0/remixicon.min.css" crossorigin="anonymous">
+  </head>
+  <body class="notranslate" translate="no">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script src="https://readdy.ai/api/public/assistant/widget?projectId=bf294611-0b59-44df-aa0a-5ff8df712394" mode="hybrid" voice-show-transcript="true" theme="light" size="compact" accent-color="#F59E0B" button-base-color="#1F2937" button-accent-color="#FFFFFF" main-label="학생회 AI 도우미" defer></script>
+  </body>
+</html>
