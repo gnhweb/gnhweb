@@ -179,6 +179,12 @@ export class GameManager extends Phaser.Events.EventEmitter {
   private processedBlackoutPresses = new Set<string>();
   private activeSabotageKind: "blackout" | "reactor" | "door" | "candle" | "pipe" | null = null;
   private activeMeetingId: string | null = null;
+  private roleReady = false;
+  private lastStateSyncAt = 0;
+  private lastMoveSentAt = 0;
+  private lastMoveReceivedAt = new Map<string, number>();
+
+  // WOLVES-FINAL-REGRESSION-FIX-V1
 
   // WOLVES-HARDENING-V2
   // WOLVES-SABOTAGE-RESET-V1
@@ -245,6 +251,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     if (payload.recipientId && payload.recipientId !== this.userId) return;
     if (this.gameNonce && payload.gameNonce !== this.gameNonce) return;
     this.myRole = payload.role;
+    this.roleReady = true;
     const me = this.players.get(this.userId);
     if (me) {
       me.role = payload.role;
@@ -290,7 +297,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   get isWolfSide(): boolean {
-    return isWolfFaction(this.myRole);
+    return this.roleReady && isWolfFaction(this.myRole);
   }
 
   private bind() {
@@ -311,7 +318,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
       .on("broadcast", { event: "vote_cancel" }, ({ payload }) => this.applyVoteCancel(payload))
       .on("broadcast", { event: "meeting_end" }, ({ payload }) => this.applyMeetingEnd(payload))
       .on("broadcast", { event: "sabotage_blackout" }, ({ payload }) => this.applyBlackoutStart(payload))
-      .on("broadcast", { event: "blackout_progress" }, () => this.applyBlackoutProgress())
+      .on("broadcast", { event: "blackout_progress" }, ({ payload }) => this.applyBlackoutProgress(payload))
       .on("broadcast", { event: "blackout_end" }, () => this.applyBlackoutEnd())
       .on("broadcast", { event: "sabotage_reactor" }, ({ payload }) => this.applyReactorStart(payload))
       .on("broadcast", { event: "reactor_fix" }, ({ payload }) => this.applyReactorFix(payload))
@@ -393,8 +400,12 @@ export class GameManager extends Phaser.Events.EventEmitter {
       this.channel.send({ type: "broadcast", event: "settings_update", payload: this.settings });
     }
     if (this.isHost && this.phase !== "lobby") {
-      this.channel.send({ type: "broadcast", event: "state_sync", payload: this.serializeState() });
-      this.sendPrivateRoles(Object.fromEntries([...this.players.entries()].map(([id, p]) => [id, p.role])));
+      const now = Date.now();
+      if (now - this.lastStateSyncAt >= 1000) {
+        this.lastStateSyncAt = now;
+        this.channel.send({ type: "broadcast", event: "state_sync", payload: this.serializeState() });
+        this.sendPrivateRoles(Object.fromEntries([...this.players.entries()].map(([id, p]) => [id, p.role])));
+      }
     }
   }
 
@@ -450,6 +461,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.emergencyCallsUsed = 0;
     this.winner = null;
     this.myRole = "sheep";
+    this.roleReady = false;
     this.taskAssignments = {};
     this.completedTaskIds = {};
     this.totalTasksRequired = 0;
@@ -615,6 +627,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.activeIntercession = null;
     this.lastIntercessionResult = null;
     this.resetRoundAbilities();
+    this.roleReady = Boolean(payload.roles?.[this.userId]);
     this.phase = "playing";
     this.emit("phase-change", "playing");
   }
@@ -681,6 +694,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.phase = payload.phase;
     this.settings = { ...DEFAULT_GAME_SETTINGS, ...payload.settings };
     const currentMyRole = this.myRole;
+    const currentRoleReady = this.roleReady;
     const publicPlayers = Object.fromEntries(Object.entries(payload.players).map(([id, p]) => [id, { ...p, role: this.revealedRoles[id] ?? "sheep" }]));
     this.players = new Map(Object.entries(publicPlayers));
     const myPlayer = this.players.get(this.userId);
@@ -727,7 +741,8 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.winner = payload.winner;
     this.emergencyCallsUsed = payload.emergencyCallsUsed;
 
-    if (!this.myRole) this.myRole = this.players.get(this.userId)?.role || "sheep";
+    this.myRole = currentMyRole;
+    this.roleReady = currentRoleReady;
     this.myCompletedTasks = new Set(this.completedTaskIds[this.userId] ?? []);
 
     this.emit("phase-change", this.phase);
@@ -746,7 +761,11 @@ export class GameManager extends Phaser.Events.EventEmitter {
     if (!this.isValidCoordinate(x, 3600) || !this.isValidCoordinate(y, 2800)) return;
     const p = this.players.get(this.userId);
     if (!p) return;
-    if (Math.hypot(x - p.x, y - p.y) > 360) return;
+    const now = Date.now();
+    const elapsed = Math.max(16, now - this.lastMoveSentAt);
+    const maxDistance = Math.max(180, Math.min(700, (elapsed / 1000) * 850 + 80));
+    if (Math.hypot(x - p.x, y - p.y) > maxDistance) return;
+    this.lastMoveSentAt = now;
     p.x = x;
     p.y = y;
     this.channel.send({ type: "broadcast", event: "move", payload: { id: this.userId, x, y } });
@@ -757,7 +776,12 @@ export class GameManager extends Phaser.Events.EventEmitter {
     if (!this.isValidCoordinate(payload.x, 3600) || !this.isValidCoordinate(payload.y, 2800)) return;
     const p = this.players.get(payload.id);
     if (!p || !p.alive) return;
-    if (Math.hypot(payload.x - p.x, payload.y - p.y) > 360) return;
+    const now = Date.now();
+    const previous = this.lastMoveReceivedAt.get(payload.id) ?? now - 250;
+    const elapsed = Math.max(16, now - previous);
+    const maxDistance = Math.max(180, Math.min(700, (elapsed / 1000) * 850 + 80));
+    if (Math.hypot(payload.x - p.x, payload.y - p.y) > maxDistance) return;
+    this.lastMoveReceivedAt.set(payload.id, now);
     p.x = payload.x;
     p.y = payload.y;
     this.emit("player-moved", payload.id);
@@ -852,8 +876,11 @@ export class GameManager extends Phaser.Events.EventEmitter {
   }
 
   private applyHideState(payload: { id: string; hidden: boolean }) {
+    if (!payload?.id || typeof payload.hidden !== "boolean") return;
     const p = this.players.get(payload.id);
-    if (p) p.hidden = payload.hidden;
+    if (!p) return;
+    if (!p.alive && payload.hidden) return;
+    p.hidden = payload.hidden;
     this.emit("hide-change", payload.id);
   }
 
@@ -977,12 +1004,17 @@ export class GameManager extends Phaser.Events.EventEmitter {
     if (!this.me?.alive) return;
     const trimmed = text.trim();
     if (!trimmed) return;
-    const msg = { id: `${this.userId}-${Date.now()}`, senderName: this.userName, text: trimmed };
+    const msg = { id: `${this.userId}-${Date.now()}`, senderId: this.userId, senderName: this.userName, text: trimmed };
     this.applyChat(msg);
     this.channel.send({ type: "broadcast", event: "chat", payload: msg });
   }
 
-  private applyChat(msg: ChatMsg) {
+  private applyChat(msg: ChatMsg & { senderId?: string }) {
+    if (msg.senderId) {
+      const sender = this.players.get(msg.senderId);
+      if (!sender || !sender.alive || sender.name !== msg.senderName) return;
+      msg = { ...msg, senderName: sender.name };
+    }
     this.chatLog.push(msg);
     if (this.chatLog.length > 100) this.chatLog.shift();
     this.emit("chat-update");
@@ -992,12 +1024,17 @@ export class GameManager extends Phaser.Events.EventEmitter {
     if (this.me?.alive) return;
     const trimmed = text.trim();
     if (!trimmed) return;
-    const msg = { id: `${this.userId}-${Date.now()}`, senderName: this.userName, text: trimmed };
+    const msg = { id: `${this.userId}-${Date.now()}`, senderId: this.userId, senderName: this.userName, text: trimmed };
     this.applyGhostChat(msg);
     this.channel.send({ type: "broadcast", event: "ghost_chat", payload: msg });
   }
 
-  private applyGhostChat(msg: ChatMsg) {
+  private applyGhostChat(msg: ChatMsg & { senderId?: string }) {
+    if (msg.senderId) {
+      const sender = this.players.get(msg.senderId);
+      if (!sender || sender.alive || sender.name !== msg.senderName) return;
+      msg = { ...msg, senderName: sender.name };
+    }
     this.ghostChatLog.push(msg);
     if (this.ghostChatLog.length > 100) this.ghostChatLog.shift();
     this.emit("ghost-chat-update");
