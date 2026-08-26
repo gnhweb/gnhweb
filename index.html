@@ -47,6 +47,7 @@
     <link rel="preconnect" href="https://readdy.ai">
     <link rel="dns-prefetch" href="https://readdy.ai">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.5.0/remixicon.min.css" crossorigin="anonymous">
@@ -54,6 +55,68 @@
   <body class="notranslate" translate="no">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function () {
+        var mounted = false;
+
+        function renameSearchLabels() {
+          document.querySelectorAll('[aria-label="사이트 검색"], [aria-label="사이트 검색 열기"]').forEach(function (el) {
+            el.setAttribute('aria-label', '검색');
+          });
+
+          document.querySelectorAll('h1').forEach(function (el) {
+            if (el.textContent && el.textContent.trim() === '사이트 검색') el.textContent = '검색';
+          });
+        }
+
+        function mountMobileSearch() {
+          if (window.innerWidth >= 768) return;
+
+          var nav = document.querySelector('nav.sticky');
+          if (!nav) return;
+
+          var menuButton = Array.from(nav.querySelectorAll('button')).find(function (button) {
+            return !!button.querySelector('.ri-menu-line');
+          });
+          if (!menuButton || !menuButton.parentElement) return;
+
+          if (!nav.querySelector('[data-mobile-search-button="true"]')) {
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.setAttribute('aria-label', '검색');
+            button.setAttribute('title', '검색');
+            button.setAttribute('data-mobile-search-button', 'true');
+            button.className = 'w-9 h-9 rounded-full flex items-center justify-center hover:bg-background-200 transition-colors cursor-pointer';
+            button.innerHTML = '<i class="ri-search-line text-lg text-foreground-700"></i>';
+            button.addEventListener('click', function () {
+              window.history.pushState({}, '', '/search');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            });
+            menuButton.parentElement.insertBefore(button, menuButton);
+          }
+
+          var mobileSearchInput = nav.querySelector('input[placeholder="사이트 검색"]');
+          if (mobileSearchInput) {
+            var form = mobileSearchInput.closest('form');
+            if (form) form.style.display = 'none';
+          }
+
+          mounted = true;
+        }
+
+        function syncSearchUi() {
+          renameSearchLabels();
+          mountMobileSearch();
+        }
+
+        var observer = new MutationObserver(syncSearchUi);
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        window.addEventListener('resize', syncSearchUi);
+        window.addEventListener('popstate', syncSearchUi);
+        document.addEventListener('DOMContentLoaded', syncSearchUi);
+        syncSearchUi();
+      })();
+    </script>
     <script src="https://readdy.ai/api/public/assistant/widget?projectId=bf294611-0b59-44df-aa0a-5ff8df712394" mode="hybrid" voice-show-transcript="true" theme="light" size="compact" accent-color="#F59E0B" button-base-color="#1F2937" button-accent-color="#FFFFFF" main-label="학생회 AI 도우미" defer></script>
   </body>
 </html>
