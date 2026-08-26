@@ -25,12 +25,10 @@ jobs:
         run: |
           from pathlib import Path
           import re
-          import sys
           from kiwipiepy import Kiwi
 
           path = Path('src/constants/quotes.ts')
           original = path.read_text(encoding='utf-8')
-
           marker = 'export const QUOTES: string[] = ['
           start = original.find(marker)
           if start < 0:
@@ -43,6 +41,9 @@ jobs:
           if len(matches) != 448:
               raise SystemExit(f'Expected 448 quote literals, found {len(matches)}')
 
+          def normalize(s: str) -> str:
+              return ''.join(ch for ch in s if not ch.isspace())
+
           changed = 0
           parts = []
           cursor = 0
@@ -50,12 +51,8 @@ jobs:
               parts.append(body[cursor:m.start(2)])
               text = m.group(2)
               corrected = kiwi.space(text)
-
-              # Hard safety check: only whitespace may differ.
-              normalize = lambda s: ''.join(ch for ch in s if not ch.isspace())
               if normalize(text) != normalize(corrected):
                   raise SystemExit('ABORT: non-whitespace characters changed during spacing correction')
-
               if text != corrected:
                   changed += 1
               parts.append(corrected)
@@ -63,31 +60,39 @@ jobs:
           parts.append(body[cursor:])
 
           updated = original[:start] + ''.join(parts)
-
           if normalize(original[start:]) != normalize(updated[start:]):
               raise SystemExit('ABORT: QUOTES content changed beyond whitespace')
 
           path.write_text(updated, encoding='utf-8')
           print(f'Quotes processed: {len(matches)}, changed spacing: {changed}')
 
-      - name: Validate diff is whitespace-only inside quotes file
+      - name: Validate spacing-only change
         shell: python
         run: |
-          python - <<'PY'
-          import subprocess, re, sys
-          old = subprocess.check_output(['git', 'show', 'HEAD:src/constants/quotes.ts'], text=True, encoding='utf-8')
+          import subprocess
+          import re
+
+          old = subprocess.check_output(
+              ['git', 'show', 'HEAD:src/constants/quotes.ts'],
+              text=True,
+              encoding='utf-8',
+          )
           new = open('src/constants/quotes.ts', encoding='utf-8').read()
-          def normalize_quotes(s):
+
+          def quote_values(s):
               marker = 'export const QUOTES: string[] = ['
               start = s.find(marker)
               body = s[start:]
               vals = [m.group(2) for m in re.finditer(r'(`)([^`]*)(`)(\s*,)', body)]
               return [''.join(c for c in v if not c.isspace()) for v in vals]
-          a, b = normalize_quotes(old), normalize_quotes(new)
-          if a != b:
+
+          old_vals = quote_values(old)
+          new_vals = quote_values(new)
+          if len(old_vals) != 448 or len(new_vals) != 448:
+              raise SystemExit('Validation failed: quote count changed')
+          if old_vals != new_vals:
               raise SystemExit('Validation failed: quote characters changed')
-          print(f'Validated {len(b)} quotes: characters preserved, whitespace-only changes.')
-          PY
+          print(f'Validated {len(new_vals)} quotes: characters preserved, whitespace-only changes.')
 
       - name: Commit quote spacing correction
         run: |
