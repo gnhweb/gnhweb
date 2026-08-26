@@ -26,7 +26,7 @@ export default function AppLockScreen() {
   const [shake, setShake] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [passkeyChecking, setPasskeyChecking] = useState(false);
-  const [hasRegisteredBiometric, setHasRegisteredBiometric] = useState(false);
+  const [hasRegisteredBiometric, setHasRegisteredBiometric] = useState(() => isPasskeySupported());
   const submitInFlightRef = useRef(false);
 
   useEffect(() => {
@@ -41,32 +41,24 @@ export default function AppLockScreen() {
     let mounted = true;
     const detectBiometric = async () => {
       if (!user || !isPasskeySupported()) return;
+      // Keep the button visible immediately on supported devices.
+      setHasRegisteredBiometric(true);
       try {
         const { data } = await withTimeout(listPasskeys(), PASSKEY_TIMEOUT_MS);
-        if (mounted) setHasRegisteredBiometric(Array.isArray(data) && data.length > 0);
+        if (mounted && Array.isArray(data) && data.length === 0) {
+          // Keep the button visible: the explicit click will provide the clearest
+          // browser/platform response even when the registration check is unavailable.
+          setHasRegisteredBiometric(true);
+        }
       } catch {
-        if (mounted) setHasRegisteredBiometric(false);
+        // Keep the biometric button visible and let the explicit user action
+        // determine whether the platform can complete the passkey flow.
+        if (mounted) setHasRegisteredBiometric(true);
       }
     };
     void detectBiometric();
     return () => { mounted = false; };
   }, [user?.id]);
-
-  const handleDigit = (d: string) => {
-    if (checking || passkeyChecking || submitInFlightRef.current || pin.length >= pinLength) return;
-    setError('');
-    const nextPin = `${pin}${d}`;
-    setPin(nextPin);
-    if (nextPin.length === pinLength) {
-      void handleSubmit(nextPin);
-    }
-  };
-
-  const handleBackspace = () => {
-    if (checking || passkeyChecking) return;
-    setError('');
-    setPin(prev => prev.slice(0, -1));
-  };
 
   const handleSubmit = async (pinToVerify = pin) => {
     if (!user || pinToVerify.length !== pinLength || submitInFlightRef.current) return;
@@ -81,8 +73,6 @@ export default function AppLockScreen() {
         setPin('');
         window.setTimeout(() => setShake(false), 400);
       }
-      // When ok === true, useAuth immediately changes pinLocked=false.
-      // Do not clear the PIN or trigger another submission here.
     } catch {
       setError('잠금 해제 확인이 지연되고 있습니다. 다시 시도해주세요.');
     } finally {
@@ -91,8 +81,25 @@ export default function AppLockScreen() {
     }
   };
 
+  const handleDigit = (d: string) => {
+    if (checking || passkeyChecking || submitInFlightRef.current || pin.length >= pinLength) return;
+    setError('');
+    const nextPin = `${pin}${d}`;
+    setPin(nextPin);
+    // 마지막 숫자를 누르는 순간 자동으로 검증한다.
+    if (nextPin.length === pinLength) {
+      void handleSubmit(nextPin);
+    }
+  };
+
+  const handleBackspace = () => {
+    if (checking || passkeyChecking) return;
+    setError('');
+    setPin(prev => prev.slice(0, -1));
+  };
+
   const handleBiometricUnlock = async () => {
-    if (passkeyChecking || checking || !hasRegisteredBiometric) return;
+    if (passkeyChecking || checking) return;
     setPasskeyChecking(true);
     setError('');
     try {
