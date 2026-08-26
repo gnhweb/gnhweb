@@ -1,0 +1,52 @@
+name: one-time pin auto unlock fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: contains(github.event.head_commit.message, 'pin auto unlock')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Patch PIN unlock flow
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/feature/AppLockScreen.tsx')
+          t = p.read_text()
+          old = '''  const handleDigit = (d: string) => {\n    if (checking || passkeyChecking || pin.length >= pinLength) return;\n    setError('');\n    setPin(prev => prev + d);\n  };'''
+          new = '''  const handleDigit = (d: string) => {\n    if (checking || passkeyChecking || submitInFlightRef.current || pin.length >= pinLength) return;\n    setError('');\n    const nextPin = `${pin}${d}`;\n    setPin(nextPin);\n    if (nextPin.length === pinLength) {\n      void handleSubmit(nextPin);\n    }\n  };'''
+          if t.count(old) != 1:
+              raise SystemExit('handleDigit block not found')
+          t = t.replace(old, new)
+          old = '''  const handleSubmit = async () => {\n    if (!user || pin.length !== pinLength || submitInFlightRef.current) return;\n    submitInFlightRef.current = true;\n    setChecking(true);\n    setError('');\n    try {\n      const ok = await withTimeout(unlockWithPin(pin), PIN_TIMEOUT_MS);'''
+          new = '''  const handleSubmit = async (pinToVerify = pin) => {\n    if (!user || pinToVerify.length !== pinLength || submitInFlightRef.current) return;\n    submitInFlightRef.current = true;\n    setChecking(true);\n    setError('');\n    try {\n      const ok = await withTimeout(unlockWithPin(pinToVerify), PIN_TIMEOUT_MS);'''
+          if t.count(old) != 1:
+              raise SystemExit('handleSubmit block not found')
+          t = t.replace(old, new)
+          old = '''  useEffect(() => {\n    // Do not autofocus on touch devices: mobile browsers may open the keyboard\n    // and change viewport state while the lock screen is rendering.\n    const isTouchDevice = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;\n    const input = document.querySelector<HTMLInputElement>('[data-gnh-pin-input="true"]');\n    if (!isTouchDevice) input?.focus({ preventScroll: true });\n  }, []);'''
+          new = '''  useEffect(() => {\n    // Do not autofocus on touch devices: mobile browsers may open the keyboard\n    // and change viewport state while the lock screen is rendering.\n    const isTouchDevice = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;\n    const input = document.querySelector<HTMLInputElement>('[data-gnh-pin-input="true"]');\n    if (!isTouchDevice) input?.focus({ preventScroll: true });\n  }, []);'''
+          if old not in t:
+              raise SystemExit('autofocus block unexpectedly changed')
+          # Remove any automatic submission effect based on stale React state if present.
+          import re
+          t = re.sub(r'''\n  useEffect\(\(\) => \{\n    if \(pin\.length >= 4 && pin\.length === pinLength\) \{\n      void handleSubmit\(\);\n    \}\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  \}, \[pin, pinLength\]\);\n''', '\n', t, count=1)
+          old = '''        <button\n          type="button"\n          onClick={() => void handleSubmit()}\n          disabled={pin.length !== pinLength || checking || passkeyChecking}\n          className="w-full h-12 rounded-2xl bg-amber-500 text-white font-bold transition-all hover:bg-amber-600 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed mb-4"\n        >\n          {checking ? '잠금 해제 중...' : '잠금 해제'}\n        </button>\n\n'''
+          if t.count(old) != 1:
+              raise SystemExit('unlock button block not found')
+          t = t.replace(old, '')
+          p.write_text(t)
+          PY
+      - name: Commit and remove workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/feature/AppLockScreen.tsx
+          git rm .github/workflows/one-time-pin-auto-unlock.yml
+          git commit -m "fix: make mobile PIN auto unlock reliable"
+          git push
