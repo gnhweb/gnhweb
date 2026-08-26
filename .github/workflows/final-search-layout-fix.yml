@@ -1,0 +1,91 @@
+name: Final mobile search layout fix
+
+on:
+  push:
+    paths:
+      - .github/workflows/final-search-layout-fix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Move mobile search to under theme toggle
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('src/components/feature/Navbar.tsx')
+          s = p.read_text()
+
+          old_theme = '<ThemeToggleButton className="absolute right-0 top-1/2 -translate-y-1/2" />'
+          new_theme = '''<div className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col items-end gap-1">
+              <ThemeToggleButton />
+            </div>'''
+          s = s.replace(old_theme, new_theme, 1)
+
+          old_mobile_actions = '''            <div className="flex md:hidden items-center gap-1.5">
+              <button type="button" onClick={() => { setNotificationsOpen(false); setMobileOpen(false); navigate('/search'); }} aria-label="검색" title="검색" className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-background-200 active:bg-background-200 transition-colors cursor-pointer"><i className="ri-search-line text-[20px] text-foreground-700"></i></button>
+              {user && <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-background-200 transition-colors cursor-pointer relative"><i className="ri-notification-3-line text-lg text-foreground-600"></i><AnimatePresence>{notificationCount > 0 && <motion.span key={notificationCount} initial={{ scale: 0.6 }} animate={{ scale: [1.25, 1] }} transition={{ duration: 0.25, ease: 'easeOut' }} className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-gradient-to-br from-accent-500 to-primary-500 text-white text-[9px] font-bold flex items-center justify-center shadow-card">{notificationCount > 99 ? '99+' : notificationCount}</motion.span></AnimatePresence></button>}
+              <button onClick={() => setMobileOpen(!mobileOpen)} aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'} title={mobileOpen ? '메뉴 닫기' : '메뉴 열기'} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-background-200 transition-colors cursor-pointer"><i className={`text-xl text-foreground-700 ${mobileOpen ? 'ri-close-line' : 'ri-menu-line'}`}></i></button>
+            </div>'''
+          new_mobile_actions = '''            <div className="flex md:hidden items-center gap-2">
+              {user && <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-background-200 transition-colors cursor-pointer relative"><i className="ri-notification-3-line text-lg text-foreground-600"></i><AnimatePresence>{notificationCount > 0 && <motion.span key={notificationCount} initial={{ scale: 0.6 }} animate={{ scale: [1.25, 1] }} transition={{ duration: 0.25, ease: 'easeOut' }} className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-gradient-to-br from-accent-500 to-primary-500 text-white text-[9px] font-bold flex items-center justify-center shadow-card">{notificationCount > 99 ? '99+' : notificationCount}</motion.span></AnimatePresence></button>}
+              <button onClick={() => setMobileOpen(!mobileOpen)} aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'} title={mobileOpen ? '메뉴 닫기' : '메뉴 열기'} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-background-200 transition-colors cursor-pointer"><i className={`text-xl text-foreground-700 ${mobileOpen ? 'ri-close-line' : 'ri-menu-line'}`}></i></button>
+            </div>'''
+          s = s.replace(old_mobile_actions, new_mobile_actions, 1)
+
+          old_mobile_search = '''              <form onSubmit={(e) => { e.preventDefault(); const q = globalSearch.trim(); navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search'); setMobileOpen(false); }} className="relative mb-4">
+                <i className="ri-search-line pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-foreground-400"></i>
+                <input value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="사이트 검색" enterKeyHint="search" autoComplete="off" className="w-full rounded-2xl border border-background-200 bg-background-100 py-3.5 pl-11 pr-4 text-[16px] outline-none focus:border-primary-300 focus:ring-4 focus:ring-primary-50" />
+              </form>
+'''
+          s = s.replace(old_mobile_search, '', 1)
+          s = s.replace('placeholder="사이트 검색"', 'placeholder="검색"')
+          s = s.replace('aria-label="사이트 검색"', 'aria-label="검색"')
+          s = s.replace('aria-label="사이트 검색 열기"', 'aria-label="검색"')
+          s = s.replace('title="사이트 검색"', 'title="검색"')
+          p.write_text(s)
+
+          h = Path('index.html')
+          hs = h.read_text()
+          start = hs.find('    <script>\n      (function () {\n        var mounted = false;')
+          if start != -1:
+              end_marker = '    </script>\n    <script src="https://readdy.ai/api/public/assistant/widget?'
+              end = hs.find(end_marker, start)
+              if end != -1:
+                  hs = hs[:start] + hs[end:]
+          h.write_text(hs)
+
+          sp = Path('src/pages/search/page.tsx')
+          ss = sp.read_text()
+          ss = ss.replace('>사이트 검색</h1>', '>검색</h1>')
+          ss = ss.replace('aria-label="사이트 검색"', 'aria-label="검색"')
+          sp.write_text(ss)
+
+      - name: Validate search placement
+        run: |
+          grep -q 'ri-search-line text-\[19px\]' src/components/feature/Navbar.tsx
+          ! grep -q 'placeholder="사이트 검색"' src/components/feature/Navbar.tsx
+          ! grep -q 'var mounted = false' index.html
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/feature/Navbar.tsx src/pages/search/page.tsx index.html
+          git commit -m "fix: place mobile search under theme toggle" || exit 0
+          git push
+
+      - name: Remove one-time workflow
+        run: |
+          git rm .github/workflows/final-search-layout-fix.yml
+          git commit -m "chore: remove one-time search layout workflow" || exit 0
+          git push
