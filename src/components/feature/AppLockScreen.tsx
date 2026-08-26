@@ -53,9 +53,13 @@ export default function AppLockScreen() {
   }, [user?.id]);
 
   const handleDigit = (d: string) => {
-    if (checking || passkeyChecking || pin.length >= pinLength) return;
+    if (checking || passkeyChecking || submitInFlightRef.current || pin.length >= pinLength) return;
     setError('');
-    setPin(prev => prev + d);
+    const nextPin = `${pin}${d}`;
+    setPin(nextPin);
+    if (nextPin.length === pinLength) {
+      void handleSubmit(nextPin);
+    }
   };
 
   const handleBackspace = () => {
@@ -64,13 +68,13 @@ export default function AppLockScreen() {
     setPin(prev => prev.slice(0, -1));
   };
 
-  const handleSubmit = async () => {
-    if (!user || pin.length !== pinLength || submitInFlightRef.current) return;
+  const handleSubmit = async (pinToVerify = pin) => {
+    if (!user || pinToVerify.length !== pinLength || submitInFlightRef.current) return;
     submitInFlightRef.current = true;
     setChecking(true);
     setError('');
     try {
-      const ok = await withTimeout(unlockWithPin(pin), PIN_TIMEOUT_MS);
+      const ok = await withTimeout(unlockWithPin(pinToVerify), PIN_TIMEOUT_MS);
       if (!ok) {
         setError('비밀번호가 일치하지 않습니다.');
         setShake(true);
@@ -151,15 +155,6 @@ export default function AppLockScreen() {
             <i className="ri-arrow-left-line text-xl" />
           </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => void handleSubmit()}
-          disabled={pin.length !== pinLength || checking || passkeyChecking}
-          className="w-full h-12 rounded-2xl bg-amber-500 text-white font-bold transition-all hover:bg-amber-600 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed mb-4"
-        >
-          {checking ? '잠금 해제 중...' : '잠금 해제'}
-        </button>
 
         {hasRegisteredBiometric && !checking && !passkeyChecking && (
           <button type="button" onClick={() => void handleBiometricUnlock()} className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border-2 border-amber-500 bg-amber-900/90 text-amber-50 shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer" aria-label="등록된 지문 / Face ID로 잠금 해제">
