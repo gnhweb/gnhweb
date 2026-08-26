@@ -75,13 +75,26 @@ function enableLazyImages() {
 
   observe(document);
 
+  let queued = false;
+  const pendingRoots = new Set<Element>();
+
+  const flush = () => {
+    queued = false;
+    for (const root of pendingRoots) observe(root);
+    pendingRoots.clear();
+  };
+
   const mo = new MutationObserver((records) => {
     for (const record of records) {
       for (const node of record.addedNodes) {
         if (!(node instanceof Element)) continue;
-        if (node.matches('img')) observe(node.parentElement ?? document);
-        else observe(node);
+        pendingRoots.add(node);
       }
+    }
+    if (!queued && pendingRoots.size) {
+      queued = true;
+      const schedule = window.requestIdleCallback || ((cb: IdleRequestCallback) => window.setTimeout(() => cb({ timeRemaining: () => 0 } as IdleDeadline), 0));
+      schedule(flush);
     }
   });
   mo.observe(document.body, { childList: true, subtree: true });

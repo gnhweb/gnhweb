@@ -185,14 +185,21 @@ if (typeof window !== 'undefined' && 'visualViewport' in window) {
     const vv = window.visualViewport;
     if (!vv) return;
     const heightGap = window.innerHeight - vv.height;
-    const keyboardOpen = heightGap > 120;
+    const keyboardOpen = heightGap > Math.max(120, window.innerHeight * 0.18);
     document.body.classList.toggle('keyboard-open', keyboardOpen);
     document.documentElement.style.setProperty('--visual-viewport-height', `${Math.round(vv.height)}px`);
   };
-  window.visualViewport?.addEventListener('resize', updateKeyboardState);
-  window.visualViewport?.addEventListener('scroll', updateKeyboardState);
+  const vv = window.visualViewport;
+  vv?.addEventListener('resize', updateKeyboardState);
+  vv?.addEventListener('scroll', updateKeyboardState);
   window.addEventListener('resize', updateKeyboardState);
   updateKeyboardState();
+
+  window.addEventListener('pagehide', () => {
+    vv?.removeEventListener('resize', updateKeyboardState);
+    vv?.removeEventListener('scroll', updateKeyboardState);
+    window.removeEventListener('resize', updateKeyboardState);
+  }, { once: true });
 }
 
 initMobileRuntime();

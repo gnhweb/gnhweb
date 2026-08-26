@@ -38,7 +38,7 @@ function IosPwaBackButton() {
     return () => media?.removeEventListener?.('change', update);
   }, []);
 
-  if (!iosPwa || !mobileOpen) return null;
+  if (!iosPwa || location.pathname === "/") return null;
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -54,7 +54,7 @@ function IosPwaBackButton() {
       onClick={handleBack}
       aria-label="뒤로 가기"
       title="뒤로 가기"
-      className="fixed right-[4.25rem] top-[calc(env(safe-area-inset-top)+0.5rem)] z-[100] flex h-10 w-10 items-center justify-center rounded-full bg-background-200 text-foreground-700 shadow-sm active:scale-95"
+      className="fixed right-[4.5rem] top-[calc(env(safe-area-inset-top)+0.5rem)] z-[100] flex h-10 w-10 items-center justify-center rounded-full bg-background-200 text-foreground-700 shadow-sm active:scale-95"
     >
       <i className="ri-arrow-left-line text-xl" aria-hidden="true" />
     </button>
@@ -82,7 +82,12 @@ export default function Layout() {
     !isFullscreenGameRoute && user && (!profile || (profile.approval_status === 'approved' && !profile.is_expelled));
 
   if (isFullscreenGameRoute) {
-    return <Outlet />;
+    return (
+      <>
+        <IosPwaBackButton />
+        <Outlet />
+      </>
+    );
   }
 
   return (
@@ -114,7 +119,7 @@ export default function Layout() {
           </div>
         )}
 
-        <main className={showNavbar ? 'max-md:pb-24' : ''}>
+        <main className={showNavbar ? 'max-md:pb-[calc(6rem+env(safe-area-inset-bottom))]' : ''}>
           <Outlet />
         </main>
 

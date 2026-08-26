@@ -89,10 +89,12 @@ export default function BottomTabBar() {
     viewport?.addEventListener("resize", updateKeyboardState);
     viewport?.addEventListener("scroll", updateKeyboardState);
     window.addEventListener("resize", updateKeyboardState);
-    document.addEventListener("focusin", updateKeyboardState);
-    document.addEventListener("focusout", () => {
+    const handleFocusOut = () => {
       window.setTimeout(updateKeyboardState, 120);
-    });
+    };
+
+    document.addEventListener("focusin", updateKeyboardState);
+    document.addEventListener("focusout", handleFocusOut);
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
@@ -101,6 +103,7 @@ export default function BottomTabBar() {
       window.removeEventListener("resize", updateKeyboardState);
       document.body.classList.remove("ios-keyboard-open");
       document.removeEventListener("focusin", updateKeyboardState);
+      document.removeEventListener("focusout", handleFocusOut);
     };
   }, [location.pathname]);
 
@@ -130,11 +133,11 @@ export default function BottomTabBar() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 32 }}
-          className="md:hidden fixed bottom-0 left-0 right-0 z-50 pb-safe"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-50"
           aria-label="하단 바로가기"
         >
           {/* 변경점: 반투명과 외부 여백 제거하고 화면 끝까지 채우고, 위쪽만 둥글게 처리 */}
-          <div className="w-full rounded-t-[20px] bg-white shadow-card-lg border-t border-background-200">
+          <div className="w-full rounded-t-[20px] bg-background-100 shadow-card-lg border-t border-background-200 pb-safe">
             <div className="flex items-end justify-between px-2 pt-2 pb-1.5">
               {TABS.map((tab) => {
                 const active = isTabActive(tab);

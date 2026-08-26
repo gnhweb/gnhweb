@@ -157,6 +157,39 @@
   --foreground-950: 0.98 0.003 260;
 }
 
+/* ===== Cross-platform Mobile Hardening ===== */
+@media (max-width: 767px) {
+  html, body {
+    min-height: 100dvh;
+    overflow-x: clip;
+  }
+
+  body {
+    overscroll-behavior-x: none;
+  }
+
+  /* Tailwind viewport utilities that are commonly used by mobile full-screen pages. */
+  .h-screen { height: 100dvh; }
+  .min-h-screen { min-height: 100dvh; }
+
+  /* Keep iOS modal sheets from handing their scroll to the document at the edges. */
+  .overflow-y-auto,
+  .overflow-auto {
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent browser tap highlight from creating misleading pressed states. */
+  a, button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Avoid accidental text selection during fast mobile interactions. */
+  button {
+    touch-action: manipulation;
+  }
+}
+
 /* ===== Base Styles ===== */
 html {
   scroll-behavior: smooth;
