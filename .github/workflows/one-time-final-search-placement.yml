@@ -1,0 +1,82 @@
+name: One-time final search placement fix
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/one-time-final-search-placement.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Patch search placement
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('src/components/feature/Navbar.tsx')
+          s = p.read_text()
+
+          old_theme = '<ThemeToggleButton className="absolute right-0 top-1/2 -translate-y-1/2" />'
+          new_theme = '''<div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <button type="button" onClick={() => { setNotificationsOpen(false); setMobileOpen(false); navigate('/search'); }} aria-label="검색" title="검색" className="md:hidden flex w-9 h-9 items-center justify-center rounded-full hover:bg-background-200 active:bg-background-200 transition-colors cursor-pointer">
+                <i className="ri-search-line text-[19px] text-foreground-700"></i>
+              </button>
+              <ThemeToggleButton />
+            </div>'''
+          if old_theme not in s:
+              raise SystemExit('theme toggle anchor not found')
+          s = s.replace(old_theme, new_theme, 1)
+
+          mobile_search = '''              <form onSubmit={(e) => { e.preventDefault(); const q = globalSearch.trim(); navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search'); setMobileOpen(false); }} className="relative mb-4">
+                <i className="ri-search-line pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-foreground-400"></i>
+                <input value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="사이트 검색" enterKeyHint="search" autoComplete="off" className="w-full rounded-2xl border border-background-200 bg-background-100 py-3.5 pl-11 pr-4 text-[16px] outline-none focus:border-primary-300 focus:ring-4 focus:ring-primary-50" />
+              </form>
+'''
+          if mobile_search in s:
+              s = s.replace(mobile_search, '', 1)
+          s = s.replace('placeholder="사이트 검색"', 'placeholder="검색"')
+          p.write_text(s)
+
+          h = Path('index.html')
+          hs = h.read_text()
+          start = hs.find('    <script>\n      (function () {\n        var mounted = false;')
+          if start != -1:
+              end_marker = '    </script>\n    <script src="https://readdy.ai/api/public/assistant/widget?'
+              end = hs.find(end_marker, start)
+              if end == -1:
+                  raise SystemExit('bootstrap script end not found')
+              hs = hs[:start] + hs[end:]
+          h.write_text(hs)
+
+          sp = Path('src/pages/search/page.tsx')
+          ss = sp.read_text().replace('>사이트 검색</h1>', '>검색</h1>').replace('aria-label="사이트 검색"', 'aria-label="검색"')
+          sp.write_text(ss)
+
+      - name: Validate
+        run: |
+          grep -n "navigate('/search')" src/components/feature/Navbar.tsx
+          if grep -q 'placeholder="사이트 검색"' src/components/feature/Navbar.tsx; then exit 1; fi
+          if grep -q 'var mounted = false' index.html; then exit 1; fi
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/feature/Navbar.tsx src/pages/search/page.tsx index.html
+          git commit -m "fix: place mobile search beside theme toggle"
+          git push
+
+      - name: Remove one-time workflow
+        run: |
+          git rm .github/workflows/one-time-final-search-placement.yml
+          git commit -m "chore: remove one-time final search placement workflow"
+          git push
