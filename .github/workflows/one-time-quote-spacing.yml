@@ -1,0 +1,87 @@
+name: One-time quote spacing cleanup
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-quote-spacing.yml
+
+permissions:
+  contents: write
+
+jobs:
+  spacing:
+    if: contains(github.event.head_commit.message, 'quote spacing')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Korean spacing tool
+        run: python -m pip install --upgrade pip kss
+
+      - name: Fix quote spacing only
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          import subprocess
+          import sys
+
+          path = Path('src/constants/quotes.ts')
+          original = path.read_text(encoding='utf-8')
+
+          # Extract only template-literal quote bodies. The file contains one quote per
+          # template literal, so the replacement is deliberately limited to those bodies.
+          pattern = re.compile(r'(`)(.*?)(`)', re.DOTALL)
+
+          def spacing(text: str) -> str:
+              # kss may normalize line breaks; quotes are single-line entries, so keep
+              # only the spacing changes by restoring original newline structure.
+              proc = subprocess.run(
+                  [sys.executable, '-c', 'import sys; import kss; print(kss.spaces(sys.stdin.read()), end="")'],
+                  input=text,
+                  text=True,
+                  capture_output=True,
+                  check=True,
+              )
+              return proc.stdout
+
+          def replace(match: re.Match) -> str:
+              body = match.group(2)
+              # Do not process empty/non-quote template strings.
+              if not body.strip():
+                  return match.group(0)
+              fixed = spacing(body)
+              # Safety check: ONLY whitespace may differ.
+              if ''.join(fixed.split()) != ''.join(body.split()):
+                  raise SystemExit('Spacing tool changed non-whitespace characters; aborting.')
+              return match.group(1) + fixed + match.group(3)
+
+          updated = pattern.sub(replace, original)
+
+          # Final whole-file safety check: remove all whitespace, and the rest must match.
+          if ''.join(updated.split()) != ''.join(original.split()):
+              raise SystemExit('Final validation failed: non-whitespace content changed.')
+
+          path.write_text(updated, encoding='utf-8')
+
+          # Report changed quote count for the action log.
+          changed = sum(1 for a, b in zip(re.findall(r'`(.*?)`', original, re.DOTALL), re.findall(r'`(.*?)`', updated, re.DOTALL)) if a != b)
+          print(f'Quotes changed by spacing only: {changed}')
+
+      - name: Verify only quotes file changed
+        run: |
+          git status --short
+          test "$(git status --short | wc -l | tr -d ' ')" = "1"
+          git diff --check
+
+      - name: Commit and remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/constants/quotes.ts
+          git commit -m "fix: correct quote spacing"
+          git rm .github/workflows/one-time-quote-spacing.yml
+          git commit -m "chore: remove one-time quote spacing workflow"
+          git push
