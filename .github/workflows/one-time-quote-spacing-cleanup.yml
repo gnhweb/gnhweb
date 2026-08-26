@@ -1,0 +1,108 @@
+name: One-time quote spacing cleanup
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/one-time-quote-spacing-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Korean spacing engine
+        run: python -m pip install --upgrade pip kiwipiepy
+
+      - name: Correct spacing only
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          import sys
+          from kiwipiepy import Kiwi
+
+          path = Path('src/constants/quotes.ts')
+          original = path.read_text(encoding='utf-8')
+
+          marker = 'export const QUOTES: string[] = ['
+          start = original.find(marker)
+          if start < 0:
+              raise SystemExit('QUOTES marker not found')
+
+          kiwi = Kiwi()
+          body = original[start:]
+          pattern = re.compile(r'(`)([^`]*)(`)(\s*,)')
+          matches = list(pattern.finditer(body))
+          if len(matches) != 448:
+              raise SystemExit(f'Expected 448 quote literals, found {len(matches)}')
+
+          changed = 0
+          parts = []
+          cursor = 0
+          for m in matches:
+              parts.append(body[cursor:m.start(2)])
+              text = m.group(2)
+              corrected = kiwi.space(text)
+
+              # Hard safety check: only whitespace may differ.
+              normalize = lambda s: ''.join(ch for ch in s if not ch.isspace())
+              if normalize(text) != normalize(corrected):
+                  raise SystemExit('ABORT: non-whitespace characters changed during spacing correction')
+
+              if text != corrected:
+                  changed += 1
+              parts.append(corrected)
+              cursor = m.end(2)
+          parts.append(body[cursor:])
+
+          updated = original[:start] + ''.join(parts)
+
+          if normalize(original[start:]) != normalize(updated[start:]):
+              raise SystemExit('ABORT: QUOTES content changed beyond whitespace')
+
+          path.write_text(updated, encoding='utf-8')
+          print(f'Quotes processed: {len(matches)}, changed spacing: {changed}')
+
+      - name: Validate diff is whitespace-only inside quotes file
+        shell: python
+        run: |
+          python - <<'PY'
+          import subprocess, re, sys
+          old = subprocess.check_output(['git', 'show', 'HEAD:src/constants/quotes.ts'], text=True, encoding='utf-8')
+          new = open('src/constants/quotes.ts', encoding='utf-8').read()
+          def normalize_quotes(s):
+              marker = 'export const QUOTES: string[] = ['
+              start = s.find(marker)
+              body = s[start:]
+              vals = [m.group(2) for m in re.finditer(r'(`)([^`]*)(`)(\s*,)', body)]
+              return [''.join(c for c in v if not c.isspace()) for v in vals]
+          a, b = normalize_quotes(old), normalize_quotes(new)
+          if a != b:
+              raise SystemExit('Validation failed: quote characters changed')
+          print(f'Validated {len(b)} quotes: characters preserved, whitespace-only changes.')
+          PY
+
+      - name: Commit quote spacing correction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/constants/quotes.ts
+          if git diff --cached --quiet; then
+            echo "No spacing changes needed."
+          else
+            git commit -m "fix: correct quote spacing only"
+            git push
+          fi
+
+      - name: Remove one-time workflow
+        run: |
+          git rm .github/workflows/one-time-quote-spacing-cleanup.yml
+          git commit -m "chore: remove one-time quote spacing cleanup workflow"
+          git push
