@@ -4,6 +4,24 @@ import { useAuth } from '@/hooks/useAuth';
 import { getSimplePinLength } from '@/lib/simplePin';
 import { isPasskeySupported, listPasskeys } from '@/lib/passkey';
 
+const PASSKEY_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('PASSKEY_TIMEOUT')), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export default function AppLockScreen() {
   const { user, profile, unlockWithPin, unlockWithPasskey, signOut } = useAuth();
   const [pinLength] = useState(() => (user ? getSimplePinLength(user.id) : 4));
@@ -14,66 +32,43 @@ export default function AppLockScreen() {
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [passkeyChecking, setPasskeyChecking] = useState(false);
   const [hasRegisteredBiometric, setHasRegisteredBiometric] = useState(false);
-  const [biometricAttempted, setBiometricAttempted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const biometricStartedRef = useRef(false);
+  const biometricAttemptedRef = useRef(false);
 
   useEffect(() => {
+    // 모바일에서는 숨은 input에 자동 포커스를 주지 않는다.
+    // iOS/Android가 키보드를 강제로 열면서 viewport를 축소하거나 잠금 화면이
+    // 로딩 상태처럼 보이는 문제를 피하고, 화면의 PIN 버튼을 바로 사용할 수 있게 한다.
     const isTouchDevice = typeof window !== 'undefined'
       && window.matchMedia?.('(pointer: coarse)').matches;
     if (!isTouchDevice) inputRef.current?.focus({ preventScroll: true });
   }, []);
 
-  // 앱/PWA가 잠금 화면으로 열리면, 실제로 등록된 패스키가 있는 경우
-  // 사용자가 지문 아이콘을 누르지 않아도 즉시 플랫폼 생체인증을 시작한다.
-  // 등록된 패스키가 없거나 자동 인증에 실패한 경우에는 PIN을 사용할 수 있다.
   useEffect(() => {
     let mounted = true;
 
-    const startBiometricOnEntry = async () => {
-      if (!user || !isPasskeySupported() || biometricStartedRef.current) return;
-      biometricStartedRef.current = true;
+    const detectBiometric = async () => {
+      if (!user || !isPasskeySupported() || biometricAttemptedRef.current) return;
+      biometricAttemptedRef.current = true;
 
-      const { data } = await listPasskeys();
-      if (!mounted) return;
-
-      const registered = Array.isArray(data) && data.length > 0;
-      setHasRegisteredBiometric(registered);
-      if (!registered) {
-        setBiometricAttempted(true);
-        return;
-      }
-
-      setPasskeyChecking(true);
-      setError('');
-      // 다음 렌더링 직후 호출하여 PWA 진입 직후 Android 플랫폼 인증기가
-      // 생체인증 UI를 표시할 수 있도록 한다.
-      await new Promise<void>(resolve => setTimeout(resolve, 80));
-      if (!mounted) return;
-
-      const ok = await unlockWithPasskey();
-      if (!mounted) return;
-
-      setPasskeyChecking(false);
-      setBiometricAttempted(true);
-      if (!ok) {
-        setError('지문/Face ID 인증에 실패했습니다. PIN으로 잠금을 해제할 수 있습니다.');
-        setShake(true);
-        setTimeout(() => setShake(false), 400);
+      try {
+        // 등록된 생체 인증 여부만 확인한다.
+        // 실제 인증 호출은 사용자 명시적 클릭으로만 실행한다.
+        const { data } = await withTimeout(listPasskeys(), PASSKEY_TIMEOUT_MS);
+        if (!mounted) return;
+        setHasRegisteredBiometric(Array.isArray(data) && data.length > 0);
+      } catch {
+        if (!mounted) return;
+        setHasRegisteredBiometric(false);
       }
     };
 
-    startBiometricOnEntry().catch(() => {
-      if (!mounted) return;
-      setPasskeyChecking(false);
-      setBiometricAttempted(true);
-      setError('지문/Face ID 인증을 시작하지 못했습니다. PIN으로 잠금을 해제해주세요.');
-    });
+    void detectBiometric();
 
     return () => {
       mounted = false;
     };
-  }, [user?.id, unlockWithPasskey]);
+  }, [user?.id]);
 
   const handleDigit = (d: string) => {
     if (checking || passkeyChecking) return;
@@ -91,14 +86,19 @@ export default function AppLockScreen() {
     if (pin.length < 4 || checking || passkeyChecking) return;
     setChecking(true);
     setError('');
-    const ok = await unlockWithPin(pin);
-    if (!ok) {
-      setError('비밀번호가 일치하지 않습니다');
-      setShake(true);
-      setPin('');
-      setTimeout(() => setShake(false), 400);
+    try {
+      const ok = await withTimeout(unlockWithPin(pin), 10000);
+      if (!ok) {
+        setError('비밀번호가 일치하지 않습니다');
+        setShake(true);
+        setPin('');
+        setTimeout(() => setShake(false), 400);
+      }
+    } catch {
+      setError('잠금 해제 확인이 지연되고 있습니다. 다시 시도해주세요.');
+    } finally {
+      setChecking(false);
     }
-    setChecking(false);
   };
 
   const onHiddenInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,7 +109,7 @@ export default function AppLockScreen() {
 
   useEffect(() => {
     if (pin.length >= 4 && pin.length === pinLength) {
-      handleSubmit();
+      void handleSubmit();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, pinLength]);
@@ -118,17 +118,22 @@ export default function AppLockScreen() {
     if (passkeyChecking || checking || !hasRegisteredBiometric) return;
     setPasskeyChecking(true);
     setError('');
-    const ok = await unlockWithPasskey();
-    if (!ok) {
-      setError('지문/Face ID 인증에 실패했습니다. 다시 시도하거나 PIN을 입력해주세요.');
-      setShake(true);
-      setTimeout(() => setShake(false), 400);
+    try {
+      const ok = await withTimeout(unlockWithPasskey(), PASSKEY_TIMEOUT_MS);
+      if (!ok) {
+        setError('지문/Face ID 인증에 실패했습니다. PIN을 입력해주세요.');
+        setShake(true);
+        setTimeout(() => setShake(false), 400);
+      }
+    } catch {
+      setError('생체인증 응답이 없습니다. PIN으로 잠금을 해제해주세요.');
+    } finally {
+      setPasskeyChecking(false);
     }
-    setPasskeyChecking(false);
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background-50 flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[100] bg-background-50 flex items-center justify-center px-4 min-h-dvh">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -145,9 +150,7 @@ export default function AppLockScreen() {
         <h1 className="text-lg font-bold text-foreground-950 mb-1">
           {profile?.name ? `${profile.name}님, 잠금 해제` : '잠금 해제'}
         </h1>
-        <p className="text-sm text-foreground-500 mb-6">
-          {user?.email}
-        </p>
+        <p className="text-sm text-foreground-500 mb-6">{user?.email}</p>
 
         <motion.div
           animate={shake ? { x: [0, -8, 8, -8, 8, 0] } : {}}
@@ -160,7 +163,7 @@ export default function AppLockScreen() {
               className={`w-3.5 h-3.5 rounded-full border-2 transition-colors ${
                 i < pin.length ? 'bg-amber-500 border-amber-500' : 'border-background-300'
               }`}
-            ></div>
+            />
           ))}
         </motion.div>
 
@@ -173,7 +176,7 @@ export default function AppLockScreen() {
           data-gnh-pin-input="true"
           value={pin}
           onChange={onHiddenInputChange}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') void handleSubmit(); }}
           className="absolute opacity-0 pointer-events-none w-px h-px"
           maxLength={pinLength}
         />
@@ -208,7 +211,7 @@ export default function AppLockScreen() {
               key={d}
               type="button"
               onClick={() => handleDigit(d)}
-              disabled={passkeyChecking}
+              disabled={passkeyChecking || checking}
               className="h-14 rounded-2xl bg-background-100 hover:bg-background-200 text-lg font-semibold text-foreground-800 transition-colors cursor-pointer disabled:opacity-50"
             >
               {d}
@@ -218,7 +221,7 @@ export default function AppLockScreen() {
           <button
             type="button"
             onClick={() => handleDigit('0')}
-            disabled={passkeyChecking}
+            disabled={passkeyChecking || checking}
             className="h-14 rounded-2xl bg-background-100 hover:bg-background-200 text-lg font-semibold text-foreground-800 transition-colors cursor-pointer disabled:opacity-50"
           >
             0
@@ -226,24 +229,22 @@ export default function AppLockScreen() {
           <button
             type="button"
             onClick={handleBackspace}
-            disabled={passkeyChecking}
+            disabled={passkeyChecking || checking}
             className="h-14 rounded-2xl flex items-center justify-center text-foreground-500 hover:text-foreground-800 transition-colors cursor-pointer disabled:opacity-50"
           >
             <i className="ri-arrow-left-line text-xl"></i>
           </button>
         </div>
 
-        {checking && (
-          <p className="text-xs text-foreground-400 mb-3">확인 중...</p>
-        )}
+        {checking && <p className="text-xs text-foreground-400 mb-3">확인 중...</p>}
 
-        {biometricAttempted && hasRegisteredBiometric && !passkeyChecking && error && (
+        {hasRegisteredBiometric && !passkeyChecking && (
           <button
             type="button"
-            onClick={handleBiometricUnlock}
-            disabled={checking || passkeyChecking}
-            aria-label="등록된 지문 / Face ID로 다시 잠금 해제"
-            title="등록된 지문 / Face ID로 다시 잠금 해제"
+            onClick={() => void handleBiometricUnlock()}
+            disabled={checking}
+            aria-label="등록된 지문 / Face ID로 잠금 해제"
+            title="등록된 지문 / Face ID로 잠금 해제"
             className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border-2 border-amber-500 bg-amber-900/90 text-amber-50 shadow-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer dark:bg-amber-950"
           >
             <i className="ri-fingerprint-line text-2xl"></i>
@@ -268,7 +269,7 @@ export default function AppLockScreen() {
                 취소
               </button>
               <button
-                onClick={() => signOut()}
+                onClick={() => void signOut()}
                 className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 cursor-pointer"
               >
                 이메일로 로그인하기
