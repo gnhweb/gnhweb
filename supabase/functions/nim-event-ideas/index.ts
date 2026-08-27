@@ -1,30 +1,121 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const H={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Content-Type":"application/json","Cache-Control":"no-store"};
-const FALLBACK={title:"월례회 작전실 기본 운영안",ideas:[
-"① D-7 준비판 — 총괄 사명자는 월례회 목표·동아리 공연팀·캠페인 1줄 요약을 확정하고, 각 팀에 담당자와 마감일을 붙여 미완료 항목만 추적합니다.",
-"② 공연 큐시트 — 공연팀별 시작시각·준비위치·마이크/반주·무대 전환 담당을 한 줄 큐로 만들어 사회자·음향·무대팀이 같은 순서를 보게 합니다.",
-"③ 전환 90초 규칙 — 공연 종료 즉시 다음 팀이 움직이도록 퇴장 동선·마이크 교체·영상/멘트를 미리 배치하고, 90초를 넘기면 사회 멘트나 캠페인으로 전환합니다.",
-"④ 캠페인 퍼널 — 캠페인을 ‘보게 하기→참여시키기→기록하기→다음 행동’ 4단계로 설계하고 사명자 1명이 현장 참여와 후속 연락까지 책임지게 합니다.",
-"⑤ 사명자 역할표 — 총괄·사회·무대·음향·동아리 연락·학생 안내·캠페인·기록·돌발상황을 분리하고 백업 담당까지 지정해 공백을 막습니다.",
-"⑥ 비상 플랜 — 공연 취소, 음향 고장, 10분 지연, 예상보다 많은 학생, 캠페인 참여 저조를 가정해 각 상황별 ‘즉시 다음 행동’을 준비합니다.",
-"⑦ 사후 데이터 — 참석률·공연 수·전환 지연·캠페인 참여·미해결 업무를 5개 지표로 남기고 다음 월례회 AI가 전 회차 데이터를 기준으로 개선안을 만들 수 있게 합니다."
-],bibleRef:"고린도전서 14:40"};
-function json(raw:string){try{return JSON.parse(raw.replace(/```json\\s*/gi,"").replace(/```/g,"").trim());}catch{return null;}}
-async function ask(req:Request, body:any){const token=req.headers.get("authorization")||""; if(!token) return null; const r=await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:token},body:JSON.stringify(body)}); if(!r.ok)return null; return r.json();}
-Deno.serve(async(req)=>{
- if(req.method==="OPTIONS")return new Response("ok",{headers:H});
- try{
-  const b=await req.json(); const topic=String(b?.topic||"").trim(); if(!topic) throw new Error("월례회 주제를 입력해주세요.");
-  const system=`당신은 교회 학생회의 사명자 총괄을 돕는 ‘월례회 작전실 AI’입니다. 일반적인 행사 아이디어를 만들지 말고, 실제 월례회를 운영하는 사람이 바로 사용할 수 있는 실행계획을 만드세요.
-학생회에는 월례회가 있고 동아리들이 공연하며 캠페인이 함께 진행될 수 있습니다. 따라서 예배/공지/공연/캠페인/학생 동선/사명자 업무가 서로 충돌하지 않도록 운영해야 합니다.
- 반드시 다음 7개 영역을 모두 포함하세요: 1) D-7~당일 준비 일정 2) 동아리 공연 큐시트/전환 3) 캠페인 참여 동선과 후속 4) 사명자 역할 분담 5) 현장 타임라인 6) 돌발상황별 즉시 대응 7) 종료 후 데이터와 다음 달 개선.
-‘재미있는 게임 7개’, ‘새로운 행사 아이디어 7개’, 추상적인 응원·격려는 금지합니다. 각 항목은 무엇을/누가/언제/어떻게/완료 기준까지 보여줘야 합니다.
-입력에 없는 인원·시간·공연팀 수를 지어내지 말고, 필요한 값은 [가정]으로 표시하세요. 결과는 회의자료에 그대로 붙여 넣어도 될 정도로 구체적으로 작성하세요.
-반드시 JSON만 반환: {"title":"...","ideas":["...7개..."],"bibleRef":"관련 성경 구절 출처"}`;
-  const data=await ask(req,{task:"monthly-meeting-command-center",messages:[{role:"system",content:system},{role:"user",content:[`월례회 주제: ${topic}`,`공연/동아리: ${String(b?.audience||"미정")}`,`예산/제약: ${String(b?.budget||"미정")}`,"이 정보를 바탕으로 월례회 운영 작전안을 작성하세요."] .join("\n")}],temperature:0.25,max_tokens:2600});
-  const p=json(data?.choices?.[0]?.message?.content||""); const ideas=Array.isArray(p?.ideas)?p.ideas.filter((x:any)=>typeof x==="string"&&x.trim()).slice(0,7):[];
-  while(ideas.length<7)ideas.push(FALLBACK.ideas[ideas.length]);
-  return new Response(JSON.stringify({title:typeof p?.title==="string"?p.title:FALLBACK.title,ideas,bibleRef:typeof p?.bibleRef==="string"?p.bibleRef:FALLBACK.bibleRef}),{headers:H});
- }catch(e){console.error("[monthly-meeting-command-center]",e);return new Response(JSON.stringify(FALLBACK),{headers:H});}
+const H = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Content-Type": "application/json",
+  "Cache-Control": "no-store",
+};
+
+const FALLBACK = {
+  title: "월례회 작전실",
+  mission: "이번 월례회의 목표를 한 문장으로 고정하고, 공연·캠페인·학생 경험이 같은 목표를 향하도록 설계하세요.",
+  keyDecisions: ["이번 월례회의 핵심 목표 1개 확정", "공연/캠페인별 담당자와 마감일 확정", "당일 10분 단위 운영표와 비상안 확정"],
+  runOfShow: [
+    { time: "D-7", action: "목표·전체 순서·공연팀 확정", owner: "총괄", output: "1장 운영안" },
+    { time: "D-3", action: "공연/캠페인 리허설과 장비 점검", owner: "무대·음향", output: "체크 완료" },
+    { time: "D-Day", action: "입장→진행→공연→캠페인→마무리 운영", owner: "진행팀", output: "행사 진행" },
+    { time: "D+1", action: "참여·지연·이탈 포인트를 10분 회고로 기록", owner: "총괄", output: "다음 달 개선 3개" },
+  ],
+  workstreams: [
+    { name: "동아리 공연", goal: "공연팀이 준비에만 집중하도록 운영팀이 전환과 장비를 책임", firstStep: "팀별 소요시간·장비·반입 필요사항 수집", owner: "동아리 조율" },
+    { name: "캠페인", goal: "캠페인을 구호가 아니라 실제 행동으로 연결", firstStep: "학생이 2분 안에 참여할 행동 1개와 기록법 1개 확정", owner: "캠페인 담당" },
+    { name: "학생 경험", goal: "처음 온 학생도 흐름을 잃지 않게 만들기", firstStep: "입장·좌석·안내 문구와 도움 요청 창구 지정", owner: "학생 안내" },
+    { name: "사명자 운영", goal: "핵심 담당자에게 일이 몰리지 않게 분산", firstStep: "총괄·진행·무대·학생관리·기록·돌발대응 역할표 작성", owner: "총괄" },
+  ],
+  risks: [
+    { risk: "공연 지연", trigger: "전환 5분 초과", response: "다음 팀 대기 위치 전환 + 진행 멘트 1개 실행" },
+    { risk: "장비 문제", trigger: "사전 테스트 실패", response: "예비 음원/마이크/진행 순서로 즉시 전환" },
+    { risk: "캠페인 참여 저조", trigger: "초반 10분 참여율 낮음", response: "참여 단계를 1개 행동으로 축소하고 사명자 직접 유도" },
+  ],
+  nextActions: ["오늘: 핵심 목표 1개와 책임자 1명씩 확정", "D-3: 공연·캠페인 리허설 완료", "D+1: 숫자 3개만 남겨 다음 월례회에 반영"],
+  bibleRef: "고린도전서 14:40",
+};
+
+function parse(raw: string): any | null {
+  try { return JSON.parse(raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim()); } catch { return null; }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: H });
+  if (req.method !== "POST") return new Response(JSON.stringify({ error: "POST only" }), { status: 405, headers: H });
+
+  try {
+    const body = await req.json();
+    const topic = String(body?.topic || "").trim();
+    const audience = String(body?.audience || "사명자 운영팀").trim();
+    const budget = String(body?.budget || "제약 없음").trim();
+    const clubs = String(body?.clubs || "").trim();
+    const campaign = String(body?.campaign || "").trim();
+    if (!topic) throw new Error("월례회 주제를 입력해주세요.");
+
+    const key = Deno.env.get("NVIDIA_KEY_EVENTS");
+    if (!key) return new Response(JSON.stringify(FALLBACK), { headers: H });
+
+    const system = `당신은 교회 학생회 사명자를 위한 ‘월례회 작전실 AI’입니다. 단순 행사 아이디어 생성기가 아니라 한 달에 한 번 반복되는 학생회 월례회를 더 잘 운영하고 다음 달에 개선되게 만드는 운영 시스템입니다.
+
+학생회 맥락:
+- 월례회에서는 동아리마다 공연이 들어갈 수 있습니다.
+- 여러 캠페인이 함께 진행될 수 있습니다.
+- 사명자는 전체 진행, 동아리 조율, 학생 안내, 무대·음향, 시간 관리, 캠페인, 기록과 후속조치를 담당합니다.
+
+핵심 목표:
+1) 입력된 상황에서 ‘이번 월례회가 성공했다고 볼 기준’을 1문장으로 정의
+2) 공연/캠페인/학생 경험/사명자 운영을 서로 연결
+3) 준비-당일-사후를 하나의 운영 루프로 설계
+4) 담당자·마감·완료기준이 있는 실행 항목 생성
+5) 실제 운영에서 터질 가능성이 큰 리스크와 즉시 전환안을 제시
+6) 다음 월례회에 재사용할 데이터 3개를 남김
+
+절대 하지 말 것:
+- 뻔한 레크리에이션 7개 추천
+- ‘즐거운 행사’, ‘소통을 강화하세요’ 같은 추상 문장
+- 입력하지 않은 팀 수·인원·예산을 사실처럼 가정
+
+출력은 반드시 JSON 하나만:
+{
+  "title": "작전실 이름",
+  "mission": "성공 기준 1문장",
+  "keyDecisions": ["반드시 결정할 것 1", "반드시 결정할 것 2", "반드시 결정할 것 3"],
+  "runOfShow": [{"time":"D-7 또는 D-3 또는 D-Day 또는 D+1","action":"무엇을 할지","owner":"누가","output":"완료 결과"}],
+  "workstreams": [{"name":"영역","goal":"목표","firstStep":"첫 실행","owner":"담당 역할"}],
+  "risks": [{"risk":"문제","trigger":"발생 기준","response":"즉시 대응"}],
+  "nextActions": ["오늘", "행사 전", "행사 후"],
+  "bibleRef": "관련 성경 구절"
+}
+runOfShow 4~6개, workstreams 4개, risks 3개, nextActions 3개. 각 문장은 짧지만 실제로 실행 가능해야 합니다.`;
+
+    const response = await fetch("https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/ai-gateway", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        task: "monthly-meeting-command-center",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: [`월례회 주제: ${topic}`, `대상: ${audience}`, `예산/제약: ${budget}`, `참여 동아리/공연: ${clubs || "미정"}`, `캠페인: ${campaign || "없음"}`, "이 월례회를 실제 실행 가능한 작전 계획으로 바꿔주세요."].join("\n") },
+        ],
+        temperature: 0.32,
+        max_tokens: 3200,
+      }),
+    });
+
+    if (!response.ok) return new Response(JSON.stringify(FALLBACK), { headers: H });
+    const data = await response.json();
+    const result = parse(data?.choices?.[0]?.message?.content || "");
+    if (!result || typeof result.title !== "string" || typeof result.mission !== "string") return new Response(JSON.stringify(FALLBACK), { headers: H });
+
+    return new Response(JSON.stringify({
+      title: result.title,
+      mission: result.mission,
+      keyDecisions: Array.isArray(result.keyDecisions) ? result.keyDecisions.filter((x: unknown) => typeof x === "string").slice(0, 4) : FALLBACK.keyDecisions,
+      runOfShow: Array.isArray(result.runOfShow) ? result.runOfShow.slice(0, 6) : FALLBACK.runOfShow,
+      workstreams: Array.isArray(result.workstreams) ? result.workstreams.slice(0, 4) : FALLBACK.workstreams,
+      risks: Array.isArray(result.risks) ? result.risks.slice(0, 3) : FALLBACK.risks,
+      nextActions: Array.isArray(result.nextActions) ? result.nextActions.filter((x: unknown) => typeof x === "string").slice(0, 3) : FALLBACK.nextActions,
+      bibleRef: typeof result.bibleRef === "string" ? result.bibleRef : FALLBACK.bibleRef,
+    }), { headers: H });
+  } catch (error) {
+    console.error("[nim-event-ideas]", error);
+    return new Response(JSON.stringify(FALLBACK), { headers: H });
+  }
 });
