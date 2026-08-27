@@ -2,133 +2,129 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Content-Type": "application/json",
+  "Cache-Control": "no-store",
 };
 
-const FALLBACK_IDEAS = {
-  title: "행사 아이디어",
+const FALLBACK = {
+  title: "월례회 운영 기본안",
   ideas: [
-    "숏폼 성경 챌린지 — 60초 안에 오늘의 말씀을 가장 창의적으로 표현하는 영상 콘테스트. 각 동아리별 대표 출전 후 전체 투표. 준비물: 스마트폰, SNS 업로드용 해시태그 기획",
-    "랜덤 기도 파트너 — 매주 추첨으로 짝을 바꿔 서로의 기도제목을 나누는 릴레이. 카톡방에서 랜덤 매칭 봇 활용. 난이도: 하",
-    "'믿음의 방탈출' — 성경 퀴즈와 공동체 미션을 결합한 교회판 방탈출 게임. 각 방마다 다른 성경 스토리를 테마로 구성. 준비물: 소품, 문제지, 자물쇠",
-    "야외 무박 예배 — 모닥불과 함께하는 언플러그드 찬양과 간증의 밤. 어쿠스틱 악기만 사용하는 특별한 분위기. 준비물: 장소 섭외, 악기, 방한용품",
-    "나눔 플리마켓 — 각자 사용하지 않는 물건을 기부하고 수익금은 지역사회에 환원. 부스 운영은 동아리별로 담당. 난이도: 중",
-    "사명자 릴레이 인터뷰 — 선배 사명자가 후배에게 조언을 전하는 숏폼 인터뷰 시리즈. 매주 1편씩 공식 SNS에 업로드. 준비물: 촬영 장비, 편집 툴",
-    "감사 편지 쓰기 캠페인 — 한 달간 매주 다른 대상(부모님, 교사, 친구, 하나님)에게 손편지 쓰기. 우체통을 교회에 설치해 수집 후 전달. 난이도: 하",
+    "전체 흐름을 90분 기준으로 먼저 고정하고, 예배·공지·동아리 공연·캠페인·마무리 순서를 시간표로 배치해 진행자가 즉시 사용할 수 있게 구성합니다. 난이도: 중 · 준비물: 진행표, 타이머",
+    "동아리 공연은 팀당 동일한 준비 시간을 배정하고 무대 전환 체크리스트를 만들어 공연 사이의 공백을 줄입니다. 난이도: 중 · 준비물: 공연 순서표, 마이크/음향 체크표",
+    "캠페인은 '메시지 1개 + 행동 1개 + 기록 방법 1개'로 단순화해 행사 당일 참여 여부를 확인하고 이후 실천까지 이어지게 만듭니다. 난이도: 하 · 준비물: 참여 카드, QR 또는 기록지",
+    "사명자별 역할을 사전 배정해 총괄·무대·음향·동아리 연락·학생 안내·사진기록·돌발상황 대응으로 나누고 한 사람이 여러 핵심 역할을 겹쳐 맡지 않도록 합니다. 난이도: 중 · 준비물: 역할표",
+    "행사 7일 전, 3일 전, 당일 점검으로 나눠 준비 상황을 확인하고 미완료 항목만 다시 모아 담당자에게 전달하는 체크 체계를 만듭니다. 난이도: 하 · 준비물: 체크리스트",
+    "공연 취소·장비 고장·시간 지연을 가정한 대체 순서를 준비해 사회자가 바로 다음 순서로 넘어갈 수 있도록 예비 프로그램을 확보합니다. 난이도: 중 · 준비물: 비상 진행안",
+    "월례회가 끝난 뒤 참여율·공연 반응·캠페인 참여·시간 초과 원인·다음 달 개선점 5가지만 기록해 다음 월례회 준비에 누적해서 활용합니다. 난이도: 하 · 준비물: 사후평가 양식",
   ],
-  bibleRef: "베드로전서 4:10"
+  bibleRef: "고린도전서 14:40",
 };
 
-function safeParse(raw: string): Record<string, unknown> {
+function cleanJson(raw: string): Record<string, unknown> | null {
   try {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(cleaned) as Record<string, unknown>;
+    const stripped = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
+    return JSON.parse(stripped) as Record<string, unknown>;
   } catch {
-    return { ...FALLBACK_IDEAS };
+    return null;
   }
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
+  if (req.method !== "POST") return new Response(JSON.stringify({ error: "POST only" }), { status: 405, headers: CORS_HEADERS });
 
   try {
     const { topic, audience, budget } = await req.json();
-
-    if (!topic || !audience || !budget) {
-      throw new Error("주제, 대상, 예산을 모두 입력해주세요.");
-    }
+    if (!topic?.trim()) throw new Error("월례회 주제를 입력해주세요.");
 
     const apiKey = Deno.env.get("NVIDIA_KEY_EVENTS");
-    if (!apiKey) {
-      return new Response(JSON.stringify(FALLBACK_IDEAS), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
-      });
-    }
+    if (!apiKey) return new Response(JSON.stringify(FALLBACK), { headers: CORS_HEADERS });
 
-    const isLeaderAudience = audience === '사명자';
-    const systemPrompt = `너는 교회 학생회 행사 기획 전문가야. 평범한 아이디어 대신, 요즘 10-20대 학생들이 진짜 재미있어할 **참신하고 트렌디한 행사**를 기획하는 것이 너의 임무야.
+    const systemPrompt = `당신은 교회 학생회 사명자 운영팀의 '월례회 실무 총괄 AI'입니다.
+이 AI는 행사 아이디어를 장난스럽게 제안하는 도구가 아니라, 실제 월례회를 성공적으로 운영하기 위한 실행 계획을 만드는 도구입니다.
 
-[핵심 원칙]
-- 뻔한 레크리에이션, 전형적인 수련회 포맷은 절대 금지. "누구나 하는" 아이디어는 버려.
-- SNS에서 바이럴 될 만한 요소, 숏폼 콘텐츠와 연계 가능한 요소를 적극 반영할 것
-- 학생들이 "오 이거 진짜 해보고 싶다"라고 느낄 수 있는 신선함이 핵심
-- **레크리에이션, 게임, 즐길 거리, 체험형 활동의 비중을 높이고**, 단순히 즐기는 것을 넘어 신앙적 의미도 자연스럽게 녹아들게 할 것
-- 학생회가 최근에 했을 법한 흔한 행사(MT, 체육대회, 찬양제 등)는 피하고, 기존과 다른 각도에서 접근할 것
-- 각 아이디어에는 실행 난이도(상/중/하)와 핵심 준비물을 간략히 언급할 것
-${isLeaderAudience ? '- **대상이 사명자이므로**, 리더십 훈련, 팀빌딩, 비전 워크숍 성격을 가미하되 재미 요소도 충분히 포함할 것. 사명자들끼리 친목을 다지고 리더로서 성장할 수 있는 체험형 프로그램을 제안할 것.' : ''}
+학생회 특성:
+- 월례회에서 동아리마다 공연을 할 수 있습니다.
+- 여러 캠페인을 함께 진행할 수 있습니다.
+- 사명자는 전체 진행, 동아리 조율, 학생 안내, 음향/무대, 시간 관리, 캠페인 운영, 사후 정리를 담당합니다.
 
-[필수 출력 형식]
-반드시 아래 JSON 형식으로만 응답해 (다른 텍스트 없이):
+반드시 지킬 원칙:
+- 뻔한 행사 아이디어, 게임 추천, 레크리에이션 추천을 하지 마세요.
+- 입력된 월례회의 상황을 실제 운영 계획으로 바꾸세요.
+- 공연이 있다면 공연 순서, 전환, 리허설, 장비, 지연 대응까지 고려하세요.
+- 캠페인이 있다면 목표, 참여 동선, 담당자, 기록, 사후 후속조치까지 고려하세요.
+- 사명자 역할은 총괄/진행/동아리 조율/무대·음향/학생관리/기록/돌발상황 대응 등 실제 역할로 나누세요.
+- 시간, 담당, 준비물, 체크 시점을 구체적으로 넣으세요.
+- 학생회에서 바로 복사해 회의자료로 쓸 수 있을 정도로 구체적으로 작성하세요.
+- 입력 내용에 없는 사실은 만들어내지 말고, 필요한 경우 '가정'으로 명시하세요.
 
+출력 JSON:
 {
-  "title": "행사 제목 (20자 이내, 캐치하고 트렌디하게)",
+  "title": "월례회 운영안 제목",
   "ideas": [
-    "아이디어1 (구체적 실행 방식 + 난이도 + 준비물 포함, 80자 내외)",
-    "아이디어2",
-    "아이디어3",
-    "아이디어4",
-    "아이디어5",
-    "아이디어6",
-    "아이디어7"
+    "운영안 1 ...",
+    "운영안 2 ...",
+    "운영안 3 ...",
+    "운영안 4 ...",
+    "운영안 5 ...",
+    "운영안 6 ...",
+    "운영안 7 ..."
   ],
-  "bibleRef": "관련 성경 구절 하나 (형식: 책이름 장:절)"
+  "bibleRef": "관련 성경 구절 출처"
 }
 
-아이디어는 정확히 7개를 제시해야 해. 각 아이디어는 제목만 나열하는 게 아니라, 어떻게 진행할지 구체적인 실행 방식과 난이도, 핵심 준비물을 포함해야 해.`;
+ideas는 정확히 7개이며, 각 항목은 '실제로 무엇을/누가/언제/어떻게' 실행할지 한 문장 안에서 알 수 있어야 합니다.`;
 
     const response = await fetch("https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/ai-gateway", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "google/gemma-4-31b-it",
+        task: "monthly-meeting-operations",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `행사 주제: ${topic}\n대상: ${audience}\n예산: ${budget}\n\n위 조건에 맞는 참신하고 트렌디한 행사 아이디어 7개를 제안해줘. 각 아이디어마다 실행 난이도(상/중/하)와 핵심 준비물을 포함해줘. ${isLeaderAudience ? '사명자 대상이니 리더십+재미를 결합한 프로그램을 제안해줘.' : '학생회가 이미 해봤을 법한 흔한 아이디어는 빼고, 진짜 새로운 각도에서 접근해줘.'}` },
+          {
+            role: "user",
+            content: [
+              `월례회 핵심 주제: ${topic.trim()}`,
+              `대상/운영 범위: ${audience || "사명자 운영팀"}`,
+              `예산/제약: ${budget || "별도 제약 없음"}`,
+              "",
+              "이 정보를 바탕으로 실제 학생회 사명자들이 바로 사용할 수 있는 월례회 운영안 7개를 만들어주세요.",
+            ].join("\n"),
+          },
         ],
-        temperature: 1.0,
-        max_tokens: 2500,
+        temperature: 0.35,
+        max_tokens: 2400,
       }),
     });
     logNvidiaUsage("nim-event-ideas", "KEY_EVENTS", response).catch(() => {});
 
-    if (!response.ok) {
-      return new Response(JSON.stringify(FALLBACK_IDEAS), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
-      });
+    if (!response.ok) return new Response(JSON.stringify(FALLBACK), { headers: CORS_HEADERS });
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content || "";
+    const parsed = cleanJson(content);
+    if (!parsed || typeof parsed.title !== "string" || !Array.isArray(parsed.ideas)) {
+      return new Response(JSON.stringify(FALLBACK), { headers: CORS_HEADERS });
     }
 
-    const result = await response.json();
-    const rawContent = result?.choices?.[0]?.message?.content || "";
+    const ideas = parsed.ideas
+      .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+      .slice(0, 7);
+    while (ideas.length < 7) ideas.push(FALLBACK.ideas[ideas.length]);
 
-    const parsed = safeParse(rawContent);
-
-    if (Array.isArray(parsed.ideas)) {
-      if (parsed.ideas.length < 7) {
-        const padIdeas = FALLBACK_IDEAS.ideas.slice(0, 7 - parsed.ideas.length);
-        parsed.ideas = [...parsed.ideas, ...padIdeas];
-      } else if (parsed.ideas.length > 7) {
-        parsed.ideas = parsed.ideas.slice(0, 7);
-      }
-    } else {
-      parsed.ideas = FALLBACK_IDEAS.ideas;
-    }
-
-    return new Response(JSON.stringify(parsed), {
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-    });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "알 수 없는 오류";
-    console.error("Edge function error:", message);
-    return new Response(
-      JSON.stringify({ error: message }),
-      {
-        status: 500,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify({
+      title: parsed.title,
+      ideas,
+      bibleRef: typeof parsed.bibleRef === "string" ? parsed.bibleRef : FALLBACK.bibleRef,
+    }), { headers: CORS_HEADERS });
+  } catch (error) {
+    console.error("[nim-event-ideas]", error);
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "AI 생성에 실패했습니다." }), { status: 500, headers: CORS_HEADERS });
   }
 });
