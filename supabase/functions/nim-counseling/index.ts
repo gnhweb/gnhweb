@@ -99,7 +99,7 @@ ${profileContext}
 
     const response = await fetch('https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/ai-gateway', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': req.headers.get('Authorization') || '' },
       body: JSON.stringify({
         model: 'google/gemma-4-31b-it',
         messages: chatMessages,
