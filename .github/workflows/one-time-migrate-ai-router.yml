@@ -1,0 +1,135 @@
+name: One-time migrate NIM functions to AI router
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-migrate-ai-router.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Rewrite NIM fetch calls
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          root = Path('supabase/functions')
+
+          def matching_end(text, start, opener='{', closer='}'):
+              depth = 0
+              quote = None
+              escape = False
+              for i in range(start, len(text)):
+                  c = text[i]
+                  if quote:
+                      if escape:
+                          escape = False
+                      elif c == '\\':
+                          escape = True
+                      elif c == quote:
+                          quote = None
+                      continue
+                  if c in "'\"`":
+                      quote = c
+                      continue
+                  if c == opener: depth += 1
+                  elif c == closer:
+                      depth -= 1
+                      if depth == 0: return i
+              return -1
+
+          def bracket_end(text, start, opener='[', closer=']'):
+              return matching_end(text, start, opener, closer)
+
+          changed = []
+          for p in sorted(root.glob('nim-*/index.ts')):
+              s = p.read_text(encoding='utf-8')
+              marker = 'const response = await fetch('
+              pos = s.find(marker)
+              if pos < 0 or 'integrate.api.nvidia.com/v1/chat/completions' not in s[pos:pos+250]:
+                  continue
+
+              fetch_open = s.find('fetch(', pos) + len('fetch(')
+              obj_start = s.find('{', fetch_open)
+              obj_end = matching_end(s, obj_start)
+              if obj_start < 0 or obj_end < 0:
+                  raise SystemExit(f'Could not parse fetch object in {p}')
+              call_end = s.find(';', obj_end)
+              if call_end < 0:
+                  raise SystemExit(f'Could not find fetch statement end in {p}')
+              original = s[pos:call_end+1]
+              obj = s[obj_start:obj_end+1]
+
+              body_pos = obj.find('body: JSON.stringify(')
+              if body_pos < 0:
+                  raise SystemExit(f'No JSON.stringify body in {p}')
+              body_open = obj.find('(', body_pos) + 1
+              body_end = matching_end(obj, body_open, '(', ')')
+              if body_end < 0:
+                  raise SystemExit(f'Could not parse JSON.stringify body in {p}')
+              body = obj[body_open:body_end]
+
+              msg_pos = body.find('messages:')
+              if msg_pos < 0:
+                  raise SystemExit(f'No messages in {p}')
+              msg_start = body.find('[', msg_pos)
+              msg_end = bracket_end(body, msg_start)
+              if msg_end < 0:
+                  raise SystemExit(f'Could not parse messages array in {p}')
+              messages = body[msg_start:msg_end+1]
+
+              model_m = re.search(r'model\s*:\s*([\"\'`][^\"\'`]+[\"\'`])', body)
+              temp_m = re.search(r'temperature\s*:\s*([0-9.]+)', body)
+              max_m = re.search(r'max_tokens\s*:\s*([0-9]+)', body)
+              model = model_m.group(1) if model_m else 'undefined'
+              temp = temp_m.group(1) if temp_m else '0.4'
+              max_tokens = max_m.group(1) if max_m else '500'
+
+              task = p.parent.name
+              replacement = f'const response = await callAI({{ task: "{task}", model: {model}, messages: {messages}, temperature: {temp}, maxTokens: {max_tokens} }});'
+
+              s = s[:pos] + replacement + s[call_end+1:]
+              if 'from "../_shared/aiRouter.ts"' not in s and "from '../_shared/aiRouter.ts'" not in s:
+                  lines = s.splitlines(True)
+                  insert_at = 1 if lines and lines[0].startswith('import "jsr:') else 0
+                  lines.insert(insert_at, 'import { callAI } from "../_shared/aiRouter.ts";\n')
+                  s = ''.join(lines)
+              p.write_text(s, encoding='utf-8')
+              changed.append(str(p))
+
+          if not changed:
+              raise SystemExit('No NIM functions were migrated')
+          print('Migrated:')
+          print('\n'.join(changed))
+
+      - name: Validate
+        run: |
+          grep -R -n "callAI({ task:" supabase/functions/nim-*/index.ts | head -50
+          if grep -R -n "https://integrate.api.nvidia.com/v1/chat/completions" supabase/functions/nim-*/index.ts; then
+            echo "Direct NVIDIA fetch still remains in NIM functions"; exit 1;
+          fi
+          git diff --check
+
+      - name: Commit migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/nim-*/index.ts supabase/functions/_shared/aiRouter.ts
+          git commit -m "feat: route NIM AI through resilient multi-provider gateway"
+          git push
+
+      - name: Remove one-time workflow
+        run: |
+          git rm .github/workflows/one-time-migrate-ai-router.yml
+          git commit -m "chore: remove one-time AI router migration workflow"
+          git push
