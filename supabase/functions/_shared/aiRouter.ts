@@ -131,19 +131,15 @@ async function requestCohere(provider: Provider, options: ChatOptions) {
 }
 
 const PROVIDERS: Provider[] = [
-  makeProvider('gemini', 'GEMINI_API_KEY', 'GEMINI_MODEL', 'gemini-2.5-flash', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'),
+  { name: 'gemini', envKey: 'GEMINI_API_KEY', modelEnv: 'GEMINI_MODEL', defaultModel: 'gemini-2.5-flash', request: requestGemini },
   makeProvider('groq', 'GROQ_API_KEY', 'GROQ_MODEL', 'openai/gpt-oss-120b', 'https://api.groq.com/openai/v1/chat/completions'),
   makeProvider('cerebras', 'CEREBRAS_API_KEY', 'CEREBRAS_MODEL', 'gpt-oss-120b', 'https://api.cerebras.ai/v1/chat/completions'),
   makeProvider('sambanova', 'SAMBANOVA_API_KEY', 'SAMBANOVA_MODEL', 'Meta-Llama-3.3-70B-Instruct', 'https://api.sambanova.ai/v1/chat/completions'),
   makeProvider('mistral', 'MISTRAL_API_KEY', 'MISTRAL_MODEL', 'mistral-small-latest', 'https://api.mistral.ai/v1/chat/completions'),
   makeProvider('together', 'TOGETHER_API_KEY', 'TOGETHER_MODEL', 'meta-llama/Llama-3.3-70B-Instruct-Turbo', 'https://api.together.xyz/v1/chat/completions'),
   makeProvider('openrouter', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', 'openai/gpt-oss-120b:free', 'https://openrouter.ai/api/v1/chat/completions'),
-  {
-    name: 'cloudflare', envKey: 'CLOUDFLARE_API_TOKEN', modelEnv: 'CLOUDFLARE_MODEL', defaultModel: '@cf/openai/gpt-oss-120b', request: requestCloudflare,
-  },
-  {
-    name: 'cohere', envKey: 'COHERE_API_KEY', modelEnv: 'COHERE_MODEL', defaultModel: 'command-a-03-2025', request: requestCohere,
-  },
+  { name: 'cloudflare', envKey: 'CLOUDFLARE_API_TOKEN', modelEnv: 'CLOUDFLARE_MODEL', defaultModel: '@cf/openai/gpt-oss-120b', request: requestCloudflare },
+  { name: 'cohere', envKey: 'COHERE_API_KEY', modelEnv: 'COHERE_MODEL', defaultModel: 'command-a-03-2025', request: requestCohere },
   makeProvider('nvidia', 'NVIDIA_KEY_FALLBACK', 'NVIDIA_MODEL', 'google/gemma-4-31b-it', 'https://integrate.api.nvidia.com/v1/chat/completions'),
 ];
 
@@ -154,17 +150,15 @@ function extractContent(provider: string, payload: any): string {
   return payload?.choices?.[0]?.message?.content || '';
 }
 
-export async function callAI(options: ChatOptions): Promise<{ response: Response; provider: string; content: string }> {
+export async function callAI(options: ChatOptions): Promise<Response> {
   const configured = PROVIDERS.filter((provider) => {
     if (provider.name === 'cloudflare') return !!Deno.env.get(provider.envKey) && !!Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
     return !!Deno.env.get(provider.envKey);
   });
 
-  if (configured.length === 0) {
-    throw new Error('AI provider is not configured');
-  }
+  if (configured.length === 0) throw new Error('AI provider is not configured');
 
-  // Start at a rotating index so one provider does not absorb every request.
+  // Rotate the starting provider daily, while still falling through on errors/quota exhaustion.
   const start = Math.floor(Date.now() / 86_400_000) % configured.length;
   const ordered = [...configured.slice(start), ...configured.slice(0, start)];
   const failures: string[] = [];
@@ -172,19 +166,23 @@ export async function callAI(options: ChatOptions): Promise<{ response: Response
   for (const provider of ordered) {
     if (isCoolingDown(provider.name)) continue;
     try {
-      const response = await provider.request(provider, options);
-      if (response.ok) {
-        const cloned = response.clone();
+      const upstream = await provider.request(provider, options);
+      if (upstream.ok) {
         let payload: any = null;
-        try { payload = await cloned.json(); } catch { payload = null; }
+        try { payload = await upstream.clone().json(); } catch { payload = null; }
         const content = extractContent(provider.name, payload);
-        if (content.trim()) return { response, provider: provider.name, content };
+        if (content.trim()) {
+          return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', 'X-AI-Provider': provider.name },
+          });
+        }
         failures.push(`${provider.name}:empty`);
         markCooldown(provider.name);
         continue;
       }
-      if (response.status === 429 || response.status >= 500) markCooldown(provider.name);
-      failures.push(`${provider.name}:${response.status}`);
+      if (upstream.status === 429 || upstream.status >= 500) markCooldown(provider.name);
+      failures.push(`${provider.name}:${upstream.status}`);
     } catch (error) {
       markCooldown(provider.name);
       failures.push(`${provider.name}:${error instanceof Error ? error.message : 'network'}`);
