@@ -2,164 +2,130 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Content-Type": "application/json",
+  "Cache-Control": "no-store",
 };
 
-interface MeetingIdeasResult {
-  verse: string;
-  verseReference: string;
-  ideaTitle: string;
-  ideas: string[];
-  insight: string;
-  actionItems: string[];
+const FALLBACK = {
+  verse: "각각 은사를 받은 대로 하나님의 여러 가지 은혜를 맡은 선한 청지기 같이 서로 봉사하라 (베드로전서 4:10)",
+  verseReference: "베드로전서 4:10",
+  ideaTitle: "이번 주 사명자 운영 점검",
+  ideas: [
+    "1순위 학생을 3명 이내로 정해 출석·관계·최근 상황을 한 줄씩 기록하고, 이번 주 안에 직접 연락할 담당자를 정합니다.",
+    "최근 2~3주 동안 참석이 줄어든 학생을 따로 표시하고 '안부 연락 → 이유 확인 → 다음 참여 연결'의 3단계로 후속조치합니다.",
+    "새로 온 학생이나 관계가 아직 약한 학생에게는 한 명의 사명자를 연결해 이번 주 안에 자연스러운 대화를 한 번 만들도록 합니다.",
+    "동아리별로 운영 상태를 '정상 / 도움이 필요 / 즉시 확인'으로 나누고 문제가 있는 동아리만 책임 사명자가 따로 확인합니다.",
+    "이번 주 사명자 업무를 중요도 순으로 3개만 남기고, 각 업무에 담당자·기한·완료 기준을 붙여 단체 채팅에 공유합니다.",
+    "기도가 필요한 학생은 개인정보를 넓게 공유하지 말고 필요한 사명자만 확인할 수 있도록 정리한 뒤, 실제 행동으로 이어질 기도제목을 1문장으로 적습니다.",
+    "주간 마무리 때 '연락한 사람 / 연결된 사람 / 미해결 문제 / 다음 주 첫 행동' 4가지만 기록해 다음 주에 바로 이어지게 합니다.",
+  ],
+  insight: "사명자 운영의 핵심은 일을 많이 만드는 것이 아니라, 실제 사람 한 명의 변화와 다음 행동을 놓치지 않는 것입니다.",
+  actionItems: [
+    "오늘: 우선 확인할 학생 3명을 정하고 담당자 배정",
+    "이번 주: 출석·관계 이슈가 있는 학생에게 실제 연락 실행",
+    "주말: 미해결 상황과 다음 주 첫 행동 1개씩 기록",
+  ],
+};
+
+function parse(raw: string): any | null {
+  try {
+    return JSON.parse(raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim());
+  } catch {
+    return null;
+  }
 }
 
-const FALLBACK: MeetingIdeasResult = {
-  verse: '철이 철을 날카롭게 하는 것 같이 사람이 그 친구의 얼굴을 빛나게 하느니라 (잠언 27:17)',
-  verseReference: '잠언 27:17',
-  ideaTitle: '함께 성장하는 아이디어 회의',
-  ideas: [
-    '회의 시작 전 5분간 각자 최근 감사했던 일 한 가지씩 나누며 긍정적 분위기 만들기',
-    '아이디어 포스트잇 브레인스토밍 — 각자 3분간 조용히 아이디어 적고 한 번에 붙이기',
-    '역할 바꿔 생각하기 — "내가 새신자라면?", "내가 부장님이라면?" 관점에서 아이디어 내기',
-    '30초 엘리베이터 피치 — 각 안건을 30초 안에 설득력 있게 발표하는 연습 후 투표',
-    '걱정 월(Wall) 만들기 — 회의 전 포스트잇에 각자 걱정거리를 붙이고 함께 해결책 브레인스토밍',
-    '미래 신문 만들기 — 6개월 후 학생회 신문 1면에 실릴 기사를 상상하며 비전 아이디어 도출',
-    '랜덤 역할 체인지 — 회의 중간에 사회자·서기·타임키퍼 역할을 무작위로 바꿔 새 관점 얻기',
-  ],
-  insight: '최고의 아이디어는 편안한 분위기에서 나와요. 실패를 두려워하지 않고 누구나 말할 수 있는 환경을 만드는 게 핵심입니다. 서로의 의견에 "그런데" 대신 "그리고"로 연결해보세요.',
-  actionItems: [
-    '다음 회의 전 안건을 단톡방에 하루 전 공유하기',
-    '회의 마지막 10분은 자유 아이디어 타임으로 비워두기',
-    '아이디어 보드를 만들어 누구나 자유롭게 의견 붙일 수 있게 하기',
-  ],
-};
-
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
+  if (req.method !== "POST") return new Response(JSON.stringify({ error: "POST only" }), { status: 405, headers: CORS_HEADERS });
 
   try {
     const { topic, situation } = await req.json();
-    if (!topic) {
-      return new Response(
-        JSON.stringify({ error: '회의 주제를 입력해주세요.' }),
-        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (!topic?.trim()) return new Response(JSON.stringify({ error: "이번 주 상황을 입력해주세요." }), { status: 400, headers: CORS_HEADERS });
 
-    const apiKey = Deno.env.get('NVIDIA_KEY_MEETING');
-    if (!apiKey) {
-      return new Response(JSON.stringify(FALLBACK), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
+    const apiKey = Deno.env.get("NVIDIA_KEY_MEETING");
+    if (!apiKey) return new Response(JSON.stringify(FALLBACK), { headers: CORS_HEADERS });
 
-    const systemPrompt = `당신은 교회 학생회를 위한 체계적인 회의 운영 전문 코치입니다. 사용자가 회의 주제를 입력하면, 실제 회의 안건에 대해 실무적이고 체계적인 아이디어를 제시해주세요.
+    const systemPrompt = `당신은 교회 학생회 '사명자 전용 사역 운영 AI'입니다.
+이 도구는 행사 아이디어나 회의 게임을 추천하지 않습니다. 사명자가 실제 학생을 돌보고, 출석·관계·동아리·기도·업무를 놓치지 않도록 한 주의 사역을 구조화하는 것이 목적입니다.
 
-[핵심 원칙]
-- 레크리에이션, 게임, 이벤트성 아이디어는 배제하고, 실제 회의 운영·의사결정·조직관리에 초점을 맞출 것
-- 구체적인 회의 의제(agenda) 설계, 진행 방식, 의사결정 프레임워크, 팔로업 체계를 제안할 것
-- 학생회 특성(사명자·구역 중심 운영, 보고체계, 동아리 연계)을 고려한 실용적 조언
-- 실행 가능한 구체적 액션 아이템과 타임라인을 포함할 것
+학생회 사명자 운영에서 다뤄야 할 범위:
+- 학생 출석 및 장기결석/참여 감소 학생 후속관리
+- 새로 온 학생의 정착과 관계 연결
+- 학생 개인 상황에 맞는 연락·심방·기도 후속조치
+- 동아리 운영 상태 확인 및 필요한 지원 연결
+- 사명자 역할·담당자·기한 정리
+- 주간 사역 결과 기록과 다음 행동 결정
 
-[규칙]
-1. 입력된 회의 주제를 정확히 반영한 실무적 아이디어일 것. 추상적 원론 절대 금지.
-2. ideaTitle: 회의 주제를 관통하는 실용적 테마 (15자 내외)
-3. ideas: 구체적이고 체계적인 회의 운영 아이디어 정확히 7가지 — 각 아이디어는 회의 의제 설계, 진행 방식, 의사결정 도구, 팔로업 체계 등 실무에 바로 적용 가능한 수준으로 구체적으로. 번호를 매겨서.
-4. insight: 이 주제의 회의에서 놓치기 쉬운 실무적 통찰 2-3문장
-5. actionItems: 회의 후 바로 실행할 수 있는 구체적 팔로업 항목 3가지 (담당자·기한 포함)
-6. 말투는 전문적이고 명확한 해요체
-7. 주제와 관련된 개역한글 성경 구절 1개 포함
+금지:
+- 월례회나 행사 아이디어를 제안하지 마세요.
+- 게임, 레크리에이션, 브레인스토밍을 넣지 마세요.
+- 막연한 '힘내세요' 조언만 하지 마세요.
+- 사용자가 제공하지 않은 학생 정보나 문제를 만들어내지 마세요.
 
-반드시 JSON 형식으로만 응답:
+좋은 답변의 기준:
+1. 입력된 상황을 정확히 요약합니다.
+2. 무엇을 먼저 해야 하는지 우선순위를 정합니다.
+3. 각 행동에 '누가/언제/무엇을/어떤 결과가 나오면 완료인지'가 드러나게 합니다.
+4. 실제 단체 운영에 바로 복사할 수 있는 문장으로 씁니다.
+5. 개인정보는 필요한 범위에서만 다루고, 학생을 낙인찍는 표현을 사용하지 않습니다.
+6. 성경 구절은 상황을 꾸며내지 않고 주제와 자연스럽게 연결되는 구절을 고릅니다.
+
+반드시 JSON:
 {
-  "verse": "개역한글 성경 구절 본문",
-  "verseReference": "출처 (책이름 장:절)",
-  "ideaTitle": "핵심 아이디어 제목",
-  "ideas": ["아이디어1", "아이디어2", "아이디어3", "아이디어4", "아이디어5", "아이디어6", "아이디어7"],
+  "verse": "관련 성경 구절 본문",
+  "verseReference": "책 장:절",
+  "ideaTitle": "이번 주 사역 운영 제목",
+  "ideas": ["구체적 운영안 1", "구체적 운영안 2", "구체적 운영안 3", "구체적 운영안 4", "구체적 운영안 5", "구체적 운영안 6", "구체적 운영안 7"],
   "insight": "핵심 통찰",
-  "actionItems": ["실천1", "실천2", "실천3"]
+  "actionItems": ["오늘 할 일", "이번 주 할 일", "주간 마무리 할 일"]
 }`;
 
-    const userMessage = situation
-      ? `회의 주제: ${topic}\n현재 상황: ${situation}\n\n이 상황에 딱 맞는 실무적인 회의 운영 아이디어 7가지를 추천해주세요. 학생회 사명자 관점에서 실용적으로.`
-      : `회의 주제: ${topic}\n\n이 주제에 딱 맞는 실무적인 회의 운영 아이디어 7가지를 추천해주세요. 학생회 사명자 관점에서 실용적으로.`;
+    const userMessage = [
+      `이번 주 사역 주제: ${topic.trim()}`,
+      situation?.trim() ? `현재 상황: ${situation.trim()}` : "현재 상황: 추가 설명 없음",
+      "",
+      "사명자가 이번 주 실제로 실행할 수 있는 우선순위 중심의 사역 운영안을 만들어주세요.",
+    ].join("\n");
 
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
+    const response = await fetch("https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/ai-gateway", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'google/gemma-4-31b-it',
+        task: "mission-worker-operations",
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
+        temperature: 0.3,
+        max_tokens: 2400,
       }),
     });
     logNvidiaUsage("meeting-ideas-ai", "KEY_MEETING", response).catch(() => {});
 
-    if (!response.ok) {
-      return new Response(JSON.stringify(FALLBACK), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
+    if (!response.ok) return new Response(JSON.stringify(FALLBACK), { headers: CORS_HEADERS });
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      return new Response(JSON.stringify(FALLBACK), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
+    const parsed = parse(data?.choices?.[0]?.message?.content || "");
+    if (!parsed || typeof parsed.ideaTitle !== "string" || !Array.isArray(parsed.ideas)) {
+      return new Response(JSON.stringify(FALLBACK), { headers: CORS_HEADERS });
     }
 
-    let parsed: MeetingIdeasResult;
-    try {
-      parsed = JSON.parse(content) as MeetingIdeasResult;
-    } catch {
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        try {
-          parsed = JSON.parse(jsonMatch[1].trim()) as MeetingIdeasResult;
-        } catch {
-          return new Response(JSON.stringify(FALLBACK), {
-            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          });
-        }
-      } else {
-        return new Response(JSON.stringify(FALLBACK), {
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        });
-      }
-    }
+    const ideas = parsed.ideas.filter((v: unknown): v is string => typeof v === "string" && v.trim()).slice(0, 7);
+    while (ideas.length < 7) ideas.push(FALLBACK.ideas[ideas.length]);
 
-    if (Array.isArray(parsed.ideas) && parsed.ideas.length !== 7) {
-      const fallbackIdeas = FALLBACK.ideas;
-      while (parsed.ideas.length < 7) {
-        const pad = fallbackIdeas[parsed.ideas.length % fallbackIdeas.length];
-        if (!parsed.ideas.includes(pad)) {
-          parsed.ideas.push(pad);
-        } else {
-          parsed.ideas.push(fallbackIdeas[(parsed.ideas.length + 1) % fallbackIdeas.length]);
-        }
-      }
-      if (parsed.ideas.length > 7) {
-        parsed.ideas = parsed.ideas.slice(0, 7);
-      }
-    }
-
-    return new Response(JSON.stringify(parsed), {
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    });
-
-  } catch {
-    return new Response(JSON.stringify(FALLBACK), {
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({
+      verse: typeof parsed.verse === "string" ? parsed.verse : FALLBACK.verse,
+      verseReference: typeof parsed.verseReference === "string" ? parsed.verseReference : FALLBACK.verseReference,
+      ideaTitle: parsed.ideaTitle,
+      ideas,
+      insight: typeof parsed.insight === "string" ? parsed.insight : FALLBACK.insight,
+      actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems.filter((v: unknown): v is string => typeof v === "string").slice(0, 3) : FALLBACK.actionItems,
+    }), { headers: CORS_HEADERS });
+  } catch (error) {
+    console.error("[meeting-ideas-ai]", error);
+    return new Response(JSON.stringify(FALLBACK), { headers: CORS_HEADERS });
   }
 });
