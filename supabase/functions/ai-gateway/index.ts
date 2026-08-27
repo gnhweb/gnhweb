@@ -1,10 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { callAI } from "../_shared/aiRouter.ts";
+import { callQualityAI } from "../_shared/aiRouterQuality.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Content-Type": "application/json",
+  "Cache-Control": "no-store",
 };
 
 const INTERNAL_KEY_ENVS = [
@@ -28,59 +29,39 @@ async function isAuthorized(req: Request) {
   for (const [name, secret] of Object.entries(Deno.env.toObject())) {
     if (name.startsWith("NVIDIA_KEY_") && secret && token === secret) return true;
   }
-
-  // Browser/session requests are validated through Supabase Auth. This keeps the
-  // gateway private without exposing any provider key to the client.
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
   if (!supabaseUrl || !anonKey) return false;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 1200);
+  const timer = setTimeout(() => controller.abort(), 1500);
   try {
     const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: { apikey: anonKey, Authorization: `Bearer ${token}` },
-      signal: controller.signal,
+      headers: { apikey: anonKey, Authorization: `Bearer ${token}` }, signal: controller.signal,
     });
     return response.ok;
-  } catch {
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
+  } catch { return false; }
+  finally { clearTimeout(timer); }
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return new Response(JSON.stringify({ error: "POST only" }), { status: 405, headers: CORS_HEADERS });
-
-  if (!(await isAuthorized(req))) {
-    return new Response(JSON.stringify({ error: "인증이 필요합니다." }), { status: 401, headers: CORS_HEADERS });
-  }
-
+  if (!(await isAuthorized(req))) return new Response(JSON.stringify({ error: "인증이 필요합니다." }), { status: 401, headers: CORS_HEADERS });
   try {
     const body = await req.json();
     const messages = Array.isArray(body?.messages) ? body.messages : [];
-    if (!messages.length) {
-      return new Response(JSON.stringify({ error: "messages is required" }), { status: 400, headers: CORS_HEADERS });
-    }
-
-    const response = await callAI({
+    if (!messages.length) return new Response(JSON.stringify({ error: "messages is required" }), { status: 400, headers: CORS_HEADERS });
+    const response = await callQualityAI({
       task: typeof body?.task === "string" ? body.task : "site-ai",
-      // Provider-specific model selection is intentionally handled by the gateway.
-      model: undefined,
       messages,
-      temperature: Number.isFinite(Number(body?.temperature)) ? Number(body.temperature) : 0.4,
-      maxTokens: Number.isFinite(Number(body?.max_tokens)) ? Number(body.max_tokens) : 500,
+      temperature: Number.isFinite(Number(body?.temperature)) ? Number(body.temperature) : 0.35,
+      maxTokens: Number.isFinite(Number(body?.max_tokens)) ? Number(body.max_tokens) : 1400,
     });
-
     const headers = new Headers(response.headers);
     Object.entries(CORS_HEADERS).forEach(([k, v]) => headers.set(k, v));
     return new Response(response.body, { status: response.status, headers });
   } catch (error) {
-    console.error("[ai-gateway] error:", error);
-    return new Response(JSON.stringify({ error: "AI 서비스를 지금 사용할 수 없습니다. 잠시 후 다시 시도해주세요." }), {
-      status: 503,
-      headers: CORS_HEADERS,
-    });
+    console.error("[ai-gateway] quality router error:", error);
+    return new Response(JSON.stringify({ error: "AI가 질문에 적절한 답변을 만들지 못했습니다. 잠시 후 다시 시도해주세요." }), { status: 503, headers: CORS_HEADERS });
   }
 });
