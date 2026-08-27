@@ -26,8 +26,9 @@ export default function AppLockScreen() {
   const [shake, setShake] = useState(false);
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [passkeyChecking, setPasskeyChecking] = useState(false);
-  const [hasRegisteredBiometric, setHasRegisteredBiometric] = useState(() => isPasskeySupported());
+  const [hasRegisteredBiometric, setHasRegisteredBiometric] = useState(false);
   const submitInFlightRef = useRef(false);
+  const autoPasskeyAttemptedRef = useRef(false);
 
   useEffect(() => {
     // Do not autofocus on touch devices: mobile browsers may open the keyboard
@@ -39,26 +40,30 @@ export default function AppLockScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const detectBiometric = async () => {
-      if (!user || !isPasskeySupported()) return;
-      // Keep the button visible immediately on supported devices.
-      setHasRegisteredBiometric(true);
+    const detectAndAutoUnlock = async () => {
+      if (!user || !isPasskeySupported() || autoPasskeyAttemptedRef.current) return;
+      autoPasskeyAttemptedRef.current = true;
       try {
         const { data } = await withTimeout(listPasskeys(), PASSKEY_TIMEOUT_MS);
-        if (mounted && Array.isArray(data) && data.length === 0) {
-          // Keep the button visible: the explicit click will provide the clearest
-          // browser/platform response even when the registration check is unavailable.
-          setHasRegisteredBiometric(true);
+        if (!mounted || !Array.isArray(data) || data.length === 0) return;
+        setHasRegisteredBiometric(true);
+        setPasskeyChecking(true);
+        setError('');
+        try {
+          const result = await withTimeout(unlockWithPasskey(), 12000);
+          if (!result && mounted) setError('지문/Face ID 인증을 취소했습니다. PIN을 사용해주세요.');
+        } catch {
+          if (mounted) setError('생체인증을 시작하지 못했습니다. PIN을 사용해주세요.');
+        } finally {
+          if (mounted) setPasskeyChecking(false);
         }
       } catch {
-        // Keep the biometric button visible and let the explicit user action
-        // determine whether the platform can complete the passkey flow.
-        if (mounted) setHasRegisteredBiometric(true);
+        if (mounted) setHasRegisteredBiometric(false);
       }
     };
-    void detectBiometric();
+    void detectAndAutoUnlock();
     return () => { mounted = false; };
-  }, [user?.id]);
+  }, [user?.id, unlockWithPasskey]);
 
   const handleSubmit = async (pinToVerify = pin) => {
     if (!user || pinToVerify.length !== pinLength || submitInFlightRef.current) return;
