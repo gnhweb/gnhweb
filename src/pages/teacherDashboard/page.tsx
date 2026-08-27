@@ -54,9 +54,10 @@ export default function TeacherDashboard() {
   // Real attendance list
   const [attendanceList, setAttendanceList] = useState<{
     attended: { name: string; club: string; clubName: string; user_id: string }[];
+    late: { name: string; club: string; clubName: string; reason: string; user_id: string }[];
     absent: { name: string; club: string; clubName: string; reason: string; user_id: string }[];
     unresponsive: { name: string; club: string; clubName: string; user_id: string }[];
-  }>({ attended: [], absent: [], unresponsive: [] });
+  }>({ attended: [], late: [], absent: [], unresponsive: [] });
 
   const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'absent'>('all');
   const [attendanceGradeFilter, setAttendanceGradeFilter] = useState('전체');
@@ -198,22 +199,28 @@ export default function TeacherDashboard() {
         const validAttData = Array.from(latestByUser.values());
 
         const present = validAttData.filter((a: { status: string }) => a.status === 'attended').length;
+        const late = validAttData.filter((a: { status: string }) => a.status === 'late').length;
         setAttendanceSummary({
           total: allStudents.length,
           present,
-        });
+          late,
+        } as any);
 
         const attendedUserIds = new Set(validAttData.filter((a: { status: string }) => a.status === 'attended').map((a: { user_id: string }) => a.user_id));
+        const lateUserIds = new Set(validAttData.filter((a: { status: string }) => a.status === 'late').map((a: { user_id: string }) => a.user_id));
         const absentUserIds = new Set(validAttData.filter((a: { status: string }) => a.status === 'absent').map((a: { user_id: string }) => a.user_id));
 
         const attendedList: { name: string; club: string; clubName: string; user_id: string }[] = [];
+        const lateList: { name: string; club: string; clubName: string; reason: string; user_id: string }[] = [];
         const absentList: { name: string; club: string; clubName: string; reason: string; user_id: string }[] = [];
         const unresponsiveList: { name: string; club: string; clubName: string; user_id: string }[] = [];
 
-        for (const a of validAttData as { user_name: string; club: string; status: string; absence_reason: string | null; user_id: string }[]) {
+        for (const a of validAttData as { user_name: string; club: string; status: string; absence_reason: string | null; late_reason: string | null; user_id: string }[]) {
           const clubName = CLUB_LABELS[a.club as ClubType]?.split(' ')[0] || a.club;
           if (a.status === 'attended') {
             attendedList.push({ name: a.user_name, club: a.club, clubName, user_id: a.user_id });
+          } else if (a.status === 'late') {
+            lateList.push({ name: a.user_name, club: a.club, clubName, reason: a.late_reason || '', user_id: a.user_id });
           } else if (a.status === 'absent') {
             absentList.push({ name: a.user_name, club: a.club, clubName, reason: a.absence_reason || '', user_id: a.user_id });
           }
@@ -221,13 +228,13 @@ export default function TeacherDashboard() {
 
         // Find unresponsive students (in user_roles but not in attendance)
         for (const s of allStudents as { user_id: string; name: string; club: string }[]) {
-          if (!attendedUserIds.has(s.user_id) && !absentUserIds.has(s.user_id)) {
+          if (!attendedUserIds.has(s.user_id) && !lateUserIds.has(s.user_id) && !absentUserIds.has(s.user_id)) {
             const clubName = CLUB_LABELS[s.club as ClubType]?.split(' ')[0] || s.club;
             unresponsiveList.push({ name: s.name, club: s.club, clubName, user_id: s.user_id });
           }
         }
 
-        setAttendanceList({ attended: attendedList, absent: absentList, unresponsive: unresponsiveList });
+        setAttendanceList({ attended: attendedList, late: lateList, absent: absentList, unresponsive: unresponsiveList });
       }
     } catch (e) {
       console.error('Teacher dashboard load error:', e);
@@ -239,10 +246,11 @@ export default function TeacherDashboard() {
 
   const clubAttendanceBars = ALL_CLUBS.map((club) => {
     const present = attendanceList.attended.filter((m) => m.club === club).length;
+    const late = attendanceList.late.filter((m) => m.club === club).length;
     const absent = attendanceList.absent.filter((m) => m.club === club).length;
     const unresponsive = attendanceList.unresponsive.filter((m) => m.club === club).length;
-    const total = present + absent + unresponsive;
-    return { club, label: CLUB_LABELS[club].split(' (')[0], present, absent, unresponsive, total, rate: total ? Math.round((present / total) * 100) : 0 };
+    const total = present + late + absent + unresponsive;
+    return { club, label: CLUB_LABELS[club].split(' (')[0], present, late, absent, unresponsive, total, rate: total ? Math.round(((present + late) / total) * 100) : 0 };
   });
 
   const formatDate = (dateStr: string) => {
@@ -287,379 +295,37 @@ export default function TeacherDashboard() {
               {/* Club filter for chief */}
               {isChief && (
                 <div className="flex items-center gap-1 bg-background-100 border border-background-200 rounded-full p-1">
-                  <button
-                    onClick={() => setClubFilter('all')}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === 'all' ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600 hover:text-foreground-950'}`}
-                  >
-                    전체
-                  </button>
-                  {ALL_CLUBS.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => setClubFilter(c)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === c ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600 hover:text-foreground-950'}`}
-                    >
-                      {CLUB_LABELS[c].split(' ')[0]}
-                    </button>
-                  ))}
+                  <button onClick={() => setClubFilter('all')} className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === 'all' ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600 hover:text-foreground-950'}`}>전체</button>
+                  {ALL_CLUBS.map(c => <button key={c} onClick={() => setClubFilter(c)} className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === c ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600 hover:text-foreground-950'}`}>{CLUB_LABELS[c].split(' ')[0]}</button>)}
                 </div>
               )}
             </div>
           </div>
 
-          {error && (
-            <div className="bg-accent-100 border border-accent-200 rounded-[20px] p-4 mb-6">
-              <p className="text-sm text-accent-700 flex items-center gap-2"><i className="ri-error-warning-line"></i>{error}</p>
-              <button onClick={loadDashboardData} className="mt-2 text-xs text-accent-600 underline cursor-pointer">다시 시도</button>
-            </div>
-          )}
+          {error && <div className="bg-accent-100 border border-accent-200 rounded-[20px] p-4 mb-6"><p className="text-sm text-accent-700 flex items-center gap-2"><i className="ri-error-warning-line"></i>{error}</p><button onClick={loadDashboardData} className="mt-2 text-xs text-accent-600 underline cursor-pointer">다시 시도</button></div>}
 
-          {/* Attendance summary card */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div className="bg-background-100 border border-emerald-200 rounded-[20px] p-5 text-center">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center mx-auto mb-2">
-                <i className="ri-check-double-line text-emerald-600"></i>
-              </div>
-              <p className="text-2xl font-black text-emerald-700">{attendanceSummary.present}</p>
-              <p className="text-xs text-foreground-600">오늘 출석</p>
-            </div>
-            <div className="bg-background-100 border border-amber-200 rounded-[20px] p-5 text-center">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center mx-auto mb-2">
-                <i className="ri-question-answer-line text-amber-600"></i>
-              </div>
-              <p className="text-2xl font-black text-amber-700">{unansweredQnA.length}</p>
-              <p className="text-xs text-foreground-600">미답변 질문</p>
-            </div>
-            <div className="bg-background-100 border border-rose-200 rounded-[20px] p-5 text-center">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center mx-auto mb-2">
-                <i className="ri-book-open-line text-rose-600"></i>
-              </div>
-              <p className="text-2xl font-black text-rose-700">{pendingMarathon.length}</p>
-              <p className="text-xs text-foreground-600">묵상 확인 대기</p>
-            </div>
+            <div className="bg-background-100 border border-emerald-200 rounded-[20px] p-5 text-center"><div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center mx-auto mb-2"><i className="ri-check-double-line text-emerald-600"></i></div><p className="text-2xl font-black text-emerald-700">{attendanceSummary.present}</p><p className="text-xs text-foreground-500">출석</p></div>
+            <div className="bg-background-100 border border-amber-200 rounded-[20px] p-5 text-center"><div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center mx-auto mb-2"><i className="ri-time-line text-amber-600"></i></div><p className="text-2xl font-black text-amber-700">{(attendanceSummary as any).late || 0}</p><p className="text-xs text-foreground-500">늦참</p></div>
+            <div className="bg-background-100 border border-sky-200 rounded-[20px] p-5 text-center"><div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center mx-auto mb-2"><i className="ri-group-line text-sky-600"></i></div><p className="text-2xl font-black text-sky-700">{attendanceSummary.total}</p><p className="text-xs text-foreground-500">전체 학생</p></div>
           </div>
 
-          {/* ── 전체 출결 3종 막대그래프 ── */}
-          <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
-                <i className="ri-bar-chart-2-line text-primary-600"></i>전체 출결 현황
-              </h3>
-              <span className="text-xs text-foreground-500">전체 학생 기준</span>
-            </div>
-            <div className="space-y-4">
-              {[
-                { label: '출석', value: attendanceList.attended.length, className: 'bg-emerald-500', textClass: 'text-emerald-700' },
-                { label: '불참', value: attendanceList.absent.length, className: 'bg-orange-500', textClass: 'text-orange-700' },
-                { label: '미응답', value: attendanceList.unresponsive.length, className: 'bg-gray-400', textClass: 'text-foreground-600' },
-              ].map((bar) => {
-                const total = attendanceList.attended.length + attendanceList.absent.length + attendanceList.unresponsive.length;
-                const percent = total ? (bar.value / total) * 100 : 0;
-                return (
-                  <div key={bar.label}>
-                    <div className="flex items-center justify-between text-sm mb-1.5">
-                      <span className={`font-bold ${bar.textClass}`}>{bar.label}</span>
-                      <span className="text-foreground-600 font-semibold">{bar.value}명 · {Math.round(percent)}%</span>
-                    </div>
-                    <div className="h-4 rounded-full bg-background-200 overflow-hidden">
-                      <div className={`h-full rounded-full ${bar.className} transition-all duration-500`} style={{ width: `${percent}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6"><div className="flex items-center justify-between mb-4"><h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-bar-chart-2-line text-primary-600"></i>전체 출결 현황</h3><span className="text-xs text-foreground-500">출석 + 늦참 포함</span></div><div className="space-y-4">{[{label:'출석',value:attendanceList.attended.length,className:'bg-emerald-500',textClass:'text-emerald-700'},{label:'늦참',value:attendanceList.late.length,className:'bg-amber-500',textClass:'text-amber-700'},{label:'불참',value:attendanceList.absent.length,className:'bg-orange-500',textClass:'text-orange-700'},{label:'미응답',value:attendanceList.unresponsive.length,className:'bg-gray-400',textClass:'text-foreground-600'}].map(bar=>{const total=attendanceList.attended.length+attendanceList.late.length+attendanceList.absent.length+attendanceList.unresponsive.length;const percent=total?(bar.value/total)*100:0;return <div key={bar.label}><div className="flex items-center justify-between text-sm mb-1.5"><span className={`font-bold ${bar.textClass}`}>{bar.label}</span><span className="text-foreground-600 font-semibold">{bar.value}명 · {Math.round(percent)}%</span></div><div className="h-4 rounded-full bg-background-200 overflow-hidden"><div className={`h-full rounded-full ${bar.className} transition-all duration-500`} style={{width:`${percent}%`}} /></div></div>})}</div></div>
+
+          <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-8"><div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4"><h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-user-heart-line text-rose-600"></i>오늘 출석 현황 <span className="text-xs text-foreground-500 font-normal">(출석 {attendanceList.attended.length}명 · 늦참 {attendanceList.late.length}명 · 불참 {attendanceList.absent.length}명 · 미응답 {attendanceList.unresponsive.length}명)</span></h3><div className="flex items-center gap-1 bg-background-200 rounded-full p-0.5"><button onClick={()=>setAttendanceFilter('all')} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${attendanceFilter==='all'?'bg-background-100 text-foreground-950 shadow-sm':'text-foreground-600'}`}>전체</button><button onClick={()=>setAttendanceFilter('absent')} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${attendanceFilter==='absent'?'bg-background-100 text-foreground-950 shadow-sm':'text-foreground-600'}`}>미출석자만</button></div></div>
+
+          {attendanceFilter==='all'&&attendanceList.attended.length>0&&<div className="mb-4"><p className="text-xs font-semibold text-emerald-700 mb-2 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400"></span>출석 완료 ({attendanceList.attended.length}명)</p><div className="flex flex-wrap gap-1.5">{attendanceList.attended.map((m,i)=><span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-800">{m.name}<span className="text-[9px] text-emerald-500">· {m.clubName}</span></span>)}</div></div>}
+          {attendanceFilter==='all'&&attendanceList.late.length>0&&<div className="mb-4"><p className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400"></span>늦참 ({attendanceList.late.length}명)</p><div className="space-y-1.5">{attendanceList.late.map((m,i)=><div key={i} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100"><div className="flex items-center gap-2"><span className="text-sm font-medium text-foreground-800">{m.name}</span><span className="text-[10px] text-amber-500">· {m.clubName}</span></div>{m.reason&&<span className="text-xs text-amber-700 sm:ml-auto">사유: {m.reason}</span>}</div>)}</div></div>}
+          {attendanceFilter==='all'&&attendanceList.unresponsive.length>0&&<div className="mb-4"><p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400"></span>미응답 ({attendanceList.unresponsive.length}명)</p><div className="flex flex-wrap gap-1.5">{attendanceList.unresponsive.map((m,i)=><span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-700">{m.name}<span className="text-[9px] text-gray-400">· {m.clubName}</span><a href="tg://" className="ml-1 text-sky-600" aria-label={`${m.name} 텔레그램 심방`}><i className="ri-telegram-line"></i></a></span>)}</div></div>}
+          {attendanceList.absent.length>0&&<div><p className="text-xs font-semibold text-orange-700 mb-2 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-400"></span>불참 신고 ({attendanceList.absent.length}명)</p><div className="space-y-1.5">{attendanceList.absent.map((m,i)=><div key={i} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-3 py-2 rounded-xl bg-orange-50 border border-orange-100"><div className="flex items-center gap-2"><span className="text-sm font-medium text-foreground-800">{m.name}</span><span className="text-[10px] text-orange-500">· {m.clubName}</span></div>{m.reason&&<span className="text-xs text-orange-600 sm:ml-auto">{m.reason}</span>}<a href="tg://" className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-full bg-sky-500 text-white text-[11px] font-semibold sm:ml-1 whitespace-nowrap"><i className="ri-telegram-line"></i>텔레그램으로 심방하기</a></div>)}</div></div>}
+          {attendanceFilter==='absent'&&attendanceList.absent.length===0&&attendanceList.late.length===0&&attendanceList.unresponsive.length===0&&<p className="text-sm text-emerald-600 text-center py-4"><i className="ri-check-double-line mr-1"></i>전원 출석 또는 늦참 처리되었습니다.</p>}
           </div>
 
-          <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-              <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
-                <i className="ri-user-heart-line text-rose-600"></i>
-                오늘 출석 현황
-                <span className="text-xs text-foreground-500 font-normal">
-                  (출석 {attendanceList.attended.length}명 · 불참 {attendanceList.absent.length}명 · 미응답 {attendanceList.unresponsive.length}명)
-                </span>
-              </h3>
-              <div className="flex items-center gap-1 bg-background-200 rounded-full p-0.5">
-                <button
-                  onClick={() => setAttendanceFilter('all')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${attendanceFilter === 'all' ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600'}`}
-                >
-                  전체
-                </button>
-                <button
-                  onClick={() => setAttendanceFilter('absent')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${attendanceFilter === 'absent' ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600'}`}
-                >
-                  미출석자만
-                </button>
-              </div>
-            </div>
+          <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-8"><h3 className="text-sm font-bold text-foreground-950 mb-4 flex items-center gap-2"><i className="ri-pie-chart-line text-primary-600"></i>동아리별 출결</h3><div className="space-y-4">{clubAttendanceBars.map((b)=>{const total=b.total;return <div key={b.club}><div className="flex items-center justify-between text-xs mb-1"><span className="font-semibold">{b.label}</span><span>{b.rate}%</span></div><div className="h-3 rounded-full bg-background-200 overflow-hidden"><div className="h-full rounded-full bg-emerald-500" style={{width:`${b.rate}%`}}/></div><p className="text-[10px] text-foreground-500 mt-1">출석 {b.present} · 늦참 {b.late} · 불참 {b.absent} · 미응답 {b.unresponsive}</p></div>})}</div></div>
 
-            {/* Attended list */}
-            {(attendanceFilter === 'all') && attendanceList.attended.length > 0 && (
-              <div className="mb-4">
-                <p className="text-xs font-semibold text-emerald-700 mb-2 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  출석 완료 ({attendanceList.attended.length}명)
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {attendanceList.attended.map((m, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-800">
-                      {m.name}
-                      <span className="text-[9px] text-emerald-500">· {m.clubName}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Unresponsive list */}
-            {(attendanceFilter === 'all') && attendanceList.unresponsive.length > 0 && (
-              <div className="mb-4">
-                <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                  미응답 ({attendanceList.unresponsive.length}명)
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {attendanceList.unresponsive.map((m, i) => (
-                    <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-700">
-                      {m.name}
-                      <span className="text-[9px] text-gray-400">· {m.clubName}</span>
-                      <a href="tg://" className="ml-1 text-sky-600 hover:text-sky-700" aria-label={`${m.name} 텔레그램 심방`}>
-                        <i className="ri-telegram-line"></i>
-                      </a>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Absent list */}
-            {attendanceList.absent.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-orange-700 mb-2 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-orange-400"></span>
-                  불참 신고 ({attendanceList.absent.length}명)
-                </p>
-                <div className="space-y-1.5">
-                  {attendanceList.absent.map((m, i) => (
-                    <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-3 py-2 rounded-xl bg-orange-50 border border-orange-100">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground-800">{m.name}</span>
-                        <span className="text-[10px] text-orange-500">· {m.clubName}</span>
-                      </div>
-                      {m.reason && (
-                        <span className="text-xs text-orange-600 sm:ml-auto">{m.reason}</span>
-                      )}
-                      <a href="tg://" className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-full bg-sky-500 text-white text-[11px] font-semibold hover:bg-sky-600 sm:ml-1 whitespace-nowrap">
-                        <i className="ri-telegram-line"></i>텔레그램으로 심방하기
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {attendanceList.attended.length === 0 && attendanceList.absent.length === 0 && attendanceList.unresponsive.length === 0 && (
-              <p className="text-sm text-foreground-400 text-center py-4">아직 오늘 출석 데이터가 없어요</p>
-            )}
-            {attendanceFilter === 'absent' && attendanceList.absent.length === 0 && attendanceList.unresponsive.length === 0 && (
-              <p className="text-sm text-emerald-600 text-center py-4">
-                <i className="ri-check-double-line mr-1"></i> 전원 출석 완료!
-              </p>
-            )}
-
-            <div className="mt-3 pt-3 border-t border-background-200">
-              <Link to="/attendance-board" className="text-xs text-primary-600 hover:text-primary-700 font-medium cursor-pointer flex items-center gap-1">
-                실시간 출석 현황판 보기 <i className="ri-arrow-right-line"></i>
-              </Link>
-            </div>
-          </div>
-
-          {/* 2-column layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left column: Reports */}
-            <div className="space-y-6">
-              {/* Weekly Reports */}
-              <div className="bg-background-100 border border-background-200 rounded-[20px] p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
-                    <i className="ri-file-list-3-line text-primary-600"></i>
-                    주간 보고서
-                  </h3>
-                  <Link to="/reports/weekly" className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer">전체보기 →</Link>
-                </div>
-                {weeklyReports.length === 0 ? (
-                  <p className="text-sm text-foreground-600 text-center py-6">아직 보고서가 없어요</p>
-                ) : (
-                  <div className="space-y-2">
-                    {weeklyReports.slice(0, 5).map((r: any) => (
-                      <Link key={r.id} to={`/reports/weekly/${r.id}`} className="block bg-background-50 hover:bg-background-200/60 rounded-xl p-3 transition-colors cursor-pointer">
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-foreground-800 truncate">{r.author_name}</p>
-                            <p className="text-xs text-foreground-600 truncate">{r.progress_summary}</p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                            {r.club && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700">{CLUB_LABELS[r.club as ClubType]?.split(' ')[0]}</span>}
-                            <span className="text-[10px] text-foreground-500">{formatDate(r.created_at)}</span>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Growth Records */}
-              <div className="bg-background-100 border border-background-200 rounded-[20px] p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
-                    <i className="ri-plant-line text-emerald-600"></i>
-                    성장 기록
-                  </h3>
-                  <Link to="/reports/growth" className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer">전체보기 →</Link>
-                </div>
-                {growthRecords.length === 0 ? (
-                  <p className="text-sm text-foreground-600 text-center py-6">아직 성장 기록이 없어요</p>
-                ) : (
-                  <div className="space-y-2">
-                    {growthRecords.slice(0, 5).map((r: any) => (
-                      <Link key={r.id} to={`/reports/growth/${r.id}`} className="block bg-background-50 hover:bg-background-200/60 rounded-xl p-3 transition-colors cursor-pointer">
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-foreground-800 truncate">{r.student_name}</p>
-                            <p className="text-xs text-foreground-600 truncate">{r.spiritual_growth}</p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                            {r.club && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{CLUB_LABELS[r.club as ClubType]?.split(' ')[0]}</span>}
-                            <span className="text-[10px] text-foreground-500">{formatDate(r.created_at)}</span>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right column: QnA + Marathon */}
-            <div className="space-y-6">
-              {/* Unanswered QnA */}
-              <div className="bg-background-100 border border-background-200 rounded-[20px] p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
-                    <i className="ri-question-answer-line text-amber-600"></i>
-                    미답변 질문
-                  </h3>
-                  <Link to="/qna-board" className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer">전체보기 →</Link>
-                </div>
-                {unansweredQnA.length === 0 ? (
-                  <p className="text-sm text-foreground-600 text-center py-6">미답변 질문이 없어요</p>
-                ) : (
-                  <div className="space-y-2">
-                    {unansweredQnA.slice(0, 5).map((q: any) => (
-                      <Link key={q.id} to="/qna-board" className="block bg-amber-50 hover:bg-amber-100 rounded-xl p-3 transition-colors cursor-pointer">
-                        <p className="text-sm text-foreground-800 line-clamp-2 mb-1">{q.question}</p>
-                        <p className="text-[10px] text-foreground-500">{formatDate(q.created_at)}</p>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Pending Marathon */}
-              <div className="bg-background-100 border border-background-200 rounded-[20px] p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
-                    <i className="ri-book-open-line text-rose-600"></i>
-                    묵상 확인 대기
-                  </h3>
-                  <Link to="/bible-marathon" className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer">전체보기 →</Link>
-                </div>
-                {pendingMarathon.length === 0 ? (
-                  <p className="text-sm text-foreground-600 text-center py-6">확인 대기 중인 묵상이 없어요</p>
-                ) : (
-                  <div className="space-y-2">
-                    {pendingMarathon.slice(0, 5).map((m) => (
-                      <div key={m.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-rose-50 hover:bg-rose-100 rounded-xl p-3 transition-colors gap-2">
-                        <div>
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <p className="text-sm font-semibold text-foreground-800">{m.student_name}</p>
-                            {m.student_club && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-200 text-rose-700">{CLUB_LABELS[m.student_club as ClubType]?.split(' ')[0]}</span>
-                            )}
-                          </div>
-                          <p className="text-xs text-foreground-600">{m.book} — {m.chapter}</p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <button
-                            onClick={async () => {
-                              if (!profile) return;
-                              const { error: updateErr } = await supabase
-                                .from('bible_marathon_entries')
-                                .update({ status: 'confirmed', confirmed_by: profile.name, confirmed_at: new Date().toISOString() })
-                                .eq('id', m.id);
-                              if (!updateErr) {
-                                setPendingMarathon(prev => prev.filter(e => e.id !== m.id));
-                                supabase.from('notifications').insert({ user_id: (m as any).user_id, type: 'bible_confirm', title: '묵상 확인 완료', message: `${profile.name} 선생님이 ${m.book}의 묵상을 확인했습니다.` });
-                              }
-                            }}
-                            className="px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 cursor-pointer whitespace-nowrap"
-                          >
-                            확인
-                          </button>
-                          <button
-                            onClick={async () => {
-                              if (!profile) return;
-                              const { error: updateErr } = await supabase
-                                .from('bible_marathon_entries')
-                                .update({ status: 'rejected', confirmed_by: profile.name, confirmed_at: new Date().toISOString() })
-                                .eq('id', m.id);
-                              if (!updateErr) {
-                                setPendingMarathon(prev => prev.filter(e => e.id !== m.id));
-                                supabase.from('notifications').insert({ user_id: (m as any).user_id, type: 'bible_reject', title: '묵상 반려', message: `${profile.name} 선생님이 ${m.book}의 묵상을 반려했습니다.` });
-                              }
-                            }}
-                            className="px-3 py-1.5 rounded-full bg-rose-100 text-rose-600 text-xs font-medium hover:bg-rose-200 cursor-pointer whitespace-nowrap"
-                          >
-                            반려
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Quick links */}
-          <div className="mt-8 grid grid-cols-2 sm:grid-cols-6 gap-3">
-            <Link to="/teacher-dashboard/quiz-manage" className="bg-background-100 border border-background-200 rounded-[20px] p-4 text-center hover:border-amber-300 transition-colors cursor-pointer">
-              <i className="ri-question-answer-line text-2xl text-amber-500 mb-2 block"></i>
-              <span className="text-xs font-semibold text-foreground-700">성경퀴즈 출제</span>
-            </Link>
-            <Link to="/teacher-dashboard/quote-manage" className="bg-background-100 border border-background-200 rounded-[20px] p-4 text-center hover:border-primary-300 transition-colors cursor-pointer">
-              <i className="ri-chat-quote-line text-2xl text-primary-500 mb-2 block"></i>
-              <span className="text-xs font-semibold text-foreground-700">어록 관리</span>
-            </Link>
-            <Link to="/reports/weekly" className="bg-background-100 border border-background-200 rounded-[20px] p-4 text-center hover:border-primary-300 transition-colors cursor-pointer">
-              <i className="ri-file-list-3-line text-2xl text-primary-500 mb-2 block"></i>
-              <span className="text-xs font-semibold text-foreground-700">주간 보고서</span>
-            </Link>
-            <Link to="/reports/growth" className="bg-background-100 border border-background-200 rounded-[20px] p-4 text-center hover:border-emerald-300 transition-colors cursor-pointer">
-              <i className="ri-plant-line text-2xl text-emerald-500 mb-2 block"></i>
-              <span className="text-xs font-semibold text-foreground-700">성장 기록</span>
-            </Link>
-            <Link to="/qna-board" className="bg-background-100 border border-background-200 rounded-[20px] p-4 text-center hover:border-amber-300 transition-colors cursor-pointer">
-              <i className="ri-question-answer-line text-2xl text-amber-500 mb-2 block"></i>
-              <span className="text-xs font-semibold text-foreground-700">질문 답변하기</span>
-            </Link>
-            <Link to="/bible-marathon" className="bg-background-100 border border-background-200 rounded-[20px] p-4 text-center hover:border-rose-300 transition-colors cursor-pointer">
-              <i className="ri-book-open-line text-2xl text-rose-500 mb-2 block"></i>
-              <span className="text-xs font-semibold text-foreground-700">묵상 확인</span>
-            </Link>
+            <div className="space-y-6"><div className="bg-background-100 border border-background-200 rounded-[20px] p-5"><div className="flex items-center justify-between mb-4"><h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-file-list-3-line text-primary-600"></i>주간 보고서</h3><Link to="/reports/weekly" className="text-xs text-primary-600">전체보기 →</Link></div>{weeklyReports.length===0?<p className="text-sm text-foreground-600 text-center py-6">아직 보고서가 없어요</p>:<div className="space-y-2">{weeklyReports.slice(0,5).map(r=><Link key={r.id} to={`/reports/weekly/${r.id}`} className="block bg-background-50 rounded-xl p-3"><p className="text-xs font-semibold">{r.author_name}</p><p className="text-xs text-foreground-600 truncate">{r.progress_summary}</p></Link>)}</div>}</div><div className="bg-background-100 border border-background-200 rounded-[20px] p-5"><div className="flex items-center justify-between mb-4"><h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-plant-line text-emerald-600"></i>성장 기록</h3><Link to="/reports/growth" className="text-xs text-primary-600">전체보기 →</Link></div>{growthRecords.length===0?<p className="text-sm text-foreground-600 text-center py-6">아직 성장 기록이 없어요</p>:<div className="space-y-2">{growthRecords.slice(0,5).map(r=><Link key={r.id} to={`/reports/growth/${r.id}`} className="block bg-background-50 rounded-xl p-3"><p className="text-xs font-semibold">{r.student_name}</p><p className="text-xs text-foreground-600 truncate">{r.spiritual_growth}</p></Link>)}</div>}</div></div>
+            <div className="space-y-6"><div className="bg-background-100 border border-background-200 rounded-[20px] p-5"><div className="flex items-center justify-between mb-4"><h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-question-answer-line text-amber-600"></i>미답변 질문</h3><Link to="/qna-board" className="text-xs text-primary-600">전체보기 →</Link></div>{unansweredQnA.length===0?<p className="text-sm text-foreground-600 text-center py-6">미답변 질문이 없어요</p>:<div className="space-y-2">{unansweredQnA.slice(0,5).map(q=><div key={q.id} className="bg-background-50 rounded-xl p-3"><p className="text-xs font-semibold truncate">{q.question}</p></div>)}</div>}</div><div className="bg-background-100 border border-background-200 rounded-[20px] p-5"><div className="flex items-center justify-between mb-4"><h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-book-open-line text-violet-600"></i>성경 마라톤 검토</h3><Link to="/bible-marathon" className="text-xs text-primary-600">전체보기 →</Link></div>{pendingMarathon.length===0?<p className="text-sm text-foreground-600 text-center py-6">검토할 기록이 없어요</p>:<div className="space-y-2">{pendingMarathon.slice(0,5).map(m=><div key={m.id} className="bg-background-50 rounded-xl p-3"><p className="text-xs font-semibold">{m.student_name}</p><p className="text-xs text-foreground-600">{m.book} {m.chapter}</p></div>)}</div>}</div></div>
           </div>
         </motion.div>
       </div>
