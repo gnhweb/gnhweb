@@ -57,28 +57,37 @@ function outputBudget(task: string, requested?: number) {
   const t = task.toLowerCase();
   const structureHeavy = /(event|idea|creative|pds|action|mbti|quiz|letter|행사|아이디어|기획|회의|퀴즈|편지)/i.test(t);
   const quality = /(coaching|leadership|pastoral|counsel|meeting|bible|리더|상담|사명|성경)/i.test(t);
-  const cap = structureHeavy ? 2200 : quality ? 1300 : 900;
-  return Math.min(Math.max(Number(requested) || (structureHeavy ? 1600 : 700), 150), cap);
+  const cap = structureHeavy ? 2200 : quality ? 1300 : 1200;
+  return Math.min(Math.max(Number(requested) || (structureHeavy ? 1600 : 900), 150), cap);
 }
+
+function latestUserMessage(messages: ChatMessage[]) {
+  return [...messages].reverse().find(m => m.role === 'user')?.content?.trim() || '';
+}
+
+function prepareMessages(options: ChatOptions): ChatMessage[] {
+  const question = latestUserMessage(options.messages);
+  if (!question) return options.messages;
+  const baseSystem = options.messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+  const task = options.task || 'site-ai';
+  const instruction = `You are answering the user's latest question for a Korean student association website.\nTASK: ${task}\nLATEST USER QUESTION:\n${question}\n\nAnswer the latest question directly and appropriately. Do not answer a different question, do not invent that the user asked for something else, and do not blindly follow stale context when it conflicts with the latest question. Use previous messages only when they are needed to understand the latest question. If the question is simple, answer it simply. If information is missing, say what is missing instead of fabricating it. Keep the response in the user's language unless they request another language.`;
+  return [{ role: 'system', content: baseSystem ? `${baseSystem}\n\n${instruction}` : instruction }, ...options.messages.filter(m => m.role !== 'system')];
+}
+
 async function requestOpenAICompatible(provider: Provider, options: ChatOptions, model: string, signal: AbortSignal, baseUrl: string) {
   return fetch(baseUrl, {
-    method: 'POST',
-    signal,
+    method: 'POST', signal,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${providerKey(provider)}` },
-    body: JSON.stringify({
-      model,
-      messages: options.messages,
-      temperature: options.temperature ?? 0.4,
-      max_tokens: outputBudget(options.task, options.maxTokens),
-    }),
+    body: JSON.stringify({ model, messages: prepareMessages(options), temperature: options.temperature ?? 0.4, max_tokens: outputBudget(options.task, options.maxTokens) }),
   });
 }
 function makeProvider(name: string, envKey: string, modelEnv: string, defaultModel: string, baseUrl: string): Provider {
   return { name, envKey, modelEnv, defaultModel, request: (provider, options, model, signal) => requestOpenAICompatible(provider, options, model, signal, baseUrl) };
 }
 async function requestGemini(provider: Provider, options: ChatOptions, model: string, signal: AbortSignal) {
-  const system = options.messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
-  const contents = options.messages.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+  const messages = prepareMessages(options);
+  const system = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+  const contents = messages.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
   return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(providerKey(provider))}`, {
     method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}), contents, generationConfig: { temperature: options.temperature ?? 0.4, maxOutputTokens: outputBudget(options.task, options.maxTokens) } }),
@@ -88,12 +97,13 @@ async function requestCloudflare(provider: Provider, options: ChatOptions, model
   const accountId = env('CLOUDFLARE_ACCOUNT_ID');
   return fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${encodeURIComponent(model)}`, {
     method: 'POST', signal, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${providerKey(provider)}` },
-    body: JSON.stringify({ messages: options.messages, temperature: options.temperature ?? 0.4, max_tokens: outputBudget(options.task, options.maxTokens) }),
+    body: JSON.stringify({ messages: prepareMessages(options), temperature: options.temperature ?? 0.4, max_tokens: outputBudget(options.task, options.maxTokens) }),
   });
 }
 async function requestCohere(provider: Provider, options: ChatOptions, model: string, signal: AbortSignal) {
-  const system = options.messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
-  const rest = options.messages.filter(m => m.role !== 'system');
+  const messages = prepareMessages(options);
+  const system = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+  const rest = messages.filter(m => m.role !== 'system');
   const history = rest.slice(0, -1).map(m => ({ role: m.role === 'assistant' ? 'CHATBOT' : 'USER', message: m.content }));
   const last = rest.at(-1)?.content || '';
   return fetch('https://api.cohere.com/v2/chat', {
@@ -117,9 +127,7 @@ const PROVIDERS: Provider[] = [
 ];
 
 function configuredProviders() {
-  return PROVIDERS.filter(p => p.name === 'cloudflare'
-    ? !!providerKey(p) && !!env('CLOUDFLARE_ACCOUNT_ID')
-    : !!providerKey(p));
+  return PROVIDERS.filter(p => p.name === 'cloudflare' ? !!providerKey(p) && !!env('CLOUDFLARE_ACCOUNT_ID') : !!providerKey(p));
 }
 function taskOrder(task: string) {
   const t = task.toLowerCase();
@@ -161,10 +169,7 @@ export async function callAI(options: ChatOptions): Promise<Response> {
   const key = cacheKey(options);
   const cached = responseCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
-    return new Response(JSON.stringify({ choices: [{ message: { content: cached.content } }] }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'X-AI-Provider': cached.provider, 'X-AI-Cache': 'HIT', 'X-AI-Latency-Ms': '0', 'X-AI-Fallback-Count': '0' },
-    });
+    return new Response(JSON.stringify({ choices: [{ message: { content: cached.content } }] }), { status: 200, headers: { 'Content-Type': 'application/json', 'X-AI-Provider': cached.provider, 'X-AI-Cache': 'HIT', 'X-AI-Latency-Ms': '0', 'X-AI-Fallback-Count': '0' } });
   }
   const start = Date.now();
   const failures: string[] = [];
@@ -190,10 +195,7 @@ export async function callAI(options: ChatOptions): Promise<Response> {
         if (content.trim() && !looksTruncated(content, options.task)) {
           const totalLatency = Date.now() - start;
           responseCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, content, provider: provider.name });
-          return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', 'X-AI-Provider': provider.name, 'X-AI-Cache': 'MISS', 'X-AI-Latency-Ms': String(totalLatency), 'X-AI-Provider-Latency-Ms': String(providerLatency), 'X-AI-Fallback-Count': String(Math.max(0, attempts - 1)) },
-          });
+          return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200, headers: { 'Content-Type': 'application/json', 'X-AI-Provider': provider.name, 'X-AI-Cache': 'MISS', 'X-AI-Latency-Ms': String(totalLatency), 'X-AI-Provider-Latency-Ms': String(providerLatency), 'X-AI-Fallback-Count': String(Math.max(0, attempts - 1)) } });
         }
         failures.push(`${provider.name}:${content.trim() ? 'invalid-output' : 'empty'}`);
         markCooldown(provider.name, 5_000);
