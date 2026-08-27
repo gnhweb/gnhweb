@@ -151,7 +151,7 @@ ${suggestedChars}
 
     const answersText = answers.map((a: string, i: number) => `${i+1}번: ${a}`).join('\n');
 
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const response = await fetch('https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/ai-gateway', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({

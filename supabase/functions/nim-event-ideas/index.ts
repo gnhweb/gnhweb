@@ -77,7 +77,7 @@ ${isLeaderAudience ? '- **대상이 사명자이므로**, 리더십 훈련, 팀�
 
 아이디어는 정확히 7개를 제시해야 해. 각 아이디어는 제목만 나열하는 게 아니라, 어떻게 진행할지 구체적인 실행 방식과 난이도, 핵심 준비물을 포함해야 해.`;
 
-    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    const response = await fetch("https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/ai-gateway", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

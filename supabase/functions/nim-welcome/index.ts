@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
     const userMsg = `오늘 출석한 학생의 동아리는 "${name}"입니다. 이 동아리의 특성에 맞춰 짧고 텐션 높은 환영 인사와 개역한글 성경 구절 하나를 포함해서 3-4문장으로 응원해 주세요.`;
 
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const response = await fetch('https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/ai-gateway', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({

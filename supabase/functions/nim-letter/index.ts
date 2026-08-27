@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
   "followUpQuestions": ["자연스러운 후속 질문 1", "질문 2"]
 }`;
 
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const response = await fetch('https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/ai-gateway', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
