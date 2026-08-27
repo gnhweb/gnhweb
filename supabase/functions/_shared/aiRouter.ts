@@ -2,19 +2,8 @@
 // Providers are optional: if a key is missing, that provider is skipped.
 // The router never exposes provider keys to the browser.
 
-type ChatMessage = {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-};
-
-type ChatOptions = {
-  task: string;
-  messages: ChatMessage[];
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
-};
-
+type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+type ChatOptions = { task: string; messages: ChatMessage[]; model?: string; temperature?: number; maxTokens?: number };
 type Provider = {
   name: string;
   envKey: string;
@@ -28,24 +17,26 @@ const cooldownUntil = new Map<string, number>();
 
 function isCoolingDown(name: string) {
   const until = cooldownUntil.get(name) ?? 0;
-  if (until <= Date.now()) {
-    cooldownUntil.delete(name);
-    return false;
-  }
+  if (until <= Date.now()) { cooldownUntil.delete(name); return false; }
   return true;
 }
-
-function markCooldown(name: string) {
-  cooldownUntil.set(name, Date.now() + COOLDOWN_MS);
+function markCooldown(name: string) { cooldownUntil.set(name, Date.now() + COOLDOWN_MS); }
+function providerKey(provider: Provider): string {
+  const direct = Deno.env.get(provider.envKey);
+  if (direct) return direct;
+  if (provider.name === 'nvidia') {
+    for (const [key, value] of Object.entries(Deno.env.toObject())) {
+      if (key.startsWith('NVIDIA_KEY_') && value) return value;
+    }
+  }
+  return '';
 }
 
-async function requestOpenAICompatible(provider: Provider, options: ChatOptions, baseUrl: string, key: string) {
+async function requestOpenAICompatible(provider: Provider, options: ChatOptions, baseUrl: string) {
+  const key = providerKey(provider);
   return fetch(baseUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-    },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({
       model: options.model || Deno.env.get(provider.modelEnv) || provider.defaultModel,
       messages: options.messages,
@@ -56,77 +47,37 @@ async function requestOpenAICompatible(provider: Provider, options: ChatOptions,
 }
 
 function makeProvider(name: string, envKey: string, modelEnv: string, defaultModel: string, baseUrl: string): Provider {
-  return {
-    name,
-    envKey,
-    modelEnv,
-    defaultModel,
-    request: (provider, options) => requestOpenAICompatible(provider, options, baseUrl, Deno.env.get(envKey) || ''),
-  };
+  return { name, envKey, modelEnv, defaultModel, request: (provider, options) => requestOpenAICompatible(provider, options, baseUrl) };
 }
 
 async function requestGemini(provider: Provider, options: ChatOptions) {
-  const key = Deno.env.get(provider.envKey) || '';
+  const key = providerKey(provider);
   const model = options.model || Deno.env.get(provider.modelEnv) || provider.defaultModel;
-  const system = options.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-  const contents = options.messages.filter((m) => m.role !== 'system').map((m) => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
-  }));
+  const system = options.messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+  const contents = options.messages.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
   return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-      contents,
-      generationConfig: {
-        temperature: options.temperature ?? 0.4,
-        maxOutputTokens: options.maxTokens ?? 500,
-      },
-    }),
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}), contents, generationConfig: { temperature: options.temperature ?? 0.4, maxOutputTokens: options.maxTokens ?? 500 } }),
   });
 }
 
 async function requestCloudflare(provider: Provider, options: ChatOptions) {
-  const token = Deno.env.get(provider.envKey) || '';
-  const accountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID') || '';
+  const token = providerKey(provider); const accountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID') || '';
   const model = options.model || Deno.env.get(provider.modelEnv) || provider.defaultModel;
   return fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${encodeURIComponent(model)}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      messages: options.messages,
-      temperature: options.temperature ?? 0.4,
-      max_tokens: options.maxTokens ?? 500,
-    }),
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ messages: options.messages, temperature: options.temperature ?? 0.4, max_tokens: options.maxTokens ?? 500 }),
   });
 }
 
 async function requestCohere(provider: Provider, options: ChatOptions) {
-  const key = Deno.env.get(provider.envKey) || '';
-  const model = options.model || Deno.env.get(provider.modelEnv) || provider.defaultModel;
-  const system = options.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-  const chatHistory = options.messages.filter((m) => m.role !== 'system').slice(0, -1).map((m) => ({
-    role: m.role === 'assistant' ? 'CHATBOT' : 'USER',
-    message: m.content,
-  }));
-  const last = options.messages.filter((m) => m.role !== 'system').at(-1)?.content || '';
+  const key = providerKey(provider); const model = options.model || Deno.env.get(provider.modelEnv) || provider.defaultModel;
+  const system = options.messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+  const rest = options.messages.filter(m => m.role !== 'system'); const last = rest.at(-1)?.content || '';
+  const history = rest.slice(0, -1).map(m => ({ role: m.role === 'assistant' ? 'CHATBOT' : 'USER', message: m.content }));
   return fetch('https://api.cohere.com/v2/chat', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model,
-      ...(system ? { preamble: system } : {}),
-      messages: [...chatHistory, { role: 'USER', message: last }],
-      temperature: options.temperature ?? 0.4,
-      max_tokens: options.maxTokens ?? 500,
-    }),
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model, ...(system ? { preamble: system } : {}), messages: [...history, { role: 'USER', message: last }], temperature: options.temperature ?? 0.4, max_tokens: options.maxTokens ?? 500 }),
   });
 }
 
@@ -152,42 +103,31 @@ function extractContent(provider: string, payload: any): string {
 
 export async function callAI(options: ChatOptions): Promise<Response> {
   const configured = PROVIDERS.filter((provider) => {
-    if (provider.name === 'cloudflare') return !!Deno.env.get(provider.envKey) && !!Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
-    return !!Deno.env.get(provider.envKey);
+    if (provider.name === 'cloudflare') return !!providerKey(provider) && !!Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
+    return !!providerKey(provider);
   });
+  if (!configured.length) throw new Error('AI provider is not configured');
 
-  if (configured.length === 0) throw new Error('AI provider is not configured');
-
-  // Rotate the starting provider daily, while still falling through on errors/quota exhaustion.
   const start = Math.floor(Date.now() / 86_400_000) % configured.length;
   const ordered = [...configured.slice(start), ...configured.slice(0, start)];
   const failures: string[] = [];
-
   for (const provider of ordered) {
     if (isCoolingDown(provider.name)) continue;
     try {
       const upstream = await provider.request(provider, options);
       if (upstream.ok) {
-        let payload: any = null;
-        try { payload = await upstream.clone().json(); } catch { payload = null; }
+        let payload: any = null; try { payload = await upstream.clone().json(); } catch { /* normalized below */ }
         const content = extractContent(provider.name, payload);
         if (content.trim()) {
-          return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', 'X-AI-Provider': provider.name },
-          });
+          return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200, headers: { 'Content-Type': 'application/json', 'X-AI-Provider': provider.name } });
         }
-        failures.push(`${provider.name}:empty`);
-        markCooldown(provider.name);
-        continue;
+        failures.push(`${provider.name}:empty`); markCooldown(provider.name); continue;
       }
       if (upstream.status === 429 || upstream.status >= 500) markCooldown(provider.name);
       failures.push(`${provider.name}:${upstream.status}`);
     } catch (error) {
-      markCooldown(provider.name);
-      failures.push(`${provider.name}:${error instanceof Error ? error.message : 'network'}`);
+      markCooldown(provider.name); failures.push(`${provider.name}:${error instanceof Error ? error.message : 'network'}`);
     }
   }
-
   throw new Error(`AI providers unavailable (${options.task}): ${failures.join(', ')}`);
 }
