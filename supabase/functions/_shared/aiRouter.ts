@@ -1,6 +1,7 @@
 // Resilient multi-provider AI router for server-side Supabase Edge Functions.
 // Providers are optional: if a key is missing, that provider is skipped.
-// The router never exposes provider keys to the browser.
+// Provider keys never leave the server.
+// Each request has a hard total budget so fallback cannot run indefinitely.
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 type ChatOptions = { task: string; messages: ChatMessage[]; model?: string; temperature?: number; maxTokens?: number };
@@ -9,18 +10,36 @@ type Provider = {
   envKey: string;
   modelEnv: string;
   defaultModel: string;
-  request: (provider: Provider, options: ChatOptions) => Promise<Response>;
+  request: (provider: Provider, options: ChatOptions, model: string, signal: AbortSignal) => Promise<Response>;
 };
 
-const COOLDOWN_MS = 60_000;
+const TOTAL_BUDGET_MS = 14_200;
+const PROVIDER_TIMEOUT_MS = 3_200;
+const MAX_ATTEMPTS = 5;
+const COOLDOWN_MS = 30_000;
+const CACHE_TTL_MS = 10_000;
+
 const cooldownUntil = new Map<string, number>();
+const responseCache = new Map<string, { expiresAt: number; content: string; provider: string }>();
 
 function isCoolingDown(name: string) {
   const until = cooldownUntil.get(name) ?? 0;
-  if (until <= Date.now()) { cooldownUntil.delete(name); return false; }
+  if (until <= Date.now()) {
+    cooldownUntil.delete(name);
+    return false;
+  }
   return true;
 }
-function markCooldown(name: string) { cooldownUntil.set(name, Date.now() + COOLDOWN_MS); }
+
+function markCooldown(name: string, durationMs = COOLDOWN_MS) {
+  cooldownUntil.set(name, Date.now() + durationMs);
+}
+
+function resolveModel(provider: Provider) {
+  // Never pass one provider's model id to another provider during fallback.
+  return Deno.env.get(provider.modelEnv) || provider.defaultModel;
+}
+
 function providerKey(provider: Provider): string {
   const direct = Deno.env.get(provider.envKey);
   if (direct) return direct;
@@ -32,13 +51,13 @@ function providerKey(provider: Provider): string {
   return '';
 }
 
-async function requestOpenAICompatible(provider: Provider, options: ChatOptions, baseUrl: string) {
-  const key = providerKey(provider);
+async function requestOpenAICompatible(provider: Provider, options: ChatOptions, model: string, signal: AbortSignal, baseUrl: string) {
   return fetch(baseUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    signal,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${providerKey(provider)}` },
     body: JSON.stringify({
-      model: options.model || Deno.env.get(provider.modelEnv) || provider.defaultModel,
+      model,
       messages: options.messages,
       temperature: options.temperature ?? 0.4,
       max_tokens: options.maxTokens ?? 500,
@@ -46,53 +65,90 @@ async function requestOpenAICompatible(provider: Provider, options: ChatOptions,
   });
 }
 
-function makeProvider(name: string, envKey: string, modelEnv: string, defaultModel: string, baseUrl: string): Provider {
-  return { name, envKey, modelEnv, defaultModel, request: (provider, options) => requestOpenAICompatible(provider, options, baseUrl) };
+function makeOpenAICompatibleProvider(name: string, envKey: string, modelEnv: string, defaultModel: string, baseUrl: string): Provider {
+  return {
+    name,
+    envKey,
+    modelEnv,
+    defaultModel,
+    request: (provider, options, model, signal) => requestOpenAICompatible(provider, options, model, signal, baseUrl),
+  };
 }
 
-async function requestGemini(provider: Provider, options: ChatOptions) {
+async function requestGemini(provider: Provider, options: ChatOptions, model: string, signal: AbortSignal) {
   const key = providerKey(provider);
-  const model = options.model || Deno.env.get(provider.modelEnv) || provider.defaultModel;
-  const system = options.messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
-  const contents = options.messages.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+  const system = options.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+  const contents = options.messages.filter((m) => m.role !== 'system').map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
   return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}), contents, generationConfig: { temperature: options.temperature ?? 0.4, maxOutputTokens: options.maxTokens ?? 500 } }),
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+      contents,
+      generationConfig: { temperature: options.temperature ?? 0.4, maxOutputTokens: options.maxTokens ?? 500 },
+    }),
   });
 }
 
-async function requestCloudflare(provider: Provider, options: ChatOptions) {
-  const token = providerKey(provider); const accountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID') || '';
-  const model = options.model || Deno.env.get(provider.modelEnv) || provider.defaultModel;
+async function requestCloudflare(provider: Provider, options: ChatOptions, model: string, signal: AbortSignal) {
+  const token = providerKey(provider);
+  const accountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID') || '';
   return fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${encodeURIComponent(model)}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ messages: options.messages, temperature: options.temperature ?? 0.4, max_tokens: options.maxTokens ?? 500 }),
   });
 }
 
-async function requestCohere(provider: Provider, options: ChatOptions) {
-  const key = providerKey(provider); const model = options.model || Deno.env.get(provider.modelEnv) || provider.defaultModel;
-  const system = options.messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
-  const rest = options.messages.filter(m => m.role !== 'system'); const last = rest.at(-1)?.content || '';
-  const history = rest.slice(0, -1).map(m => ({ role: m.role === 'assistant' ? 'CHATBOT' : 'USER', message: m.content }));
+async function requestCohere(provider: Provider, options: ChatOptions, model: string, signal: AbortSignal) {
+  const key = providerKey(provider);
+  const system = options.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+  const rest = options.messages.filter((m) => m.role !== 'system');
+  const last = rest.at(-1)?.content || '';
+  const history = rest.slice(0, -1).map((m) => ({ role: m.role === 'assistant' ? 'CHATBOT' : 'USER', message: m.content }));
   return fetch('https://api.cohere.com/v2/chat', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({ model, ...(system ? { preamble: system } : {}), messages: [...history, { role: 'USER', message: last }], temperature: options.temperature ?? 0.4, max_tokens: options.maxTokens ?? 500 }),
   });
 }
 
 const PROVIDERS: Provider[] = [
   { name: 'gemini', envKey: 'GEMINI_API_KEY', modelEnv: 'GEMINI_MODEL', defaultModel: 'gemini-2.5-flash', request: requestGemini },
-  makeProvider('groq', 'GROQ_API_KEY', 'GROQ_MODEL', 'openai/gpt-oss-120b', 'https://api.groq.com/openai/v1/chat/completions'),
-  makeProvider('cerebras', 'CEREBRAS_API_KEY', 'CEREBRAS_MODEL', 'gpt-oss-120b', 'https://api.cerebras.ai/v1/chat/completions'),
-  makeProvider('sambanova', 'SAMBANOVA_API_KEY', 'SAMBANOVA_MODEL', 'Meta-Llama-3.3-70B-Instruct', 'https://api.sambanova.ai/v1/chat/completions'),
-  makeProvider('mistral', 'MISTRAL_API_KEY', 'MISTRAL_MODEL', 'mistral-small-latest', 'https://api.mistral.ai/v1/chat/completions'),
-  makeProvider('together', 'TOGETHER_API_KEY', 'TOGETHER_MODEL', 'meta-llama/Llama-3.3-70B-Instruct-Turbo', 'https://api.together.xyz/v1/chat/completions'),
-  makeProvider('openrouter', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', 'openai/gpt-oss-120b:free', 'https://openrouter.ai/api/v1/chat/completions'),
-  { name: 'cloudflare', envKey: 'CLOUDFLARE_API_TOKEN', modelEnv: 'CLOUDFLARE_MODEL', defaultModel: '@cf/openai/gpt-oss-120b', request: requestCloudflare },
+  makeOpenAICompatibleProvider('groq', 'GROQ_API_KEY', 'GROQ_MODEL', 'openai/gpt-oss-120b', 'https://api.groq.com/openai/v1/chat/completions'),
+  makeOpenAICompatibleProvider('cerebras', 'CEREBRAS_API_KEY', 'CEREBRAS_MODEL', 'gpt-oss-120b', 'https://api.cerebras.ai/v1/chat/completions'),
+  makeOpenAICompatibleProvider('mistral', 'MISTRAL_API_KEY', 'MISTRAL_MODEL', 'mistral-small-latest', 'https://api.mistral.ai/v1/chat/completions'),
   { name: 'cohere', envKey: 'COHERE_API_KEY', modelEnv: 'COHERE_MODEL', defaultModel: 'command-a-03-2025', request: requestCohere },
-  makeProvider('nvidia', 'NVIDIA_KEY_FALLBACK', 'NVIDIA_MODEL', 'google/gemma-4-31b-it', 'https://integrate.api.nvidia.com/v1/chat/completions'),
+  makeOpenAICompatibleProvider('sambanova', 'SAMBANOVA_API_KEY', 'SAMBANOVA_MODEL', 'Meta-Llama-3.3-70B-Instruct', 'https://api.sambanova.ai/v1/chat/completions'),
+  makeOpenAICompatibleProvider('together', 'TOGETHER_API_KEY', 'TOGETHER_MODEL', 'meta-llama/Llama-3.3-70B-Instruct-Turbo', 'https://api.together.xyz/v1/chat/completions'),
+  makeOpenAICompatibleProvider('openrouter', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', 'openai/gpt-oss-120b:free', 'https://openrouter.ai/api/v1/chat/completions'),
+  { name: 'cloudflare', envKey: 'CLOUDFLARE_API_TOKEN', modelEnv: 'CLOUDFLARE_MODEL', defaultModel: '@cf/openai/gpt-oss-120b', request: requestCloudflare },
+  makeOpenAICompatibleProvider('nvidia', 'NVIDIA_KEY_FALLBACK', 'NVIDIA_MODEL', 'google/gemma-4-31b-it', 'https://integrate.api.nvidia.com/v1/chat/completions'),
 ];
+
+function taskOrder(task: string): string[] {
+  const t = task.toLowerCase();
+  if (t.includes('coaching') || t.includes('leadership') || t.includes('pastoral')) {
+    return ['gemini', 'groq', 'mistral', 'cohere', 'cerebras', 'sambanova', 'together', 'openrouter', 'cloudflare', 'nvidia'];
+  }
+  if (t.includes('event') || t.includes('idea') || t.includes('creative')) {
+    return ['gemini', 'groq', 'mistral', 'cerebras', 'cohere', 'sambanova', 'together', 'openrouter', 'cloudflare', 'nvidia'];
+  }
+  return ['gemini', 'groq', 'cerebras', 'mistral', 'cohere', 'sambanova', 'together', 'openrouter', 'cloudflare', 'nvidia'];
+}
+
+function configuredProviders() {
+  return PROVIDERS.filter((provider) => {
+    if (provider.name === 'cloudflare') return !!providerKey(provider) && !!Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
+    return !!providerKey(provider);
+  });
+}
 
 function extractContent(provider: string, payload: any): string {
   if (provider === 'gemini') return payload?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') || '';
@@ -101,33 +157,93 @@ function extractContent(provider: string, payload: any): string {
   return payload?.choices?.[0]?.message?.content || '';
 }
 
-export async function callAI(options: ChatOptions): Promise<Response> {
-  const configured = PROVIDERS.filter((provider) => {
-    if (provider.name === 'cloudflare') return !!providerKey(provider) && !!Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
-    return !!providerKey(provider);
-  });
-  if (!configured.length) throw new Error('AI provider is not configured');
+function cacheKey(options: ChatOptions) {
+  return JSON.stringify({ task: options.task, messages: options.messages, temperature: options.temperature, maxTokens: options.maxTokens });
+}
 
-  const start = Math.floor(Date.now() / 86_400_000) % configured.length;
-  const ordered = [...configured.slice(start), ...configured.slice(0, start)];
+function pruneCache() {
+  const now = Date.now();
+  for (const [key, value] of responseCache) {
+    if (value.expiresAt <= now) responseCache.delete(key);
+  }
+}
+
+export async function callAI(options: ChatOptions): Promise<Response> {
+  pruneCache();
+  const configured = configuredProviders();
+  if (configured.length === 0) throw new Error('AI provider is not configured');
+
+  const key = cacheKey(options);
+  const cached = responseCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return new Response(JSON.stringify({ choices: [{ message: { content: cached.content } }] }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-AI-Provider': cached.provider,
+        'X-AI-Cache': 'HIT',
+        'X-AI-Latency-Ms': '0',
+        'X-AI-Fallback-Count': '0',
+      },
+    });
+  }
+
+  const rank = new Map(taskOrder(options.task).map((name, index) => [name, index]));
+  const ordered = [...configured].sort((a, b) => (rank.get(a.name) ?? 999) - (rank.get(b.name) ?? 999));
+  const start = Date.now();
   const failures: string[] = [];
+  let attempts = 0;
+
   for (const provider of ordered) {
+    if (attempts >= MAX_ATTEMPTS) break;
+    const elapsed = Date.now() - start;
+    if (elapsed >= TOTAL_BUDGET_MS) break;
     if (isCoolingDown(provider.name)) continue;
+
+    const remaining = TOTAL_BUDGET_MS - elapsed;
+    const timeoutMs = Math.min(PROVIDER_TIMEOUT_MS, Math.max(250, remaining - 50));
+    if (remaining < 300) break;
+
+    attempts += 1;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const model = resolveModel(provider);
+
     try {
-      const upstream = await provider.request(provider, options);
+      const upstream = await provider.request(provider, options, model, controller.signal);
+      clearTimeout(timer);
       if (upstream.ok) {
-        let payload: any = null; try { payload = await upstream.clone().json(); } catch { /* normalized below */ }
+        let payload: any = null;
+        try { payload = await upstream.json(); } catch { payload = null; }
         const content = extractContent(provider.name, payload);
         if (content.trim()) {
-          return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200, headers: { 'Content-Type': 'application/json', 'X-AI-Provider': provider.name } });
+          const latencyMs = Date.now() - start;
+          responseCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, content, provider: provider.name });
+          return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-AI-Provider': provider.name,
+              'X-AI-Latency-Ms': String(latencyMs),
+              'X-AI-Fallback-Count': String(Math.max(0, attempts - 1)),
+              'X-AI-Cache': 'MISS',
+            },
+          });
         }
-        failures.push(`${provider.name}:empty`); markCooldown(provider.name); continue;
+        failures.push(`${provider.name}:empty`);
+        markCooldown(provider.name, 5_000);
+        continue;
       }
       if (upstream.status === 429 || upstream.status >= 500) markCooldown(provider.name);
       failures.push(`${provider.name}:${upstream.status}`);
     } catch (error) {
-      markCooldown(provider.name); failures.push(`${provider.name}:${error instanceof Error ? error.message : 'network'}`);
+      clearTimeout(timer);
+      const timedOut = error instanceof DOMException && error.name === 'AbortError';
+      markCooldown(provider.name, timedOut ? 5_000 : COOLDOWN_MS);
+      failures.push(`${provider.name}:${timedOut ? 'timeout' : error instanceof Error ? error.message : 'network'}`);
     }
   }
-  throw new Error(`AI providers unavailable (${options.task}): ${failures.join(', ')}`);
+
+  const elapsedMs = Date.now() - start;
+  throw new Error(`AI providers unavailable (${options.task}) after ${elapsedMs}ms: ${failures.join(', ')}`);
 }
