@@ -1,0 +1,60 @@
+name: One-time teacher dashboard dark contrast v2
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-teacher-dashboard-dark-contrast-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: contains(github.event.head_commit.message, 'one-time teacher dashboard dark contrast v2')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Attach dashboard dark contrast stylesheet
+        shell: python
+        run: |
+          from pathlib import Path
+          page = Path('src/pages/teacherDashboard/page.tsx')
+          s = page.read_text(encoding='utf-8')
+          anchor = "import { todayKey, formatKoreanDate } from '@/lib/date';"
+          if "import './dark-mode.css';" not in s:
+              if anchor not in s:
+                  raise SystemExit('Import anchor not found')
+              s = s.replace(anchor, anchor + "\nimport './dark-mode.css';", 1)
+          marker = 'className="min-h-screen bg-background-50"'
+          if 'teacher-dashboard-page' not in s:
+              i = s.find(marker)
+              if i < 0:
+                  raise SystemExit('Dashboard root marker not found')
+              s = s[:i] + 'className="min-h-screen bg-background-50 teacher-dashboard-page"' + s[i+len(marker):]
+          page.write_text(s, encoding='utf-8')
+
+      - name: Validate and build
+        run: |
+          grep -q "import './dark-mode.css';" src/pages/teacherDashboard/page.tsx
+          grep -q 'teacher-dashboard-page' src/pages/teacherDashboard/page.tsx
+          git diff --check
+          npm ci
+          npm run build
+
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/teacherDashboard/page.tsx src/pages/teacherDashboard/dark-mode.css
+          git commit -m 'fix: apply teacher dashboard dark mode contrast'
+          git push
+
+      - name: Remove one-time workflow
+        run: |
+          git rm .github/workflows/one-time-teacher-dashboard-dark-contrast-v2.yml
+          git commit -m 'chore: remove one-time teacher dashboard dark contrast v2 workflow'
+          git push
