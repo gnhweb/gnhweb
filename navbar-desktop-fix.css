@@ -22,4 +22,11 @@
   nav > .max-w-6xl.mx-auto > div:nth-child(3) > div:first-child::-webkit-scrollbar {
     display: none;
   }
+
+  /* Remove the compact desktop search-icon fallback. At browser zoom levels
+     where the full search field is collapsed, this icon was appearing directly
+     beside the private-faith tab and visually colliding with it. */
+  nav > .max-w-6xl.mx-auto > div:nth-child(3) > div:first-child a[aria-label="검색"] {
+    display: none !important;
+  }
 }
