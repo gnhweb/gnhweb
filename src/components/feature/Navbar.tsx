@@ -267,7 +267,6 @@ export default function Navbar() {
                 <i className="ri-search-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground-400"></i>
                 <input value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="검색" aria-label="검색" className="w-32 rounded-full border border-background-200 bg-background-50 py-1.5 pl-8 pr-3 text-sm outline-none transition focus:w-44 focus:border-primary-300 focus:ring-4 focus:ring-primary-50" />
               </form>
-              <Link to="/search" aria-label="검색" className="hidden lg:flex xl:hidden w-9 h-9 items-center justify-center rounded-full text-foreground-600 hover:bg-background-100 hover:text-foreground-950"><i className="ri-search-line"></i></Link>
               <div className="w-px h-5 bg-background-200 mx-1"></div>
               <div className="relative" ref={bibleRef}>
                 <button onClick={() => { setBibleOpen(!bibleOpen); setFaithOpen(false); setCommOpen(false); setMissionOpen(false); setAdminOpen(false); setProfileOpen(false); }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${bibleOpen ? catBgActive('amber') : `text-foreground-600 ${catBgHover('amber')}`}`}><i className="ri-book-open-line text-xs"></i>말씀 도구<i className={`ri-arrow-down-s-line text-xs transition-transform duration-200 ${bibleOpen ? 'rotate-180' : ''}`}></i></button>
