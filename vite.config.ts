@@ -18,6 +18,55 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    {
+      name: "align-teacher-attendance-population",
+      enforce: "pre",
+      transform(code, id) {
+        if (!id.endsWith("/src/pages/teacherDashboard/page.tsx")) return code;
+        const oldBlock = `let studentsQuery = supabase
+        .from('user_roles')
+        .select('user_id, name, club, is_expelled, is_active')
+        .eq('role', 'member');
+      if (effectiveClub !== 'all') {
+        studentsQuery = studentsQuery.eq('club', effectiveClub);
+      }
+      const { data: allStudentsRaw } = await studentsQuery;
+      // 전체 학생 수는 user_id 기준으로 중복을 제거합니다.
+      // 동아리 미지정 학생도 '전체' 집계에는 포함합니다.
+      const uniqueStudents = new Map<string, { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }>();
+      for (const rawStudent of ((allStudentsRaw || []) as { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }[])) {
+        if (rawStudent.is_expelled || rawStudent.is_active === false) continue;
+        const existing = uniqueStudents.get(rawStudent.user_id);
+        if (!existing || (!existing.club && rawStudent.club)) {
+          uniqueStudents.set(rawStudent.user_id, rawStudent);
+        }
+      }
+      const allStudents = Array.from(uniqueStudents.values());`;
+        const newBlock = `let studentsQuery = supabase
+        .from('user_roles')
+        .select('user_id, name, club, is_expelled, is_active, role, approval_status')
+        .eq('is_active', true)
+        .eq('approval_status', 'approved')
+        .not('role', 'in', '(teacher,chief)');
+      if (effectiveClub !== 'all') {
+        studentsQuery = studentsQuery.eq('club', effectiveClub);
+      }
+      const { data: allStudentsRaw } = await studentsQuery;
+      // 실시간 출석 현황판과 동일한 모집단으로 집계해 숫자/미응답이 어긋나지 않도록 합니다.
+      const studentRows = ((allStudentsRaw || []) as { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean; role?: string; approval_status?: string }[])
+        .filter((student) => !student.is_expelled && Boolean(student.user_id) && student.club !== 'cheonhwarae_cheongmyeong');
+      const uniqueStudents = new Map<string, { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }>();
+      for (const rawStudent of studentRows) {
+        const existing = uniqueStudents.get(rawStudent.user_id);
+        if (!existing || (!existing.club && rawStudent.club)) {
+          uniqueStudents.set(rawStudent.user_id, rawStudent);
+        }
+      }
+      const allStudents = Array.from(uniqueStudents.values());`;
+        if (!code.includes(oldBlock)) return code;
+        return code.replace(oldBlock, newBlock);
+      },
+    },
     AutoImport({
       imports: [
         {
@@ -71,9 +120,6 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
-      // "auto"로 두면 새 배포가 나와도 기기가 백그라운드에서만 조용히 감지하고
-      // 화면은 새로고침 전까지 계속 예전 CSS/JS를 보여줌 → 기기별 화면이 서로 달라 보이는 원인.
-      // false로 바꾸고 src/pwa.ts에서 직접 등록해 "새 버전 감지 즉시 자동 새로고침"을 강제한다.
       injectRegister: false,
       includeAssets: ["favicon.ico", "apple-touch-icon.png"],
       manifest: {
@@ -89,22 +135,9 @@ export default defineConfig({
         theme_color: "#0b0e1a",
         orientation: "portrait",
         icons: [
-          {
-            src: "pwa-192x192.png?v=2", // 캐시 강제 갱신용 버전 추가
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "pwa-512x512.png?v=2", // 캐시 강제 갱신용 버전 추가
-            sizes: "512x512",
-            type: "image/png",
-          },
-          {
-            src: "pwa-maskable-512x512.png?v=2", // 캐시 강제 갱신용 버전 추가
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
+          { src: "pwa-192x192.png?v=2", sizes: "192x192", type: "image/png" },
+          { src: "pwa-512x512.png?v=2", sizes: "512x512", type: "image/png" },
+          { src: "pwa-maskable-512x512.png?v=2", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       injectManifest: {
@@ -118,26 +151,19 @@ export default defineConfig({
         navigateFallback: `${base}index.html`,
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
-      devOptions: {
-        enabled: false,
-      },
+      devOptions: { enabled: false },
     }),
   ],
   base,
   build: {
-    sourcemap: false, // 디버깅 소스맵 생성을 꺼서 빌드 용량 대폭 감소
+    sourcemap: false,
     outDir: 'out',
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
-        // 초기 홈 진입에 모든 기능이 묶이지 않도록 라우트는 React.lazy로 분리하고,
-        // 무거운 서드파티 라이브러리도 별도 청크로 분리합니다.
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
-
-          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router') || id.includes('/scheduler/')) {
-            return 'vendor';
-          }
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router') || id.includes('/scheduler/')) return 'vendor';
           if (id.includes('/@supabase/')) return 'supabase';
           if (id.includes('html2canvas') || id.includes('dom-to-image-more')) return 'canvas';
           if (id.includes('lucide-react')) return 'icons';
@@ -150,13 +176,6 @@ export default defineConfig({
       },
     },
   },
-  resolve: {
-    alias: {
-      "@": resolve(import.meta.dirname, "./src"),
-    },
-  },
-  server: {
-    port: 3000,
-    host: "0.0.0.0",
-  },
+  resolve: { alias: { "@": resolve(import.meta.dirname, "./src") } },
+  server: { port: 3000, host: "0.0.0.0" },
 });
