@@ -4,56 +4,60 @@ import { registerSW } from 'virtual:pwa-register';
  * PWA auto-update for normal web + installed Android/iPhone PWA.
  *
  * - Performs a one-time cache/service-worker cleanup after the Aug 28 UI restore.
- * - Checks immediately on registration.
- * - Checks periodically while the app is open.
- * - Checks again whenever the app/tab returns to the foreground.
- * - When the new service worker takes control, reload once so new JS/CSS is visible.
+ * - Registers the service worker only after that cleanup finishes, avoiding a race
+ *   where the cleanup could unregister the newly registered worker.
+ * - Checks immediately on registration and whenever the app returns to foreground.
+ * - Reloads once when the new service worker takes control.
  */
 
-const CACHE_RESET_VERSION = '2026-08-28-ui-restore-v2';
+const CACHE_RESET_VERSION = '2026-08-28-ui-restore-v3';
+const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
 
 let refreshing = false;
 let updateTimer: number | undefined;
 let updateInFlight = false;
 let currentRegistration: ServiceWorkerRegistration | undefined;
 
-const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
-
 async function forceCleanLegacyPwaState() {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
 
+  let alreadyReset = false;
   try {
-    if (window.localStorage.getItem('gnh-pwa-cache-reset') === CACHE_RESET_VERSION) return;
+    alreadyReset = window.localStorage.getItem('gnh-pwa-cache-reset') === CACHE_RESET_VERSION;
   } catch {
-    // Continue with best-effort cleanup when localStorage is unavailable.
+    // Best-effort fallback when storage is unavailable.
   }
 
-  try {
-    const registrations = await navigator.serviceWorker?.getRegistrations?.();
-    if (registrations) {
-      await Promise.allSettled(registrations.map((registration) => registration.unregister()));
+  if (!alreadyReset) {
+    try {
+      const registrations = await navigator.serviceWorker?.getRegistrations?.();
+      if (registrations) {
+        await Promise.allSettled(
+          registrations.map((registration) => registration.unregister()),
+        );
+      }
+    } catch {
+      // Ignore browser-specific service-worker cleanup failures.
     }
-  } catch {
-    // Ignore browser-specific service-worker cleanup failures.
-  }
 
-  try {
-    if ('caches' in window) {
-      const cacheNames = await window.caches.keys();
-      await Promise.allSettled(cacheNames.map((cacheName) => window.caches.delete(cacheName)));
+    try {
+      if ('caches' in window) {
+        const cacheNames = await window.caches.keys();
+        await Promise.allSettled(
+          cacheNames.map((cacheName) => window.caches.delete(cacheName)),
+        );
+      }
+    } catch {
+      // Ignore browser-specific Cache Storage failures.
     }
-  } catch {
-    // Ignore browser-specific Cache Storage failures.
-  }
 
-  try {
-    window.localStorage.setItem('gnh-pwa-cache-reset', CACHE_RESET_VERSION);
-  } catch {
-    // Ignore storage quota/privacy mode failures.
+    try {
+      window.localStorage.setItem('gnh-pwa-cache-reset', CACHE_RESET_VERSION);
+    } catch {
+      // Ignore storage quota/privacy mode failures.
+    }
   }
 }
-
-void forceCleanLegacyPwaState();
 
 async function checkForUpdate(registration?: ServiceWorkerRegistration) {
   if (!registration || updateInFlight) return;
@@ -69,58 +73,66 @@ async function checkForUpdate(registration?: ServiceWorkerRegistration) {
   }
 }
 
-navigator.serviceWorker?.addEventListener('controllerchange', () => {
-  if (refreshing) return;
-  refreshing = true;
-  window.location.reload();
-});
+async function initializePwa() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-const updateSW = registerSW({
-  immediate: true,
+  // Finish the one-time destructive cache cleanup before registering a new SW.
+  await forceCleanLegacyPwaState();
 
-  onNeedRefresh() {
-    // vite-plugin-pwa is configured for autoUpdate.
-    // Activating the update triggers controllerchange above.
-    void updateSW(true);
-  },
+  navigator.serviceWorker?.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
 
-  onOfflineReady() {
-    // No separate UI.
-  },
+  const updateSW = registerSW({
+    immediate: true,
 
-  onRegisteredSW(_swUrl, registration) {
-    currentRegistration = registration;
-    if (!registration) return;
+    onNeedRefresh() {
+      // vite-plugin-pwa is configured for autoUpdate.
+      // Activating the update triggers controllerchange above.
+      void updateSW(true);
+    },
 
-    void checkForUpdate(registration);
+    onOfflineReady() {
+      // No separate UI.
+    },
 
-    if (updateTimer === undefined) {
-      updateTimer = window.setInterval(() => {
-        void checkForUpdate(currentRegistration);
-      }, UPDATE_INTERVAL_MS);
+    onRegisteredSW(_swUrl, registration) {
+      currentRegistration = registration;
+      if (!registration) return;
+
+      void checkForUpdate(registration);
+
+      if (updateTimer === undefined) {
+        updateTimer = window.setInterval(() => {
+          void checkForUpdate(currentRegistration);
+        }, UPDATE_INTERVAL_MS);
+      }
+    },
+
+    onRegisterError(error) {
+      console.error('[PWA] 서비스워커 등록 실패:', error);
+    },
+  });
+
+  const checkWhenForeground = () => {
+    if (document.visibilityState === 'visible') {
+      void checkForUpdate(currentRegistration);
     }
-  },
+  };
 
-  onRegisterError(error) {
-    console.error('[PWA] 서비스워커 등록 실패:', error);
-  },
-});
+  document.addEventListener('visibilitychange', checkWhenForeground);
+  window.addEventListener('focus', checkWhenForeground);
+  window.addEventListener('pageshow', checkWhenForeground);
+  window.addEventListener('online', checkWhenForeground);
 
-const checkWhenForeground = () => {
-  if (document.visibilityState === 'visible') {
-    void checkForUpdate(currentRegistration);
-  }
-};
+  // Some mobile browsers/PWAs deliver resume events in slightly different order.
+  window.addEventListener('pageshow', () => {
+    window.setTimeout(() => {
+      void checkForUpdate(currentRegistration);
+    }, 750);
+  });
+}
 
-document.addEventListener('visibilitychange', checkWhenForeground);
-window.addEventListener('focus', checkWhenForeground);
-window.addEventListener('pageshow', checkWhenForeground);
-window.addEventListener('online', checkWhenForeground);
-
-// Some mobile browsers/PWAs deliver resume events in slightly different order.
-// Recheck shortly after pageshow as a small safety net.
-window.addEventListener('pageshow', () => {
-  window.setTimeout(() => {
-    void checkForUpdate(currentRegistration);
-  }, 750);
-});
+void initializePwa();
