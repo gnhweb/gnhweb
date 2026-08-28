@@ -19,8 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # Test the current fix branch preview by default, not stale production.
-      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL || 'https://gnhweb-git-fix-site-wide-mobile-ux-and-structure-gnhweb1.vercel.app' }}
+      # Public default keeps CI usable without a Vercel preview bypass token.
+      # Set E2E_BASE_URL as a repository secret when a specific preview URL is desired.
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL || 'https://gnhweb.vercel.app' }}
       E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
 
