@@ -1,33 +1,46 @@
 import { expect, test } from '@playwright/test';
 
-const email = process.env.E2E_EMAIL;
-const password = process.env.E2E_PASSWORD;
+const accounts = [
+  { role: 'member', email: process.env.E2E_MEMBER_EMAIL, password: process.env.E2E_MEMBER_PASSWORD },
+  { role: 'mission', email: process.env.E2E_MISSION_EMAIL, password: process.env.E2E_MISSION_PASSWORD },
+  { role: 'teacher', email: process.env.E2E_TEACHER_EMAIL, password: process.env.E2E_TEACHER_PASSWORD },
+  // Backward-compatible single-account configuration.
+  { role: 'default', email: process.env.E2E_EMAIL, password: process.env.E2E_PASSWORD },
+].filter((account, index, all) => {
+  if (!account.email || !account.password) return false;
+  return all.findIndex((candidate) => candidate.email === account.email) === index;
+});
 
 test.describe('authenticated smoke', () => {
-  test.skip(!email || !password, 'Set E2E_EMAIL and E2E_PASSWORD as CI secrets to enable authenticated smoke testing.');
+  test.skip(accounts.length === 0, 'Configure E2E_*_EMAIL / E2E_*_PASSWORD repository secrets to enable authenticated smoke testing.');
 
-  test('configured test account can sign in without an application error', async ({ page }) => {
-    const pageErrors: string[] = [];
-    page.on('pageerror', (error) => pageErrors.push(error.message));
+  for (const account of accounts) {
+    test(`${account.role} account can sign in without an application error`, async ({ page }) => {
+      const pageErrors: string[] = [];
+      const consoleErrors: string[] = [];
+      page.on('pageerror', (error) => pageErrors.push(error.message));
+      page.on('console', (message) => {
+        if (message.type() === 'error') consoleErrors.push(message.text());
+      });
 
-    await page.goto('/login', { waitUntil: 'domcontentloaded' });
-    await page.locator('input[name="email"]').fill(email!);
-    await page.locator('input[name="password"]').fill(password!);
-    await page.locator('button[type="submit"]').first().click();
+      await page.goto('/login', { waitUntil: 'domcontentloaded' });
+      await page.locator('input[name="email"]').fill(account.email!);
+      await page.locator('input[name="password"]').fill(account.password!);
+      await page.locator('button[type="submit"]').first().click();
 
-    await page.waitForTimeout(2500);
+      await page.waitForTimeout(2500);
+      const current = new URL(page.url());
+      const stillOnLogin = current.pathname.endsWith('/login');
 
-    const stillOnLogin = /\/login(?:$|[?#])/.test(new URL(page.url()).pathname + new URL(page.url()).search);
+      if (stillOnLogin) {
+        const loginError = page.getByText(/로그인에 실패|이메일과 비밀번호를 확인|서버 연결이 원활하지 않습니다/).first();
+        await expect(loginError).not.toBeVisible();
+      } else {
+        await expect(page).not.toHaveURL(/\/login(?:$|[?#])/);
+      }
 
-    if (stillOnLogin) {
-      const pinPrompt = page.getByText(/간편 비밀번호/).first();
-      const loginError = page.getByText(/로그인에 실패|이메일과 비밀번호를 확인/).first();
-      await expect(loginError).not.toBeVisible();
-      await expect(pinPrompt).toBeVisible({ timeout: 3_000 }).catch(() => undefined);
-    } else {
-      await expect(page).not.toHaveURL(/\/login(?:$|[?#])/);
-    }
-
-    expect(pageErrors, 'authenticated flow produced an uncaught page error').toEqual([]);
-  });
+      expect(pageErrors, `${account.role}: uncaught page error`).toEqual([]);
+      expect(consoleErrors, `${account.role}: console error`).toEqual([]);
+    });
+  }
 });
