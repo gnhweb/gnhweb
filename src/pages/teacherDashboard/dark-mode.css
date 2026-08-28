@@ -120,10 +120,10 @@
   color: oklch(var(--foreground-950));
 }
 
-.dark .teacher-dashboard-page .hover\\:bg-background-200\\/60:hover,
-.dark .teacher-dashboard-page .hover\\:bg-background-100:hover,
-.dark .teacher-dashboard-page .hover\\:bg-amber-100:hover,
-.dark .teacher-dashboard-page .hover\\:bg-rose-100:hover {
+.dark .teacher-dashboard-page [class~="hover:bg-background-200/60"]:hover,
+.dark .teacher-dashboard-page [class~="hover:bg-background-100"]:hover,
+.dark .teacher-dashboard-page [class~="hover:bg-amber-100"]:hover,
+.dark .teacher-dashboard-page [class~="hover:bg-rose-100"]:hover {
   background-color: oklch(var(--background-200)) !important;
 }
 
