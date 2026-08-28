@@ -5,6 +5,7 @@ import i18n from "./i18n";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import ErrorBoundary from "@/components/base/ErrorBoundary";
+import ScrollToTop from "@/components/base/ScrollToTop";
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <AuthProvider>
           <ErrorBoundary>
             <BrowserRouter basename={__BASE_PATH__}>
+              <ScrollToTop />
               <AppRoutes />
             </BrowserRouter>
           </ErrorBoundary>
