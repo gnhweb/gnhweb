@@ -4,12 +4,17 @@ const accounts = [
   { role: 'member', email: process.env.E2E_MEMBER_EMAIL, password: process.env.E2E_MEMBER_PASSWORD },
   { role: 'mission', email: process.env.E2E_MISSION_EMAIL, password: process.env.E2E_MISSION_PASSWORD },
   { role: 'teacher', email: process.env.E2E_TEACHER_EMAIL, password: process.env.E2E_TEACHER_PASSWORD },
-].filter((account) => Boolean(account.email && account.password));
+  { role: 'chief', email: process.env.E2E_CHIEF_EMAIL, password: process.env.E2E_CHIEF_PASSWORD },
+  { role: 'president', email: process.env.E2E_PRESIDENT_EMAIL, password: process.env.E2E_PRESIDENT_PASSWORD },
+  { role: 'assigned-teacher', email: process.env.E2E_ASSIGNED_TEACHER_EMAIL, password: process.env.E2E_ASSIGNED_TEACHER_PASSWORD },
+];
+
+const configuredAccounts = accounts.filter((account) => Boolean(account.email && account.password));
 
 test.describe('authenticated smoke', () => {
-  test.skip(accounts.length === 0, 'Configure role-specific E2E_* secrets to enable authenticated smoke testing.');
+  test.skip(configuredAccounts.length === 0, 'Configure role-specific E2E_* secrets to enable authenticated smoke testing.');
 
-  for (const account of accounts) {
+  for (const account of configuredAccounts) {
     test(`${account.role} account can sign in without an application error`, async ({ page }) => {
       const pageErrors: string[] = [];
       const consoleErrors: string[] = [];
