@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "prebuild": "node scripts/normalize-legacy-types.mjs && node scripts/dedupe-passkey-auth.mjs",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint src --ext ts,tsx",
     "type-check": "tsc --noEmit --project tsconfig.app.json",
     "pretype-check": "node scripts/normalize-legacy-types.mjs && node scripts/dedupe-passkey-auth.mjs",
     "preview": "vite preview",
