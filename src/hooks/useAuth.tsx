@@ -18,8 +18,6 @@ interface AuthContextValue {
   retryProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null; user: User | null }>;
   signInWithPasskey: () => Promise<{ error: string | null }>;
-  signInWithPasskey: () => Promise<{ error: string | null }>;
-  signInWithPasskey: () => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, name: string, role: UserRole, club?: string, birthYear?: number, gender?: string, birthMonth?: number, birthDay?: number, interests?: string, grade?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -532,17 +530,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, fetchProfile]);
 
-  const signInWithPasskey = useCallback(async () => {
-    if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };
-    const result = await signInWithPasskeyLib();
-    return { error: result.error?.message ?? null };
-  }, []);
 
-  const signInWithPasskey = useCallback(async () => {
-    if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };
-    const result = await signInWithPasskeyLib();
-    return { error: result.error?.message ?? null };
-  }, []);
+
+
+
+
+
+
 
   const signInWithPasskey = useCallback(async () => {
     if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };
