@@ -4,28 +4,21 @@ import path from 'node:path';
 const target = path.join(process.cwd(), 'src/hooks/useAuth.tsx');
 let source = fs.readFileSync(target, 'utf8');
 
-const functionStart = '  const signInWithPasskey = useCallback(async () => {';
-const functionEnd = '  }, []);';
-const first = source.indexOf(functionStart);
-if (first >= 0) {
-  const blockEnd = source.indexOf(functionEnd, first);
-  if (blockEnd >= 0) {
-    const block = source.slice(first, blockEnd + functionEnd.length);
-    let rest = source.slice(0, first) + source.slice(blockEnd + functionEnd.length);
-    while (true) {
-      const duplicate = rest.indexOf(functionStart);
-      if (duplicate < 0) break;
-      const end = rest.indexOf(functionEnd, duplicate);
-      if (end < 0) break;
-      rest = rest.slice(0, duplicate) + rest.slice(end + functionEnd.length);
-    }
-    const insertionPoint = rest.indexOf('  const signOut = useCallback(async () => {');
-    if (insertionPoint >= 0) {
-      source = rest.slice(0, insertionPoint) + block + '\n\n' + rest.slice(insertionPoint);
-    } else {
-      source = rest;
-    }
-  }
+const interfaceLine = '  signInWithPasskey: () => Promise<{ error: string | null }>;\n';
+const interfaceCount = source.split(interfaceLine).length - 1;
+if (interfaceCount > 1) {
+  source = source.replaceAll(interfaceLine, '');
+  const anchor = '  signIn: (email: string, password: string) => Promise<{ error: string | null; user: User | null }>;\n';
+  source = source.replace(anchor, anchor + interfaceLine);
+}
+
+const functionBlock = `  const signInWithPasskey = useCallback(async () => {\n    if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };\n    const result = await signInWithPasskeyLib();\n    return { error: result.error?.message ?? null };\n  }, []);`;
+const functionCount = source.split(functionBlock).length - 1;
+if (functionCount > 1) {
+  source = source.replaceAll(functionBlock, '');
+  const anchor = '  const signOut = useCallback(async () => {';
+  source = source.replace(anchor, functionBlock + '\n\n' + anchor);
 }
 
 fs.writeFileSync(target, source, 'utf8');
+console.log(`[dedupe] interface=${interfaceCount}, function=${functionCount}`);
