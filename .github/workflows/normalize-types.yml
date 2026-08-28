@@ -23,8 +23,10 @@ jobs:
         with:
           node-version: 22
 
-      - name: Normalize legacy TypeScript errors
-        run: node scripts/normalize-legacy-types.mjs
+      - name: Normalize source
+        run: |
+          node scripts/normalize-legacy-types.mjs
+          node scripts/dedupe-passkey-auth.mjs
 
       - name: Commit normalized source when changed
         run: |
