@@ -1,0 +1,1 @@
+Restore known-good Navbar.tsx layout from commit 225ccf0a081fb54f543a9ba6e1a9dd80da3df222.
