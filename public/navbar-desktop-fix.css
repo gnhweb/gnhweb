@@ -1,0 +1,29 @@
+/* Desktop navbar overflow fix: keeps the menu inside the header and prevents overlap with account controls. */
+@media (min-width: 768px) {
+  header > div.max-w-6xl > div.relative.flex.items-center.justify-between.h-11 {
+    min-width: 0;
+    gap: 0.5rem;
+  }
+
+  header > div.max-w-6xl > div.relative.flex.items-center.justify-between.h-11 > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  header > div.max-w-6xl > div.relative.flex.items-center.justify-between.h-11 > div:first-child::-webkit-scrollbar {
+    display: none;
+  }
+
+  header > div.max-w-6xl > div.relative.flex.items-center.justify-between.h-11 > div:first-child > * {
+    flex: 0 0 auto;
+  }
+
+  header > div.max-w-6xl > div.relative.flex.items-center.justify-between.h-11 > div:last-child {
+    flex: 0 0 auto;
+    min-width: max-content;
+  }
+}
