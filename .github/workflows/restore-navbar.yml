@@ -1,0 +1,33 @@
+name: restore-navbar
+
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-navbar.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore Navbar from known-good revision
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout 2f65fb1f4fd91218ea51628731bebdeb7f22c9d7 -- src/components/feature/Navbar.tsx
+          git add src/components/feature/Navbar.tsx
+          git commit -m "fix: restore original navigation UI from Aug 26" || true
+          git push
+
+      - name: Remove one-time workflow
+        run: |
+          git rm .github/workflows/restore-navbar.yml || true
+          git commit -m "chore: remove one-time navbar restore workflow" || true
+          git push
