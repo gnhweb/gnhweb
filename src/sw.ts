@@ -11,6 +11,43 @@ cleanupOutdatedCaches();
 clientsClaim();
 self.skipWaiting();
 
+// Remove stale caches left behind by older service-worker revisions.
+// The current Workbox precache cache is preserved.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        const cacheNames = await caches.keys();
+        const manifestUrls = new Set(
+          self.__WB_MANIFEST.map((entry) => entry.url),
+        );
+
+        await Promise.all(
+          cacheNames
+            .filter((cacheName) => /workbox|precache|runtime/i.test(cacheName))
+            .map(async (cacheName) => {
+              const cache = await caches.open(cacheName);
+              const requests = await cache.keys();
+              const hasCurrentPrecacheAsset = requests.some((request) => {
+                try {
+                  return manifestUrls.has(new URL(request.url).pathname);
+                } catch {
+                  return false;
+                }
+              });
+
+              if (!hasCurrentPrecacheAsset && cacheName !== 'workbox-precache-v2') {
+                await caches.delete(cacheName);
+              }
+            }),
+        );
+      } catch {
+        // Cache cleanup is best-effort; activation must still complete.
+      }
+    })(),
+  );
+});
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   let payload: { title?: string; message?: string; body?: string; link_url?: string; icon?: string; tag?: string };
