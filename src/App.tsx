@@ -6,6 +6,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import ErrorBoundary from "@/components/base/ErrorBoundary";
 import ScrollToTop from "@/components/base/ScrollToTop";
+import PrayerRelayAuthorDeleteBridge from "@/components/base/PrayerRelayAuthorDeleteBridge";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <ErrorBoundary>
             <BrowserRouter basename={__BASE_PATH__}>
               <ScrollToTop />
+              <PrayerRelayAuthorDeleteBridge />
               <AppRoutes />
             </BrowserRouter>
           </ErrorBoundary>
