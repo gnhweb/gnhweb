@@ -1,0 +1,95 @@
+/* Mobile-first stability layer.
+ * Keep this file limited to cross-screen safety rules; page-specific layouts stay in their components.
+ */
+@media (max-width: 767px) {
+  html {
+    width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: pan-x pan-y;
+  }
+
+  body {
+    width: 100%;
+    min-height: 100dvh;
+    margin: 0;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    touch-action: pan-x pan-y;
+  }
+
+  /* Avoid accidental viewport growth from long strings / pasted URLs. */
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
+  /* Mobile form controls should remain comfortably tappable and should not
+     trigger iOS automatic zoom when focused. */
+  input,
+  textarea,
+  select {
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  input[type='date'],
+  input[type='time'],
+  input[type='datetime-local'],
+  select {
+    min-height: 44px;
+  }
+
+  button,
+  a,
+  [role='button'] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Respect iPhone safe areas without creating a second fixed layout system. */
+  .safe-area-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Prevent clipped fixed/absolute controls from escaping the viewport. */
+  [class*='fixed'][class*='right-'] {
+    max-width: calc(100vw - 1rem);
+  }
+
+  /* Keep internal mobile sheets scrollable while the background remains stable. */
+  .mobile-modal-panel,
+  .mobile-safe-modal,
+  .overflow-y-auto,
+  .overflow-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  body.keyboard-open:not(.scroll-lock) {
+    overflow-y: auto !important;
+    position: static !important;
+    touch-action: pan-y;
+  }
+}
+
+@media (max-width: 639px) {
+  /* Dense icon-only controls still need an accessible touch target. */
+  .mobile-touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep full-bleed media inside cards from producing horizontal overflow. */
+  .mobile-full-bleed {
+    width: 100%;
+    max-width: 100%;
+  }
+}
