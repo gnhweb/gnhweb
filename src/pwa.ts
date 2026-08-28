@@ -3,14 +3,14 @@ import { registerSW } from 'virtual:pwa-register';
 /**
  * PWA auto-update for normal web + installed Android/iPhone PWA.
  *
+ * - Performs a one-time cache/service-worker cleanup after the Aug 28 UI restore.
  * - Checks immediately on registration.
  * - Checks periodically while the app is open.
  * - Checks again whenever the app/tab returns to the foreground.
  * - When the new service worker takes control, reload once so new JS/CSS is visible.
- *
- * A completely closed installed app cannot execute JavaScript in the background.
- * The next app launch/foreground transition therefore performs the immediate check.
  */
+
+const CACHE_RESET_VERSION = '2026-08-28-ui-restore-v2';
 
 let refreshing = false;
 let updateTimer: number | undefined;
@@ -18,6 +18,42 @@ let updateInFlight = false;
 let currentRegistration: ServiceWorkerRegistration | undefined;
 
 const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
+
+async function forceCleanLegacyPwaState() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+
+  try {
+    if (window.localStorage.getItem('gnh-pwa-cache-reset') === CACHE_RESET_VERSION) return;
+  } catch {
+    // Continue with best-effort cleanup when localStorage is unavailable.
+  }
+
+  try {
+    const registrations = await navigator.serviceWorker?.getRegistrations?.();
+    if (registrations) {
+      await Promise.allSettled(registrations.map((registration) => registration.unregister()));
+    }
+  } catch {
+    // Ignore browser-specific service-worker cleanup failures.
+  }
+
+  try {
+    if ('caches' in window) {
+      const cacheNames = await window.caches.keys();
+      await Promise.allSettled(cacheNames.map((cacheName) => window.caches.delete(cacheName)));
+    }
+  } catch {
+    // Ignore browser-specific Cache Storage failures.
+  }
+
+  try {
+    window.localStorage.setItem('gnh-pwa-cache-reset', CACHE_RESET_VERSION);
+  } catch {
+    // Ignore storage quota/privacy mode failures.
+  }
+}
+
+void forceCleanLegacyPwaState();
 
 async function checkForUpdate(registration?: ServiceWorkerRegistration) {
   if (!registration || updateInFlight) return;
