@@ -1,0 +1,105 @@
+/* Teacher dashboard dark-mode contrast hardening. Scoped so other pages are untouched. */
+.dark .teacher-dashboard-page {
+  color: oklch(var(--foreground-950));
+}
+
+.dark .teacher-dashboard-page .bg-background-50,
+.dark .teacher-dashboard-page .bg-gray-50,
+.dark .teacher-dashboard-page .bg-amber-50,
+.dark .teacher-dashboard-page .bg-rose-50,
+.dark .teacher-dashboard-page .bg-orange-50,
+.dark .teacher-dashboard-page .bg-emerald-50 {
+  background-color: oklch(var(--background-100)) !important;
+}
+
+.dark .teacher-dashboard-page .bg-background-100 {
+  background-color: oklch(var(--background-100)) !important;
+}
+
+.dark .teacher-dashboard-page .bg-background-200,
+.dark .teacher-dashboard-page .bg-gray-100,
+.dark .teacher-dashboard-page .bg-amber-100,
+.dark .teacher-dashboard-page .bg-rose-100,
+.dark .teacher-dashboard-page .bg-orange-100,
+.dark .teacher-dashboard-page .bg-emerald-100 {
+  background-color: oklch(var(--background-200)) !important;
+}
+
+.dark .teacher-dashboard-page .text-foreground-400,
+.dark .teacher-dashboard-page .text-foreground-500,
+.dark .teacher-dashboard-page .text-gray-400,
+.dark .teacher-dashboard-page .text-gray-500,
+.dark .teacher-dashboard-page .text-orange-500,
+.dark .teacher-dashboard-page .text-amber-500,
+.dark .teacher-dashboard-page .text-emerald-500,
+.dark .teacher-dashboard-page .text-rose-500 {
+  color: oklch(var(--foreground-700)) !important;
+}
+
+.dark .teacher-dashboard-page .text-foreground-600,
+.dark .teacher-dashboard-page .text-gray-600,
+.dark .teacher-dashboard-page .text-amber-600,
+.dark .teacher-dashboard-page .text-orange-600,
+.dark .teacher-dashboard-page .text-emerald-600,
+.dark .teacher-dashboard-page .text-rose-600 {
+  color: oklch(var(--foreground-800)) !important;
+}
+
+.dark .teacher-dashboard-page .text-foreground-700,
+.dark .teacher-dashboard-page .text-foreground-800,
+.dark .teacher-dashboard-page .text-gray-700,
+.dark .teacher-dashboard-page .text-gray-800,
+.dark .teacher-dashboard-page .text-amber-700,
+.dark .teacher-dashboard-page .text-orange-700,
+.dark .teacher-dashboard-page .text-emerald-700,
+.dark .teacher-dashboard-page .text-rose-700 {
+  color: oklch(var(--foreground-900)) !important;
+}
+
+.dark .teacher-dashboard-page .text-foreground-950 {
+  color: oklch(var(--foreground-950)) !important;
+}
+
+.dark .teacher-dashboard-page .bg-sky-500 {
+  background-color: oklch(var(--secondary-600)) !important;
+}
+
+.dark .teacher-dashboard-page .text-sky-600,
+.dark .teacher-dashboard-page .text-sky-700 {
+  color: oklch(var(--secondary-900)) !important;
+}
+
+.dark .teacher-dashboard-page .border-background-200,
+.dark .teacher-dashboard-page .border-gray-200,
+.dark .teacher-dashboard-page .border-amber-100,
+.dark .teacher-dashboard-page .border-orange-100,
+.dark .teacher-dashboard-page .border-emerald-100,
+.dark .teacher-dashboard-page .border-rose-100 {
+  border-color: oklch(var(--background-300)) !important;
+}
+
+.dark .teacher-dashboard-page .border-emerald-200,
+.dark .teacher-dashboard-page .border-amber-200,
+.dark .teacher-dashboard-page .border-rose-200,
+.dark .teacher-dashboard-page .border-sky-200 {
+  border-color: oklch(var(--background-400)) !important;
+}
+
+.dark .teacher-dashboard-page input,
+.dark .teacher-dashboard-page textarea,
+.dark .teacher-dashboard-page select {
+  background-color: oklch(var(--background-100));
+  color: oklch(var(--foreground-950));
+  border-color: oklch(var(--background-300));
+}
+
+.dark .teacher-dashboard-page input::placeholder,
+.dark .teacher-dashboard-page textarea::placeholder {
+  color: oklch(var(--foreground-500));
+}
+
+.dark .teacher-dashboard-page .hover\\:bg-background-200\\/60:hover,
+.dark .teacher-dashboard-page .hover\\:bg-amber-100:hover,
+.dark .teacher-dashboard-page .hover\\:bg-rose-100:hover {
+  background-color: oklch(var(--background-200)) !important;
+}
