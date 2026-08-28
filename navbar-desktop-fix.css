@@ -1,5 +1,6 @@
-/* Desktop navbar collision guard: keep the top-right theme control visually and hit-area separated from the second nav row. */
+/* Desktop navbar collision guard */
 @media (min-width: 768px) {
+  /* Keep the theme control away from the second navigation row. */
   nav > .max-w-6xl.mx-auto > div:first-child {
     padding-right: 3.5rem;
   }
@@ -16,6 +17,7 @@
     min-width: 0;
     max-width: 100%;
     overflow-x: auto;
+    overflow-y: visible;
     scrollbar-width: none;
   }
 
@@ -23,10 +25,15 @@
     display: none;
   }
 
-  /* Remove the compact desktop search-icon fallback. At browser zoom levels
-     where the full search field is collapsed, this icon was appearing directly
-     beside the private-faith tab and visually colliding with it. */
-  nav > .max-w-6xl.mx-auto > div:nth-child(3) > div:first-child a[aria-label="검색"] {
+  /*
+   * The compact search icon must not exist visually in the desktop navbar.
+   * The full search field remains available at xl widths; its functionality
+   * is preserved even without the decorative search glyph.
+   *
+   * This intentionally targets every search glyph inside the desktop nav so
+   * an old/cached compact variant cannot reappear and overlap the faith tab.
+   */
+  nav .ri-search-line {
     display: none !important;
   }
 }
