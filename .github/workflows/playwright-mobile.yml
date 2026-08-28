@@ -19,11 +19,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # Public default keeps CI usable without a Vercel preview bypass token.
-      # Set E2E_BASE_URL as a repository secret when a specific preview URL is desired.
+      # Public production is the default. Set E2E_BASE_URL as a repository secret
+      # when a specific deployment/preview URL is desired.
       E2E_BASE_URL: ${{ secrets.E2E_BASE_URL || 'https://gnhweb.vercel.app' }}
-      E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
-      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+      E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+      E2E_MISSION_EMAIL: ${{ secrets.E2E_MISSION_EMAIL }}
+      E2E_MISSION_PASSWORD: ${{ secrets.E2E_MISSION_PASSWORD }}
+      E2E_TEACHER_EMAIL: ${{ secrets.E2E_TEACHER_EMAIL }}
+      E2E_TEACHER_PASSWORD: ${{ secrets.E2E_TEACHER_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -41,6 +45,21 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
+
+      - name: Check authentication test configuration
+        shell: bash
+        run: |
+          missing=0
+          for name in E2E_MEMBER_EMAIL E2E_MEMBER_PASSWORD E2E_MISSION_EMAIL E2E_MISSION_PASSWORD E2E_TEACHER_EMAIL E2E_TEACHER_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing GitHub Actions secret: ${name}"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            echo "Configure all six role-specific E2E secrets before merging production changes."
+            exit 1
+          fi
 
       - name: Run mobile E2E
         run: npm run test:e2e
