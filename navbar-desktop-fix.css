@@ -1,0 +1,25 @@
+/* Desktop navbar collision guard: keep the top-right theme control visually and hit-area separated from the second nav row. */
+@media (min-width: 768px) {
+  nav > .max-w-6xl.mx-auto > div:first-child {
+    padding-right: 3.5rem;
+  }
+
+  nav > .max-w-6xl.mx-auto > div:first-child > button {
+    right: 0.5rem !important;
+  }
+
+  nav > .max-w-6xl.mx-auto > div:nth-child(3) {
+    padding-right: 3.75rem;
+  }
+
+  nav > .max-w-6xl.mx-auto > div:nth-child(3) > div:first-child {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  nav > .max-w-6xl.mx-auto > div:nth-child(3) > div:first-child::-webkit-scrollbar {
+    display: none;
+  }
+}
