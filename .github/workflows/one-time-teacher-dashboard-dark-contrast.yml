@@ -1,0 +1,67 @@
+name: One-time teacher dashboard dark contrast
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-teacher-dashboard-dark-contrast.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: contains(github.event.head_commit.message, 'one-time teacher dashboard dark contrast')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Scope dark contrast CSS to teacher dashboard
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          page = Path('src/pages/teacherDashboard/page.tsx')
+          s = page.read_text(encoding='utf-8')
+
+          if "import './dark-mode.css';" not in s:
+              anchor = "import { todayKey, formatKoreanDate } from '@/lib/date';"
+              if anchor not in s:
+                  raise SystemExit('Teacher dashboard import anchor not found')
+              s = s.replace(anchor, anchor + "\nimport './dark-mode.css';", 1)
+
+          if 'className="min-h-screen bg-background-50 teacher-dashboard-page"' not in s:
+              old = 'className="min-h-screen bg-background-50"'
+              count = s.count(old)
+              if count < 2:
+                  raise SystemExit(f'Expected teacher dashboard root/loading/permission classes to exist, found {count} matches')
+              # Replace every page-level min-h-screen background wrapper in this file.
+              s = s.replace(old, 'className="min-h-screen bg-background-50 teacher-dashboard-page"')
+
+          page.write_text(s, encoding='utf-8')
+
+      - name: Validate changes
+        run: |
+          grep -q "import './dark-mode.css';" src/pages/teacherDashboard/page.tsx
+          grep -q 'teacher-dashboard-page' src/pages/teacherDashboard/page.tsx
+          test -f src/pages/teacherDashboard/dark-mode.css
+          git diff --check
+          npm ci
+          npm run build
+
+      - name: Commit dashboard dark contrast fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/teacherDashboard/page.tsx src/pages/teacherDashboard/dark-mode.css
+          git commit -m 'fix: improve teacher dashboard dark mode contrast'
+          git push
+
+      - name: Remove one-time workflow
+        run: |
+          git rm .github/workflows/one-time-teacher-dashboard-dark-contrast.yml
+          git commit -m 'chore: remove one-time teacher dashboard dark contrast workflow'
+          git push
