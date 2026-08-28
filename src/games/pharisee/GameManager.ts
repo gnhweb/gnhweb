@@ -255,7 +255,6 @@ export class GameManager extends MiniEmitter {
       this.nightTimer = setTimeout(() => this.resolveNight(), remaining + 500);
     } else if (this.phase === "day-discuss" && !this.voteTimer) {
       this.voteTimer = setTimeout(() => {
-        this.resolveScriptureTrial();
         this.applyDayVoteStart();
         this.channel.send({ type: "broadcast", event: "day_vote_start", payload: {} });
       }, remaining);

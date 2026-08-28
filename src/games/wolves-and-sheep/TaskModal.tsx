@@ -76,7 +76,7 @@ export function TaskModal({
   // 성공/실패 콜백이 중복 호출되는 걸 막는 가드. state 업데이트는 비동기라 result만으로는
   // 같은 렌더 사이클 안의 중복 호출을 못 막을 수 있어 ref로 한 번 더 잠근다.
   const resolvedRef = useRef(false);
-  const resolveTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const resolveTimerRef = useRef<number | null>(null);
 
   useEffect(() => () => {
     if (resolveTimerRef.current) {
