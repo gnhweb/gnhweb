@@ -28,31 +28,21 @@
 .dark .teacher-dashboard-page .text-foreground-400,
 .dark .teacher-dashboard-page .text-foreground-500,
 .dark .teacher-dashboard-page .text-gray-400,
-.dark .teacher-dashboard-page .text-gray-500,
-.dark .teacher-dashboard-page .text-orange-500,
-.dark .teacher-dashboard-page .text-amber-500,
-.dark .teacher-dashboard-page .text-emerald-500,
-.dark .teacher-dashboard-page .text-rose-500 {
-  color: oklch(var(--foreground-700)) !important;
+.dark .teacher-dashboard-page .text-gray-500 {
+  color: oklch(var(--foreground-600)) !important;
 }
 
 .dark .teacher-dashboard-page .text-foreground-600,
-.dark .teacher-dashboard-page .text-gray-600,
-.dark .teacher-dashboard-page .text-amber-600,
-.dark .teacher-dashboard-page .text-orange-600,
-.dark .teacher-dashboard-page .text-emerald-600,
-.dark .teacher-dashboard-page .text-rose-600 {
-  color: oklch(var(--foreground-800)) !important;
+.dark .teacher-dashboard-page .text-gray-600 {
+  color: oklch(var(--foreground-700)) !important;
 }
 
 .dark .teacher-dashboard-page .text-foreground-700,
 .dark .teacher-dashboard-page .text-foreground-800,
 .dark .teacher-dashboard-page .text-gray-700,
 .dark .teacher-dashboard-page .text-gray-800,
-.dark .teacher-dashboard-page .text-amber-700,
-.dark .teacher-dashboard-page .text-orange-700,
-.dark .teacher-dashboard-page .text-emerald-700,
-.dark .teacher-dashboard-page .text-rose-700 {
+.dark .teacher-dashboard-page .text-gray-900,
+.dark .teacher-dashboard-page .text-gray-950 {
   color: oklch(var(--foreground-900)) !important;
 }
 
@@ -60,21 +50,48 @@
   color: oklch(var(--foreground-950)) !important;
 }
 
-.dark .teacher-dashboard-page .bg-sky-500 {
-  background-color: oklch(var(--secondary-600)) !important;
-}
-
+/* Semantic colors stay visually distinct on dark surfaces. */
+.dark .teacher-dashboard-page .text-primary-500,
+.dark .teacher-dashboard-page .text-primary-600,
+.dark .teacher-dashboard-page .text-primary-700 { color: oklch(0.86 0.12 350) !important; }
+.dark .teacher-dashboard-page .text-accent-600,
+.dark .teacher-dashboard-page .text-accent-700 { color: oklch(0.86 0.12 40) !important; }
+.dark .teacher-dashboard-page .text-emerald-500,
+.dark .teacher-dashboard-page .text-emerald-600,
+.dark .teacher-dashboard-page .text-emerald-700,
+.dark .teacher-dashboard-page .text-emerald-800 { color: oklch(0.86 0.13 155) !important; }
+.dark .teacher-dashboard-page .text-amber-500,
+.dark .teacher-dashboard-page .text-amber-600,
+.dark .teacher-dashboard-page .text-amber-700 { color: oklch(0.90 0.14 80) !important; }
+.dark .teacher-dashboard-page .text-orange-500,
+.dark .teacher-dashboard-page .text-orange-600,
+.dark .teacher-dashboard-page .text-orange-700 { color: oklch(0.86 0.14 55) !important; }
+.dark .teacher-dashboard-page .text-rose-500,
+.dark .teacher-dashboard-page .text-rose-600,
+.dark .teacher-dashboard-page .text-rose-700 { color: oklch(0.86 0.12 15) !important; }
 .dark .teacher-dashboard-page .text-sky-600,
-.dark .teacher-dashboard-page .text-sky-700 {
-  color: oklch(var(--secondary-900)) !important;
+.dark .teacher-dashboard-page .text-sky-700 { color: oklch(0.86 0.11 230) !important; }
+
+.dark .teacher-dashboard-page .bg-primary-100,
+.dark .teacher-dashboard-page .bg-accent-100,
+.dark .teacher-dashboard-page .bg-emerald-100,
+.dark .teacher-dashboard-page .bg-amber-100,
+.dark .teacher-dashboard-page .bg-orange-100,
+.dark .teacher-dashboard-page .bg-rose-100,
+.dark .teacher-dashboard-page .bg-sky-100 {
+  background-color: oklch(var(--background-200)) !important;
 }
 
 .dark .teacher-dashboard-page .border-background-200,
 .dark .teacher-dashboard-page .border-gray-200,
+.dark .teacher-dashboard-page .border-primary-200,
+.dark .teacher-dashboard-page .border-primary-300,
+.dark .teacher-dashboard-page .border-accent-200,
 .dark .teacher-dashboard-page .border-amber-100,
 .dark .teacher-dashboard-page .border-orange-100,
 .dark .teacher-dashboard-page .border-emerald-100,
-.dark .teacher-dashboard-page .border-rose-100 {
+.dark .teacher-dashboard-page .border-rose-100,
+.dark .teacher-dashboard-page .border-sky-100 {
   border-color: oklch(var(--background-300)) !important;
 }
 
@@ -98,8 +115,19 @@
   color: oklch(var(--foreground-500));
 }
 
+.dark .teacher-dashboard-page select option {
+  background-color: oklch(var(--background-100));
+  color: oklch(var(--foreground-950));
+}
+
 .dark .teacher-dashboard-page .hover\\:bg-background-200\\/60:hover,
+.dark .teacher-dashboard-page .hover\\:bg-background-100:hover,
 .dark .teacher-dashboard-page .hover\\:bg-amber-100:hover,
 .dark .teacher-dashboard-page .hover\\:bg-rose-100:hover {
   background-color: oklch(var(--background-200)) !important;
+}
+
+.dark .teacher-dashboard-page .shadow-sm,
+.dark .teacher-dashboard-page .shadow-md {
+  --tw-shadow-color: rgb(0 0 0 / 0.35) !important;
 }
