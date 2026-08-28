@@ -222,6 +222,12 @@ export default function Navbar() {
   const showMissionTab = user && hasRole('assistant_zone_leader');
   const showAdminTab = user && hasRole('president');
   const showTeacherTab = user && (hasRole('teacher') || hasRole('chief'));
+  const fullMissionItems = (() => {
+    const items: { path?: string; label: string; icon: string; action?: string }[] = [];
+    if (showTeacherTab) items.push({ path: '/teacher-dashboard', label: '교사 대시보드', icon: 'ri-dashboard-line' });
+    MISSION_SUBSECTIONS.forEach(sec => items.push(...sec.items));
+    return items;
+  })();
   const visibleAdminItems = ADMIN_CATEGORY_ITEMS.filter(i => hasRole(i.minRole));
 
   return (
