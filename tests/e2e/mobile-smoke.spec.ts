@@ -6,12 +6,13 @@ const publicRoutes = [
   { path: '/notices', heading: '공지사항' },
   { path: '/schedule', heading: '일정' },
   { path: '/search', heading: '사이트 검색' },
-  { path: '/games', heading: '게임' },
+  { path: '/games', heading: '갓겜' },
 ];
 
 function installErrorCapture(page: Page) {
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
+  const origin = new URL(page.url()).origin;
 
   page.on('pageerror', (error) => {
     pageErrors.push(error.message);
@@ -20,7 +21,7 @@ function installErrorCapture(page: Page) {
   page.on('console', (message) => {
     if (message.type() !== 'error') return;
     const url = message.location().url;
-    if (!url || url.startsWith(page.url().split('/').slice(0, 3).join('/'))) {
+    if (!url || url.startsWith(origin)) {
       consoleErrors.push(message.text());
     }
   });
@@ -106,7 +107,7 @@ test.describe('mobile public smoke', () => {
     await searchInput.fill('출석');
     await page.getByRole('button', { name: '검색', exact: true }).click();
 
-    await expect(page).toHaveURL(/\/search\?q=%EC%B6%9C%EC%84%9D/);
+    await expect(page).toHaveURL(/\/search\?q=%EC%B6%9C\%EC%84%9D/);
     await expectNoHorizontalOverflow(page);
     expect(errors.pageErrors).toEqual([]);
   });
