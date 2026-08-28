@@ -1101,7 +1101,7 @@ export class GameManager extends Phaser.Events.EventEmitter {
     this.channel.send({ type: "broadcast", event: "meeting_end", payload });
   }
 
-  private applyMeetingEnd(payload: { ejectedId: string | null }) {
+  private applyMeetingEnd(payload: { ejectedId: string | null; role?: Role | null }) {
     if (payload.ejectedId) {
       const p = this.players.get(payload.ejectedId);
       if (p) { p.alive = false; if (payload.role) { p.role = payload.role; this.revealedRoles[payload.ejectedId] = payload.role; } }
@@ -1116,8 +1116,6 @@ export class GameManager extends Phaser.Events.EventEmitter {
   canOpenSabotageMenu(now: number) {
     return this.isWolfSide && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.blackoutActive && !this.reactorActive && !this.doorLockRoomId && !this.candleActive && !this.pipeActive;
   }
-
-  private hasActiveSabotage() { return this.activeSabotageKind !== null; }
 
   canSabotage(now: number) {
     return this.isWolfSide && this.me?.alive === true && now >= this.sabotageCooldownUntil && this.phase === "playing" && !this.hasActiveSabotage();

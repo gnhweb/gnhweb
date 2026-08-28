@@ -31,7 +31,6 @@ self.addEventListener('push', (event) => {
       badge: '/pwa-192x192.png',
       tag: payload.tag || `gnh-${Date.now()}`,
       data: { link },
-      vibrate: [120, 60, 120],
     }),
   );
 });

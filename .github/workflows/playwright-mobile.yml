@@ -1,0 +1,62 @@
+name: Playwright Mobile E2E
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-e2e:
+    name: Mobile E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Public default keeps CI usable without a Vercel preview bypass token.
+      # Set E2E_BASE_URL as a repository secret when a specific preview URL is desired.
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL || 'https://gnhweb.vercel.app' }}
+      E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run mobile E2E
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-mobile-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload Playwright test artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-mobile-test-results
+          path: test-results/
+          retention-days: 14
