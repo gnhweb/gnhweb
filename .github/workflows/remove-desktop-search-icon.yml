@@ -1,0 +1,47 @@
+name: Remove overlapping desktop search icon
+
+on:
+  push:
+    paths:
+      - .github/workflows/remove-desktop-search-icon.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Remove only the compact desktop search icon
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/components/feature/Navbar.tsx')
+          s = p.read_text()
+          target = '''              <Link to="/search" aria-label="검색" className="hidden lg:flex xl:hidden w-9 h-9 items-center justify-center rounded-full text-foreground-600 hover:bg-background-100 hover:text-foreground-950"><i className="ri-search-line"></i></Link>\n'''
+          if target not in s:
+              raise SystemExit('Target desktop compact search icon was not found; aborting without modifying Navbar.tsx')
+          s = s.replace(target, '', 1)
+          p.write_text(s)
+
+      - name: Validate source
+        run: |
+          ! grep -Fq 'hidden lg:flex xl:hidden w-9 h-9 items-center justify-center' src/components/feature/Navbar.tsx
+          grep -Fq 'placeholder="검색"' src/components/feature/Navbar.tsx
+          grep -Fq 'ri-search-line pointer-events-none' src/components/feature/Navbar.tsx
+
+      - name: Commit source fix and remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/feature/Navbar.tsx
+          git commit -m "fix: remove compact desktop search icon" || exit 0
+          git push
+          git rm .github/workflows/remove-desktop-search-icon.yml
+          git commit -m "chore: remove one-time search icon workflow" || exit 0
+          git push
