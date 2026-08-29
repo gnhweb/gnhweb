@@ -89,14 +89,9 @@ const AttendanceBoard = lazy(() => import("@/pages/attendanceBoard/page"));
 const SearchPage = lazy(() => import("@/pages/search/page"));
 
 const pageFallback = (label = "로딩 중…") => (
-  <div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">
-    {label}
-  </div>
+  <div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">{label}</div>
 );
-
-const withSuspense = (element: ReactNode) => (
-  <Suspense fallback={pageFallback()}>{element}</Suspense>
-);
+const withSuspense = (element: ReactNode) => <Suspense fallback={pageFallback()}>{element}</Suspense>;
 
 const routes: RouteObject[] = [
   {
@@ -142,26 +137,26 @@ const routes: RouteObject[] = [
       { path: "/login", element: withSuspense(<Login />) },
       { path: "/setup", element: withSuspense(<Setup />) },
       { path: "/dashboard", element: <AuthGuard minRole="member">{withSuspense(<Dashboard />)}</AuthGuard> },
-      { path: "/reports/weekly", element: <AuthGuard minRole="member">{withSuspense(<WeeklyReports />)}</AuthGuard> },
-      { path: "/reports/weekly/write", element: <AuthGuard minRole="member">{withSuspense(<WeeklyReportWrite />)}</AuthGuard> },
-      { path: "/reports/weekly/:id", element: <AuthGuard minRole="member">{withSuspense(<WeeklyReportDetail />)}</AuthGuard> },
-      { path: "/reports/weekly/:id/edit", element: <AuthGuard minRole="member">{withSuspense(<WeeklyReportEdit />)}</AuthGuard> },
-      { path: "/reports/growth", element: <AuthGuard minRole="member">{withSuspense(<GrowthReports />)}</AuthGuard> },
-      { path: "/reports/growth/write", element: <AuthGuard minRole="member">{withSuspense(<GrowthReportWrite />)}</AuthGuard> },
-      { path: "/reports/growth/:id", element: <AuthGuard minRole="member">{withSuspense(<GrowthRecordDetail />)}</AuthGuard> },
-      { path: "/reports/growth/:id/edit", element: <AuthGuard minRole="member">{withSuspense(<GrowthReportEdit />)}</AuthGuard> },
-      { path: "/reports/events", element: <AuthGuard minRole="member">{withSuspense(<EventReports />)}</AuthGuard> },
-      { path: "/reports/events/write", element: <AuthGuard minRole="member">{withSuspense(<EventReportWrite />)}</AuthGuard> },
-      { path: "/reports/events/:id", element: <AuthGuard minRole="member">{withSuspense(<EventReportDetail />)}</AuthGuard> },
-      { path: "/reports/events/:id/edit", element: <AuthGuard minRole="member">{withSuspense(<EventReportEdit />)}</AuthGuard> },
+      { path: "/dashboard/attendance", element: <AuthGuard minRole="member">{withSuspense(<AttendanceDashboard />)}</AuthGuard> },
+      { path: "/reports/weekly", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<WeeklyReports />)}</AuthGuard> },
+      { path: "/reports/weekly/write", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<WeeklyReportWrite />)}</AuthGuard> },
+      { path: "/reports/weekly/:id", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<WeeklyReportDetail />)}</AuthGuard> },
+      { path: "/reports/weekly/:id/edit", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<WeeklyReportEdit />)}</AuthGuard> },
+      { path: "/reports/growth", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<GrowthReports />)}</AuthGuard> },
+      { path: "/reports/growth/write", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<GrowthReportWrite />)}</AuthGuard> },
+      { path: "/reports/growth/:id", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<GrowthRecordDetail />)}</AuthGuard> },
+      { path: "/reports/growth/:id/edit", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<GrowthReportEdit />)}</AuthGuard> },
+      { path: "/reports/events", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<EventReports />)}</AuthGuard> },
+      { path: "/reports/events/write", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<EventReportWrite />)}</AuthGuard> },
+      { path: "/reports/events/:id", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<EventReportDetail />)}</AuthGuard> },
+      { path: "/reports/events/:id/edit", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<EventReportEdit />)}</AuthGuard> },
       { path: "/reports/review", element: <AuthGuard minRole="teacher">{withSuspense(<ReviewPage />)}</AuthGuard> },
       { path: "/admin/roles", element: <AuthGuard minRole="president">{withSuspense(<AdminRolesPage />)}</AuthGuard> },
       { path: "/admin/strategy", element: <AuthGuard minRole="president">{withSuspense(<StrategyDashboard />)}</AuthGuard> },
       { path: "/admin/approvals", element: <AuthGuard minRole="president">{withSuspense(<AdminApprovals />)}</AuthGuard> },
       { path: "/reset-password", element: withSuspense(<ResetPassword />) },
-      { path: "/attendance", element: <AuthGuard minRole="member">{withSuspense(<AttendanceDashboard />)}</AuthGuard> },
       { path: "/settings/absence-reasons", element: <AuthGuard minRole="chief">{withSuspense(<AbsenceReasonsPage />)}</AuthGuard> },
-      { path: "/settings/attendance-location", element: <AuthGuard minRole="chief">{withSuspense(<AttendanceLocationPage />)}</AuthGuard> },
+      { path: "/settings/attendance-location", element: <AuthGuard minRole="teacher">{withSuspense(<AttendanceLocationPage />)}</AuthGuard> },
       { path: "/profile", element: <AuthGuard minRole="member">{withSuspense(<ProfilePage />)}</AuthGuard> },
       { path: "/teacher-dashboard", element: <AuthGuard minRole="teacher">{withSuspense(<TeacherDashboard />)}</AuthGuard> },
       { path: "/ganghak-news", element: withSuspense(<GanghakNewsList />) },
