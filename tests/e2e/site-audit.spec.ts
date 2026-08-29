@@ -71,10 +71,10 @@ async function assertHealthyPage(
   options: { allowGuardRedirect?: boolean } = {},
 ) {
   resetGuards(guards);
-  const response = await page.goto(`${BASE_URL}${requestedPath}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  const response = await page.goto(`${BASE_URL}${requestedPath}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   expect(response, `No response for ${requestedPath}`).not.toBeNull();
   expect(response!.status(), `HTTP ${response!.status()} on ${requestedPath}`).toBeLessThan(500);
-  await page.waitForTimeout(350);
+  await page.waitForTimeout(500);
 
   const body = (await page.locator('body').innerText().catch(() => '')).toLowerCase();
   for (const marker of ERROR_MARKERS) {
@@ -97,16 +97,17 @@ async function assertHealthyPage(
 async function signIn(page: Page, role: RoleKey) {
   const { email, password } = roleCredentials[role];
   test.skip(!email || !password, `Missing ${role} E2E credentials`);
-  await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   await page.locator('input[name="email"]').fill(email!);
   await page.locator('input[name="password"]').fill(password!);
   await page.getByRole('button', { name: /로그인/i }).click();
-  await expect.poll(() => new URL(page.url()).pathname, { timeout: 20_000 }).not.toBe('/login');
+  // Supabase auth and the profile bootstrap can take longer under six-role
+  // parallel load. The auth-smoke suite has already established that the
+  // production credentials work; give this broader audit enough time to wait.
+  await expect.poll(() => new URL(page.url()).pathname, { timeout: 60_000 }).not.toBe('/login');
 }
 
 async function crawlLinkedRoutes(page: Page, guards: Awaited<ReturnType<typeof attachRuntimeGuards>>, maxRoutes = 80) {
-  // The home route is member-protected, so starting there only discovers /login.
-  // Seed the crawl with genuinely public entry points instead.
   const queue = ['/search', '/clubs', '/notices', '/schedule', '/tools', '/games', '/ganghak-news'];
   const visited = new Set<string>();
   while (queue.length && visited.size < maxRoutes) {
@@ -160,7 +161,7 @@ test.describe('production authenticated route audit', () => {
 
   for (const role of Object.keys(roleCredentials) as RoleKey[]) {
     test(`${role} authenticates and browses core routes`, async ({ page }) => {
-      test.setTimeout(240_000);
+      test.setTimeout(300_000);
       await signIn(page, role);
       const guards = await attachRuntimeGuards(page);
       const coreRoutes = ['/', '/search', '/clubs', '/notices', '/schedule', '/dashboard', '/profile'];
