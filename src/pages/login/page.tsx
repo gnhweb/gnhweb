@@ -64,7 +64,7 @@ export default function Login() {
     setPinValue('');
     setPinConfirmValue('');
     setPinSetupError('');
-    navigate(from, { replace: true });
+    window.location.replace(new URL(from, window.location.origin).toString());
   };
 
   const handleSavePin = async () => {
