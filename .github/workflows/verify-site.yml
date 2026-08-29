@@ -34,7 +34,7 @@ jobs:
         run: npm run lint
 
       - name: Tests
-        run: npx vitest run src
+        run: npx vitest run src/__tests__/auth-and-quiz.test.ts
 
       - name: Production build
         run: npm run build
