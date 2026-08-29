@@ -1,0 +1,67 @@
+name: One-time login navigation fix
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch-login:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch post-PIN navigation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("src/pages/login/page.tsx")
+          text = path.read_text(encoding="utf-8")
+
+          marker = "const finishPinSetup = () => {"
+          start = text.find(marker)
+          if start < 0:
+              raise SystemExit("finishPinSetup function not found")
+
+          end = text.find("\n  };", start)
+          if end < 0:
+              raise SystemExit("finishPinSetup function end not found")
+
+          block = text[start:end]
+          old = "    navigate(from, { replace: true });"
+          new = "    window.location.replace(new URL(from, window.location.origin).toString());"
+
+          if new in block:
+              print("Post-PIN navigation fix already applied")
+              raise SystemExit(0)
+          if old not in block:
+              raise SystemExit("Expected post-PIN navigate call not found")
+
+          block = block.replace(old, new, 1)
+          path.write_text(text[:start] + block + text[end:], encoding="utf-8")
+          print("Applied post-PIN full-document navigation fix")
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          if git diff --quiet -- src/pages/login/page.tsx; then
+            rm -f .github/workflows/one-time-login-fix.yml
+            git add -A
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: remove one-time login fix workflow"
+            git push
+            exit 0
+          fi
+
+          rm -f .github/workflows/one-time-login-fix.yml
+          git add src/pages/login/page.tsx .github/workflows/one-time-login-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: make post-PIN login navigation resilient"
+          git push
