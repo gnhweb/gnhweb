@@ -508,6 +508,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
 
+
+
+
+
   const signInWithPasskey = useCallback(async () => {
     if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };
     const result = await signInWithPasskeyLib();
