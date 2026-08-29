@@ -1,0 +1,97 @@
+name: One-time Auth Race Fix v2
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch auth bootstrap race
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/hooks/useAuth.tsx')
+          s = p.read_text()
+
+          if 'const authEventVersionRef = useRef(0);' not in s:
+              anchor = "  const refreshFailureHandledRef = useRef(false);\n"
+              if anchor not in s:
+                  raise SystemExit('auth ref anchor not found')
+              s = s.replace(
+                  anchor,
+                  anchor + "  // Tracks the newest auth action/event so a late initial getSession() response cannot overwrite it.\n  const authEventVersionRef = useRef(0);\n",
+                  1,
+              )
+
+          if 'const getSessionVersion = authEventVersionRef.current;' not in s:
+              marker = '    supabase.auth.getSession()\n'
+              if marker not in s:
+                  raise SystemExit('getSession marker not found')
+              s = s.replace(marker, '    const getSessionVersion = authEventVersionRef.current;\n\n' + marker, 1)
+
+          stale_guard = "        if (!isMounted) return;\n        sessionRestoredRef.current = true;\n"
+          guarded = "        if (!isMounted) return;\n        if (authEventVersionRef.current !== getSessionVersion) {\n          sessionRestoredRef.current = true;\n          return;\n        }\n        sessionRestoredRef.current = true;\n"
+          if guarded not in s:
+              if stale_guard not in s:
+                  raise SystemExit('getSession success anchor not found')
+              s = s.replace(stale_guard, guarded, 1)
+
+          catch_anchor = "      .catch((err) => {\n        if (!isMounted) return;\n"
+          catch_guarded = "      .catch((err) => {\n        if (!isMounted) return;\n        if (authEventVersionRef.current !== getSessionVersion) {\n          sessionRestoredRef.current = true;\n          return;\n        }\n"
+          if catch_guarded not in s:
+              if catch_anchor not in s:
+                  raise SystemExit('getSession catch anchor not found')
+              s = s.replace(catch_anchor, catch_guarded, 1)
+
+          if 'authEventVersionRef.current += 1;' not in s:
+              listener = 'const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {'
+              start = s.find(listener)
+              if start < 0:
+                  raise SystemExit('auth listener not found')
+              rel = '      if (!isMounted) return;\n'
+              pos = s.find(rel, start)
+              if pos < 0:
+                  raise SystemExit('auth listener isMounted guard not found')
+              insert_at = pos + len(rel)
+              s = s[:insert_at] + '      authEventVersionRef.current += 1;\n' + s[insert_at:]
+
+          signin_anchor = '      const signedInUser = data.user ?? null;\n      if (signedInUser) {\n'
+          if 'Mark successful sign-in newer' not in s:
+              if signin_anchor not in s:
+                  raise SystemExit('signIn anchor not found')
+              s = s.replace(
+                  signin_anchor,
+                  signin_anchor + '        // Mark successful sign-in newer than the initial bootstrap read.\n        authEventVersionRef.current += 1;\n',
+                  1,
+              )
+
+          signout_anchor = '  const signOut = useCallback(async () => {\n'
+          if 'authEventVersionRef.current += 1;\n    fetchingForRef.current = null;' not in s:
+              if signout_anchor not in s:
+                  raise SystemExit('signOut anchor not found')
+              s = s.replace(
+                  signout_anchor,
+                  signout_anchor + '    authEventVersionRef.current += 1;\n',
+                  1,
+              )
+
+          p.write_text(s)
+
+      - name: Commit fix and remove temporary workflows
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/one-time-auth-race-fix.yml .github/workflows/one-time-auth-race-fix-v2.yml
+          git add src/hooks/useAuth.tsx .github/workflows/one-time-auth-race-fix.yml .github/workflows/one-time-auth-race-fix-v2.yml
+          git commit -m "fix: prevent stale auth bootstrap from overwriting login state"
+          git push
