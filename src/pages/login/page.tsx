@@ -135,7 +135,13 @@ export default function Login() {
             setPinSetupUserId(signedInUser.id);
             setShowPinSetup(true);
           } else {
-            navigate(from, { replace: true });
+            // Supabase persists the new session asynchronously. A client-side
+            // react-router navigation can race with the initial getSession()
+            // bootstrap and briefly write the old (null) session back to AuthProvider.
+            // A full document navigation gives the fresh session one authoritative
+            // bootstrap path and removes that intermittent mobile redirect to /login.
+            const target = new URL(from, window.location.origin);
+            window.location.replace(target.toString());
           }
         } else {
           setError(err || '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.');
