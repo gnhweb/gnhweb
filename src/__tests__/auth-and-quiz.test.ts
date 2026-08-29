@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { ROLE_HIERARCHY } from '@/types/auth';
-import type { UserRole } from '@/types/auth';
+import { ROLE_HIERARCHY } from '../types/auth';
+import type { UserRole } from '../types/auth';
 
 // ============================================================
 // hasRole — 권한 체크 로직 (순수 함수로 재현)
@@ -83,13 +83,11 @@ describe('validateOptionLengths', () => {
   });
 
   it('길이 편차가 1.3배 이내면 통과해야 한다', () => {
-    // 10글자와 13글자 → 13/10 = 1.3, 통과
     const options = ['열글자인 선지', '열세글자인 선지임', '열글자 선지다', '열두글자의 선지'];
     expect(validateOptionLengths(options)).toBe(true);
   });
 
   it('길이 편차가 1.3배 초과면 실패해야 한다', () => {
-    // 5글자와 15글자 → 15/5 = 3.0, 실패
     const options = ['짧음', '열다섯글자나 되는 아주 긴 선지임', '짧은것', '또짧음'];
     expect(validateOptionLengths(options)).toBe(false);
   });
