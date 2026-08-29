@@ -6,7 +6,7 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
     <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png?v=2" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -39,6 +39,20 @@
       .bg-\[\#f5f0e8\] .bg-foreground-950 { background-color:#171717 !important; }
       .bg-\[\#f5f0e8\] .text-background-50 { color:#fff !important; }
       .bg-\[\#f5f0e8\] .bg-foreground-200 { background-color:#e6dfd5 !important; }
+      @media (max-width: 767px) {
+        main input[name="email"],
+        main input[name="password"] {
+          min-height: 44px !important;
+          height: 44px !important;
+          box-sizing: border-box !important;
+          font-size: 16px !important;
+          line-height: 1.25 !important;
+        }
+        main button[type="submit"] {
+          min-height: 44px !important;
+          box-sizing: border-box !important;
+        }
+      }
       @media (min-width: 768px) {
         nav .ri-search-line { display:none !important; }
         nav [aria-label="검색"] { display:none !important; }
