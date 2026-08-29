@@ -11,11 +11,6 @@ import { MobileMenuProvider, useMobileMenu } from '@/hooks/useMobileMenu';
 
 const FULLSCREEN_GAME_PATHS = ['/wolves-and-sheep', '/pharisee', '/pilgrims-run', '/jonah-hide-seek', '/galilee-phone'];
 
-function isNativeAndroidApp(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return navigator.userAgent.includes('GNHWebAndroid/');
-}
-
 function isIosPwa(): boolean {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
   const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
@@ -65,14 +60,13 @@ export default function Layout() {
   const { user, profile, loading, profileError, retryProfile, profileRetrying, pinLocked, pinSetupNeeded } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const nativeAndroid = isNativeAndroidApp();
   useAutoLogout();
 
-  if (!nativeAndroid && pinLocked) {
+  if (pinLocked) {
     return <AppLockScreen />;
   }
 
-  if (!nativeAndroid && pinSetupNeeded) {
+  if (pinSetupNeeded) {
     return <PinSetupPrompt />;
   }
 
