@@ -7,27 +7,19 @@ const DEFAULT_TIMEOUT_MINUTES = DEFAULT_AUTO_LOGOUT_MINUTES;
 const STORAGE_KEY = AUTO_LOGOUT_STORAGE_KEY;
 const ACTIVITY_PERSIST_INTERVAL_MS = 10_000;
 
-function isNativeAndroidApp(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return navigator.userAgent.includes('GNHWebAndroid/');
-}
-
 export function useAutoLogout() {
   const { user, profile, signOut, hasPin, lockApp } = useAuth();
-  const nativeAndroid = isNativeAndroidApp();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timeoutMinutesRef = useRef(DEFAULT_TIMEOUT_MINUTES);
   const lastPersistRef = useRef(0);
 
   const timeoutAction = useCallback(() => {
-    if (nativeAndroid) return;
     if (hasPin) lockApp();
     else signOut();
-  }, [nativeAndroid, hasPin, lockApp, signOut]);
+  }, [hasPin, lockApp, signOut]);
 
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (nativeAndroid) return;
 
     if (user && hasPin) {
       const now = Date.now();
@@ -40,10 +32,10 @@ export function useAutoLogout() {
     const mins = timeoutMinutesRef.current;
     if (mins <= 0 || !user) return;
     timerRef.current = setTimeout(timeoutAction, mins * 60 * 1000);
-  }, [nativeAndroid, user, hasPin, timeoutAction]);
+  }, [user, hasPin, timeoutAction]);
 
   const loadTimeoutSetting = useCallback(async () => {
-    if (!user || nativeAndroid) return;
+    if (!user) return;
     const saved = localStorage.getItem(`${STORAGE_KEY}_${user.id}`);
     if (saved) {
       const mins = parseInt(saved, 10);
@@ -60,10 +52,10 @@ export function useAutoLogout() {
         localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(data.auto_logout_minutes));
       }
     } catch { /* ignore */ }
-  }, [user, nativeAndroid]);
+  }, [user]);
 
   useEffect(() => {
-    if (!user || nativeAndroid) return;
+    if (!user) return;
     loadTimeoutSetting().then(() => {
       if (timeoutMinutesRef.current > 0) resetTimer();
     });
@@ -73,7 +65,7 @@ export function useAutoLogout() {
     events.forEach(e => window.addEventListener(e, handler, { passive: true }));
 
     const flushActivity = () => {
-      if (user && hasPin && !nativeAndroid) markPinActivity(user.id);
+      if (user && hasPin) markPinActivity(user.id);
     };
     window.addEventListener('beforeunload', flushActivity);
     document.addEventListener('visibilitychange', flushActivity);
@@ -84,18 +76,17 @@ export function useAutoLogout() {
       window.removeEventListener('beforeunload', flushActivity);
       document.removeEventListener('visibilitychange', flushActivity);
     };
-  }, [user, hasPin, nativeAndroid, loadTimeoutSetting, resetTimer]);
+  }, [user, hasPin, loadTimeoutSetting, resetTimer]);
 
   const updateTimeout = useCallback((minutes: number) => {
     timeoutMinutesRef.current = minutes;
-    if (nativeAndroid) return;
     if (user) localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(minutes));
     if (timerRef.current) clearTimeout(timerRef.current);
     if (minutes > 0 && user) timerRef.current = setTimeout(timeoutAction, minutes * 60 * 1000);
-  }, [nativeAndroid, user, timeoutAction]);
+  }, [user, timeoutAction]);
 
   useEffect(() => {
-    if (!user || nativeAndroid) return;
+    if (!user) return;
     const onExternalChange = (e: Event) => {
       const detail = (e as CustomEvent<{ userId: string; minutes: number }>).detail;
       if (!detail || detail.userId !== user.id) return;
@@ -103,7 +94,7 @@ export function useAutoLogout() {
     };
     window.addEventListener(AUTO_LOGOUT_CHANGE_EVENT, onExternalChange);
     return () => window.removeEventListener(AUTO_LOGOUT_CHANGE_EVENT, onExternalChange);
-  }, [user, nativeAndroid, updateTimeout]);
+  }, [user, updateTimeout]);
 
   return { updateTimeout, currentTimeout: timeoutMinutesRef.current };
 }
