@@ -78,6 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sessionRestoredRef = useRef(false);
   const fetchingForRef = useRef<string | null>(null);
   const refreshFailureHandledRef = useRef(false);
+  // Tracks the newest auth action/event so a late initial getSession() response cannot overwrite it.
+  const authEventVersionRef = useRef(0);
   // Profile auto-retry state
   const profileRetryCountRef = useRef(0);
   const profileRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -245,9 +247,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
+    const getSessionVersion = authEventVersionRef.current;
+
     supabase.auth.getSession()
       .then(({ data: { session }, error }) => {
         if (!isMounted) return;
+        if (authEventVersionRef.current !== getSessionVersion) {
+          sessionRestoredRef.current = true;
+          return;
+        }
         sessionRestoredRef.current = true;
 
         if (error) {
@@ -296,6 +304,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch((err) => {
         if (!isMounted) return;
+        if (authEventVersionRef.current !== getSessionVersion) {
+          sessionRestoredRef.current = true;
+          return;
+        }
         console.warn('[Auth] getSession exception:', err);
         clearAllAuthStorage();
         sessionRestoredRef.current = true;
@@ -309,6 +321,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
+      authEventVersionRef.current += 1;
 
       if (event === 'TOKEN_REFRESHED') {
         const refreshedUser = session?.user ?? null;
@@ -432,6 +445,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const signedInUser = data.user ?? null;
       if (signedInUser) {
+        // Mark successful sign-in newer than the initial bootstrap read.
+        authEventVersionRef.current += 1;
         setUser(signedInUser);
         setLoading(false);
         setProfileError(null);
@@ -496,6 +511,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    authEventVersionRef.current += 1;
     fetchingForRef.current = null;
     setUser(null);
     setProfile(null);
