@@ -10,12 +10,10 @@ on:
       - main
   workflow_dispatch:
 
-# Production-account E2E: keep E2E_BASE_URL pointed at the live site.
 permissions:
   contents: read
 
 env:
-  # Always test the live production site, including pull_request runs.
   E2E_BASE_URL: ${{ secrets.E2E_BASE_URL || 'https://gnhweb.vercel.app' }}
   E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
   E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
@@ -34,25 +32,20 @@ jobs:
   mobile-e2e:
     name: Mobile E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: package.json
-
       - name: Install dependencies
         run: npm install --legacy-peer-deps
-
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
-
       - name: Check authentication test configuration
         shell: bash
         run: |
@@ -70,13 +63,10 @@ jobs:
             fi
           done
           if [[ "$missing" -ne 0 ]]; then
-            echo "Configure all 12 role-specific E2E secrets before running authenticated production E2E."
             exit 1
           fi
-
       - name: Run mobile E2E
         run: npm run test:e2e
-
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -84,7 +74,6 @@ jobs:
           name: playwright-mobile-report
           path: playwright-report/
           retention-days: 14
-
       - name: Upload Playwright test artifacts
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
