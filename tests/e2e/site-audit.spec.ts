@@ -36,7 +36,11 @@ async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof
 }
 async function signIn(page: Page, role: RoleKey) {
   const { email, password } = credentials[role]; test.skip(!email || !password, `Missing ${role} E2E credentials`);
-  await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 45_000 }); await page.locator('input[name="email"]').fill(email!); await page.locator('input[name="password"]').fill(password!); await page.getByRole('button', { name: /로그인/i }).click();
+  await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+  const loginForm = page.locator('form').filter({ has: page.locator('input[name="email"]') }).first();
+  await loginForm.locator('input[name="email"]').fill(email!);
+  await loginForm.locator('input[name="password"]').fill(password!);
+  await loginForm.locator('button[type="submit"]').click();
   await expect.poll(() => new URL(page.url()).pathname, { timeout: 60_000 }).not.toBe('/login');
   const skipPin = page.getByRole('button', { name: '나중에 하기' }); if (await skipPin.isVisible().catch(() => false)) await skipPin.click();
   await expect.poll(() => new URL(page.url()).pathname, { timeout: 20_000 }).not.toBe('/login');

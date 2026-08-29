@@ -88,7 +88,7 @@ export default function Login() {
       try {
         const controller = new AbortController();
         const t = setTimeout(() => controller.abort(), 8000);
-        const res = await fetch(`${import.meta.env.VITE_PUBLIC_SUPABASE_URL}/rest/v1/notices?select=id&limit=1`, {
+        const res = await fetch(`${import.meta.env.VITE_PUBLIC_SUPABASE_URL}/auth/v1/settings`, {
           signal: controller.signal,
           headers: { apikey: import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY },
         });
