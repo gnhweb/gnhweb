@@ -18,8 +18,6 @@ interface AuthContextValue {
   retryProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null; user: User | null }>;
   signInWithPasskey: () => Promise<{ error: string | null }>;
-  signInWithPasskey: () => Promise<{ error: string | null }>;
-  signInWithPasskey: () => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, name: string, role: UserRole, club?: string, birthYear?: number, gender?: string, birthMonth?: number, birthDay?: number, interests?: string, grade?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -121,8 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Force-redirect to /login immediately, without waiting for AuthGuard's
     // reactive re-render. This guarantees the user never sees a broken state
     // even if React batching delays the state update.
-    // window.REACT_APP_NAVIGATE is set synchronously in src/router/index.ts
-    // and available by the time any auth error can fire.
     try {
       if (window.REACT_APP_NAVIGATE) {
         window.REACT_APP_NAVIGATE('/login', { replace: true });
@@ -147,7 +143,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (fetchingForRef.current !== userId) return;
 
       if (!error && data) {
-        // Profile loaded successfully -- reset retry state
         profileRetryCountRef.current = 0;
         if (profileRetryTimerRef.current) {
           clearTimeout(profileRetryTimerRef.current);
@@ -160,7 +155,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await supabase.auth.signOut();
           return;
         }
-        // Fetch additional roles from user_role_assignments
         const { data: extraRoles } = await supabase
           .from('user_role_assignments')
           .select('role')
@@ -189,7 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
 
         if (fetchingForRef.current !== userId) return;
-
         if (!insertError && newProfile) {
           setProfile(newProfile as UserProfile);
           return;
@@ -213,7 +206,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[Auth] fetchProfile exception:', e);
       setProfileError('프로필 로딩 중 네트워크 오류가 발생했습니다. 다시 시도해주세요.');
 
-      // Auto-retry with exponential backoff
       if (profileRetryCountRef.current < MAX_PROFILE_RETRIES) {
         const delay = Math.min(1000 * Math.pow(2, profileRetryCountRef.current), 30000);
         profileRetryCountRef.current += 1;
@@ -230,25 +222,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  /**
-   * Global safety net: catch any unhandled promise rejection that leaks from
-   * Supabase's internal auto-refresh timer. When the refresh token is stale,
-   * the library *should* emit SIGNED_OUT, but on some browser/version combos
-   * the rejection leaks before the event fires. We catch it here and force a
-   * clean sign-out so the user never sees a broken / half-logged-in state.
-   */
   useEffect(() => {
     function onUnhandledRejection(event: PromiseRejectionEvent) {
       const reason = event?.reason;
       const msg = typeof reason?.message === 'string' ? reason.message : String(reason ?? '');
-
       if (
         msg.includes('Invalid Refresh Token') ||
         msg.includes('Refresh Token Not Found') ||
         msg.includes('AuthSessionMissingError') ||
         (reason?.name === 'AuthApiError')
       ) {
-        event.preventDefault(); // stop the default "Unhandled Rejection" console noise
+        event.preventDefault();
         console.warn('[Auth] Caught leaked auth rejection — forcing clean sign-out:', msg);
         handleSessionDead();
       }
@@ -261,7 +245,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    // 1) Restore persisted session on first load.
     supabase.auth.getSession()
       .then(({ data: { session }, error }) => {
         if (!isMounted) return;
@@ -269,9 +252,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (error) {
           console.warn('[Auth] getSession error:', error.message);
-
-          // If the error is specifically about an invalid refresh token,
-          // the session stored in localStorage is useless — wipe it clean.
           if (
             error.message.includes('Invalid Refresh Token') ||
             error.message.includes('Refresh Token Not Found')
@@ -280,7 +260,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          // For other errors, still clean up just in case
           clearAllAuthStorage();
           setUser(null);
           setProfile(null);
@@ -296,11 +275,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
 
         if (currentUser) {
-          // 앱을 새로 열 때마다(브라우저를 새로 열거나 새로고침) 항상 본인 확인을
-          // 거치도록 한다: 이 기기에 간편 비밀번호가 설정되어 있으면 무조건 PIN
-          // 입력 화면부터 보여주고, 아직 설정하지 않았다면 설정하도록 안내한다.
-          // (예전에는 자동 로그아웃 타임아웃 전이면 그냥 통과시켰지만, 보안을 위해
-          // "처음 들어올 때는 항상 확인"으로 변경)
           const deviceHasPin = hasSimplePin(currentUser.id);
           setHasPin(deviceHasPin);
 
@@ -333,18 +307,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPinSetupNeeded(false);
       });
 
-    // 2) React to auth changes (login, logout, token refresh).
-    // The callback MUST stay synchronous — no await inside — or the auth lock deadlocks.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
 
-      // Token refresh keeps the same user; nothing to re-fetch.
       if (event === 'TOKEN_REFRESHED') {
         const refreshedUser = session?.user ?? null;
         if (refreshedUser) {
           setUser(refreshedUser);
         } else {
-          // Token refresh event came in but there's no user — the session is dead.
           console.warn('[Auth] TOKEN_REFRESHED with null user — forcing sign out');
           handleSessionDead();
         }
@@ -364,7 +334,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Avoid double-handling the initial session (already done via getSession above).
       if (event === 'INITIAL_SESSION' && sessionRestoredRef.current) {
         return;
       }
@@ -375,12 +344,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfileError(null);
 
       if (currentUser) {
-        // 여기 도달하는 이벤트(SIGNED_IN 등)는 방금 signIn()으로 직접 인증을
-        // 마친 경우이므로 다시 PIN 잠금을 걸지 않는다 — pinLocked는 건드리지 않고
-        // hasPin 표시만 최신 상태로 갱신한다. 방금 정상적으로 들어왔으므로 잠금
-        // 플래그도 풀어주고 활동 시각을 기록해, 곧바로 새로고침해도 PIN을 다시
-        // 묻지 않도록 한다. (로그인 화면이 자체적으로 PIN 설정 안내를 이미
-        // 보여주므로, 여기서는 Layout의 안내 화면을 따로 띄우지 않는다.)
         setHasPin(hasSimplePin(currentUser.id));
         setPinExplicitLock(currentUser.id, false);
         setPinSetupNeeded(false);
@@ -401,7 +364,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchProfile, handleSessionDead]);
 
-  // ──── Supabase Realtime: 권한 변경 실시간 감지 ────
   useEffect(() => {
     if (!user) {
       if (realtimeSubRef.current) {
@@ -412,8 +374,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const userId = user.id;
-
-    // user_roles 변경 감지 (역할, 동아리, 활성상태 등)
     const channel = supabase
       .channel(`profile-realtime-${userId}`)
       .on(
@@ -466,10 +426,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
-      // Reset the refresh-failure flag so a fresh login isn't blocked by a
-      // previous stale-session detection on the same page load.
       refreshFailureHandledRef.current = false;
-
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return { error: error.message, user: null };
 
@@ -538,18 +495,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: result.error?.message ?? null };
   }, []);
 
-  const signInWithPasskey = useCallback(async () => {
-    if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };
-    const result = await signInWithPasskeyLib();
-    return { error: result.error?.message ?? null };
-  }, []);
-
-  const signInWithPasskey = useCallback(async () => {
-    if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };
-    const result = await signInWithPasskeyLib();
-    return { error: result.error?.message ?? null };
-  }, []);
-
   const signOut = useCallback(async () => {
     fetchingForRef.current = null;
     setUser(null);
@@ -559,16 +504,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setHasPin(false);
     setPinSetupNeeded(false);
     clearAllAuthStorage();
-    // scope:'local' ensures we never hit the server (which would fail if
-    // the refresh token is already dead). All local state is already wiped above.
     await supabase.auth.signOut({ scope: 'local' }).catch(() => { /* already cleaned */ });
 
-    // 버그 수정: 예전에는 여기서 화면 전환을 전혀 하지 않고 AuthGuard의 재렌더링(user===null → <Navigate>)에만
-    // 의존했다. 그런데 라우터에는 AuthGuard로 감싸지 않은 화면(예: /wolves-and-sheep, /tools, /bible-pick 등)이
-    // 여러 개 있어서, 자동 로그아웃(useAutoLogout)이든 수동 로그아웃이든 그런 화면에 있을 때 signOut()이
-    // 호출되면 아무도 리다이렉트를 시켜주지 않아 "로그아웃됐는데 화면은 그대로" 상태가 됐다.
-    // handleSessionDead와 동일하게 window.REACT_APP_NAVIGATE로 화면을 직접, 무조건 /login으로 전환해서
-    // 어떤 화면에서 로그아웃되더라도(가드가 없는 화면 포함) 항상 로그인/회원가입 창으로 자동 전환되게 한다.
     try {
       if (window.REACT_APP_NAVIGATE) {
         window.REACT_APP_NAVIGATE('/login', { replace: true });
@@ -580,12 +517,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasRole = useCallback((minRole: UserRole): boolean => {
     if (!profile) return false;
-    // Check all roles: primary role + extra assigned roles
     const allRoles = profile.roles || [profile.role];
     return allRoles.some(r => ROLE_HIERARCHY[r] >= ROLE_HIERARCHY[minRole]);
   }, [profile]);
 
-  // Fetch assigned teacher clubs from club_teachers table (N:M)
   useEffect(() => {
     if (!profile || !user) {
       setAssignedTeacherClub(null);
@@ -596,7 +531,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAssignedTeacherClub(null);
       return;
     }
-    // For chief, fetch all assigned clubs; for teacher, fetch their assigned clubs
     Promise.resolve(
       supabase
         .from('club_teachers')
@@ -605,11 +539,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
       .then(({ data }) => {
         if (data && data.length > 0) {
-          // Return the first assigned club as the primary one
-          // (teacher dashboard uses this for filtering)
           setAssignedTeacherClub(data[0].club as string);
         } else {
-          // Fallback to legacy assigned_teacher_id if no club_teachers entries
           setAssignedTeacherClub(profile.assigned_teacher_id || null);
         }
       })
@@ -618,7 +549,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, [profile, user]);
 
-  // Fetch secondary clubs from user_club_assignments (겸직)
   useEffect(() => {
     if (!profile || !user) {
       setSecondaryClubs([]);
@@ -668,8 +598,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // 이메일 변경: Supabase가 새 이메일로 인증 링크를 보내고, 사용자가 그 링크를
-  // 클릭해야 실제로 이메일이 바뀐다(보안을 위해 즉시 반영되지 않음).
   const updateEmail = useCallback(async (newEmail: string) => {
     try {
       const { error } = await supabase.auth.updateUser({ email: newEmail });
@@ -680,7 +608,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // ──── 간편 비밀번호(PIN) ────
   const setupPin = useCallback(async (pin: string) => {
     if (!user) return { error: '로그인이 필요합니다.' };
     if (!isValidPinFormat(pin)) return { error: '숫자 4~6자리로 설정해주세요.' };
@@ -692,8 +619,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   }, [user]);
 
-  // "나중에 하기" — 이번 방문(현재 페이지가 열려있는 동안)에만 안내를 닫는다.
-  // 다음에 앱을 새로 열면(콜드 스타트) 여전히 PIN이 없으므로 다시 안내한다.
   const dismissPinSetupPrompt = useCallback(() => {
     setPinSetupNeeded(false);
   }, []);
@@ -737,8 +662,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   }, [user]);
 
-  // 일정 시간 활동이 없을 때(useAutoLogout) 완전 로그아웃 대신 PIN 잠금만 다시 건다.
-  // 이 잠금 상태는 명시적 플래그로 저장되므로, 잠긴 채로 새로고침해도 계속 PIN을 요구한다.
   const lockApp = useCallback(() => {
     if (user && hasSimplePin(user.id)) {
       setPinLocked(true);
