@@ -18,45 +18,35 @@ test.describe('authenticated smoke', () => {
     test(`${account.role} account can sign in without an application error`, async ({ page }) => {
       const pageErrors: string[] = [];
       const consoleErrors: string[] = [];
-      const authResponses: Array<{ status: number; body: string }> = [];
 
       page.on('pageerror', (error) => pageErrors.push(error.message));
       page.on('console', (message) => {
         if (message.type() === 'error') consoleErrors.push(message.text());
-      });
-      page.on('response', async (response) => {
-        const url = response.url();
-        if (!url.includes('/auth/v1/token') || response.request().method() !== 'POST') return;
-        let body = '';
-        try {
-          const json = await response.json();
-          body = JSON.stringify({
-            error: json?.error,
-            error_code: json?.error_code,
-            msg: json?.msg,
-          });
-        } catch {
-          body = '';
-        }
-        authResponses.push({ status: response.status(), body });
       });
 
       await page.goto('/login', { waitUntil: 'domcontentloaded' });
       await page.locator('input[name="email"]').first().fill(account.email!);
       await page.locator('input[name="password"]').first().fill(account.password!);
 
-      await Promise.all([
-        page.waitForResponse((response) => response.url().includes('/auth/v1/token') && response.request().method() === 'POST', { timeout: 15_000 }).catch(() => null),
-        page.locator('button[type="submit"]').first().click(),
-      ]);
+      const authResponsePromise = page.waitForResponse(
+        (response) => response.url().includes('/auth/v1/token') && response.request().method() === 'POST',
+        { timeout: 15_000 },
+      ).catch(() => null);
 
-      const authResponse = authResponses.at(-1);
+      await page.locator('button[type="submit"]').first().click();
+      const authResponse = await authResponsePromise;
+      let authBody = '';
+      if (authResponse) {
+        try {
+          const json = await authResponse.json();
+          authBody = JSON.stringify({ error: json?.error, error_code: json?.error_code, msg: json?.msg });
+        } catch {
+          authBody = '';
+        }
+      }
+
       const visibleError = await page.locator('[class*="rose"], [role="alert"]').first().textContent().catch(() => null);
-
-      // A 4xx here means the supplied E2E credentials themselves are invalid;
-      // a 2xx means authentication succeeded and any failure after this point is
-      // an application/session/navigation problem.
-      expect(authResponse?.status, `${account.role}: Supabase auth response. UI error: ${visibleError ?? 'none'}`).toBe(200);
+      expect(authResponse?.status(), `${account.role}: Supabase auth response missing/failed. UI error: ${visibleError ?? 'none'}. Body: ${authBody || 'none'}`).toBe(200);
 
       const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
       if (await skipPin.isVisible({ timeout: 3000 }).catch(() => false)) {
