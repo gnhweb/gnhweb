@@ -10,3 +10,5 @@
 - 사진 여러 장 업로드 시 고유 경로 생성
 - DB 저장 실패 시 방금 업로드한 Storage 파일 자동 정리
 - 업로드 MIME type 명시
+
+<!-- Production E2E retrigger after verified auth fix. -->
