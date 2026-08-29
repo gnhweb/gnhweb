@@ -94,7 +94,7 @@ async function signIn(page: Page, role: RoleKey) {
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await page.locator('input[name="email"]').fill(email!);
   await page.locator('input[name="password"]').fill(password!);
-  await page.getByRole('button', { name: /로그인/i }).click();
+  await page.locator('form').getByRole('button', { name: /^로그인$/ }).click();
   await expect.poll(() => new URL(page.url()).pathname, { timeout: 20_000 }).not.toBe('/login');
 }
 
@@ -125,6 +125,7 @@ test.describe('production site audit', () => {
   for (const browserName of ['chromium', 'webkit'] as const) {
     test(`linked-route crawl on ${browserName}`, async ({ page }) => {
       test.setTimeout(300_000);
+      await signIn(page, 'member');
       const guards = await attachRuntimeGuards(page);
       await crawlLinkedRoutes(page, guards, 80);
     });
