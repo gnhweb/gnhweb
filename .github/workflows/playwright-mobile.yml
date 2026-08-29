@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  E2E_BASE_URL: ${{ secrets.E2E_BASE_URL || 'https://gnhweb.vercel.app' }}
+  E2E_BASE_URL: ${{ github.event_name == 'pull_request' && 'https://gnhweb-git-e2e-verify-production-auth-gnhweb1.vercel.app' || secrets.E2E_BASE_URL || 'https://gnhweb.vercel.app' }}
   E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
   E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
   E2E_MISSION_EMAIL: ${{ secrets.E2E_MISSION_EMAIL }}
@@ -68,7 +68,7 @@ jobs:
             fi
           done
           if [[ "$missing" -ne 0 ]]; then
-            echo "Configure all 12 role-specific E2E secrets before running authenticated production E2E."
+            echo "Configure all 12 role-specific E2E secrets before running authenticated E2E."
             exit 1
           fi
 
