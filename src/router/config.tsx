@@ -2,7 +2,6 @@ import type { RouteObject } from "react-router-dom";
 import { lazy, Suspense, type ReactNode } from "react";
 const WolvesAndSheep = lazy(() => import("@/pages/wolvesAndSheep/page"));
 const GameHub = lazy(() => import("@/pages/gameHub/page"));
-// import 추가 (WolvesAndSheep import 아래)
 const Pharisee = lazy(() => import("@/games/pharisee/page"));
 const GalileePhone = lazy(() => import("@/games/galilee-phone/page"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -104,479 +103,89 @@ const routes: RouteObject[] = [
     element: <Layout />,
     children: [
       { path: "/search", element: withSuspense(<SearchPage />) },
-      {
-        path: "/",
-        element: (
-          <AuthGuard minRole="member">
-            {withSuspense(<Home />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/tools",
-        element: withSuspense(<ToolsPage />),
-      },
-      {
-        path: "/bible-pick",
-        element: withSuspense(<BiblePick />),
-      },
-      {
-        path: "/bible-pick/history",
-        element: withSuspense(<BiblePickHistory />),
-      },
-      {
-        path: "/bible-mbti",
-        element: withSuspense(<BibleMbti />),
-      },
-      {
-        path: "/bible-quiz",
-        element: withSuspense(<BibleQuiz />),
-      },
-      {
-        path: "/games",
-        element: withSuspense(<GameHub />),
-      },
-      {
-        path: "/wolves-and-sheep",
-        element: withSuspense(<WolvesAndSheep />),
-      },
-            // routes 배열에 추가 (wolves-and-sheep 라우트 아래)
-      {
-        path: "/pharisee",
-        element: withSuspense(<Pharisee />),
-      },
-      {
-        path: "/galilee-phone",
-        element: withSuspense(<GalileePhone />),
-      },
-      {
-        path: "/bible-streak",
-        element: withSuspense(<BibleStreak />),
-      },
-      {
-        path: "/bible-by-age",
-        element: withSuspense(<BibleByAge />),
-      },
-      {
-        path: "/prayer-relay",
-        element: withSuspense(<PrayerRelay />),
-      },
-      {
-        path: "/faith-storybook",
-        element: withSuspense(<FaithStorybook />),
-      },
-      {
-        path: "/repentance-journal",
-        element: withSuspense(<RepentanceJournal />),
-      },
-      {
-        path: "/faith-journal",
-        element: withSuspense(<FaithJournal />),
-      },
-      {
-        path: "/qna-board",
-        element: withSuspense(<QandABoard />),
-      },
-      {
-        path: "/memory-board",
-        element: withSuspense(<MemoryBoard />),
-      },
-      {
-        path: "/song-vote",
-        element: withSuspense(<SongVoteBoard />),
-      },
-      {
-        path: "/personal-schedule",
-        element: withSuspense(<PersonalSchedule />),
-      },
-      {
-        path: "/prayer-partner",
-        element: withSuspense(<PrayerPartner />),
-      },
-      {
-        path: "/event-ideas",
-        element: withSuspense(<EventIdeas />),
-      },
-      {
-        path: "/bible-marathon",
-        element: withSuspense(<BibleMarathon />),
-      },
-      {
-        path: "/year-end-summary",
-        element: withSuspense(<YearEndSummary />),
-      },
-      {
-        path: "/bucket-list",
-        element: withSuspense(<BucketListBoard />),
-      },
-      {
-        path: "/clubs",
-        element: withSuspense(<Clubs />),
-      },
-      {
-        path: "/clubs/:id",
-        element: withSuspense(<ClubDetail />),
-      },
-      {
-        path: "/clubs/:id/community",
-        element: withSuspense(<ClubCommunity />),
-      },
-      {
-        path: "/notices",
-        element: withSuspense(<Notices />),
-      },
-      {
-        path: "/notices/write",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<NoticeWrite />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/notices/:id/edit",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<NoticeEdit />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/notices/:id",
-        element: withSuspense(<NoticeDetail />),
-      },
-      {
-        path: "/schedule",
-        element: withSuspense(<Schedule />),
-      },
-      {
-        path: "/schedule/write",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<ScheduleWrite />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/schedule/:id/edit",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<ScheduleEdit />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/dashboard",
-        element: (
-          <AuthGuard minRole="member">
-            {withSuspense(<Dashboard />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/dashboard/attendance",
-        element: (
-          <AuthGuard minRole="member">
-            {withSuspense(<AttendanceDashboard />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/teacher-dashboard/quiz-manage",
-        element: (
-          <AuthGuard minRole="teacher">
-            {withSuspense(<QuizManagePage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/teacher-dashboard/quote-manage",
-        element: (
-          <AuthGuard minRole="teacher">
-            {withSuspense(<QuoteManagePage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/teacher-dashboard",
-        element: (
-          <AuthGuard minRole="teacher">
-            {withSuspense(<TeacherDashboard />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/profile",
-        element: (
-          <AuthGuard minRole="member">
-            {withSuspense(<ProfilePage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/settings/absence-reasons",
-        element: (
-          <AuthGuard minRole="chief">
-            {withSuspense(<AbsenceReasonsPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/settings/attendance-location",
-        element: (
-          <AuthGuard minRole="teacher">
-            {withSuspense(<AttendanceLocationPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/pds-planner",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<PdsPlanner />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/leadership-diary",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<LeadershipDiary />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/weekly",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<WeeklyReports />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/weekly/write",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<WeeklyReportWrite />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/weekly/:id/edit",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<WeeklyReportEdit />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/weekly/:id",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<WeeklyReportDetail />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/growth",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<GrowthReports />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/growth/write",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<GrowthReportWrite />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/growth/:id/edit",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<GrowthReportEdit />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/growth/:id",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<GrowthRecordDetail />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/events",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<EventReports />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/events/write",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<EventReportWrite />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/events/:id/edit",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<EventReportEdit />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/events/:id",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<EventReportDetail />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reports/review",
-        element: (
-          <AuthGuard minRole="president">
-            {withSuspense(<ReviewPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/admin/roles",
-        element: (
-          <AuthGuard minRole="chief">
-            {withSuspense(<AdminRolesPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/admin/strategy",
-        element: (
-          <AuthGuard minRole="chief">
-            {withSuspense(<StrategyDashboard />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/admin/approvals",
-        element: (
-          <AuthGuard minRole="teacher">
-            {withSuspense(<AdminApprovals />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/reset-password",
-        element: withSuspense(<ResetPassword />),
-      },
-      {
-        path: "/login",
-        element: withSuspense(<Login />),
-      },
-      {
-        path: "/setup",
-        element: withSuspense(<Setup />),
-      },
-      {
-        path: "/suggestions",
-        element: withSuspense(<SuggestionsPage />),
-      },
-      {
-        path: "/visitations",
-        element: withSuspense(<VisitationsPage />),
-      },
-      {
-        path: "/visitations/write",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<VisitationWrite />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/visitations/:id",
-        element: withSuspense(<VisitationDetail />),
-      },
-      {
-        path: "/meetings",
-        element: withSuspense(<MeetingsPage />),
-      },
-      {
-        path: "/meetings/write",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<MeetingWritePage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/meetings/:id/edit",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<MeetingEditPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/meetings/:id",
-        element: withSuspense(<MeetingDetailPage />),
-      },
-      {
-        path: "/meeting-copilot",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<MeetingCopilotPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/missions",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<MissionsPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/missions/board",
-        element: (
-          <AuthGuard minRole="assistant_zone_leader">
-            {withSuspense(<MissionBoardPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/missions/leaderboard",
-        element: (
-          <AuthGuard minRole="member">
-            {withSuspense(<MissionLeaderboardPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/missions/wall",
-        element: (
-          <AuthGuard minRole="member">
-            {withSuspense(<MissionWallPage />)}
-          </AuthGuard>
-        ),
-      },
-      {
-        path: "/attendance-board",
-        element: withSuspense(<AttendanceBoard />),
-      },
-      {
-        path: "*",
-        element: withSuspense(<NotFound />),
-      },
+      { path: "/", element: <AuthGuard minRole="member">{withSuspense(<Home />)}</AuthGuard> },
+      { path: "/tools", element: withSuspense(<ToolsPage />) },
+      { path: "/bible-pick", element: withSuspense(<BiblePick />) },
+      { path: "/bible-pick/history", element: withSuspense(<BiblePickHistory />) },
+      { path: "/bible-mbti", element: withSuspense(<BibleMbti />) },
+      { path: "/bible-quiz", element: withSuspense(<BibleQuiz />) },
+      { path: "/games", element: withSuspense(<GameHub />) },
+      { path: "/wolves-and-sheep", element: withSuspense(<WolvesAndSheep />) },
+      { path: "/pharisee", element: withSuspense(<Pharisee />) },
+      { path: "/galilee-phone", element: withSuspense(<GalileePhone />) },
+      { path: "/bible-streak", element: withSuspense(<BibleStreak />) },
+      { path: "/bible-by-age", element: withSuspense(<BibleByAge />) },
+      { path: "/prayer-relay", element: withSuspense(<PrayerRelay />) },
+      { path: "/faith-storybook", element: withSuspense(<FaithStorybook />) },
+      { path: "/repentance-journal", element: withSuspense(<RepentanceJournal />) },
+      { path: "/faith-journal", element: withSuspense(<FaithJournal />) },
+      { path: "/qna-board", element: withSuspense(<QandABoard />) },
+      { path: "/memory-board", element: withSuspense(<MemoryBoard />) },
+      { path: "/song-vote", element: withSuspense(<SongVoteBoard />) },
+      { path: "/personal-schedule", element: withSuspense(<PersonalSchedule />) },
+      { path: "/prayer-partner", element: withSuspense(<PrayerPartner />) },
+      { path: "/event-ideas", element: withSuspense(<EventIdeas />) },
+      { path: "/bible-marathon", element: withSuspense(<BibleMarathon />) },
+      { path: "/year-end-summary", element: withSuspense(<YearEndSummary />) },
+      { path: "/bucket-list", element: <AuthGuard minRole="member">{withSuspense(<BucketListBoard />)}</AuthGuard> },
+      { path: "/clubs", element: withSuspense(<Clubs />) },
+      { path: "/clubs/:id", element: withSuspense(<ClubDetail />) },
+      { path: "/clubs/:id/community", element: withSuspense(<ClubCommunity />) },
+      { path: "/notices", element: withSuspense(<Notices />) },
+      { path: "/notices/write", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<NoticeWrite />)}</AuthGuard> },
+      { path: "/notices/:id/edit", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<NoticeEdit />)}</AuthGuard> },
+      { path: "/notices/:id", element: withSuspense(<NoticeDetail />) },
+      { path: "/schedule", element: withSuspense(<Schedule />) },
+      { path: "/schedule/write", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<ScheduleWrite />)}</AuthGuard> },
+      { path: "/schedule/:id/edit", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<ScheduleEdit />)}</AuthGuard> },
+      { path: "/schedule/:id", element: withSuspense(<Schedule />) },
+      { path: "/login", element: withSuspense(<Login />) },
+      { path: "/setup", element: withSuspense(<Setup />) },
+      { path: "/dashboard", element: <AuthGuard minRole="member">{withSuspense(<Dashboard />)}</AuthGuard> },
+      { path: "/reports/weekly", element: <AuthGuard minRole="member">{withSuspense(<WeeklyReports />)}</AuthGuard> },
+      { path: "/reports/weekly/write", element: <AuthGuard minRole="member">{withSuspense(<WeeklyReportWrite />)}</AuthGuard> },
+      { path: "/reports/weekly/:id", element: <AuthGuard minRole="member">{withSuspense(<WeeklyReportDetail />)}</AuthGuard> },
+      { path: "/reports/weekly/:id/edit", element: <AuthGuard minRole="member">{withSuspense(<WeeklyReportEdit />)}</AuthGuard> },
+      { path: "/reports/growth", element: <AuthGuard minRole="member">{withSuspense(<GrowthReports />)}</AuthGuard> },
+      { path: "/reports/growth/write", element: <AuthGuard minRole="member">{withSuspense(<GrowthReportWrite />)}</AuthGuard> },
+      { path: "/reports/growth/:id", element: <AuthGuard minRole="member">{withSuspense(<GrowthRecordDetail />)}</AuthGuard> },
+      { path: "/reports/growth/:id/edit", element: <AuthGuard minRole="member">{withSuspense(<GrowthReportEdit />)}</AuthGuard> },
+      { path: "/reports/events", element: <AuthGuard minRole="member">{withSuspense(<EventReports />)}</AuthGuard> },
+      { path: "/reports/events/write", element: <AuthGuard minRole="member">{withSuspense(<EventReportWrite />)}</AuthGuard> },
+      { path: "/reports/events/:id", element: <AuthGuard minRole="member">{withSuspense(<EventReportDetail />)}</AuthGuard> },
+      { path: "/reports/events/:id/edit", element: <AuthGuard minRole="member">{withSuspense(<EventReportEdit />)}</AuthGuard> },
+      { path: "/reports/review", element: <AuthGuard minRole="teacher">{withSuspense(<ReviewPage />)}</AuthGuard> },
+      { path: "/admin/roles", element: <AuthGuard minRole="president">{withSuspense(<AdminRolesPage />)}</AuthGuard> },
+      { path: "/admin/strategy", element: <AuthGuard minRole="president">{withSuspense(<StrategyDashboard />)}</AuthGuard> },
+      { path: "/admin/approvals", element: <AuthGuard minRole="president">{withSuspense(<AdminApprovals />)}</AuthGuard> },
+      { path: "/reset-password", element: withSuspense(<ResetPassword />) },
+      { path: "/attendance", element: <AuthGuard minRole="member">{withSuspense(<AttendanceDashboard />)}</AuthGuard> },
+      { path: "/settings/absence-reasons", element: <AuthGuard minRole="chief">{withSuspense(<AbsenceReasonsPage />)}</AuthGuard> },
+      { path: "/settings/attendance-location", element: <AuthGuard minRole="chief">{withSuspense(<AttendanceLocationPage />)}</AuthGuard> },
+      { path: "/profile", element: <AuthGuard minRole="member">{withSuspense(<ProfilePage />)}</AuthGuard> },
+      { path: "/teacher-dashboard", element: <AuthGuard minRole="teacher">{withSuspense(<TeacherDashboard />)}</AuthGuard> },
+      { path: "/ganghak-news", element: withSuspense(<GanghakNewsList />) },
+      { path: "/ganghak-news/:id", element: withSuspense(<GanghakNewsDetail />) },
+      { path: "/ganghak-news/write", element: <AuthGuard minRole="teacher">{withSuspense(<GanghakNewsWrite />)}</AuthGuard> },
+      { path: "/ganghak-news/:id/edit", element: <AuthGuard minRole="teacher">{withSuspense(<GanghakNewsEdit />)}</AuthGuard> },
+      { path: "/teacher-dashboard/quiz-manage", element: <AuthGuard minRole="teacher">{withSuspense(<QuizManagePage />)}</AuthGuard> },
+      { path: "/teacher-dashboard/quote-manage", element: <AuthGuard minRole="teacher">{withSuspense(<QuoteManagePage />)}</AuthGuard> },
+      { path: "/admin/storage-cleanup", element: <AuthGuard minRole="president">{withSuspense(<StorageCleanupPage />)}</AuthGuard> },
+      { path: "/suggestions", element: <AuthGuard minRole="member">{withSuspense(<SuggestionsPage />)}</AuthGuard> },
+      { path: "/visitations", element: <AuthGuard minRole="member">{withSuspense(<VisitationsPage />)}</AuthGuard> },
+      { path: "/visitations/write", element: <AuthGuard minRole="member">{withSuspense(<VisitationWrite />)}</AuthGuard> },
+      { path: "/visitations/:id", element: <AuthGuard minRole="member">{withSuspense(<VisitationDetail />)}</AuthGuard> },
+      { path: "/meetings", element: <AuthGuard minRole="member">{withSuspense(<MeetingsPage />)}</AuthGuard> },
+      { path: "/meetings/write", element: <AuthGuard minRole="member">{withSuspense(<MeetingWritePage />)}</AuthGuard> },
+      { path: "/meetings/:id", element: <AuthGuard minRole="member">{withSuspense(<MeetingDetailPage />)}</AuthGuard> },
+      { path: "/meetings/:id/edit", element: <AuthGuard minRole="member">{withSuspense(<MeetingEditPage />)}</AuthGuard> },
+      { path: "/meeting-copilot", element: <AuthGuard minRole="member">{withSuspense(<MeetingCopilotPage />)}</AuthGuard> },
+      { path: "/missions", element: <AuthGuard minRole="mission">{withSuspense(<MissionsPage />)}</AuthGuard> },
+      { path: "/missions/board", element: <AuthGuard minRole="mission">{withSuspense(<MissionBoardPage />)}</AuthGuard> },
+      { path: "/missions/leaderboard", element: <AuthGuard minRole="mission">{withSuspense(<MissionLeaderboardPage />)}</AuthGuard> },
+      { path: "/missions/wall", element: <AuthGuard minRole="mission">{withSuspense(<MissionWallPage />)}</AuthGuard> },
+      { path: "/attendance-board", element: <AuthGuard minRole="member">{withSuspense(<AttendanceBoard />)}</AuthGuard> },
+      { path: "*", element: withSuspense(<NotFound />) },
     ],
   },
 ];
