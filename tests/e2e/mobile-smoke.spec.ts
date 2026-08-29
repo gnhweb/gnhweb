@@ -2,9 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 const publicRoutes = [
   { path: '/login', heading: '로그인' },
-  { path: '/clubs', heading: '동아리' },
+  { path: '/clubs', heading: '동아리 소개' },
   { path: '/notices', heading: '공지사항' },
-  { path: '/schedule', heading: '일정' },
+  { path: '/schedule', heading: '행사 일정' },
   { path: '/search', heading: '사이트 검색' },
   { path: '/games', heading: '갓겜' },
 ];
@@ -49,6 +49,7 @@ test.describe('mobile public smoke', () => {
       await expectNoHorizontalOverflow(page);
 
       expect(errors.pageErrors, `page errors on ${route.path}`).toEqual([]);
+      expect(errors.consoleErrors, `console errors on ${route.path}`).toEqual([]);
     });
   }
 
@@ -56,8 +57,8 @@ test.describe('mobile public smoke', () => {
     const errors = installErrorCapture(page);
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
 
-    const email = page.locator('input[name="email"]');
-    const password = page.locator('input[name="password"]');
+    const email = page.locator('input[name="email"]').first();
+    const password = page.locator('input[name="password"]').first();
     const submit = page.locator('button[type="submit"]').first();
 
     await expect(email).toBeVisible();
@@ -97,6 +98,7 @@ test.describe('mobile public smoke', () => {
     });
     expect(scrollState.scrollWidth).toBeLessThanOrEqual(scrollState.viewport + 1);
     expect(errors.pageErrors).toEqual([]);
+    expect(errors.consoleErrors).toEqual([]);
   });
 
   test('site search can submit a query on mobile', async ({ page }) => {
@@ -107,8 +109,9 @@ test.describe('mobile public smoke', () => {
     await searchInput.fill('출석');
     await page.getByRole('button', { name: '검색', exact: true }).click();
 
-    await expect(page).toHaveURL(/\/search\?q=%EC%B6%9C\%EC%84%9D/);
+    await expect(page).toHaveURL(/\/search\?q=%EC%B6%9C%EC%84%9D/);
     await expectNoHorizontalOverflow(page);
     expect(errors.pageErrors).toEqual([]);
+    expect(errors.consoleErrors).toEqual([]);
   });
 });
