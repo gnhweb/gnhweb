@@ -101,9 +101,6 @@ async function signIn(page: Page, role: RoleKey) {
   await page.locator('input[name="email"]').fill(email!);
   await page.locator('input[name="password"]').fill(password!);
   await page.getByRole('button', { name: /로그인/i }).click();
-  // Supabase auth and the profile bootstrap can take longer under six-role
-  // parallel load. The auth-smoke suite has already established that the
-  // production credentials work; give this broader audit enough time to wait.
   await expect.poll(() => new URL(page.url()).pathname, { timeout: 60_000 }).not.toBe('/login');
 }
 
@@ -131,13 +128,12 @@ async function crawlLinkedRoutes(page: Page, guards: Awaited<ReturnType<typeof a
 }
 
 test.describe('production public site audit', () => {
-  for (const browserName of ['chromium', 'webkit'] as const) {
-    test(`linked-route crawl on ${browserName}`, async ({ page }) => {
-      test.setTimeout(300_000);
-      const guards = await attachRuntimeGuards(page);
-      await crawlLinkedRoutes(page, guards, 80);
-    });
-  }
+  // Playwright projects already execute this suite once per configured mobile browser.
+  test('linked-route crawl', async ({ page }) => {
+    test.setTimeout(300_000);
+    const guards = await attachRuntimeGuards(page);
+    await crawlLinkedRoutes(page, guards, 80);
+  });
 
   test('all registered static routes respond without server errors', async ({ page }) => {
     test.setTimeout(360_000);
