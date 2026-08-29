@@ -62,9 +62,7 @@ jobs:
               missing=1
             fi
           done
-          if [[ "$missing" -ne 0 ]]; then
-            exit 1
-          fi
+          if [[ "$missing" -ne 0 ]]; then exit 1; fi
       - name: Run mobile E2E
         run: npm run test:e2e
       - name: Upload Playwright report
@@ -81,3 +79,4 @@ jobs:
           name: playwright-mobile-test-results
           path: test-results/
           retention-days: 14
+# Full production audit: this workflow intentionally runs on every main push.
