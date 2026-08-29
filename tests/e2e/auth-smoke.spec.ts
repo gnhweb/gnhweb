@@ -12,7 +12,7 @@ const accounts = [
 const configuredAccounts = accounts.filter((account) => Boolean(account.email && account.password));
 
 test.describe('authenticated smoke', () => {
-  test.skip(configuredAccounts.length === 0, 'Configure role-specific E2E_* secrets to enable authenticated smoke testing.');
+  test.skip(configuredAccounts.length === 0, 'Configure all role-specific E2E_* secrets to enable authenticated smoke testing.');
 
   for (const account of configuredAccounts) {
     test(`${account.role} account can sign in without an application error`, async ({ page }) => {
@@ -24,19 +24,18 @@ test.describe('authenticated smoke', () => {
       });
 
       await page.goto('/login', { waitUntil: 'domcontentloaded' });
-      await page.locator('input[name="email"]').fill(account.email!);
-      await page.locator('input[name="password"]').fill(account.password!);
+      await page.locator('input[name="email"]').first().fill(account.email!);
+      await page.locator('input[name="password"]').first().fill(account.password!);
       await page.locator('button[type="submit"]').first().click();
 
-      await page.waitForTimeout(2500);
-      const current = new URL(page.url());
-
-      if (current.pathname.endsWith('/login')) {
-        const loginError = page.getByText(/로그인에 실패|이메일과 비밀번호를 확인|서버 연결이 원활하지 않습니다/).first();
-        await expect(loginError).not.toBeVisible();
-      } else {
-        await expect(page).not.toHaveURL(/\/login(?:$|[?#])/);
+      // Successful first login can show the optional device PIN setup dialog.
+      const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
+      if (await skipPin.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await skipPin.click();
       }
+
+      await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 15_000 });
+      await page.waitForTimeout(750);
 
       expect(pageErrors, `${account.role}: uncaught page error`).toEqual([]);
       expect(consoleErrors, `${account.role}: console error`).toEqual([]);
