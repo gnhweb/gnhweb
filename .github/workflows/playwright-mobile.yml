@@ -10,6 +10,8 @@ on:
       - main
   workflow_dispatch:
 
+test:
+# Production-account E2E: keep E2E_BASE_URL pointed at the live site.
 permissions:
   contents: read
 
