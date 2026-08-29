@@ -30,25 +30,31 @@ export default function BucketListBoard() {
 
   const loadAll = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // Only load own items - bucket list is now private
+      // AuthGuard may briefly mount this page before the session is resolved.
+      // Never send an undefined user id to PostgREST (it becomes a 400 query).
+      if (!user) {
+        setItems([]);
+        setLikedIds(new Set());
+        return;
+      }
+
       const { data, error: fetchErr } = await supabase
         .from('bucket_list_items')
         .select('*')
-        .eq('author_id', user?.id)
+        .eq('author_id', user.id)
         .order('created_at', { ascending: false });
       if (fetchErr) throw fetchErr;
       setItems(data || []);
 
-      if (user) {
-        const { data: likeData } = await supabase
-          .from('bucket_list_likes')
-          .select('item_id')
-          .eq('user_id', user.id);
+      const { data: likeData } = await supabase
+        .from('bucket_list_likes')
+        .select('item_id')
+        .eq('user_id', user.id);
 
-        if (likeData) {
-          setLikedIds(new Set(likeData.map(l => l.item_id)));
-        }
+      if (likeData) {
+        setLikedIds(new Set(likeData.map(l => l.item_id)));
       }
     } catch {
       setError('데이터를 불러오지 못했습니다.');
@@ -58,12 +64,12 @@ export default function BucketListBoard() {
   };
 
   const handleAdd = async () => {
-    if (!newItem.trim() || !profile || submitting) return;
+    if (!newItem.trim() || !profile || !user || submitting) return;
     setSubmitting(true);
     try {
       const { error: insertErr } = await supabase
         .from('bucket_list_items')
-        .insert({ author_id: user!.id, author_name: profile.name, content: newItem.trim() });
+        .insert({ author_id: user.id, author_name: profile.name, content: newItem.trim() });
       if (insertErr) throw insertErr;
       setNewItem('');
       await loadAll();
@@ -89,13 +95,15 @@ export default function BucketListBoard() {
 
     try {
       if (isLiked) {
-        await supabase.from('bucket_list_likes').delete().eq('item_id', item.id).eq('user_id', user.id);
+        const { error } = await supabase.from('bucket_list_likes').delete().eq('item_id', item.id).eq('user_id', user.id);
+        if (error) throw error;
       } else {
-        await supabase.from('bucket_list_likes').insert({ item_id: item.id, user_id: user.id });
+        const { error } = await supabase.from('bucket_list_likes').insert({ item_id: item.id, user_id: user.id });
+        if (error) throw error;
       }
-      await supabase.from('bucket_list_items').update({ likes: newLikes }).eq('id', item.id);
+      const { error: updateError } = await supabase.from('bucket_list_items').update({ likes: newLikes }).eq('id', item.id).eq('author_id', user.id);
+      if (updateError) throw updateError;
     } catch {
-      // rollback
       setLikedIds(isLiked ? new Set([...likedIds, item.id]) : new Set([...likedIds].filter(id => id !== item.id)));
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, likes: item.likes } : i));
     }
@@ -107,9 +115,10 @@ export default function BucketListBoard() {
   };
 
   const handleSaveEdit = async () => {
-    if (!editContent.trim() || !editingId) return;
+    if (!editContent.trim() || !editingId || !user) return;
     try {
-      await supabase.from('bucket_list_items').update({ content: editContent.trim() }).eq('id', editingId);
+      const { error } = await supabase.from('bucket_list_items').update({ content: editContent.trim() }).eq('id', editingId).eq('author_id', user.id);
+      if (error) throw error;
       setItems(prev => prev.map(i => i.id === editingId ? { ...i, content: editContent.trim() } : i));
     } catch {
       setError('수정 중 오류가 발생했습니다.');
@@ -119,9 +128,10 @@ export default function BucketListBoard() {
   };
 
   const handleDelete = async (itemId: string) => {
-    if (!confirm('이 버킷리스트 항목을 삭제할까요?')) return;
+    if (!user || !confirm('이 버킷리스트 항목을 삭제할까요?')) return;
     try {
-      await supabase.from('bucket_list_items').delete().eq('id', itemId);
+      const { error } = await supabase.from('bucket_list_items').delete().eq('id', itemId).eq('author_id', user.id);
+      if (error) throw error;
       setItems(prev => prev.filter(i => i.id !== itemId));
     } catch {
       setError('삭제 중 오류가 발생했습니다.');
@@ -160,8 +170,8 @@ export default function BucketListBoard() {
           {user && (
             <div className="bg-background-100 border border-background-200 rounded-[20px] p-4 mb-6">
               <div className="flex gap-2">
-                <input type="text" value={newItem} onChange={e => setNewItem(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }} placeholder="올해 꼭 해보고 싶은 것..." maxLength={100} className="flex-1 px-4 py-2.5 text-sm rounded-xl border border-gray-200 outline-none focus:border-emerald-400" />
-                <button onClick={handleAdd} disabled={!newItem.trim() || submitting} className="px-4 py-2.5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 disabled:opacity-40 cursor-pointer whitespace-nowrap">{submitting ? '등록 중...' : '등록'}</button>
+                <input type="text" value={newItem} onChange={e => setNewItem(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }} placeholder="올해 꼭 해보고 싶은 것..." maxLength={100} className="flex-1 min-w-0 px-4 py-2.5 text-sm rounded-xl border border-gray-200 outline-none focus:border-emerald-400" />
+                <button onClick={handleAdd} disabled={!newItem.trim() || submitting} className="min-h-11 px-4 py-2.5 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 disabled:opacity-40 cursor-pointer whitespace-nowrap">{submitting ? '등록 중...' : '등록'}</button>
               </div>
             </div>
           )}
@@ -171,53 +181,21 @@ export default function BucketListBoard() {
               <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(idx, 10) * 0.05 }} className="bg-background-100 border border-background-200 rounded-[20px] p-4 hover:border-emerald-300 transition-colors">
                 <p className="text-sm text-foreground-800 leading-relaxed mb-3">
                   {editingId === item.id ? (
-                    <input
-                      type="text"
-                      value={editContent}
-                      onChange={e => setEditContent(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingId(null); }}
-                      className="w-full px-3 py-1.5 text-sm rounded-lg border border-emerald-300 outline-none focus:border-emerald-500"
-                      autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
-                    />
-                  ) : (
-                    item.content
-                  )}
+                    <input type="text" value={editContent} onChange={e => setEditContent(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingId(null); }} className="w-full px-3 py-1.5 text-sm rounded-lg border border-emerald-300 outline-none focus:border-emerald-500" autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)} />
+                  ) : item.content}
                 </p>
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-bold text-emerald-600">{item.author_name.charAt(0)}</span>
-                    </div>
+                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0"><span className="text-[10px] font-bold text-emerald-600">{item.author_name.charAt(0)}</span></div>
                     <span className="text-xs text-foreground-600 truncate">{item.author_name}</span>
                   </div>
-                  <motion.button
-                    onClick={() => handleLike(item)}
-                    whileTap={{ scale: 1.3 }}
-                    animate={likedIds.has(item.id) ? { scale: [1, 1.35, 1] } : { scale: 1 }}
-                    transition={{ duration: 0.35, ease: 'easeOut' }}
-                    className={`flex items-center gap-1 text-xs cursor-pointer flex-shrink-0 ${likedIds.has(item.id) ? 'text-rose-500' : 'text-gray-400'}`}
-                  >
-                    <i className={likedIds.has(item.id) ? 'ri-heart-fill' : 'ri-heart-line'}></i>
-                    {item.likes}
+                  <motion.button onClick={() => handleLike(item)} whileTap={{ scale: 1.3 }} animate={likedIds.has(item.id) ? { scale: [1, 1.35, 1] } : { scale: 1 }} transition={{ duration: 0.35, ease: 'easeOut' }} className={`min-w-10 min-h-10 flex items-center justify-center gap-1 text-xs cursor-pointer flex-shrink-0 ${likedIds.has(item.id) ? 'text-rose-500' : 'text-gray-400'}`} aria-label="좋아요">
+                    <i className={likedIds.has(item.id) ? 'ri-heart-fill' : 'ri-heart-line'}></i>{item.likes}
                   </motion.button>
                 </div>
                 {(isOwnItem(item) || editingId === item.id) && (
                   <div className="flex items-center gap-2 mt-2 pt-2 border-t border-background-200">
-                    {editingId === item.id ? (
-                      <>
-                        <button onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer">취소</button>
-                        <button onClick={handleSaveEdit} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer whitespace-nowrap">저장</button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={() => handleStartEdit(item)} className="text-xs text-gray-400 hover:text-emerald-600 cursor-pointer">
-                          <i className="ri-edit-line"></i> 수정
-                        </button>
-                        <button onClick={() => handleDelete(item.id)} className="text-xs text-gray-400 hover:text-rose-600 cursor-pointer">
-                          <i className="ri-delete-bin-line"></i> 삭제
-                        </button>
-                      </>
-                    )}
+                    {editingId === item.id ? <><button onClick={() => setEditingId(null)} className="min-h-10 px-2 text-xs text-gray-400 hover:text-gray-600 cursor-pointer">취소</button><button onClick={handleSaveEdit} className="min-h-10 px-2 text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer whitespace-nowrap">저장</button></> : <><button onClick={() => handleStartEdit(item)} className="min-h-10 px-2 text-xs text-gray-400 hover:text-emerald-600 cursor-pointer"><i className="ri-edit-line"></i> 수정</button><button onClick={() => handleDelete(item.id)} className="min-h-10 px-2 text-xs text-gray-400 hover:text-rose-600 cursor-pointer"><i className="ri-delete-bin-line"></i> 삭제</button></>}
                   </div>
                 )}
               </motion.div>
@@ -226,9 +204,7 @@ export default function BucketListBoard() {
 
           {items.length === 0 && (
             <div className="text-center py-16">
-              <div className="w-16 h-16 rounded-[20px] bg-emerald-50 border border-emerald-100 flex items-center justify-center mx-auto mb-4">
-                <i className="ri-todo-line text-2xl text-emerald-300"></i>
-              </div>
+              <div className="w-16 h-16 rounded-[20px] bg-emerald-50 border border-emerald-100 flex items-center justify-center mx-auto mb-4"><i className="ri-todo-line text-2xl text-emerald-300"></i></div>
               <p className="text-sm text-foreground-600">아직 등록된 버킷리스트가 없어요</p>
             </div>
           )}
