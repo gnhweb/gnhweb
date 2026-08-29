@@ -5,7 +5,6 @@
 @tailwind utilities;
 
 :root {
-  /* ===== Background Scale ===== */
   --background-50: 0.98 0.005 260;
   --background-100: 1 0 0;
   --background-200: 0.93 0.01 260;
@@ -17,8 +16,6 @@
   --background-800: 0.38 0.04 260;
   --background-900: 0.28 0.045 260;
   --background-950: 0.18 0.05 260;
-
-  /* ===== Primary Scale (Rose/Pink) ===== */
   --primary-50: 0.95 0.03 350;
   --primary-100: 0.90 0.06 350;
   --primary-200: 0.85 0.10 350;
@@ -30,8 +27,6 @@
   --primary-800: 0.40 0.12 350;
   --primary-900: 0.34 0.10 350;
   --primary-950: 0.28 0.08 350;
-
-  /* ===== Accent Scale (Coral/Orange) ===== */
   --accent-50: 0.95 0.04 40;
   --accent-100: 0.90 0.07 40;
   --accent-200: 0.85 0.12 40;
@@ -43,8 +38,6 @@
   --accent-800: 0.46 0.13 40;
   --accent-900: 0.40 0.11 40;
   --accent-950: 0.34 0.09 40;
-
-  /* ===== Secondary Scale (Blue/Violet) ===== */
   --secondary-50: 0.95 0.03 270;
   --secondary-100: 0.90 0.05 270;
   --secondary-200: 0.85 0.08 270;
@@ -56,8 +49,6 @@
   --secondary-800: 0.40 0.08 270;
   --secondary-900: 0.34 0.06 270;
   --secondary-950: 0.28 0.04 270;
-
-  /* ===== Foreground Scale (Neutral Dark) ===== */
   --foreground-50: 0.98 0.005 260;
   --foreground-100: 0.95 0.01 260;
   --foreground-200: 0.90 0.015 260;
@@ -69,14 +60,10 @@
   --foreground-800: 0.40 0.045 260;
   --foreground-900: 0.30 0.05 260;
   --foreground-950: 0.15 0.02 260;
-
-  /* ===== Typography ===== */
   --font-heading: 'Noto Sans KR', sans-serif;
   --font-body: 'Noto Sans KR', sans-serif;
   --font-label: 'Noto Sans KR', sans-serif;
   --font-quote: 'Nanum Myeongjo', 'Noto Sans KR', serif;
-
-  /* ===== Decorative tokens (isolated, not in Tailwind) ===== */
   --grad-coral: #FF7A59;
   --grad-rose: #C2478D;
   --grad-blue: #5C6BC0;
@@ -86,12 +73,7 @@
   --cobalt: #3B5BDB;
 }
 
-/* ===== Dark Mode Overrides =====
-   사이트 대부분의 색은 Tailwind 유틸리티가 아래 CSS 변수(oklch)를 통해 정의되어 있어서,
-   여기서 .dark 스코프의 변수 값만 바꿔주면 background/foreground/primary/accent/secondary
-   계열을 쓰는 컴포넌트 전체가 자동으로 다크 테마로 전환된다. */
 :root.dark {
-  /* ===== Background Scale (반전: 950이 가장 밝고 50이 가장 어두움) ===== */
   --background-50: 0.16 0.012 260;
   --background-100: 0.19 0.014 260;
   --background-200: 0.24 0.016 260;
@@ -103,8 +85,6 @@
   --background-800: 0.78 0.014 260;
   --background-900: 0.88 0.01 260;
   --background-950: 0.95 0.006 260;
-
-  /* ===== Primary Scale (Rose/Pink) — 다크 배경에서도 선명하도록 채도/명도 조정 ===== */
   --primary-50: 0.28 0.06 350;
   --primary-100: 0.32 0.08 350;
   --primary-200: 0.38 0.10 350;
@@ -116,8 +96,6 @@
   --primary-800: 0.82 0.12 350;
   --primary-900: 0.88 0.08 350;
   --primary-950: 0.93 0.05 350;
-
-  /* ===== Accent Scale (Coral/Orange) ===== */
   --accent-50: 0.28 0.07 40;
   --accent-100: 0.32 0.09 40;
   --accent-200: 0.40 0.13 40;
@@ -129,8 +107,6 @@
   --accent-800: 0.85 0.12 40;
   --accent-900: 0.90 0.08 40;
   --accent-950: 0.94 0.05 40;
-
-  /* ===== Secondary Scale (Blue/Violet) ===== */
   --secondary-50: 0.28 0.05 270;
   --secondary-100: 0.32 0.06 270;
   --secondary-200: 0.38 0.08 270;
@@ -142,8 +118,6 @@
   --secondary-800: 0.84 0.07 270;
   --secondary-900: 0.89 0.05 270;
   --secondary-950: 0.94 0.03 270;
-
-  /* ===== Foreground Scale (반전: 텍스트는 밝게, 옅은 텍스트는 어둡게) ===== */
   --foreground-50: 0.15 0.02 260;
   --foreground-100: 0.20 0.025 260;
   --foreground-200: 0.30 0.03 260;
@@ -157,51 +131,17 @@
   --foreground-950: 0.98 0.003 260;
 }
 
-/* ===== Cross-platform Mobile Hardening ===== */
 @media (max-width: 767px) {
-  html, body {
-    min-height: 100dvh;
-    overflow-x: clip;
-  }
-
-  body {
-    overscroll-behavior-x: none;
-  }
-
-  /* Tailwind viewport utilities that are commonly used by mobile full-screen pages. */
+  html, body { min-height: 100dvh; overflow-x: clip; }
+  body { overscroll-behavior-x: none; }
   .h-screen { height: 100dvh; }
   .min-h-screen { min-height: 100dvh; }
-
-  /* Keep iOS modal sheets from handing their scroll to the document at the edges. */
-  .overflow-y-auto,
-  .overflow-auto {
-    overscroll-behavior-y: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Prevent browser tap highlight from creating misleading pressed states. */
-  a, button {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  /* Avoid accidental text selection during fast mobile interactions. */
-  button {
-    touch-action: manipulation;
-  }
+  .overflow-y-auto, .overflow-auto { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+  a, button { -webkit-tap-highlight-color: transparent; }
+  button { touch-action: manipulation; }
 }
 
-/* ===== Base Styles ===== */
-html {
-  scroll-behavior: smooth;
-  /* 모바일 브라우저(특히 삼성 인터넷/모바일 크롬)의 "글자 자동 확대(font boosting)"를 끈다.
-     좁은 컬럼(검색창, 탭 필터, 퀴즈 보기, 출석 위치 검색 등) 안의 텍스트가
-     브라우저 판단으로 실제 지정한 것보다 커지면서, 절대 위치로 배치한 아이콘이나
-     옆 요소와 겹쳐 보이는 문제가 여러 화면에서 반복적으로 발생했다.
-     이 두 속성이 그 자동 확대 동작 자체를 막아준다. */
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
-
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   background-color: var(--background-color, oklch(var(--background-50)));
   color: var(--foreground-color, oklch(var(--foreground-950)));
@@ -211,29 +151,13 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.2s ease, color 0.2s ease;
-  /* 한글은 기본적으로 음절 사이 아무 곳에서나 줄바꿈될 수 있어서
-     "새울림" 같은 짧은 단어도 폭이 조금만 좁아지면 "새울 / 림"처럼
-     이상하게 끊겨 보인다. 단어 중간에서 끊기지 않도록 전역으로 막아준다.
-     (필요하면 각 요소에서 break-all 유틸리티로 다시 풀 수 있음) */
   word-break: keep-all;
   overflow-wrap: break-word;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
-  font-weight: 800;
-  line-height: 1.3;
-  letter-spacing: -0.02em;
-}
+h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); font-weight: 800; line-height: 1.3; letter-spacing: -0.02em; }
 
-/* ===== Form Elements ===== */
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="date"],
-input[type="number"],
-textarea,
-select {
+input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="number"], textarea, select {
   font-family: inherit;
   font-size: 14px;
   background-color: var(--background-color, oklch(var(--background-50)));
@@ -244,243 +168,51 @@ select {
   transition: all 0.15s ease;
   width: 100%;
 }
+input:focus, textarea:focus, select:focus { outline: none; border-color: oklch(var(--primary-500)); box-shadow: 0 0 0 3px oklch(var(--primary-300) / 0.25); }
+input::placeholder, textarea::placeholder { color: oklch(var(--foreground-400)); }
+textarea { min-height: 64px; resize: vertical; }
+button { font-family: inherit; cursor: pointer; transition: all 0.15s ease; }
 
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: oklch(var(--primary-500));
-  box-shadow: 0 0 0 3px oklch(var(--primary-300) / 0.25);
-}
+.card-surface { background-color: var(--background-color, oklch(var(--background-100))); border: 1px solid oklch(var(--background-200)); border-radius: 20px; box-shadow: 0 2px 10px rgba(17,19,24,0.06); transition: background-color 0.2s ease, border-color 0.2s ease; }
+.dark .card-surface { box-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+vapi-widget { display: none !important; }
+readdy-assistant-widget, readdy-ai-assistant, [class*="readdy-assistant"], [id*="readdy-assistant"] { display: none !important; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+.mb-safe { margin-bottom: env(safe-area-inset-bottom, 0px); }
+.min-h-dvh { min-height: 100vh; min-height: 100dvh; }
+.h-dvh { height: 100vh; height: 100dvh; }
+body.scroll-lock { overflow: hidden; position: fixed; width: 100%; height: 100%; overscroll-behavior: none; touch-action: none; }
+.game-fullscreen { overscroll-behavior: none; touch-action: none; -webkit-overflow-scrolling: auto; -webkit-user-select: none; -moz-user-select: none; user-select: none; -webkit-touch-callout: none; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: oklch(var(--background-300)); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: oklch(var(--background-400)); }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
-input::placeholder,
-textarea::placeholder {
-  color: oklch(var(--foreground-400));
-}
-
-textarea {
-  min-height: 64px;
-  resize: vertical;
-}
-
-/* ===== Buttons ===== */
-button {
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-/* ===== Utility tokens for cards ===== */
-.card-surface {
-  background-color: var(--background-color, oklch(var(--background-100)));
-  border: 1px solid oklch(var(--background-200));
-  border-radius: 20px;
-  box-shadow: 0 2px 10px rgba(17, 19, 24, 0.06);
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.dark .card-surface {
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-}
-
-/* ===== Hide Vapi AI widget ===== */
-vapi-widget {
-  display: none !important;
-}
-
-/* ===== Hide Readdy AI assistant widget ===== */
-readdy-assistant-widget,
-readdy-ai-assistant,
-[class*="readdy-assistant"],
-[id*="readdy-assistant"] {
-  display: none !important;
-}
-
-/* ===== 가로 스크롤 칩/캐러셀에서 스크롤바 숨김 (인스타 감성 리디자인 공용) ===== */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* ===== Safe Area Utilities ===== */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-.pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-.mb-safe {
-  margin-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* ===== Dynamic viewport height utility ===== */
-.min-h-dvh {
-  min-height: 100vh;
-  min-height: 100dvh;
-}
-
-.h-dvh {
-  height: 100vh;
-  height: 100dvh;
-}
-
-/* ===== Scroll lock for mobile menu overlay ===== */
-body.scroll-lock {
-  overflow: hidden;
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  /* iOS Safari 고무줄(러버밴드) 바운스 스크롤 방지 — 배경 페이지가 같이 튕기면서
-     전체화면으로 덮은 게임 화면 밑으로 흰 여백이 보이거나 화면이 흔들리는 문제를 막는다. */
-  overscroll-behavior: none;
-  touch-action: none;
-}
-
-/* ===== Immersive fullscreen game wrapper (모바일/iOS 전체화면 게임용) ===== */
-/* iOS Safari는 <video> 외 요소에 Fullscreen API를 지원하지 않아 실제 브라우저
-   전체화면 대신 fixed 레이어로 화면을 덮는 방식을 쓰는데, 이때 아래(배경 페이지)로
-   드래그/스와이프 제스처가 새어나가 iOS 특유의 러버밴드 바운스가 발생해 화면이
-   "튕기는" 것처럼 보인다. overscroll-behavior + touch-action으로 이 레이어 자체의
-   제스처가 브라우저 스크롤/바운스로 이어지지 않도록 막는다. */
-.game-fullscreen {
-  overscroll-behavior: none;
-  touch-action: none;
-  -webkit-overflow-scrolling: auto;
-  /* 모바일에서 HUD/패널 텍스트를 반복해서 탭하면 브라우저가 "텍스트 선택"으로 오인해
-     복사/공유 등 네이티브 선택 팝업 메뉴를 화면 위에 띄우는 문제가 있었다(PC 화면에만
-     보여야 하는 요소가 아니라, 게임 조작 중 계속 뜨는 브라우저 자체 팝업). 게임 화면
-     전체를 선택 불가로 두고 iOS의 길게 눌러 나오는 콜아웃 메뉴도 함께 막는다. */
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-
-/* ===== Scrollbar ===== */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: oklch(var(--background-300));
-  border-radius: 999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: oklch(var(--background-400));
-}
-
-/* 모바일 가로 스크롤 캐러셀(동아리 카드 등)에서 스크롤바를 숨기되
-   스크롤 동작 자체는 그대로 유지 */
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-
-/* ===== Mobile / iOS / Android touch & viewport hardening ===== */
 @media (max-width: 639px) {
-  /* 24~32px 아이콘 버튼도 실제 터치 영역은 최소 44px 확보 */
-  button[class~="w-6"][class~="h-6"],
-  button[class~="w-7"][class~="h-7"],
-  button[class~="w-8"][class~="h-8"] {
-    min-width: 44px;
-    min-height: 44px;
-  }
-
-  /* 작은 네이티브 date/time 입력이 너무 좁아지는 것을 방지 */
-  input[type="date"],
-  input[type="time"] {
-    min-height: 44px;
-  }
-
-  /* 모달/드로어에 붙여 쓸 수 있는 동적 viewport 높이 */
-  .mobile-modal-panel {
-    max-height: min(90vh, 90dvh);
-  }
-
-  .mobile-modal-scroll {
-    max-height: min(80vh, 80dvh);
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* 키보드가 열린 동안 visualViewport 대응을 위한 여백 */
-  body.keyboard-open {
-    overscroll-behavior: none;
-  }
-
-  /* Android Chrome의 text-selection/callout이 인터랙티브 카드까지 번지는 것을 억제 */
-  button,
-  [role="button"] {
-    -webkit-tap-highlight-color: transparent;
-  }
+  button[class~="w-6"][class~="h-6"], button[class~="w-7"][class~="h-7"], button[class~="w-8"][class~="h-8"] { min-width: 44px; min-height: 44px; }
+  input[type="date"], input[type="time"] { min-height: 44px; }
+  .mobile-modal-panel { max-height: min(90vh, 90dvh); }
+  .mobile-modal-scroll { max-height: min(80vh, 80dvh); overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  body.keyboard-open { overscroll-behavior: none; }
+  button, [role="button"] { -webkit-tap-highlight-color: transparent; }
 }
 
-/* 모달/게임의 safe-area 보조 클래스 */
-.safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-.safe-area-top {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-@supports (height: 100dvh) {
-  .mobile-full-height {
-    min-height: 100dvh;
-  }
-}
-
-/* ===== Cross-platform mobile fixes (iOS Safari / Android Chrome) ===== */
-.top-safe-4 {
-  top: calc(env(safe-area-inset-top, 0px) + 1rem);
-}
-
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-area-top { padding-top: env(safe-area-inset-top, 0px); }
+@supports (height: 100dvh) { .mobile-full-height { min-height: 100dvh; } }
+.top-safe-4 { top: calc(env(safe-area-inset-top, 0px) + 1rem); }
 @media (hover: none) and (pointer: coarse) {
-  /* 모바일에서 마우스 hover로만 노출되던 보조 액션은 실제 터치에서도 접근 가능하게 표시 */
-  [class*="group-hover:opacity-100"] {
-    opacity: 1 !important;
-  }
-
-  /* 작은 아이콘 버튼도 손가락으로 누르기 쉬운 터치 영역을 확보 */
-  button[class~="w-6"][class~="h-6"],
-  button[class~="w-7"][class~="h-7"],
-  button[class~="w-8"][class~="h-8"] {
-    min-width: 44px;
-    min-height: 44px;
-  }
-
-  /* overflow 스크롤 영역의 iOS 관성 스크롤을 활성화 */
-  .overflow-y-auto,
-  .overflow-auto,
-  .overflow-x-auto {
-    -webkit-overflow-scrolling: touch;
-  }
+  [class*="group-hover:opacity-100"] { opacity: 1 !important; }
+  button[class~="w-6"][class~="h-6"], button[class~="w-7"][class~="h-7"], button[class~="w-8"][class~="h-8"] { min-width: 44px; min-height: 44px; }
+  .overflow-y-auto, .overflow-auto, .overflow-x-auto { -webkit-overflow-scrolling: touch; }
 }
 
-/* ========================================================================
-   Global Text Contrast Layer
-   - WCAG AA-oriented baseline for normal-size text.
-   - Keeps the existing visual palette while making low-contrast utility
-     colors readable on both light and dark themes.
-   - Added globally so individual screens do not need one-off fixes.
-   ======================================================================== */
 :root:not(.dark) {
-  /* Neutral foreground tokens: avoid faint body/supporting text. */
   --foreground-400: 0.60 0.025 260;
   --foreground-500: 0.52 0.028 260;
   --foreground-600: 0.43 0.032 260;
@@ -488,20 +220,16 @@ body.scroll-lock {
   --foreground-800: 0.29 0.038 260;
   --foreground-900: 0.22 0.035 260;
   --foreground-950: 0.16 0.02 260;
-
-  /* Text-oriented brand tokens: darker values on light surfaces. */
   --primary-400: 0.50 0.15 350;
   --primary-500: 0.45 0.16 350;
   --primary-600: 0.40 0.14 350;
   --primary-700: 0.35 0.12 350;
   --primary-800: 0.30 0.10 350;
-
   --accent-400: 0.54 0.17 40;
   --accent-500: 0.48 0.18 40;
   --accent-600: 0.42 0.16 40;
   --accent-700: 0.36 0.14 40;
   --accent-800: 0.31 0.11 40;
-
   --secondary-400: 0.50 0.11 270;
   --secondary-500: 0.45 0.12 270;
   --secondary-600: 0.40 0.11 270;
@@ -509,163 +237,42 @@ body.scroll-lock {
   --secondary-800: 0.30 0.07 270;
 }
 
-/* Tailwind gray text classes are hard-coded colors, so token changes alone
-   cannot improve them. These selectors provide a global contrast fallback. */
-:root:not(.dark) .text-gray-50,
-:root:not(.dark) .text-gray-100,
-:root:not(.dark) .text-gray-200,
-:root:not(.dark) .text-gray-300 {
-  color: #374151 !important;
+:root:not(.dark) .text-gray-50, :root:not(.dark) .text-gray-100, :root:not(.dark) .text-gray-200, :root:not(.dark) .text-gray-300 { color: #374151 !important; }
+:root:not(.dark) .text-gray-400 { color: #4b5563 !important; }
+:root:not(.dark) .text-gray-500 { color: #4b5563 !important; }
+:root:not(.dark) .text-gray-600 { color: #374151 !important; }
+:root:not(.dark) .text-gray-700, :root:not(.dark) .text-gray-800, :root:not(.dark) .text-gray-900 { color: #1f2937 !important; }
+.dark .text-gray-50, .dark .text-gray-100, .dark .text-gray-200 { color: #f3f4f6 !important; }
+.dark .text-gray-300, .dark .text-gray-400 { color: #d1d5db !important; }
+.dark .text-gray-500 { color: #cbd5e1 !important; }
+.dark .text-gray-600 { color: #e5e7eb !important; }
+.dark .text-gray-700, .dark .text-gray-800, .dark .text-gray-900 { color: #f9fafb !important; }
+:root:not(.dark) input::placeholder, :root:not(.dark) textarea::placeholder { color: #4b5563 !important; opacity: 1; }
+.dark input::placeholder, .dark textarea::placeholder { color: #cbd5e1 !important; opacity: 1; }
+input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible { outline: 3px solid oklch(var(--primary-500) / 0.55); outline-offset: 2px; }
+:root:not(.dark) .text-rose-200, :root:not(.dark) .text-rose-300, :root:not(.dark) .text-rose-400, :root:not(.dark) .text-rose-500 { color: #9f1239 !important; }
+:root:not(.dark) .text-amber-200, :root:not(.dark) .text-amber-300, :root:not(.dark) .text-amber-400, :root:not(.dark) .text-amber-500 { color: #92400e !important; }
+:root:not(.dark) .text-emerald-200, :root:not(.dark) .text-emerald-300, :root:not(.dark) .text-emerald-400, :root:not(.dark) .text-emerald-500 { color: #065f46 !important; }
+:root:not(.dark) .text-sky-200, :root:not(.dark) .text-sky-300, :root:not(.dark) .text-sky-400, :root:not(.dark) .text-sky-500 { color: #075985 !important; }
+:root:not(.dark) .text-indigo-200, :root:not(.dark) .text-indigo-300, :root:not(.dark) .text-indigo-400, :root:not(.dark) .text-indigo-500 { color: #3730a3 !important; }
+:root:not(.dark) .text-violet-200, :root:not(.dark) .text-violet-300, :root:not(.dark) .text-violet-400, :root:not(.dark) .text-violet-500 { color: #6b21a8 !important; }
+:root:not(.dark) .text-orange-200, :root:not(.dark) .text-orange-300, :root:not(.dark) .text-orange-400, :root:not(.dark) .text-orange-500 { color: #9a3412 !important; }
+:root:not(.dark) .text-red-200, :root:not(.dark) .text-red-300, :root:not(.dark) .text-red-400, :root:not(.dark) .text-red-500 { color: #991b1b !important; }
+:root:not(.dark) .text-pink-200, :root:not(.dark) .text-pink-300, :root:not(.dark) .text-pink-400, :root:not(.dark) .text-pink-500 { color: #9d174d !important; }
+:root:not(.dark) .text-yellow-200, :root:not(.dark) .text-yellow-300, :root:not(.dark) .text-yellow-400, :root:not(.dark) .text-yellow-500 { color: #854d0e !important; }
+.dark .text-rose-200, .dark .text-rose-300, .dark .text-rose-400, .dark .text-rose-500 { color: #fda4af !important; }
+.dark .text-amber-200, .dark .text-amber-300, .dark .text-amber-400, .dark .text-amber-500 { color: #fde68a !important; }
+.dark .text-emerald-200, .dark .text-emerald-300, .dark .text-emerald-400, .dark .text-emerald-500 { color: #6ee7b7 !important; }
+.dark .text-sky-200, .dark .text-sky-300, .dark .text-sky-400, .dark .text-sky-500 { color: #7dd3fc !important; }
+.dark .text-indigo-200, .dark .text-indigo-300, .dark .text-indigo-400, .dark .text-indigo-500 { color: #c7d2fe !important; }
+.dark .text-violet-200, .dark .text-violet-300, .dark .text-violet-400, .dark .text-violet-500 { color: #ddd6fe !important; }
+.dark .text-orange-200, .dark .text-orange-300, .dark .text-orange-400, .dark .text-orange-500 { color: #fdba74 !important; }
+.dark .text-red-200, .dark .text-red-300, .dark .text-red-400, .dark .text-red-500 { color: #fca5a5 !important; }
+.dark .text-pink-200, .dark .text-pink-300, .dark .text-pink-400, .dark .text-pink-500 { color: #f9a8d4 !important; }
+.dark .text-yellow-200, .dark .text-yellow-300, .dark .text-yellow-400, .dark .text-yellow-500 { color: #fde68a !important; }
+
+/* Force a measurable mobile tap target for login/recovery submits. */
+@media (max-width: 767px) {
+  form button[type="submit"] { min-height: 48px; }
+  form input[type="email"], form input[type="password"], form input[type="text"] { min-height: 48px; font-size: 16px; }
 }
-
-:root:not(.dark) .text-gray-400 {
-  color: #4b5563 !important;
-}
-
-:root:not(.dark) .text-gray-500 {
-  color: #4b5563 !important;
-}
-
-:root:not(.dark) .text-gray-600 {
-  color: #374151 !important;
-}
-
-:root:not(.dark) .text-gray-700,
-:root:not(.dark) .text-gray-800,
-:root:not(.dark) .text-gray-900 {
-  color: #1f2937 !important;
-}
-
-/* Dark-mode counterparts: keep neutral text bright enough against dark UI. */
-.dark .text-gray-50,
-.dark .text-gray-100,
-.dark .text-gray-200 {
-  color: #f3f4f6 !important;
-}
-
-.dark .text-gray-300,
-.dark .text-gray-400 {
-  color: #d1d5db !important;
-}
-
-.dark .text-gray-500 {
-  color: #cbd5e1 !important;
-}
-
-.dark .text-gray-600 {
-  color: #e5e7eb !important;
-}
-
-.dark .text-gray-700,
-.dark .text-gray-800,
-.dark .text-gray-900 {
-  color: #f9fafb !important;
-}
-
-/* Placeholder text should remain visibly distinct from the field surface. */
-:root:not(.dark) input::placeholder,
-:root:not(.dark) textarea::placeholder {
-  color: #4b5563 !important;
-  opacity: 1;
-}
-
-.dark input::placeholder,
-.dark textarea::placeholder {
-  color: #cbd5e1 !important;
-  opacity: 1;
-}
-
-/* Keep white-opacity utilities intact: they are intentionally used on dark/brand surfaces. */
-
-/* Keyboard/focus visibility: maintain a strong non-color cue. */
-input:focus,
-textarea:focus,
-select:focus,
-button:focus-visible,
-a:focus-visible {
-  outline: 3px solid oklch(var(--primary-500) / 0.55);
-  outline-offset: 2px;
-}
-
-/* Low-contrast semantic Tailwind colors: text-safe fallbacks. */
-:root:not(.dark) .text-rose-200,
-:root:not(.dark) .text-rose-300,
-:root:not(.dark) .text-rose-400,
-:root:not(.dark) .text-rose-500 { color: #9f1239 !important; }
-:root:not(.dark) .text-amber-200,
-:root:not(.dark) .text-amber-300,
-:root:not(.dark) .text-amber-400,
-:root:not(.dark) .text-amber-500 { color: #92400e !important; }
-:root:not(.dark) .text-emerald-200,
-:root:not(.dark) .text-emerald-300,
-:root:not(.dark) .text-emerald-400,
-:root:not(.dark) .text-emerald-500 { color: #065f46 !important; }
-:root:not(.dark) .text-sky-200,
-:root:not(.dark) .text-sky-300,
-:root:not(.dark) .text-sky-400,
-:root:not(.dark) .text-sky-500 { color: #075985 !important; }
-:root:not(.dark) .text-indigo-200,
-:root:not(.dark) .text-indigo-300,
-:root:not(.dark) .text-indigo-400,
-:root:not(.dark) .text-indigo-500 { color: #3730a3 !important; }
-:root:not(.dark) .text-violet-200,
-:root:not(.dark) .text-violet-300,
-:root:not(.dark) .text-violet-400,
-:root:not(.dark) .text-violet-500 { color: #6b21a8 !important; }
-:root:not(.dark) .text-orange-200,
-:root:not(.dark) .text-orange-300,
-:root:not(.dark) .text-orange-400,
-:root:not(.dark) .text-orange-500 { color: #9a3412 !important; }
-:root:not(.dark) .text-red-200,
-:root:not(.dark) .text-red-300,
-:root:not(.dark) .text-red-400,
-:root:not(.dark) .text-red-500 { color: #991b1b !important; }
-:root:not(.dark) .text-pink-200,
-:root:not(.dark) .text-pink-300,
-:root:not(.dark) .text-pink-400,
-:root:not(.dark) .text-pink-500 { color: #9d174d !important; }
-:root:not(.dark) .text-yellow-200,
-:root:not(.dark) .text-yellow-300,
-:root:not(.dark) .text-yellow-400,
-:root:not(.dark) .text-yellow-500 { color: #854d0e !important; }
-
-.dark .text-rose-200,
-.dark .text-rose-300,
-.dark .text-rose-400,
-.dark .text-rose-500 { color: #fda4af !important; }
-.dark .text-amber-200,
-.dark .text-amber-300,
-.dark .text-amber-400,
-.dark .text-amber-500 { color: #fde68a !important; }
-.dark .text-emerald-200,
-.dark .text-emerald-300,
-.dark .text-emerald-400,
-.dark .text-emerald-500 { color: #6ee7b7 !important; }
-.dark .text-sky-200,
-.dark .text-sky-300,
-.dark .text-sky-400,
-.dark .text-sky-500 { color: #7dd3fc !important; }
-.dark .text-indigo-200,
-.dark .text-indigo-300,
-.dark .text-indigo-400,
-.dark .text-indigo-500 { color: #c7d2fe !important; }
-.dark .text-violet-200,
-.dark .text-violet-300,
-.dark .text-violet-400,
-.dark .text-violet-500 { color: #ddd6fe !important; }
-.dark .text-orange-200,
-.dark .text-orange-300,
-.dark .text-orange-400,
-.dark .text-orange-500 { color: #fdba74 !important; }
-.dark .text-red-200,
-.dark .text-red-300,
-.dark .text-red-400,
-.dark .text-red-500 { color: #fca5a5 !important; }
-.dark .text-pink-200,
-.dark .text-pink-300,
-.dark .text-pink-400,
-.dark .text-pink-500 { color: #f9a8d4 !important; }
-.dark .text-yellow-200,
-.dark .text-yellow-300,
-.dark .text-yellow-400,
-.dark .text-yellow-500 { color: #fde68a !important; }
