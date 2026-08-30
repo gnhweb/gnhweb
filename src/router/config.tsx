@@ -156,6 +156,7 @@ const routes: RouteObject[] = [{
     { path: "/settings/attendance-location", element: <AuthGuard minRole="teacher">{withSuspense(<AttendanceLocationPage />)}</AuthGuard> },
     { path: "/profile", element: <AuthGuard minRole="member">{withSuspense(<ProfilePage />)}</AuthGuard> },
     { path: "/teacher-dashboard", element: <AuthGuard minRole="teacher">{withSuspense(<TeacherDashboard />)}</AuthGuard> },
+    { path: "/leadership-diary", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<LeadershipDiary />)}</AuthGuard> },
     { path: "/gangneung-news", element: withSuspense(<GanghakNewsList />) },
     { path: "/ganghak-news", element: withSuspense(<GanghakNewsList />) },
     { path: "/ganghak-news/:id", element: withSuspense(<GanghakNewsDetail />) },
