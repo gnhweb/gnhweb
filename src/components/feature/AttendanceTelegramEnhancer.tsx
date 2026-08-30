@@ -12,57 +12,77 @@ function normalizeText(value: string | null | undefined): string {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
-/** 출석판 Telegram 바로가기를 사용자 식별 정보에 맞춰 안전하게 연결한다. */
+/** 출석 관련 화면의 Telegram 바로가기를 실제 username으로 안전하게 연결한다. */
 export default function AttendanceTelegramEnhancer() {
   useEffect(() => {
-    if (window.location.pathname !== '/attendance-board') return;
+    const path = window.location.pathname;
+    if (path !== '/attendance-board' && path !== '/dashboard/attendance') return;
 
     let cancelled = false;
     let loaded = false;
     let users: TelegramUser[] = [];
 
+    const setDisabled = (element: HTMLAnchorElement | HTMLButtonElement, message: string) => {
+      if (element instanceof HTMLAnchorElement) {
+        element.removeAttribute('href');
+        element.removeAttribute('target');
+        element.onclick = (event) => event.preventDefault();
+      } else {
+        element.disabled = true;
+        element.onclick = null;
+      }
+      element.setAttribute('aria-disabled', 'true');
+      element.setAttribute('title', message);
+      element.classList.add('opacity-40', 'cursor-not-allowed');
+    };
+
     const apply = () => {
       if (cancelled || !loaded) return;
       const validUsers = users.filter((user) => TELEGRAM_USERNAME_RE.test(normalizeTelegramUsername(user.telegram_username)));
+      const selector = 'a[href="tg://"], a[href^="tg://"], button[data-telegram-placeholder="true"], button[data-telegram-shortcut="true"], a[data-telegram-shortcut="true"]';
 
-      document.querySelectorAll<HTMLAnchorElement>('a[href="tg://"], a[href^="tg://"], a[data-telegram-shortcut="true"]').forEach((anchor) => {
-        const container = anchor.closest('[data-user-id], [data-telegram-user-id]');
+      document.querySelectorAll<HTMLAnchorElement | HTMLButtonElement>(selector).forEach((element) => {
+        const container = element.closest('[data-user-id], [data-telegram-user-id]');
         const explicitUserId = container?.getAttribute('data-user-id') || container?.getAttribute('data-telegram-user-id');
-        let matches = explicitUserId
-          ? validUsers.filter((user) => user.user_id === explicitUserId)
-          : [];
+        let matches = explicitUserId ? validUsers.filter((user) => user.user_id === explicitUserId) : [];
 
-        // Legacy markup may not expose the user id. In that case require an
-        // unambiguous name + club match; never choose the first duplicate.
         if (matches.length === 0) {
-          const parentText = normalizeText(anchor.parentElement?.textContent || anchor.textContent);
-          const nameMatches = validUsers.filter((user) => normalizeText(user.name) && parentText.includes(normalizeText(user.name)));
+          const text = normalizeText(container?.textContent || element.parentElement?.textContent || element.textContent);
+          const nameMatches = validUsers.filter((user) => {
+            const name = normalizeText(user.name);
+            return Boolean(name) && text.includes(name);
+          });
           if (nameMatches.length === 1) matches = nameMatches;
           else if (nameMatches.length > 1) {
-            const clubMatches = nameMatches.filter((user) => user.club && parentText.includes(normalizeText(user.club)));
+            const clubMatches = nameMatches.filter((user) => {
+              const club = normalizeText(user.club);
+              return Boolean(club) && text.includes(club);
+            });
             if (clubMatches.length === 1) matches = clubMatches;
           }
         }
 
-        const match = matches.length === 1 ? matches[0] : null;
-        if (!match) {
-          anchor.removeAttribute('href');
-          anchor.removeAttribute('target');
-          anchor.setAttribute('aria-disabled', 'true');
-          anchor.setAttribute('title', matches.length > 1 ? '동일한 이름의 사용자가 있어 Telegram을 자동 연결하지 않았습니다.' : 'Telegram username이 등록되지 않았습니다.');
-          anchor.classList.add('opacity-40', 'cursor-not-allowed');
+        if (matches.length !== 1) {
+          setDisabled(element, matches.length > 1 ? '동일한 이름의 사용자가 있어 Telegram을 자동 연결하지 않았습니다.' : 'Telegram username이 등록되지 않았습니다.');
           return;
         }
 
-        const username = normalizeTelegramUsername(match.telegram_username);
-        anchor.href = `https://t.me/${username}`;
-        anchor.target = '_blank';
-        anchor.rel = 'noopener noreferrer';
-        anchor.title = `${match.name}님 Telegram 열기`;
-        anchor.setAttribute('data-telegram-shortcut', 'true');
-        anchor.setAttribute('data-telegram-user-id', match.user_id || '');
-        anchor.removeAttribute('aria-disabled');
-        anchor.classList.remove('opacity-40', 'cursor-not-allowed');
+        const username = normalizeTelegramUsername(matches[0].telegram_username);
+        const href = `https://t.me/${username}`;
+        if (element instanceof HTMLAnchorElement) {
+          element.href = href;
+          element.target = '_blank';
+          element.rel = 'noopener noreferrer';
+          element.onclick = null;
+        } else {
+          element.disabled = false;
+          element.onclick = () => { window.location.assign(href); };
+        }
+        element.setAttribute('data-telegram-shortcut', 'true');
+        element.setAttribute('data-telegram-user-id', matches[0].user_id || '');
+        element.removeAttribute('aria-disabled');
+        element.classList.remove('opacity-40', 'cursor-not-allowed');
+        element.setAttribute('title', `${matches[0].name}님 Telegram 열기`);
       });
     };
 
@@ -79,7 +99,7 @@ export default function AttendanceTelegramEnhancer() {
       apply();
     };
 
-    const observer = new MutationObserver(() => apply());
+    const observer = new MutationObserver(apply);
     observer.observe(document.body, { childList: true, subtree: true });
     void load();
 
