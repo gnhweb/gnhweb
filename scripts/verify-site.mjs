@@ -13,7 +13,7 @@ const warn = (msg) => { warnings.push(msg); console.warn(`WARN  ${msg}`); };
 
 if (!source) fail('src/router/config.tsx를 읽을 수 없습니다.');
 
-const routes = [...source.matchAll(/path:\s*["'](\\/[^"']*)["']/g)]
+const routes = [...source.matchAll(/path:\s*["'](\/[^"']*)["']/g)]
   .map((m) => m[1])
   .filter((p) => !p.includes(':') && !p.includes('*'));
 const uniqueRoutes = [...new Set(routes)].sort();
@@ -49,33 +49,52 @@ function walk(dir) {
 walk(path.join(root, 'src'));
 
 const textFiles = repoFiles.filter((f) => /\.(ts|tsx|js|jsx|css|json|html)$/.test(f));
-let placeholderCount = 0;
+const telegramPlaceholders = [];
 for (const file of textFiles) {
   const text = fs.readFileSync(file, 'utf8');
-  if (/href=["']tg:\/\/["']|tg:\/\//.test(text)) {
-    warn(`Telegram placeholder/legacy scheme 발견: ${path.relative(root, file)}`);
-    placeholderCount += 1;
+  if (/href=["']tg:\/\/["']|(?:window\.)?location\.(?:href|replace)\s*=\s*["']tg:\/\/["']/.test(text)) {
+    telegramPlaceholders.push(path.relative(root, file));
   }
 }
-if (placeholderCount === 0) pass('Telegram legacy placeholder 없음');
+if (telegramPlaceholders.length === 0) pass('Telegram legacy placeholder 없음');
+else fail(`Telegram placeholder/legacy scheme 발견: ${telegramPlaceholders.join(', ')}`);
 
 const pkgPath = path.join(root, 'package.json');
 if (fs.existsSync(pkgPath)) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-  if (!pkg.scripts?.build) fail('package.json에 build script가 없습니다.');
-  if (!pkg.scripts?.type-check) warn('type-check script가 없습니다.');
-  if (!pkg.scripts?.lint) warn('lint script가 없습니다.');
-  if (!pkg.scripts?.verify) pass('verify script가 등록됨');
+  const scripts = pkg.scripts || {};
+  if (!scripts.build) fail('package.json에 build script가 없습니다.');
+  else pass('build script 등록됨');
+  if (!scripts['type-check']) warn('type-check script가 없습니다.');
+  else pass('type-check script 등록됨');
+  if (!scripts.lint) warn('lint script가 없습니다.');
+  else pass('lint script 등록됨');
+  if (!scripts.verify) fail('verify script가 등록되지 않았습니다.');
+  else pass('verify script 등록됨');
 }
 
 const envExample = path.join(root, '.env.example');
 if (fs.existsSync(envExample)) pass('.env.example 존재');
 else warn('.env.example이 없어 필요한 환경변수를 정적으로 확인하기 어렵습니다.');
 
-for (const p of ['/leadership-diary', '/teacher-dashboard', '/dashboard/attendance', '/attendance-board', '/bible-pick', '/bible-mbti', '/event-ideas', '/faith', '/telegram-settings']) {
-  if (uniqueRoutes.includes(p)) pass(`핵심 경로 등록: ${p}`);
-  else warn(`핵심 경로가 router 정적 목록에 없음: ${p}`);
+const requiredRoutes = [
+  '/leadership-diary',
+  '/teacher-dashboard',
+  '/dashboard/attendance',
+  '/attendance-board',
+  '/bible-pick',
+  '/bible-mbti',
+  '/event-ideas',
+  '/bible-by-age',
+  '/bible-streak',
+  '/telegram-settings',
+];
+for (const route of requiredRoutes) {
+  if (uniqueRoutes.includes(route)) pass(`핵심 경로 등록: ${route}`);
+  else fail(`핵심 경로가 router에 없음: ${route}`);
 }
 
-console.log(`\\n검증 요약: PASS=${uniqueRoutes.length - failures.length} / FAIL=${failures.length} / WARN=${warnings.length}`);
+const summaryPass = uniqueRoutes.length > 0 && failures.length === 0;
+console.log(`\n검증 요약: routes=${uniqueRoutes.length}, lazyImports=${lazyImports.length}, FAIL=${failures.length}, WARN=${warnings.length}`);
+if (summaryPass) pass('정적 사이트 검증 완료');
 if (failures.length > 0) process.exit(1);
