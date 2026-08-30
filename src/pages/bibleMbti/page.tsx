@@ -1,50 +1,621 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { fetchMbtiResult } from '@/lib/nvidiaNim';
 import type { MbtiResult } from '@/lib/nvidiaNim';
 import { notifyUser } from '@/lib/mobileFeedback';
 
-type Question={id:number;axis:string;question:string;icon:string;options:string[]};
-const questions:Question[]=[
-{id:1,axis:'action',question:'친구가 힘들어할 때 나는?',icon:'ri-heart-line',options:['바로 달려가서 위로한다','옆에서 조용히 기도해 준다','실질적인 해결책을 같이 찾아본다','편하게 털어놓을 때까지 기다려 준다']},
-{id:2,axis:'mindset',question:'새로운 사명이 주어졌을 때?',icon:'ri-lightbulb-line',options:['일단 믿음으로 도전한다','기도하고 신중하게 준비한다','계획부터 세우고 체계적으로 접근한다','주변 사람들과 협력하며 시작한다']},
-{id:3,axis:'leadership',question:'내가 생각하는 좋은 리더는?',icon:'ri-star-line',options:['앞에서 방향을 제시한다','먼저 섬기며 모범을 보인다','근거를 모아 현명하게 결정한다','사람들의 의견을 듣고 조율한다']},
-{id:4,axis:'crisis',question:'큰 장애물이 생기면?',icon:'ri-shield-line',options:['정면으로 부딪힌다','무릎 꿇고 지혜를 구한다','대안을 찾아 우회한다','사람을 모아 함께 해결한다']},
-{id:5,axis:'community',question:'모임에서 나는 주로?',icon:'ri-group-line',options:['분위기를 먼저 띄운다','한 사람의 이야기를 깊게 듣는다','전체 흐름과 시간을 관리한다','새로 온 사람을 먼저 챙긴다']},
-{id:6,axis:'prayer',question:'기도할 때 가장 가까운 모습은?',icon:'ri-hand-heart-line',options:['열정적으로 소리 내어 기도한다','조용히 오래 머문다','기도제목을 적고 구체적으로 기도한다','다른 사람의 제목을 품고 기도한다']},
-{id:7,axis:'discipline',question:'준비해야 할 일이 있을 때?',icon:'ri-task-line',options:['마감 직전 집중력이 최고다','하나씩 천천히 준비한다','체크리스트를 만든다','함께할 사람과 역할을 나눈다']},
-{id:8,axis:'relationship',question:'친구와 의견이 다르면?',icon:'ri-chat-check-line',options:['내 생각을 분명하게 말한다','상대의 마음부터 듣는다','공통점을 찾아 합의한다','시간을 두고 다시 이야기한다']},
-{id:9,axis:'faith',question:'믿음이 흔들리는 순간에는?',icon:'ri-sun-line',options:['말씀을 붙들고 바로 행동한다','혼자 조용히 하나님 앞에 선다','왜 그런지 원인을 정리한다','믿을 만한 사람에게 나눈다']},
-{id:10,axis:'service',question:'행사 준비에서 가장 먼저 하는 일은?',icon:'ri-calendar-check-line',options:['전체 분위기와 핵심 목표를 잡는다','사람들의 필요를 확인한다','일정·준비물·예산을 정리한다','팀별 담당자를 정한다']},
-{id:11,axis:'growth',question:'실수했을 때 나는?',icon:'ri-refresh-line',options:['바로 다시 도전한다','기도하며 마음을 추스른다','원인을 분석하고 고친다','누군가에게 피드백을 구한다']},
-{id:12,axis:'mission',question:'신앙생활에서 가장 중요하게 느끼는 것은?',icon:'ri-compass-3-line',options:['믿음을 행동으로 옮기는 것','하나님과 깊이 머무는 것','꾸준히 좋은 습관을 만드는 것','사람과 함께 성장하는 것']},
+const questions = [
+  { id: 1, axis: 'action', question: '친구가 힘들어할 때 나는?', icon: 'ri-heart-line', options: ['바로 달려가서 위로한다', '옆에서 조용히 기도해 준다', '실질적인 해결책을 같이 찾아본다', '친구가 편하게 털어놓을 수 있게 기다려 준다'] },
+  { id: 2, axis: 'mindset', question: '새로운 일이 주어졌을 때 내 태도는?', icon: 'ri-lightbulb-line', options: ['일단 믿음으로 도전한다!', '기도하고 신중하게 준비한다', '계획부터 세우고 체계적으로 접근한다', '주변 사람들과 협력하며 진행한다'] },
+  { id: 3, axis: 'leadership', question: '내가 생각하는 리더십은?', icon: 'ri-star-line', options: ['카리스마 있게 앞에서 이끄는 것', '겸손히 섬기며 따르게 하는 것', '지혜롭게 판단하고 결정하는 것', '모두의 이야기를 듣고 조율하는 것'] },
+  { id: 4, axis: 'crisis', question: '내 앞에 큰 장애물이 나타났을 때?', icon: 'ri-shield-line', options: ['하나님의 뜻이라 믿고 정면 돌파한다', '무릎 꿇고 기도하며 지혜를 구한다', '침착하게 대안을 찾아서 우회한다', '주변에 도움을 요청하며 함께 헤쳐 나간다'] },
+  { id: 5, axis: 'action', question: '주일예배 후 나는 주로?', icon: 'ri-restaurant-line', options: ['친구들과 함께 점심 먹으며 교제한다', '혼자 조용히 말씀 묵상을 한다', '다음 주 일정과 준비물을 점검한다', '새로 온 친구를 챙겨 안내한다'] },
+  { id: 6, axis: 'mindset', question: '기도할 때 나는?', icon: 'ri-hand-heart-line', options: ['열정적으로 소리 내어 기도한다', '조용히 마음속으로 기도한다', '구체적인 기도 제목을 적어가며 기도한다', '다른 사람의 기도 제목을 함께 기도한다'] },
+  { id: 7, axis: 'leadership', question: '모임을 준비할 때 내 역할은?', icon: 'ri-group-line', options: ['분위기를 띄우고 진행을 이끈다', '말씀과 찬양을 준비한다', '장소와 물품을 꼼꼼히 체크한다', '참석자들을 확인하고 연락한다'] },
+  { id: 8, axis: 'crisis', question: '친구와 의견이 갈릴 때 나는?', icon: 'ri-chat-check-line', options: ['내 의견을 당당하게 주장한다', '상대방의 의견을 먼저 존중하며 듣는다', '중재안을 찾아 모두가 만족하게 해결한다', '시간이 지나면 자연스럽게 해결될 거라 믿는다'] },
 ];
-const AXIS:Record<string,string>={action:'행동력',mindset:'도전·준비 균형',leadership:'리더십',crisis:'위기 대응',community:'공동체성',prayer:'기도 성향',discipline:'꾸준함',relationship:'관계 조율',faith:'믿음의 중심',service:'섬김과 운영',growth:'회복과 성장',mission:'사명 실행'};
 
-export default function BibleMbti(){
- const [step,setStep]=useState(0);const [answers,setAnswers]=useState<string[]>([]);const [result,setResult]=useState<MbtiResult|null>(null);const [loading,setLoading]=useState(false);const [error,setError]=useState('');
- const answer=async(value:string)=>{if(loading)return;const next=[...answers];next[step]=value;setAnswers(next);setError('');if(step<questions.length-1){setStep(step+1);return;}setLoading(true);try{const r=await fetchMbtiResult(next);setResult(r);setStep(questions.length);}catch(e){setError(e instanceof Error?e.message:'결과를 만들지 못했어요. 다시 시도해주세요.')}finally{setLoading(false)}};
- const back=()=>{if(step>0&&!result){setAnswers(a=>a.slice(0,-1));setStep(s=>s-1);setError('')}};
- const reset=()=>{setStep(0);setAnswers([]);setResult(null);setError('')};
- const retry=async()=>{if(answers.length<questions.length)return;setLoading(true);setError('');try{setResult(await fetchMbtiResult(answers));}catch(e){setError(e instanceof Error?e.message:'결과를 만들지 못했어요.')}finally{setLoading(false)}};
- const share=async()=>{if(!result)return;const text=`나의 성경 인물 MBTI는 ${result.character}입니다. ${result.matchingPhrase}`;try{if(navigator.share)await navigator.share({title:'성경 인물 MBTI',text});else{await navigator.clipboard.writeText(text);notifyUser('결과가 클립보드에 복사됐어요.')}}catch{}}
- const progress=Math.min(100,Math.round((Math.min(step,questions.length)/questions.length)*100));
- return <div className="min-h-screen bg-background-50"><div className="max-w-2xl mx-auto px-4 md:px-6 py-8 md:py-14 pb-28">
-  {!result?<>
-   <div className="text-center mb-6"><div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-accent-100 border border-accent-200 mb-4"><i className="ri-user-heart-line text-3xl text-accent-600"/></div><h1 className="text-2xl md:text-3xl font-bold text-foreground-950">성경 인물 MBTI</h1><p className="text-sm text-foreground-600 mt-2">12가지 질문으로 나의 신앙 성향을 돌아보고, 닮은 성경 인물을 찾아보세요.</p></div>
-   <div className="mb-5"><div className="flex items-center justify-between text-xs text-foreground-500 mb-2"><span>{Math.min(step+1,questions.length)} / {questions.length}</span><span>{progress}%</span></div><div className="h-2 rounded-full bg-background-200 overflow-hidden"><div className="h-full rounded-full bg-accent-500 transition-all" style={{width:`${progress}%`}}/></div></div>
-   <AnimatePresence mode="wait"><motion.div key={step} initial={{opacity:0,x:30}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-30}} transition={{duration:.2}}>
-    <div className="bg-background-100 border border-background-200 rounded-[22px] p-5 md:p-7 shadow-sm"><div className="flex items-center gap-3 mb-5"><div className="w-11 h-11 rounded-xl bg-accent-100 flex items-center justify-center shrink-0"><i className={`${questions[step].icon} text-xl text-accent-600`}/></div><div><p className="text-xs font-bold text-accent-600">{AXIS[questions[step].axis]||'신앙 성향'}</p><h2 className="text-lg md:text-xl font-bold text-foreground-950 mt-1">{questions[step].question}</h2></div></div><div className="space-y-2.5">{questions[step].options.map((option,i)=><button key={option} type="button" onClick={()=>answer(option)} disabled={loading} className="w-full min-h-14 rounded-2xl border border-background-200 bg-background-50 px-4 py-3 text-left text-sm md:text-base font-semibold text-foreground-800 hover:border-accent-300 hover:bg-accent-50 active:scale-[.99] transition-all disabled:opacity-50"><span className="inline-flex w-7 h-7 rounded-full bg-background-200 items-center justify-center mr-3 text-xs font-bold text-foreground-600">{String.fromCharCode(65+i)}</span>{option}</button>)}</div></div>
-   </motion.div></AnimatePresence>
-   {error&&<div className="mt-3 rounded-xl bg-rose-50 border border-rose-200 p-3 text-sm text-rose-700">{error}<button type="button" onClick={retry} className="ml-2 underline font-semibold">다시 시도</button></div>}
-   <div className="flex justify-between mt-4"><button type="button" onClick={back} disabled={step===0||loading} className="min-h-11 px-4 rounded-full border border-background-200 bg-background-100 text-sm font-semibold text-foreground-600 disabled:opacity-30">← 이전</button><button type="button" onClick={reset} disabled={loading} className="min-h-11 px-4 rounded-full text-sm font-semibold text-foreground-500 disabled:opacity-30">처음부터</button></div>
-  </>:<motion.div initial={{opacity:0,y:15}} animate={{opacity:1,y:0}} className="space-y-4">
-    <section className="rounded-[24px] bg-gradient-to-br from-accent-500 to-primary-600 p-6 md:p-8 text-white"><p className="text-xs font-bold text-white/80">나와 닮은 성경 인물</p><h1 className="text-3xl md:text-4xl font-black mt-1">{result.character}</h1><p className="text-base md:text-lg font-semibold mt-3 leading-relaxed">{result.matchingPhrase}</p><p className="text-sm text-white/85 mt-3 leading-relaxed">{result.description}</p><div className="flex gap-2 mt-5"><button type="button" onClick={share} className="min-h-11 px-4 rounded-full bg-white/15 text-white text-sm font-bold">공유하기</button><button type="button" onClick={reset} className="min-h-11 px-4 rounded-full bg-white text-foreground-950 text-sm font-bold">다시 검사</button></div></section>
-    <section className="bg-background-100 border border-background-200 rounded-[22px] p-5 md:p-7"><h2 className="text-lg font-bold text-foreground-950 mb-4">내 성향</h2><div className="space-y-3">{result.traits.map((trait)=><div key={trait.label}><div className="flex justify-between text-xs font-semibold text-foreground-700 mb-1"><span>{trait.label}</span><span>{Math.round(trait.value)}</span></div><div className="h-2.5 rounded-full bg-background-200 overflow-hidden"><div className="h-full rounded-full bg-accent-400" style={{width:`${Math.max(0,Math.min(100,trait.value))}%`}}/></div></div>)}</div></section>
-    <section className="grid md:grid-cols-2 gap-4"><div className="bg-background-100 border border-background-200 rounded-[22px] p-5"><h2 className="font-bold text-foreground-950 mb-2">신앙생활에서의 적용</h2><p className="text-sm text-foreground-700 leading-relaxed">{result.lesson}</p></div><div className="bg-background-100 border border-background-200 rounded-[22px] p-5"><h2 className="font-bold text-foreground-950 mb-2">주의해서 볼 점</h2><p className="text-sm text-foreground-700 leading-relaxed">{result.challenge}</p></div></section>
-    <section className="bg-primary-50 border border-primary-200 rounded-[22px] p-5"><p className="text-xs font-bold text-primary-600">오늘의 말씀</p><p className="text-sm md:text-base font-semibold text-foreground-800 mt-2 leading-relaxed">{result.bibleVerse}</p><p className="text-xs text-foreground-500 mt-3">함께하면 좋은 인물 · {result.bestWith}</p></section>
-    {error&&<div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-sm text-rose-700">{error}</div>}<button type="button" onClick={retry} disabled={loading} className="w-full min-h-12 rounded-xl border border-background-200 bg-background-100 text-sm font-semibold text-foreground-700 disabled:opacity-50">{loading?'결과를 다시 만드는 중…':'AI 결과 다시 분석하기'}</button>
-  </motion.div>}
-  {loading&&<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-sm rounded-2xl bg-background-100 p-7 text-center shadow-xl"><div className="w-12 h-12 mx-auto rounded-full border-4 border-accent-200 border-t-accent-500 animate-spin"/><p className="text-base font-bold text-foreground-950 mt-4">답변을 바탕으로 성향을 분석하고 있어요</p><p className="text-sm text-foreground-600 mt-1">잠시만 기다려 주세요.</p></div></div>}
- </div></div>;
+const axisLabels: Record<string, { left: string; right: string }> = {
+  action: { left: '적극적 행동파', right: '신중한 기도파' },
+  mindset: { left: '열정적 도전파', right: '체계적 준비파' },
+  leadership: { left: '카리스마 리더', right: '섬김의 리더' },
+  crisis: { left: '정면 돌파형', right: '협력 극복형' },
+};
+
+/** 숫자 카운트업 훅 */
+function useCountUp(target: number, duration: number = 800, startDelay: number = 0) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    let raf: number;
+    const startTime = performance.now() + startDelay;
+    const animate = (now: number) => {
+      if (now < startTime) { raf = requestAnimationFrame(animate); return; }
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(eased * target));
+      if (progress < 1) raf = requestAnimationFrame(animate);
+    };
+    raf = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration, startDelay]);
+  return display;
+}
+
+function CountUpBar({ label, value, delay }: { label: string; value: number; delay: number }) {
+  const display = useCountUp(value, 1000, delay);
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs font-medium text-foreground-700 w-14 text-right flex-shrink-0">{label}</span>
+      <div className="flex-1 h-2.5 rounded-full bg-background-200 overflow-hidden">
+        <motion.div
+          className="h-full rounded-full bg-accent-400"
+          initial={{ width: 0 }}
+          animate={{ width: `${value}%` }}
+          transition={{ duration: 0.8, delay: delay / 1000, ease: [0.34, 1.56, 0.64, 1] }}
+        ></motion.div>
+      </div>
+      <span className="text-xs font-bold text-accent-600 w-8 text-left flex-shrink-0">{display}</span>
+    </div>
+  );
+}
+
+export default function BibleMbti() {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [result, setResult] = useState<MbtiResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [direction, setDirection] = useState(1);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'info' | 'error'>('info');
+  const [showSparkles, setShowSparkles] = useState(false);
+  const resultCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (result) {
+      setTimeout(() => setShowSparkles(true), 200);
+      setTimeout(() => setShowSparkles(false), 2500);
+    }
+  }, [result]);
+
+  const handleAnswer = async (answer: string) => {
+    if (isLoading) return;
+    if (currentStep >= questions.length - 1 && answers.length >= questions.length) return;
+
+    const newAnswers = [...answers, answer];
+    setAnswers(newAnswers);
+    setDirection(1);
+
+    if (currentStep < questions.length - 1) {
+      setCurrentStep(currentStep + 1);
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    try {
+      const res = await fetchMbtiResult(newAnswers.slice(0, questions.length));
+      setResult(res);
+      setCurrentStep(currentStep + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '잠시 후 다시 시도해주세요');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0 && !result) {
+      setDirection(-1);
+      setCurrentStep(currentStep - 1);
+      setAnswers(answers.slice(0, -1));
+      setError('');
+    }
+  };
+
+  const handleReset = () => {
+    setCurrentStep(0);
+    setAnswers([]);
+    setResult(null);
+    setError('');
+    setDirection(1);
+    setShowSparkles(false);
+  };
+
+  const handleRetry = () => {
+    setError('');
+    const cappedAnswers = answers.slice(0, questions.length);
+    setIsLoading(true);
+    fetchMbtiResult(cappedAnswers).then(res => {
+      setResult(res);
+      setCurrentStep(questions.length);
+    }).catch(err => {
+      setError(err instanceof Error ? err.message : '잠시 후 다시 시도해주세요');
+    }).finally(() => {
+      setIsLoading(false);
+    });
+  };
+
+  const progressPct = ((currentStep + (result ? 1 : 0)) / questions.length) * 100;
+
+  const computeAxisScore = (axis: string) => {
+    const axisIndices = questions
+      .map((q, i) => (q.axis === axis ? i : -1))
+      .filter(i => i !== -1);
+    if (axisIndices.length === 0) return 50;
+    // 비대칭 가중치: 0번(+12), 1번(+9), 2번(-8), 3번(-11)
+    // 어떤 조합도 정확히 합이 0이 되지 않아 상쇄 케이스 방지
+    const weights = [12, 9, -8, -11];
+    let score = 50;
+    axisIndices.forEach(qIdx => {
+      if (qIdx < answers.length) {
+        const idx = questions[qIdx].options.indexOf(answers[qIdx]);
+        if (idx >= 0 && idx < weights.length) {
+          score += weights[idx];
+        }
+      }
+    });
+    // 48~52 구간은 "균형"으로 간주하고 최소 시각화 유지
+    return Math.max(8, Math.min(92, score));
+  };
+
+  /** 점수가 균형 영역(48~52)이면 true */
+  const isBalancedScore = (score: number) => score >= 48 && score <= 52;
+
+  const handleShareImage = async () => {
+    if (!resultCardRef.current || isCapturing) return;
+    setIsCapturing(true);
+
+    const captureElement = resultCardRef.current;
+    const originalWidth = captureElement.style.width;
+    const originalMaxWidth = captureElement.style.maxWidth;
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const rect = captureElement.getBoundingClientRect();
+      captureElement.style.width = `${rect.width}px`;
+      captureElement.style.maxWidth = `${rect.width}px`;
+
+      const dpr = Math.min(window.devicePixelRatio || 2, 3);
+      const scale = Math.max(dpr, 2);
+
+      try {
+        const { default: html2canvas } = await import('html2canvas');
+        const canvas = await html2canvas(captureElement, {
+          scale,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: '#ffffff',
+          width: rect.width,
+          height: captureElement.scrollHeight,
+        });
+        const dataUrl = canvas.toDataURL('image/png', 0.95);
+        const link = document.createElement('a');
+        link.download = `성경MBTI_${result?.character || '결과'}.png`;
+        link.href = dataUrl;
+        link.click();
+        return;
+      } catch (html2canvasErr) {
+        console.warn('html2canvas failed, trying dom-to-image-more fallback:', html2canvasErr);
+      }
+
+      const fontLinks: HTMLLinkElement[] = [];
+      document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]').forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        if (href.includes('fonts.googleapis.com') || href.includes('cdnjs.cloudflare.com')) {
+          fontLinks.push(link);
+          link.remove();
+        }
+      });
+      try {
+        const { toPng } = await import('dom-to-image-more');
+        const dataUrl = await toPng(captureElement, {
+          quality: 0.95,
+          cacheBust: true,
+          width: rect.width * scale,
+          height: captureElement.scrollHeight * scale,
+          style: {
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            width: `${rect.width}px`,
+          },
+        });
+        const link = document.createElement('a');
+        link.download = `성경MBTI_${result?.character || '결과'}.png`;
+        link.href = dataUrl;
+        link.click();
+      } catch (domToImageErr) {
+        console.error('dom-to-image-more also failed:', domToImageErr);
+        throw domToImageErr;
+      } finally {
+        fontLinks.forEach((link) => {
+          document.head.appendChild(link);
+        });
+      }
+    } catch (err) {
+      console.error('Image capture failed:', err);
+      notifyUser('이미지 저장에 실패했어요. 다시 시도해주세요.');
+    } finally {
+      if (resultCardRef.current) {
+        resultCardRef.current.style.width = originalWidth || '';
+        resultCardRef.current.style.maxWidth = originalMaxWidth || '';
+      }
+      setIsCapturing(false);
+    }
+  };
+
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 24, scale: 0.96 },
+    visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 200, damping: 20 } },
+  };
+
+  return (
+    <div className="min-h-screen bg-background-50">
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-10 md:py-16">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-10"
+        >
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-accent-100 border border-accent-200 mb-5">
+            <i className="ri-user-heart-line text-3xl text-accent-600"></i>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">성경 인물 MBTI</h1>
+          <p className="text-sm text-foreground-600">
+            {result ? '당신과 닮은 성경 속 인물을 찾았어요!' : '8가지 질문에 답하고 나와 닮은 성경 인물을 찾아보세요'}
+          </p>
+        </motion.div>
+
+        {/* Progress bar */}
+        {!result && (
+          <div className="mb-8">
+            <div className="w-full h-2.5 rounded-full bg-background-200 overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-accent-500"
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPct}%` }}
+                transition={{ duration: 0.4 }}
+              ></motion.div>
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-foreground-500">{currentStep + 1} / {questions.length}</p>
+              {currentStep > 0 && (
+                <button onClick={handleBack} className="text-xs text-foreground-500 hover:text-accent-600 transition-colors cursor-pointer flex items-center gap-1">
+                  <i className="ri-arrow-left-line"></i> 이전 질문
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Loading */}
+        {isLoading && (
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-background-100 border border-background-200 rounded-[20px] p-10 md:p-14 text-center max-w-sm w-full mx-4"
+            >
+              <div className="relative w-24 h-24 mx-auto mb-6">
+                <motion.div
+                  animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 rounded-full border-4 border-accent-200"
+                ></motion.div>
+                <div className="absolute inset-0 rounded-full border-4 border-accent-400 animate-spin border-t-transparent"></div>
+                <div className="absolute inset-2 rounded-full bg-accent-100 flex items-center justify-center">
+                  <i className="ri-user-search-line text-3xl text-accent-600"></i>
+                </div>
+              </div>
+              <p className="text-lg font-semibold text-foreground-950 mb-2">성경 인물을 찾는 중...</p>
+              <p className="text-sm text-foreground-600">AI가 당신의 8가지 성향을 분석하고 있어요</p>
+              <div className="mt-4 flex items-center justify-center gap-1">
+                {[0, 1, 2].map(i => (
+                  <motion.div
+                    key={i}
+                    animate={{ scale: [0.6, 1, 0.6], opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.3 }}
+                    className="w-2 h-2 rounded-full bg-accent-400"
+                  ></motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Error with retry */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-xl bg-accent-100 border border-accent-200 text-sm text-accent-700 flex items-start gap-3"
+          >
+            <i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i>
+            <div className="flex-1">
+              <p className="mb-1">{error}</p>
+              <button
+                onClick={handleRetry}
+                className="text-xs font-semibold underline hover:text-accent-800 cursor-pointer"
+              >
+                다시 시도하기
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Question Cards */}
+        <AnimatePresence mode="wait" custom={direction}>
+          {!result && currentStep < questions.length && (
+            <motion.div
+              key={currentStep}
+              custom={direction}
+              initial={{ opacity: 0, x: direction > 0 ? 60 : -60 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: direction > 0 ? -60 : 60 }}
+              transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+            >
+              <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-xl bg-accent-100 flex items-center justify-center">
+                    <i className={`${questions[currentStep].icon} text-xl text-accent-600`}></i>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-accent-600 uppercase tracking-wider">{questions[currentStep].axis}</span>
+                    <p className="text-lg font-bold text-foreground-950">Q{currentStep + 1}. {questions[currentStep].question}</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {questions[currentStep].options.map((option, idx) => (
+                    <motion.button
+                      key={idx}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: idx * 0.06 }}
+                      onClick={() => handleAnswer(option)}
+                      className="w-full text-left p-4 rounded-2xl border-2 border-background-200 bg-background-50 hover:border-accent-300 hover:bg-accent-50/50 transition-all duration-200 cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-background-200 flex items-center justify-center flex-shrink-0 group-hover:bg-accent-200 transition-colors">
+                          <span className="text-xs font-bold text-foreground-600 group-hover:text-accent-700">{idx + 1}</span>
+                        </div>
+                        <span className="text-sm font-medium text-foreground-800 group-hover:text-foreground-950">{option}</span>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Result — with staggered animations */}
+        <AnimatePresence>
+          {result && (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              {/* 공유용 결과 카드 — 정사각형 1:1, 인스타 공유 톤 (이 영역만 캡처됨) */}
+              <div
+                ref={resultCardRef}
+                className="relative aspect-square w-full max-w-md mx-auto rounded-[20px] overflow-hidden mb-4 bg-gradient-to-br from-accent-500 via-primary-500 to-secondary-500 flex flex-col items-center justify-center text-center p-8"
+              >
+                {/* Sparkle overlay */}
+                <AnimatePresence>
+                  {showSparkles && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.4 }}
+                      className="absolute inset-0 pointer-events-none z-0"
+                    >
+                      {Array.from({ length: 12 }).map((_, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, scale: 0, x: '50%', y: '50%' }}
+                          animate={{
+                            opacity: [0, 1, 0],
+                            scale: [0, 1.5, 0],
+                            x: `${30 + Math.random() * 40}%`,
+                            y: `${30 + Math.random() * 40}%`,
+                          }}
+                          transition={{
+                            duration: 1.5 + Math.random(),
+                            delay: i * 0.1,
+                            repeat: 1,
+                          }}
+                          className="absolute w-3 h-3 rounded-full bg-background-100/60"
+                        />
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Character reveal */}
+                <motion.div variants={itemVariants} className="relative z-10">
+                  <motion.div
+                    animate={{ scale: [0, 1.2, 1], rotate: [0, -5, 3, 0] }}
+                    transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1], delay: 0.1 }}
+                    className="w-24 h-24 rounded-full bg-background-100/20 backdrop-blur-sm border-4 border-white/40 flex items-center justify-center mx-auto mb-5 relative"
+                  >
+                    <motion.div
+                      animate={{ boxShadow: ['0 0 0 0px rgba(255,255,255,0)', '0 0 0 16px rgba(255,255,255,0)', '0 0 0 0px rgba(255,255,255,0)'] }}
+                      transition={{ duration: 2, repeat: Infinity, delay: 0.8 }}
+                      className="absolute inset-0 rounded-full"
+                    ></motion.div>
+                    <i className="ri-user-star-line text-5xl text-white relative z-10"></i>
+                  </motion.div>
+                </motion.div>
+
+                <motion.div variants={itemVariants} className="relative z-10">
+                  <div className="inline-block px-4 py-1.5 rounded-full bg-background-100/20 backdrop-blur-sm text-white text-sm font-bold mb-4">
+                    {result.matchingPhrase}
+                  </div>
+                </motion.div>
+
+                <motion.h2 variants={itemVariants} className="text-3xl font-black text-white mb-3 relative z-10">
+                  {result.character}
+                </motion.h2>
+
+                <motion.p variants={itemVariants} className="text-sm text-white/85 leading-relaxed max-w-xs mx-auto relative z-10 line-clamp-3">
+                  {result.description}
+                </motion.p>
+
+                {/* 워터마크 */}
+                <div className="absolute bottom-4 inset-x-0 flex items-center justify-center gap-1.5 text-white/70 text-[11px] font-semibold relative z-10">
+                  <i className="ri-book-open-line"></i>
+                  강릉학생회 · 성경인물 MBTI
+                </div>
+              </div>
+
+              {/* 상세 결과 (캡처 영역 밖) */}
+              <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8 text-center mb-4 relative overflow-hidden">
+                {/* Traits with count-up */}
+                {result.traits && (
+                  <motion.div variants={itemVariants} className="relative z-10">
+                    <div className="bg-background-50 rounded-2xl p-5 mb-6 border border-background-200">
+                      <p className="text-xs font-bold text-foreground-600 mb-4 uppercase tracking-wider">성향 프로필</p>
+                      <div className="space-y-3">
+                        {result.traits.map((trait, i) => (
+                          <CountUpBar key={i} label={trait.label} value={trait.value} delay={400 + i * 120} />
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Axis visualization */}
+                <motion.div variants={itemVariants} className="relative z-10">
+                  <div className="bg-background-50 rounded-2xl p-5 mb-6 border border-background-200">
+                    <p className="text-xs font-bold text-foreground-600 mb-4 uppercase tracking-wider">4축 성향 분석</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {Object.entries(axisLabels).map(([axis, labels]) => {
+                        const score = computeAxisScore(axis);
+                        const balanced = isBalancedScore(score);
+                        // 균형 영역이면 최소 6% 너비 보장, 아니면 실제 비율
+                        const barWidth = balanced ? 6 : Math.abs(score - 50) * 2;
+                        return (
+                          <div key={axis} className="bg-background-100 rounded-xl p-3 border border-background-200">
+                            <div className="flex items-center justify-between text-[10px] text-foreground-500 mb-1">
+                              <span>{labels.left}</span>
+                              <span>{labels.right}</span>
+                            </div>
+                            <div className="relative h-2 rounded-full bg-background-200 overflow-hidden">
+                              <motion.div
+                                className={`absolute top-0 h-full rounded-full ${balanced ? 'bg-amber-400' : 'bg-accent-400'}`}
+                                initial={{ left: '50%', width: 0 }}
+                                animate={{ left: `${Math.min(score, 50)}%`, width: `${barWidth}%` }}
+                                transition={{ duration: 0.8, delay: 0.6 }}
+                              ></motion.div>
+                              <div className="absolute top-0 left-1/2 w-0.5 h-full bg-foreground-300"></div>
+                            </div>
+                            {balanced && (
+                              <p className="text-[10px] text-amber-600 font-medium mt-1 text-center">균형형</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Bible verse */}
+                {result.bibleVerse && (
+                  <motion.div variants={itemVariants} className="relative z-10">
+                    <div className="bg-primary-50 rounded-2xl p-5 mb-5 border border-primary-100">
+                      <p className="text-sm font-medium text-primary-700 italic leading-relaxed">"{result.bibleVerse}"</p>
+                    </div>
+                  </motion.div>
+                )}
+
+                <motion.div variants={itemVariants} className="relative z-10">
+                  <div className="bg-accent-50 rounded-2xl p-5 mb-6 border border-accent-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <i className="ri-lightbulb-line text-accent-600"></i>
+                      <span className="text-sm font-bold text-accent-700">배울 점</span>
+                    </div>
+                    <p className="text-sm text-accent-700 leading-relaxed">{result.lesson}</p>
+                  </div>
+                </motion.div>
+
+                {result.bestWith && (
+                  <motion.div variants={itemVariants} className="relative z-10">
+                    <div className="mb-6">
+                      <span className="text-xs font-medium text-foreground-500">잘 어울리는 성경 인물</span>
+                      <p className="text-sm font-semibold text-accent-600 mt-1">{result.bestWith}</p>
+                    </div>
+                  </motion.div>
+                )}
+
+                {result.challenge && (
+                  <motion.div variants={itemVariants} className="relative z-10">
+                    <div className="mb-6 bg-background-50 rounded-xl p-4 border border-background-200">
+                      <span className="text-xs font-medium text-foreground-500">성장을 위한 조언</span>
+                      <p className="text-sm text-foreground-700 mt-1">{result.challenge}</p>
+                    </div>
+                  </motion.div>
+                )}
+
+                <motion.div variants={itemVariants} className="relative z-10">
+                  <div className="flex items-center justify-center gap-3 flex-wrap">
+                    <button
+                      onClick={handleShareImage}
+                      disabled={isCapturing}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-accent-200 text-accent-700 font-semibold text-sm hover:bg-accent-50 hover:border-accent-400 transition-all duration-300 cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <i className="ri-download-line"></i>
+                      {isCapturing ? '저장 중...' : '이미지로 저장'}
+                    </button>
+                    <button
+                      onClick={handleReset}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-background-200 text-foreground-700 font-semibold text-sm hover:bg-background-100 hover:border-background-300 transition-all duration-300 cursor-pointer whitespace-nowrap"
+                    >
+                      <i className="ri-refresh-line"></i>
+                      다시 테스트하기
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Toast Notification */}
+        <AnimatePresence>
+          {toastMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              transition={{ duration: 0.25 }}
+              className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full text-sm font-medium shadow-lg flex items-center gap-2 ${
+                toastType === 'success' ? 'bg-emerald-600 text-white' :
+                toastType === 'error' ? 'bg-rose-600 text-white' :
+                'bg-foreground-900 text-background-50'
+              }`}
+            >
+              <i className={`${
+                toastType === 'success' ? 'ri-check-line' :
+                toastType === 'error' ? 'ri-close-line' :
+                'ri-information-line'
+              }`}></i>
+              {toastMessage}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
 }
