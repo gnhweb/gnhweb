@@ -9,10 +9,10 @@
     "prebuild": "node scripts/normalize-legacy-types.mjs && node scripts/dedupe-passkey-auth.mjs",
     "lint": "eslint src --ext ts,tsx",
     "type-check": "tsc --noEmit --project tsconfig.app.json",
-    "pretype-check": "node scripts/normalize-legacy-types.mjs && node scripts/dedupe-passkey-auth.mjs",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "verify": "node scripts/verify-site.mjs && npm run type-check && npm run lint && npm run build"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",
@@ -48,7 +48,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.5.5",
     "globals": "^15.14.0",
-    "jiti": "^2.4.2",
+    "jiti": "^2.4.0",
     "jsdom": "^25.0.0",
     "kakao.maps.d.ts": "^0.1.40",
     "postcss": "^8.4.49",
