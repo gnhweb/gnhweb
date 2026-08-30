@@ -58,7 +58,7 @@ export default function Layout(){
  },[loading,user?.id,hasPin,pinLocked,lockApp]);
 
  useEffect(()=>{
-   if(loading||!user||!hasPin||!pinLocked||passkeyAttemptedRef.current===user.id)return;
+   if(loading||!user||!hasPin||!pinLocked||passkeyAttemptedRef.current !== null && passkeyAttemptedRef.current === user.id)return;
    passkeyAttemptedRef.current=user.id;
    let cancelled=false;
    const timer=window.setTimeout(async()=>{
