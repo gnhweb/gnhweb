@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-type TelegramUser = { user_id?: string; name: string; club?: string | null; telegram_username?: string | null };
+type TelegramUser = { user_id?: string; name: string; club?: string | null; telegram_username?: string | null; is_expelled?: boolean | null };
 const TELEGRAM_USERNAME_RE = /^[A-Za-z0-9_]{5,32}$/;
 
 type TelegramElement = HTMLAnchorElement | HTMLButtonElement;
@@ -15,6 +15,10 @@ function normalizeText(value: string | null | undefined): string {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
+function telegramHref(username: string): string {
+  return `https://t.me/${encodeURIComponent(username)}`;
+}
+
 /** 출석 관련 화면의 Telegram 바로가기를 실제 username으로 안전하게 연결한다. */
 export default function AttendanceTelegramEnhancer() {
   useEffect(() => {
@@ -24,6 +28,7 @@ export default function AttendanceTelegramEnhancer() {
     let cancelled = false;
     let loaded = false;
     let users: TelegramUser[] = [];
+    let observerScheduled = false;
     const handlers = new WeakMap<HTMLElement, TelegramHandler>();
 
     const removeHandler = (element: TelegramElement) => {
@@ -39,13 +44,14 @@ export default function AttendanceTelegramEnhancer() {
       if (element instanceof HTMLAnchorElement) {
         element.removeAttribute('href');
         element.removeAttribute('target');
+        element.removeAttribute('rel');
       } else {
         element.disabled = true;
       }
       const handler: TelegramHandler = (event) => {
         event.preventDefault();
         event.stopPropagation();
-        if ('stopImmediatePropagation' in event) event.stopImmediatePropagation();
+        event.stopImmediatePropagation();
       };
       element.addEventListener('click', handler, true);
       handlers.set(element, handler);
@@ -65,7 +71,7 @@ export default function AttendanceTelegramEnhancer() {
         const handler: TelegramHandler = (event) => {
           event.preventDefault();
           event.stopPropagation();
-          if ('stopImmediatePropagation' in event) event.stopImmediatePropagation();
+          event.stopImmediatePropagation();
           window.location.assign(href);
         };
         element.addEventListener('click', handler, true);
@@ -77,10 +83,21 @@ export default function AttendanceTelegramEnhancer() {
       element.setAttribute('title', `${name}님 Telegram 열기`);
     };
 
+    const candidateContainer = (element: TelegramElement): HTMLElement | null => {
+      const direct = element.closest<HTMLElement>('[data-user-id], [data-telegram-user-id]');
+      if (direct) return direct;
+      let node: HTMLElement | null = element.parentElement;
+      for (let depth = 0; node && depth < 5; depth += 1, node = node.parentElement) {
+        const text = normalizeText(node.textContent);
+        if (text && text.length < 180 && /텔레그램|Telegram/.test(text)) return node;
+      }
+      return element.parentElement;
+    };
+
     const resolveMatches = (element: TelegramElement): TelegramUser[] => {
-      const container = element.closest('[data-user-id], [data-telegram-user-id]');
+      const container = candidateContainer(element);
       const explicitUserId = container?.getAttribute('data-user-id') || container?.getAttribute('data-telegram-user-id');
-      const validUsers = users.filter((user) => TELEGRAM_USERNAME_RE.test(normalizeTelegramUsername(user.telegram_username)));
+      const validUsers = users.filter((user) => !user.is_expelled && TELEGRAM_USERNAME_RE.test(normalizeTelegramUsername(user.telegram_username)));
 
       if (explicitUserId) {
         const byId = validUsers.filter((user) => user.user_id === explicitUserId);
@@ -104,13 +121,14 @@ export default function AttendanceTelegramEnhancer() {
     };
 
     const apply = () => {
+      observerScheduled = false;
       if (cancelled || !loaded) return;
 
       const candidateSet = new Set<TelegramElement>();
       document.querySelectorAll<HTMLAnchorElement>('a[href^="tg://"], a[data-telegram-shortcut="true"]').forEach((element) => candidateSet.add(element));
       document.querySelectorAll<HTMLButtonElement>('button[data-telegram-placeholder="true"], button[data-telegram-shortcut="true"]').forEach((element) => candidateSet.add(element));
       document.querySelectorAll<HTMLButtonElement>('button').forEach((element) => {
-        if (normalizeText(element.textContent).includes('텔레그램으로 심방하기')) candidateSet.add(element);
+        if (/텔레그램(?:으로)?\s*심방하기|Telegram/i.test(normalizeText(element.textContent))) candidateSet.add(element);
       });
 
       candidateSet.forEach((element) => {
@@ -121,16 +139,21 @@ export default function AttendanceTelegramEnhancer() {
         }
 
         const username = normalizeTelegramUsername(matches[0].telegram_username);
-        setEnabled(element, `https://t.me/${username}`, matches[0].name);
+        setEnabled(element, telegramHref(username), matches[0].name);
       });
+    };
+
+    const scheduleApply = () => {
+      if (observerScheduled || cancelled) return;
+      observerScheduled = true;
+      window.requestAnimationFrame(() => apply());
     };
 
     const load = async () => {
       const { data, error } = await supabase
         .from('user_roles')
-        .select('user_id,name,club,telegram_username')
-        .eq('is_active', true)
-        .eq('is_expelled', false);
+        .select('user_id,name,club,telegram_username,is_expelled')
+        .eq('is_active', true);
 
       if (cancelled) return;
       users = error ? [] : ((data || []) as TelegramUser[]);
@@ -138,7 +161,7 @@ export default function AttendanceTelegramEnhancer() {
       apply();
     };
 
-    const observer = new MutationObserver(apply);
+    const observer = new MutationObserver(scheduleApply);
     observer.observe(document.body, { childList: true, subtree: true });
     void load();
 
