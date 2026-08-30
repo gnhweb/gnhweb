@@ -54,4 +54,15 @@ auth = auth.replace(
 );
 write('src/hooks/useAuth.tsx', auth);
 
+let router = read('src/router/config.tsx');
+router = router.replace(
+  '{ path: "/reports/review", element: <AuthGuard minRole="teacher">{withSuspense(<ReviewPage />)}</AuthGuard> },',
+  '{ path: "/reports/review", element: <AuthGuard minRole="president">{withSuspense(<ReviewPage />)}</AuthGuard> },',
+);
+router = router.replace(
+  'const ReviewPage = lazy(() => import("@/pages/reports/review/page"));',
+  'const ReviewPage = lazy(() => import("@/pages/reports/review/workflow"));',
+);
+write('src/router/config.tsx', router);
+
 console.log('Legacy TypeScript normalization complete.');
