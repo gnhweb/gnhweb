@@ -56,6 +56,6 @@ export default function UnifiedNavbar(){
  <Link to="/faith" onClick={()=>setMobileOpen(false)} className="flex min-h-11 items-center rounded-xl px-3 font-semibold hover:bg-background-100">신앙 전체보기</Link><Link to="/telegram-settings" onClick={()=>setMobileOpen(false)} className="flex min-h-11 items-center rounded-xl px-3 font-semibold hover:bg-background-100">Telegram 연결 설정</Link><Link to="/profile" onClick={()=>setMobileOpen(false)} className="flex min-h-11 items-center rounded-xl px-3 font-semibold hover:bg-background-100">내 프로필</Link>
  <button type="button" onClick={toggleTheme} className="flex min-h-11 w-full items-center rounded-xl px-3 text-left font-semibold">{theme==='dark'?'화이트 모드':'다크 모드'}</button>{user&&<button type="button" onClick={async()=>{await signOut();setMobileOpen(false)}} className="flex min-h-11 w-full items-center rounded-xl px-3 text-left font-semibold text-rose-600">로그아웃</button>}
  </div></div></aside></div>}
- <NotificationsModal open={notifyOpen} onClose={()=>setNotifyOpen(false)}/><NotificationToast/>
+ <NotificationsModal user={user} open={notifyOpen} onClose={()=>setNotifyOpen(false)}/><NotificationToast user={user}/>
  </>;
 }
