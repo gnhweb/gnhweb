@@ -63,8 +63,27 @@ jobs:
             fi
           done
           if [[ "$missing" -ne 0 ]]; then exit 1; fi
+      - name: List Playwright tests
+        shell: bash
+        run: |
+          set -o pipefail
+          npx playwright test --list 2>&1 | tee playwright-list.log
       - name: Run mobile E2E
-        run: npm run test:e2e
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:e2e 2>&1 | tee mobile-e2e.log
+      - name: Upload Playwright diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-mobile-diagnostics
+          path: |
+            mobile-e2e.log
+            playwright-list.log
+            playwright-report/
+            test-results/
+          retention-days: 14
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
