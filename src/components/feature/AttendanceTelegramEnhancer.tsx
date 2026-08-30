@@ -15,11 +15,15 @@ function normalizeText(value: string | null | undefined): string {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
-function telegramHref(username: string): string {
+/** 출석 화면의 Telegram 버튼은 Telegram 앱으로 직접 연결한다. */
+function telegramAppHref(username: string): string {
+  return `tg://resolve?domain=${encodeURIComponent(username)}`;
+}
+
+function telegramWebFallback(username: string): string {
   return `https://t.me/${encodeURIComponent(username)}`;
 }
 
-/** 출석 관련 화면의 Telegram 바로가기를 실제 username으로 안전하게 연결한다. */
 export default function AttendanceTelegramEnhancer() {
   useEffect(() => {
     const path = window.location.pathname;
@@ -60,27 +64,42 @@ export default function AttendanceTelegramEnhancer() {
       element.classList.add('opacity-40', 'cursor-not-allowed');
     };
 
-    const setEnabled = (element: TelegramElement, href: string, name: string) => {
+    const setEnabled = (element: TelegramElement, username: string, name: string) => {
       removeHandler(element);
+      const appHref = telegramAppHref(username);
+      const webHref = telegramWebFallback(username);
+
       if (element instanceof HTMLAnchorElement) {
-        element.href = href;
-        element.target = '_blank';
-        element.rel = 'noopener noreferrer';
-      } else {
-        element.disabled = false;
-        const handler: TelegramHandler = (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          event.stopImmediatePropagation();
-          window.location.assign(href);
-        };
-        element.addEventListener('click', handler, true);
-        handlers.set(element, handler);
+        element.href = appHref;
+        element.removeAttribute('target');
+        element.removeAttribute('rel');
       }
+
+      const handler: TelegramHandler = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        // 기존 요구대로 모바일/앱 환경에서는 Telegram 앱을 우선 연다.
+        // tg://를 지원하지 않는 브라우저는 https fallback으로 이동한다.
+        const fallbackTimer = window.setTimeout(() => {
+          if (!document.hidden) window.location.assign(webHref);
+        }, 900);
+        const onVisibility = () => {
+          window.clearTimeout(fallbackTimer);
+          document.removeEventListener('visibilitychange', onVisibility);
+        };
+        document.addEventListener('visibilitychange', onVisibility, { once: true });
+
+        window.location.assign(appHref);
+      };
+
+      element.addEventListener('click', handler, true);
+      handlers.set(element, handler);
       element.setAttribute('data-telegram-shortcut', 'true');
       element.removeAttribute('aria-disabled');
       element.classList.remove('opacity-40', 'cursor-not-allowed');
-      element.setAttribute('title', `${name}님 Telegram 열기`);
+      element.setAttribute('title', `${name}님 Telegram 앱 열기`);
     };
 
     const candidateContainer = (element: TelegramElement): HTMLElement | null => {
@@ -89,7 +108,7 @@ export default function AttendanceTelegramEnhancer() {
       let node: HTMLElement | null = element.parentElement;
       for (let depth = 0; node && depth < 5; depth += 1, node = node.parentElement) {
         const text = normalizeText(node.textContent);
-        if (text && text.length < 180 && /텔레그램|Telegram/.test(text)) return node;
+        if (text && text.length < 180 && /텔레그램|Telegram/i.test(text)) return node;
       }
       return element.parentElement;
     };
@@ -139,7 +158,7 @@ export default function AttendanceTelegramEnhancer() {
         }
 
         const username = normalizeTelegramUsername(matches[0].telegram_username);
-        setEnabled(element, telegramHref(username), matches[0].name);
+        setEnabled(element, username, matches[0].name);
       });
     };
 
