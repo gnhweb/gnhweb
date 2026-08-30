@@ -30,9 +30,6 @@ export default function Layout(){
  const passkeyAttemptedRef=useRef<string|null>(null);
  const pinBootCheckedRef=useRef<string|null>(null);
 
- // A fresh app/tab session must start behind the PIN lock when a PIN exists.
- // A successful SIGNED_IN event is marked as already unlocked so the user is not
- // immediately locked after an intentional email/password login.
  useEffect(()=>{
    if(typeof window==='undefined') return;
    const key='gnh_pin_session_unlocked';
@@ -60,9 +57,6 @@ export default function Layout(){
    try{sessionStorage.setItem(key,'1');}catch{}
  },[loading,user?.id,hasPin,pinLocked,lockApp]);
 
- // When a registered platform passkey exists, attempt the platform authenticator
- // immediately on a fresh lock screen. Unsupported/no-passkey environments simply
- // fall back to the visible PIN keypad in AppLockScreen.
  useEffect(()=>{
    if(loading||!user||!hasPin||!pinLocked||passkeyAttemptedRef.current===user.id)return;
    passkeyAttemptedRef.current=user.id;
