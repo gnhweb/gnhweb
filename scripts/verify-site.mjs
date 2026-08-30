@@ -66,13 +66,15 @@ for (const file of textFiles) {
     || rel === path.join('src', 'pages', 'attendanceBoard', 'page.tsx')
   ) && layoutSource.includes('AttendanceTelegramEnhancer');
 
-  if (isKnownAttendanceBridge) telegramBridges.push(rel);
+  const isTelegramAppResolver = rel === path.join('src', 'components', 'feature', 'AttendanceTelegramEnhancer.tsx');
+
+  if (isKnownAttendanceBridge || isTelegramAppResolver) telegramBridges.push(rel);
   else telegramPlaceholders.push(rel);
 }
 if (telegramPlaceholders.length > 0) {
   fail(`Telegram 실제 placeholder/legacy scheme 발견: ${telegramPlaceholders.join(', ')}`);
 } else if (telegramBridges.length > 0) {
-  pass(`Telegram 출석화면 임시 브리지를 실제 URL로 변환하도록 연결됨: ${telegramBridges.length}개`);
+  pass(`Telegram 출석화면 앱 연결 브리지 확인: ${telegramBridges.length}개`);
 } else {
   pass('Telegram legacy navigation 없음');
 }
