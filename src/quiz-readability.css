@@ -1,0 +1,39 @@
+/* Bible quiz: readable answer cards and mobile-safe wrapping. */
+.min-h-screen.bg-background-50 .space-y-3 > button {
+  min-height: 60px;
+  padding: 14px 16px;
+  line-height: 1.6;
+  align-items: flex-start;
+}
+
+.min-h-screen.bg-background-50 .space-y-3 > button > div {
+  align-items: flex-start;
+}
+
+.min-h-screen.bg-background-50 .space-y-3 > button > div > span.flex-1 {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  line-height: 1.65;
+  font-size: 15px;
+  font-weight: 600;
+  padding-top: 1px;
+}
+
+.min-h-screen.bg-background-50 .space-y-3 > button > div > div.w-9 {
+  flex: 0 0 36px;
+}
+
+@media (max-width: 639px) {
+  .min-h-screen.bg-background-50 .space-y-3 > button {
+    min-height: 62px;
+    padding: 14px 14px;
+    border-radius: 16px;
+  }
+
+  .min-h-screen.bg-background-50 .space-y-3 > button > div > span.flex-1 {
+    font-size: 14px;
+    line-height: 1.7;
+  }
+}
