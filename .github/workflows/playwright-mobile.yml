@@ -64,38 +64,26 @@ jobs:
           done
           if [[ "$missing" -ne 0 ]]; then exit 1; fi
       - name: List Playwright tests
+        run: npx playwright test tests/e2e/mobile-smoke.spec.ts tests/e2e/site-audit.spec.ts --list > playwright-list.log 2>&1
+      - name: Run mobile smoke
         shell: bash
         run: |
           set -o pipefail
-          npx playwright test --list 2>&1 | tee playwright-list.log
-      - name: Run mobile E2E
+          npx playwright test tests/e2e/mobile-smoke.spec.ts 2>&1 | tee mobile-smoke.log
+      - name: Run authenticated site audit
         shell: bash
         run: |
           set -o pipefail
-          npm run test:e2e 2>&1 | tee mobile-e2e.log
+          npx playwright test tests/e2e/site-audit.spec.ts 2>&1 | tee site-audit.log
       - name: Upload Playwright diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-mobile-diagnostics
           path: |
-            mobile-e2e.log
             playwright-list.log
+            mobile-smoke.log
+            site-audit.log
             playwright-report/
             test-results/
           retention-days: 14
-      - name: Upload Playwright report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-mobile-report
-          path: playwright-report/
-          retention-days: 14
-      - name: Upload Playwright test artifacts
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-mobile-test-results
-          path: test-results/
-          retention-days: 14
-# Full production audit: this workflow intentionally runs on every main push.
