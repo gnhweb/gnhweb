@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { todayKey } from '@/lib/date';
 
+// Late attendance is intentionally recorded separately from on-time attendance.
 interface AttendanceLocationData {
   id: string;
   label: string;
