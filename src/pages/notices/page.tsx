@@ -1,182 +1,24 @@
-import { formatKoreanDate, formatKoreanDateTime } from '@/lib/date';
-import { useState, useEffect } from 'react';
+import { formatKoreanDate } from '@/lib/date';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 
-interface NoticeItem {
-  id: string;
-  author_id: string;
-  author_name?: string;
-  title: string;
-  content: string;
-  category?: string;
-  is_pinned: boolean;
-  created_at: string;
-  updated_at: string;
-}
+interface NoticeItem { id:string; author_id:string; author_name?:string; title:string; content:string; category?:string; is_pinned:boolean; created_at:string; updated_at:string; }
+const LOCAL_KEY='notice_reads';
+const localKey=(uid?:string)=>uid?`${LOCAL_KEY}:${uid}`:LOCAL_KEY;
+const localIds=(uid?:string)=>{try{const raw=localStorage.getItem(localKey(uid));const a=raw?JSON.parse(raw):[];return Array.isArray(a)?new Set<string>(a):new Set<string>()}catch{return new Set<string>()}};
 
-const NOTICE_READS_KEY = 'notice_reads';
-
-function noticeReadsKey(userId?: string | null) {
-  return userId ? `${NOTICE_READS_KEY}:${userId}` : NOTICE_READS_KEY;
-}
-
-function readLocalIds(userId?: string | null) {
-  try {
-    const raw = localStorage.getItem(noticeReadsKey(userId));
-    const values = raw ? JSON.parse(raw) : [];
-    return Array.isArray(values) ? new Set<string>(values) : new Set<string>();
-  } catch {
-    return new Set<string>();
-  }
-}
-
-export default function Notices() {
-  const { user, profile } = useAuth();
-  const [notices, setNotices] = useState<NoticeItem[]>([]);
-  const [readIds, setReadIds] = useState<Set<string>>(() => readLocalIds(user?.id));
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchNotices = async () => {
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('notices')
-          .select('id, author_id, author_name, title, content, category, is_pinned, created_at, updated_at')
-          .order('is_pinned', { ascending: false })
-          .order('created_at', { ascending: false });
-        if (fetchError) throw fetchError;
-
-        const rows = (data || []) as NoticeItem[];
-        setNotices(rows);
-
-        if (user?.id && rows.length > 0) {
-          const ids = rows.map((notice) => notice.id);
-          const { data: reads, error: readError } = await supabase
-            .from('notice_reads')
-            .select('notice_id')
-            .eq('user_id', user.id)
-            .in('notice_id', ids);
-
-          if (!readError && reads) {
-            const merged = new Set<string>([
-              ...readIds,
-              ...reads.map((row: { notice_id: string }) => row.notice_id),
-            ]);
-            setReadIds(merged);
-            try {
-              localStorage.setItem(noticeReadsKey(user.id), JSON.stringify([...merged]));
-            } catch { /* best effort */ }
-          }
-        }
-      } catch {
-        setError('공지사항을 불러오는 중 오류가 발생했습니다');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchNotices();
-  }, [user?.id]);
-
-  const formatDate = (dateStr: string) =>
-    formatKoreanDate(dateStr, { year: 'numeric', month: 'numeric', day: 'numeric' }).replace(/ /g, '.');
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background-50">
-        <div className="max-w-4xl mx-auto px-4 md:px-6 py-10 md:py-16">
-          <div className="flex items-center justify-center py-20">
-            <i className="ri-loader-4-line animate-spin text-2xl text-primary-500"></i>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-background-50">
-      <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-16">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-10">
-            <div className="text-center sm:text-left">
-              <div className="inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-[20px] bg-background-100 border border-background-200 mb-4 md:mb-5">
-                <i className="ri-megaphone-line text-2xl md:text-3xl text-primary-600"></i>
-              </div>
-              <h1 className="text-xl md:text-3xl font-bold text-foreground-950 mb-2 md:mb-3">공지사항</h1>
-              <p className="text-foreground-600 text-sm">강릉 학생회의 주요 소식을 확인하세요</p>
-            </div>
-            {profile && profile.role !== 'member' && (
-              <Link to="/notices/write" className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-primary-500 text-background-50 text-sm font-medium hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap self-start">
-                <i className="ri-add-line"></i>공지 작성
-              </Link>
-            )}
-          </div>
-
-          {error && (
-            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="bg-accent-100 border border-accent-200 rounded-[20px] p-4 mb-6">
-              <p className="text-sm text-accent-700 flex items-center gap-2"><i className="ri-error-warning-line"></i>{error}</p>
-              <button onClick={() => window.location.reload()} className="mt-2 text-xs text-accent-600 underline cursor-pointer">다시 시도</button>
-            </motion.div>
-          )}
-
-          {notices.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="w-16 h-16 rounded-[20px] bg-background-100 border border-background-200 flex items-center justify-center mx-auto mb-4">
-                <i className="ri-megaphone-line text-2xl text-foreground-500"></i>
-              </div>
-              <p className="text-foreground-600 text-sm mb-4">아직 등록된 공지사항이 없어요</p>
-              {profile && profile.role !== 'member' ? (
-                <Link to="/notices/write" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary-500 text-background-50 text-sm font-medium hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap">
-                  <i className="ri-add-line"></i>첫 공지 작성하기
-                </Link>
-              ) : <p className="text-xs text-foreground-600">작성 권한이 없습니다</p>}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {notices.map((notice, index) => {
-                const unread = user ? !readIds.has(notice.id) : false;
-                return (
-                  <motion.div key={notice.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.05 }}>
-                    <Link to={`/notices/${notice.id}`} className={`block bg-background-100 border rounded-[20px] p-5 md:p-6 hover:border-background-300/60 transition-all duration-300 group cursor-pointer ${unread ? 'border-primary-200 shadow-sm' : 'border-background-200'}`}>
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 hidden sm:block">
-                          {notice.is_pinned ? (
-                            <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center"><i className="ri-pushpin-line text-lg text-primary-600"></i></div>
-                          ) : (
-                            <div className="w-10 h-10 rounded-xl bg-background-200 flex items-center justify-center"><i className="ri-file-text-line text-lg text-foreground-500"></i></div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${notice.category === '긴급' ? 'bg-rose-100 text-rose-700 border border-rose-300' : notice.is_pinned ? 'bg-primary-100 text-primary-700' : 'bg-background-200 text-foreground-600'}`}>{notice.category || '일반'}</span>
-                            {unread && <span className="inline-flex items-center gap-1 rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-extrabold text-white">NEW</span>}
-                            {notice.category === '긴급' && <span className="text-xs text-rose-500 font-bold flex items-center gap-1"><i className="ri-alert-fill"></i>긴급</span>}
-                            {notice.is_pinned && <span className="text-xs text-primary-500 font-medium">고정</span>}
-                            {notice.author_name && <span className="text-xs text-foreground-500"><i className="ri-user-line mr-0.5"></i>{notice.author_name}</span>}
-                          </div>
-                          <h2 className="text-base md:text-lg font-bold text-foreground-950 group-hover:text-primary-600 transition-colors mb-1">{notice.title}</h2>
-                          <p className="text-sm text-foreground-600 line-clamp-2">{notice.content.split('\n')[0]}</p>
-                        </div>
-                        <div className="flex-shrink-0 text-right">
-                          <span className="text-xs text-foreground-600 whitespace-nowrap">{formatDate(notice.created_at)}</span>
-                          <div className="mt-2"><i className="ri-arrow-right-s-line text-foreground-500 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all inline-block"></i></div>
-                        </div>
-                      </div>
-                    </Link>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.5 }} className="mt-10 text-center">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-foreground-600 hover:text-foreground-950 transition-colors"><i className="ri-arrow-left-line"></i>홈으로 돌아가기</Link>
-        </motion.div>
-      </div>
-    </div>
-  );
+export default function Notices(){
+ const {user,profile}=useAuth(); const [notices,setNotices]=useState<NoticeItem[]>([]); const [readIds,setReadIds]=useState<Set<string>>(new Set()); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
+ useEffect(()=>{let mounted=true;(async()=>{setLoading(true);setError(null);try{const {data,error}=await supabase.from('notices').select('id,author_id,author_name,title,content,category,is_pinned,created_at,updated_at').order('is_pinned',{ascending:false}).order('created_at',{ascending:false});if(error)throw error;const rows=(data||[]) as NoticeItem[];if(!mounted)return;setNotices(rows);
+   if(user?.id&&rows.length){const {data:reads,error:readError}=await supabase.from('notice_reads').select('notice_id').eq('user_id',user.id).in('notice_id',rows.map(x=>x.id));if(!mounted)return;if(!readError&&reads){const next=new Set(reads.map((r:{notice_id:string})=>r.notice_id));setReadIds(next);try{localStorage.setItem(localKey(user.id),JSON.stringify([...next]))}catch{}}else setReadIds(localIds(user.id));}else if(!user?.id)setReadIds(localIds());
+  }catch{if(mounted){setError('공지사항을 불러오는 중 오류가 발생했습니다');setReadIds(localIds(user?.id))}}finally{if(mounted)setLoading(false)}})();return()=>{mounted=false}},[user?.id]);
+ const formatDate=(s:string)=>formatKoreanDate(s,{year:'numeric',month:'numeric',day:'numeric'}).replace(/ /g,'.');
+ if(loading)return <div className="min-h-screen bg-background-50 flex items-center justify-center"><i className="ri-loader-4-line animate-spin text-2xl text-primary-500"/></div>;
+ return <div className="min-h-screen bg-background-50"><div className="mx-auto max-w-4xl px-4 py-6 md:px-6 md:py-14 pb-28"><motion.div initial={{opacity:0,y:15}} animate={{opacity:1,y:0}}><div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="mb-3 flex h-12 w-12 items-center justify-center rounded-[18px] bg-background-100 border border-background-200"><i className="ri-megaphone-line text-2xl text-primary-600"/></div><h1 className="text-2xl md:text-3xl font-black text-foreground-950">공지사항</h1><p className="mt-1 text-sm text-foreground-600">강릉 학생회의 주요 소식을 확인하세요.</p></div>{profile&&profile.role!=='member'&&<Link to="/notices/write" className="inline-flex min-h-11 items-center gap-2 self-start rounded-full bg-primary-500 px-4 text-sm font-bold text-white">공지 작성</Link>}</div>
+ {error&&<div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><i className="ri-error-warning-line mr-1"/>{error}<button onClick={()=>window.location.reload()} className="ml-3 underline">다시 시도</button></div>}
+ {notices.length===0?<div className="rounded-2xl border border-background-200 bg-background-100 p-10 text-center text-sm text-foreground-500">등록된 공지사항이 없습니다.</div>:<div className="space-y-3">{notices.map((n,i)=>{const unread=!!user&&!readIds.has(n.id);return <motion.div key={n.id} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:i*.03}}><Link to={`/notices/${n.id}`} className={`block rounded-[20px] border bg-background-100 p-5 transition hover:-translate-y-0.5 ${unread?'border-primary-200 shadow-sm':'border-background-200'}`}><div className="flex items-start gap-3"><div className={`hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${n.is_pinned?'bg-primary-100':'bg-background-200'}`}><i className={`${n.is_pinned?'ri-pushpin-line text-primary-600':'ri-file-text-line text-foreground-500'}`}/></div><div className="min-w-0 flex-1"><div className="mb-1.5 flex flex-wrap items-center gap-2"><span className="rounded-full bg-background-200 px-2 py-0.5 text-[10px] font-bold text-foreground-600">{n.category||'일반'}</span>{unread&&<span className="rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-black text-white">NEW</span>}{n.is_pinned&&<span className="text-[10px] font-bold text-primary-600">고정</span>}</div><h2 className="truncate text-base md:text-lg font-bold text-foreground-950">{n.title}</h2><p className="mt-1 line-clamp-2 text-sm text-foreground-600">{n.content.split('\n')[0]}</p><div className="mt-2 text-xs text-foreground-500">{n.author_name||'작성자'} · {formatDate(n.created_at)}</div></div><i className="ri-arrow-right-s-line mt-1 shrink-0 text-lg text-foreground-400"/></div></Link></motion.div>})}</div>}
+ </motion.div></div></div>;
 }
