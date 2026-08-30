@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { todayKey } from '@/lib/date';
-import type { UserProfile } from '@/types/auth';
 
 interface AttendanceLocationData {
   id: string;
@@ -12,6 +11,12 @@ interface AttendanceLocationData {
   is_active: boolean;
 }
 
+interface AttendanceProfile {
+  user_id: string;
+  name: string;
+  club?: string | null;
+}
+
 function getDistanceM(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -20,7 +25,7 @@ function getDistanceM(lat1: number, lng1: number, lat2: number, lng2: number) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export default function LateAttendance({ profile }: { profile: UserProfile }) {
+export default function LateAttendance({ profile }: { profile: AttendanceProfile }) {
   const [status, setStatus] = useState<'idle' | 'checking' | 'done' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [alreadyMarked, setAlreadyMarked] = useState(false);
