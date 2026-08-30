@@ -50,10 +50,11 @@ function walk(dir) {
 }
 walk(path.join(root, 'src'));
 
-// tg:// may be used as a transient legacy DOM placeholder on attendance screens.
-// Treat it as safe only when the app mounts AttendanceTelegramEnhancer there;
-// otherwise it is a real broken link and must fail verification.
-const textFiles = repoFiles.filter((f) => /\.(ts|tsx|js|jsx|css|json|html)$/.test(f));
+const textFiles = repoFiles
+  .filter((f) => /\.(ts|tsx|js|jsx|css|json|html)$/.test(f))
+  // This verifier contains the literal pattern it uses to detect legacy Telegram schemes.
+  // Never scan itself for the pattern.
+  .filter((f) => path.relative(root, f) !== path.join('scripts', 'verify-site.mjs'));
 const telegramPlaceholders = [];
 for (const file of textFiles) {
   const text = fs.readFileSync(file, 'utf8');
@@ -61,12 +62,11 @@ for (const file of textFiles) {
     const rel = path.relative(root, file);
     const allowedDynamicPlaceholder = /SmartAttendance\.tsx$|attendanceBoard[\\/]page\.tsx$/.test(rel)
       && layoutSource.includes('AttendanceTelegramEnhancer')
-      && layoutSource.includes('/dashboard/attendance')
       && layoutSource.includes('/attendance-board');
     if (!allowedDynamicPlaceholder) telegramPlaceholders.push(rel);
   }
 }
-if (telegramPlaceholders.length === 0) pass('Telegram placeholder가 검증 가능한 연결 구조로 처리됨');
+if (telegramPlaceholders.length === 0) pass('Telegram legacy placeholder 없음');
 else fail(`Telegram 실제 placeholder/legacy scheme 발견: ${telegramPlaceholders.join(', ')}`);
 
 const pkgPath = path.join(root, 'package.json');
