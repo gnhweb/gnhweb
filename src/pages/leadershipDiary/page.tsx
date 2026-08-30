@@ -41,6 +41,7 @@ export default function LeadershipDiary() {
   const [isLoading, setIsLoading] = useState(false);
   const [adviceExpanded, setAdviceExpanded] = useState(false);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState('all');
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
@@ -48,30 +49,37 @@ export default function LeadershipDiary() {
   const [loadingEntries, setLoadingEntries] = useState(true);
   const [tone, setTone] = useState<'direct' | 'empathetic'>('direct');
 
-  // Load entries from DB
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoadingEntries(false);
+      return;
+    }
+
     (async () => {
       try {
-        const { data } = await supabase
+        const { data, error: loadError } = await supabase
           .from('leadership_entries')
           .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(100);
 
-        if (data && data.length > 0) {
-          setEntries(data.map((e: Record<string, unknown>) => ({
-            id: e.id as string,
-            date: e.created_at as string,
-            concern: e.concern as string,
-            advice: e.advice as string,
-            category: e.category as string,
-            bookmarked: (e.bookmarked as boolean) || false,
-          })));
-        }
-      } catch { /* ignore */ }
-      setLoadingEntries(false);
+        if (loadError) throw loadError;
+
+        setEntries((data || []).map((e: Record<string, unknown>) => ({
+          id: e.id as string,
+          date: e.created_at as string,
+          concern: e.concern as string,
+          advice: e.advice as string,
+          category: e.category as string,
+          bookmarked: Boolean(e.bookmarked),
+        })));
+      } catch (loadError) {
+        console.error('Leadership diary load error:', loadError);
+        setActionError('코칭 기록을 불러오지 못했습니다. 새로고침 후 다시 확인해주세요.');
+      } finally {
+        setLoadingEntries(false);
+      }
     })();
   }, [user]);
 
@@ -103,6 +111,7 @@ export default function LeadershipDiary() {
 
     setIsLoading(true);
     setError('');
+    setActionError('');
     try {
       const fullConcern = situation.trim()
         ? `${concern.trim()}\n\n[작성자가 처한 구체적 상황]\n${situation.trim()}`
@@ -113,30 +122,30 @@ export default function LeadershipDiary() {
 
       const category = detectCategory(concern);
       const entryId = crypto.randomUUID();
-      const newEntry: DiaryEntry = {
+      const { error: saveError } = await supabase.from('leadership_entries').insert({
         id: entryId,
-        date: new Date().toISOString(),
+        user_id: user.id,
         concern: concern.trim(),
         advice: result,
         category,
         bookmarked: false,
-      };
-      setEntries(prev => [newEntry, ...prev]);
+      });
 
-      // Save to DB
-      try {
-        await supabase.from('leadership_entries').insert({
+      if (saveError) {
+        console.error('Leadership diary save error:', saveError);
+        setActionError('AI 코칭은 생성됐지만 기록 저장에 실패했습니다. 결과는 확인할 수 있으며 다시 시도할 수 있습니다.');
+      } else {
+        setEntries(prev => [{
           id: entryId,
-          user_id: user.id,
+          date: new Date().toISOString(),
           concern: concern.trim(),
           advice: result,
           category,
           bookmarked: false,
-        });
-      } catch { /* offline fallback */ }
-
-      setConcern('');
-      setSituation('');
+        }, ...prev]);
+        setConcern('');
+        setSituation('');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '코칭을 받아오지 못했어요');
     } finally {
@@ -146,149 +155,100 @@ export default function LeadershipDiary() {
 
   const toggleBookmark = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const newVal = !entries.find(en => en.id === id)?.bookmarked;
+    setActionError('');
+    const current = entries.find(en => en.id === id);
+    if (!current) return;
+    const newVal = !current.bookmarked;
+
+    const { error: updateError } = await supabase
+      .from('leadership_entries')
+      .update({ bookmarked: newVal })
+      .eq('id', id)
+      .eq('user_id', user?.id || '');
+
+    if (updateError) {
+      console.error('Leadership diary bookmark error:', updateError);
+      setActionError('북마크 저장에 실패했습니다. 다시 시도해주세요.');
+      return;
+    }
+
     setEntries(prev => prev.map(en => en.id === id ? { ...en, bookmarked: newVal } : en));
-    try { await supabase.from('leadership_entries').update({ bookmarked: newVal }).eq('id', id); } catch { /* ignore */ }
   };
 
   const deleteEntry = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('이 기록을 삭제할까요?')) {
-      setEntries(prev => prev.filter(en => en.id !== id));
-      if (expandedId === id) setExpandedId(null);
-      try { await supabase.from('leadership_entries').delete().eq('id', id); } catch { /* ignore */ }
+    if (!confirm('이 기록을 삭제할까요?')) return;
+
+    setActionError('');
+    const { error: deleteError } = await supabase
+      .from('leadership_entries')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user?.id || '');
+
+    if (deleteError) {
+      console.error('Leadership diary delete error:', deleteError);
+      setActionError('기록 삭제에 실패했습니다. 다시 시도해주세요.');
+      return;
     }
+
+    setEntries(prev => prev.filter(en => en.id !== id));
+    if (expandedId === id) setExpandedId(null);
   };
 
   return (
     <div className="min-h-screen bg-background-50">
       <div className="max-w-2xl mx-auto px-4 md:px-6 py-10 md:py-16">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-accent-100 border border-accent-200 mb-5">
             <i className="ri-book-read-line text-3xl text-accent-600"></i>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">리더십 코칭 다이어리</h1>
-          <p className="text-sm text-foreground-600">
-            조직 운영의 어려움을 기록하고 최고의 리더에게 깊이 있는 조언을 받아보세요
-          </p>
+          <p className="text-sm text-foreground-600">조직 운영의 어려움을 기록하고 최고의 리더에게 깊이 있는 조언을 받아보세요</p>
         </motion.div>
 
-        {/* Stats bar */}
         {entries.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid grid-cols-3 gap-3 mb-6"
-          >
-            <div className="bg-background-100 border border-background-200 rounded-2xl p-3 text-center">
-              <p className="text-lg font-bold text-foreground-950">{stats.total}</p>
-              <p className="text-[10px] text-foreground-500">총 기록</p>
-            </div>
-            <div className="bg-background-100 border border-background-200 rounded-2xl p-3 text-center">
-              <p className="text-lg font-bold text-accent-600">{stats.bookmarked}</p>
-              <p className="text-[10px] text-foreground-500">북마크</p>
-            </div>
-            <div className="bg-background-100 border border-background-200 rounded-2xl p-3 text-center">
-              <p className="text-lg font-bold text-primary-600">{stats.categories.reduce((m, c) => Math.max(m, c.count), 0)}</p>
-              <p className="text-[10px] text-foreground-500">최다 주제</p>
-            </div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-3 gap-3 mb-6">
+            <div className="bg-background-100 border border-background-200 rounded-2xl p-3 text-center"><p className="text-lg font-bold text-foreground-950">{stats.total}</p><p className="text-[10px] text-foreground-500">총 기록</p></div>
+            <div className="bg-background-100 border border-background-200 rounded-2xl p-3 text-center"><p className="text-lg font-bold text-accent-600">{stats.bookmarked}</p><p className="text-[10px] text-foreground-500">북마크</p></div>
+            <div className="bg-background-100 border border-background-200 rounded-2xl p-3 text-center"><p className="text-lg font-bold text-primary-600">{stats.categories.reduce((m, c) => Math.max(m, c.count), 0)}</p><p className="text-[10px] text-foreground-500">최다 주제</p></div>
           </motion.div>
         )}
 
-        {/* Input Form */}
-        <motion.form
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          onSubmit={handleSubmit}
-          className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8 mb-8"
-        >
-          <label className="block text-sm font-semibold text-foreground-700 mb-3">
-            오늘의 고민을 자유롭게 적어주세요
-          </label>
-          <textarea
-            value={concern}
-            onChange={e => setConcern(e.target.value)}
-            placeholder="예) 동아리원들의 참여도가 점점 떨어지는 것 같아요. 어떻게 동기부여를 해야 할까요?"
-            maxLength={500}
-            rows={4}
-            className="w-full px-4 py-3 rounded-xl border border-background-200 bg-background-50 focus:border-accent-400 outline-none transition-all resize-none text-sm text-foreground-950 mb-2"
-          />
+        <motion.form initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleSubmit} className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8 mb-8">
+          <label className="block text-sm font-semibold text-foreground-700 mb-3">오늘의 고민을 자유롭게 적어주세요</label>
+          <textarea value={concern} onChange={e => setConcern(e.target.value)} placeholder="예) 동아리원들의 참여도가 점점 떨어지는 것 같아요. 어떻게 동기부여를 해야 할까요?" maxLength={500} rows={4} className="w-full px-4 py-3 rounded-xl border border-background-200 bg-background-50 focus:border-accent-400 outline-none transition-all resize-none text-sm text-foreground-950 mb-2" />
           <p className="text-xs text-foreground-500 mb-3">{concern.length}/500</p>
 
-          <label className="block text-sm font-semibold text-foreground-700 mb-3">
-            <i className="ri-file-list-3-line mr-1.5"></i>구체적인 상황 설명 (선택)
-          </label>
-          <textarea
-            value={situation}
-            onChange={e => setSituation(e.target.value)}
-            placeholder="예) 지난 3주 연속으로 출석률이 80% → 72% → 65%로 떨어지고 있고, 특히 고3 학생들이 시험 기간이라 빠지는 경우가 많아요."
-            maxLength={500}
-            rows={3}
-            className="w-full px-4 py-3 rounded-xl border border-background-200 bg-background-50 focus:border-accent-400 outline-none transition-all resize-none text-sm text-foreground-950 mb-2"
-          />
+          <label className="block text-sm font-semibold text-foreground-700 mb-3"><i className="ri-file-list-3-line mr-1.5"></i>구체적인 상황 설명 (선택)</label>
+          <textarea value={situation} onChange={e => setSituation(e.target.value)} placeholder="예) 지난 3주 연속으로 출석률이 80% → 72% → 65%로 떨어지고 있고, 특히 고3 학생들이 시험 기간이라 빠지는 경우가 많아요." maxLength={500} rows={3} className="w-full px-4 py-3 rounded-xl border border-background-200 bg-background-50 focus:border-accent-400 outline-none transition-all resize-none text-sm text-foreground-950 mb-2" />
           <p className="text-xs text-foreground-500 mb-4">{situation.length}/500</p>
 
-          {/* Tone Selector */}
           <div className="mb-4">
             <label className="block text-xs font-semibold text-foreground-600 mb-2">AI 코칭 톤</label>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setTone('direct')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  tone === 'direct'
-                    ? 'bg-rose-500 text-white'
-                    : 'bg-background-50 border border-background-200 text-foreground-600 hover:bg-background-100'
-                }`}
-              >
-                <i className="ri-flashlight-line"></i>
-                직설적으로
-              </button>
-              <button
-                type="button"
-                onClick={() => setTone('empathetic')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  tone === 'empathetic'
-                    ? 'bg-teal-500 text-white'
-                    : 'bg-background-50 border border-background-200 text-foreground-600 hover:bg-background-100'
-                }`}
-              >
-                <i className="ri-heart-line"></i>
-                감정적으로 공감하며
-              </button>
+              <button type="button" onClick={() => setTone('direct')} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${tone === 'direct' ? 'bg-rose-500 text-white' : 'bg-background-50 border border-background-200 text-foreground-600 hover:bg-background-100'}`}><i className="ri-flashlight-line"></i>직설적으로</button>
+              <button type="button" onClick={() => setTone('empathetic')} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${tone === 'empathetic' ? 'bg-teal-500 text-white' : 'bg-background-50 border border-background-200 text-foreground-600 hover:bg-background-100'}`}><i className="ri-heart-line"></i>감정적으로 공감하며</button>
             </div>
-            <p className="text-[10px] text-foreground-400 mt-1.5">
-              {tone === 'direct' ? '단호하고 실용적인 조언을 드려요. 빠른 결단과 실행에 초점을 맞춥니다.' : '먼저 마음을 알아주고, 부드럽게 방향을 제시해드려요.'}
-            </p>
+            <p className="text-[10px] text-foreground-400 mt-1.5">{tone === 'direct' ? '단호하고 실용적인 조언을 드려요. 빠른 결단과 실행에 초점을 맞춥니다.' : '먼저 마음을 알아주고, 부드럽게 방향을 제시해드려요.'}</p>
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700 flex items-start gap-2">
-              <i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i>
-              <span>{error}</span>
+          {(error || actionError) && (
+            <div className={`mb-4 p-3 rounded-xl border text-sm flex items-start gap-2 ${error ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+              <i className={`${error ? 'ri-error-warning-line' : 'ri-information-line'} mt-0.5 flex-shrink-0`}></i>
+              <span>{error || actionError}</span>
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={!concern.trim() || isLoading}
-            className="w-full py-3.5 rounded-[20px] bg-accent-500 text-background-50 dark:text-foreground-950 font-semibold text-base hover:bg-accent-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
-          >
+          <button type="submit" disabled={!concern.trim() || isLoading} className="w-full py-3.5 rounded-[20px] bg-accent-500 text-background-50 dark:text-foreground-950 font-semibold text-base hover:bg-accent-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap">
             <i className={`${isLoading ? 'ri-loader-4-line animate-spin' : 'ri-robot-line'} text-lg`}></i>
             {isLoading ? 'AI 코치가 분석 중...' : 'AI 코칭 받기'}
           </button>
         </motion.form>
 
-        {/* 로딩 중 — 모바일: 타이핑 인디케이터 */}
         {isLoading && (
           <div className="md:hidden flex items-end gap-2 mb-8">
-            <div className="w-8 h-8 rounded-full bg-accent-200 flex items-center justify-center flex-shrink-0">
-              <i className="ri-robot-line text-accent-700 text-sm"></i>
-            </div>
+            <div className="w-8 h-8 rounded-full bg-accent-200 flex items-center justify-center flex-shrink-0"><i className="ri-robot-line text-accent-700 text-sm"></i></div>
             <div className="bg-accent-50 border border-accent-200 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-accent-400 animate-bounce" style={{ animationDelay: '0ms' }}></span>
               <span className="w-1.5 h-1.5 rounded-full bg-accent-400 animate-bounce" style={{ animationDelay: '150ms' }}></span>
@@ -297,165 +257,68 @@ export default function LeadershipDiary() {
           </div>
         )}
 
-        {/* Latest advice — PC: 기존 카드 유지 */}
         <AnimatePresence>
           {advice && !isLoading && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="hidden md:block bg-accent-50 border border-accent-200 rounded-[20px] p-6 md:p-8 mb-8"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-accent-200 flex items-center justify-center">
-                  <i className="ri-lightbulb-flash-line text-xl text-accent-700"></i>
-                </div>
-                <div>
-                  <p className="text-base font-bold text-accent-800">AI 코치의 조언</p>
-                  <p className="text-xs text-accent-600">방금 전</p>
-                </div>
-              </div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="hidden md:block bg-accent-50 border border-accent-200 rounded-[20px] p-6 md:p-8 mb-8">
+              <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl bg-accent-200 flex items-center justify-center"><i className="ri-lightbulb-flash-line text-xl text-accent-700"></i></div><div><p className="text-base font-bold text-accent-800">AI 코치의 조언</p><p className="text-xs text-accent-600">방금 전</p></div></div>
               <p className="text-sm text-accent-800 leading-relaxed whitespace-pre-wrap">{advice}</p>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Latest advice — 모바일: 좌측 아바타 + 말풍선, 길면 접기/펼치기 */}
         <AnimatePresence>
           {advice && !isLoading && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="md:hidden flex items-start gap-2 mb-8"
-            >
-              <div className="w-8 h-8 rounded-full bg-accent-200 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i className="ri-lightbulb-flash-line text-accent-700 text-sm"></i>
-              </div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="md:hidden flex items-start gap-2 mb-8">
+              <div className="w-8 h-8 rounded-full bg-accent-200 flex items-center justify-center flex-shrink-0 mt-0.5"><i className="ri-lightbulb-flash-line text-accent-700 text-sm"></i></div>
               <div className="flex-1 min-w-0 bg-accent-50 border border-accent-200 rounded-2xl rounded-tl-sm p-4">
                 <p className="text-xs font-bold text-accent-700 mb-1.5">AI 코치의 조언</p>
                 <p className={`text-sm text-accent-800 leading-relaxed whitespace-pre-wrap ${!adviceExpanded && advice.length > 220 ? 'line-clamp-6' : ''}`}>{advice}</p>
-                {advice.length > 220 && (
-                  <button onClick={() => setAdviceExpanded(v => !v)} className="mt-1.5 text-xs font-semibold text-accent-600 cursor-pointer">
-                    {adviceExpanded ? '접기' : '더 보기'}
-                  </button>
-                )}
+                {advice.length > 220 && <button onClick={() => setAdviceExpanded(v => !v)} className="mt-1.5 text-xs font-semibold text-accent-600 cursor-pointer">{adviceExpanded ? '접기' : '더 보기'}</button>}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Filters */}
         {entries.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center gap-2 overflow-x-auto pb-2">
               {CATEGORIES.map(cat => (
-                <button
-                  key={cat.key}
-                  onClick={() => setActiveCategory(cat.key)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                    activeCategory === cat.key
-                      ? 'bg-accent-500 text-background-50'
-                      : 'bg-background-100 border border-background-200 text-foreground-600 hover:bg-background-50'
-                  }`}
-                >
-                  <i className={`${cat.icon}`}></i>
-                  {cat.label}
-                  {cat.key !== 'all' && (
-                    <span className="ml-0.5 text-[10px] opacity-70">
-                      {entries.filter(e => e.category === cat.key).length}
-                    </span>
-                  )}
+                <button key={cat.key} onClick={() => setActiveCategory(cat.key)} className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${activeCategory === cat.key ? 'bg-accent-500 text-background-50' : 'bg-background-100 border border-background-200 text-foreground-600 hover:bg-background-50'}`}>
+                  <i className={`${cat.icon}`}></i>{cat.label}{cat.key !== 'all' && <span className="ml-0.5 text-[10px] opacity-70">{entries.filter(e => e.category === cat.key).length}</span>}
                 </button>
               ))}
-              <button
-                onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  showBookmarksOnly
-                    ? 'bg-amber-500 text-background-50'
-                    : 'bg-background-100 border border-background-200 text-foreground-600 hover:bg-background-50'
-                }`}
-              >
-                <i className="ri-bookmark-line"></i> 북마크
-              </button>
+              <button onClick={() => setShowBookmarksOnly(!showBookmarksOnly)} className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${showBookmarksOnly ? 'bg-amber-500 text-background-50' : 'bg-background-100 border border-background-200 text-foreground-600 hover:bg-background-50'}`}><i className="ri-bookmark-line"></i> 북마크</button>
             </div>
-            <div className="mt-2">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="기록 검색..."
-                className="w-full px-4 py-2 text-sm bg-background-100 border border-background-200 rounded-xl outline-none focus:border-accent-400 transition-colors"
-              />
-            </div>
+            <div className="mt-2"><input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="기록 검색..." className="w-full px-4 py-2 text-sm bg-background-100 border border-background-200 rounded-xl outline-none focus:border-accent-400 transition-colors" /></div>
           </div>
         )}
 
-        {/* History */}
         {loadingEntries ? (
-          <div className="text-center py-8">
-            <div className="w-8 h-8 border-2 border-accent-200 border-t-accent-500 rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-sm text-foreground-500">기록을 불러오는 중...</p>
-          </div>
+          <div className="text-center py-8"><div className="w-8 h-8 border-2 border-accent-200 border-t-accent-500 rounded-full animate-spin mx-auto mb-3"></div><p className="text-sm text-foreground-500">기록을 불러오는 중...</p></div>
         ) : filteredEntries.length > 0 ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-            <h2 className="text-base font-bold text-foreground-700 mb-4">
-              지난 코칭 기록
-              <span className="text-xs font-normal text-foreground-500 ml-2">({filteredEntries.length}개)</span>
-            </h2>
+            <h2 className="text-base font-bold text-foreground-700 mb-4">지난 코칭 기록<span className="text-xs font-normal text-foreground-500 ml-2">({filteredEntries.length}개)</span></h2>
             <div className="space-y-3">
               {filteredEntries.map(entry => {
                 const isExpanded = expandedId === entry.id;
                 const catConfig = CATEGORIES.find(c => c.key === entry.category);
                 return (
                   <div key={entry.id} className="bg-background-100 border border-background-200 rounded-2xl overflow-hidden">
-                    <button
-                      onClick={() => setExpandedId(isExpanded ? null : entry.id)}
-                      className="w-full p-4 text-left hover:bg-background-50/50 transition-colors cursor-pointer"
-                    >
+                    <button onClick={() => setExpandedId(isExpanded ? null : entry.id)} className="w-full p-4 text-left hover:bg-background-50/50 transition-colors cursor-pointer">
                       <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-accent-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <i className="ri-book-open-line text-accent-600"></i>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground-900 truncate">{entry.concern}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-background-200 text-foreground-500 font-medium">
-                              {catConfig?.label || '기타'}
-                            </span>
-                            <span className="text-[10px] text-foreground-400">
-                              {formatKoreanDate(entry.date, { month: 'long', day: 'numeric', weekday: 'short' })}
-                            </span>
-                          </div>
-                        </div>
+                        <div className="w-9 h-9 rounded-lg bg-accent-100 flex items-center justify-center flex-shrink-0 mt-0.5"><i className="ri-book-open-line text-accent-600"></i></div>
+                        <div className="flex-1 min-w-0"><p className="text-sm font-medium text-foreground-900 truncate">{entry.concern}</p><div className="flex items-center gap-2 mt-1"><span className="text-[10px] px-1.5 py-0.5 rounded bg-background-200 text-foreground-500 font-medium">{catConfig?.label || '기타'}</span><span className="text-[10px] text-foreground-400">{formatKoreanDate(entry.date, { month: 'long', day: 'numeric', weekday: 'short' })}</span></div></div>
                         <div className="flex items-center gap-1">
-                          <button
-                            onClick={(e) => toggleBookmark(entry.id, e)}
-                            className="p-1.5 rounded-lg hover:bg-background-200 transition-colors cursor-pointer"
-                          >
-                            <i className={`${entry.bookmarked ? 'ri-bookmark-fill text-amber-500' : 'ri-bookmark-line text-foreground-400'} text-sm`}></i>
-                          </button>
-                          <button
-                            onClick={(e) => deleteEntry(entry.id, e)}
-                            className="p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-                          >
-                            <i className="ri-delete-bin-line text-sm text-foreground-400 hover:text-rose-500"></i>
-                          </button>
+                          <button onClick={(e) => toggleBookmark(entry.id, e)} className="p-1.5 rounded-lg hover:bg-background-200 transition-colors cursor-pointer"><i className={`${entry.bookmarked ? 'ri-bookmark-fill text-amber-500' : 'ri-bookmark-line text-foreground-400'} text-sm`}></i></button>
+                          <button onClick={(e) => deleteEntry(entry.id, e)} className="p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"><i className="ri-delete-bin-line text-sm text-foreground-400 hover:text-rose-500"></i></button>
                           <i className={`text-foreground-500 text-sm transition-transform ${isExpanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}`}></i>
                         </div>
                       </div>
                     </button>
                     <AnimatePresence>
                       {isExpanded && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="px-4 pb-4 pt-0 border-t border-background-200">
-                            <p className="text-sm text-foreground-700 leading-relaxed mt-3 whitespace-pre-wrap">{entry.advice}</p>
-                          </div>
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                          <div className="px-4 pb-4 pt-0 border-t border-background-200"><p className="text-sm text-foreground-700 leading-relaxed mt-3 whitespace-pre-wrap">{entry.advice}</p></div>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -465,9 +328,7 @@ export default function LeadershipDiary() {
             </div>
           </motion.div>
         ) : filteredEntries.length === 0 && entries.length > 0 ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-foreground-500">필터 조건에 맞는 기록이 없어요</p>
-          </div>
+          <div className="text-center py-8"><p className="text-sm text-foreground-500">필터 조건에 맞는 기록이 없어요</p></div>
         ) : null}
       </div>
     </div>
