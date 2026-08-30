@@ -41,9 +41,13 @@ async function signIn(page: Page, role: RoleKey) {
   await loginForm.locator('input[name="email"]').fill(email!);
   await loginForm.locator('input[name="password"]').fill(password!);
   await loginForm.locator('button[type="submit"]').click();
+
+  // The current login flow may require a first-time PIN setup modal before it
+  // navigates away from /login. Dismiss the optional prompt first; otherwise
+  // waiting for the URL to change deadlocks the E2E test for 60 seconds.
+  const skipPin = page.getByRole('button', { name: '나중에 하기' });
+  await skipPin.click({ timeout: 10_000 }).catch(() => {});
   await expect.poll(() => new URL(page.url()).pathname, { timeout: 60_000 }).not.toBe('/login');
-  const skipPin = page.getByRole('button', { name: '나중에 하기' }); if (await skipPin.isVisible().catch(() => false)) await skipPin.click();
-  await expect.poll(() => new URL(page.url()).pathname, { timeout: 20_000 }).not.toBe('/login');
 }
 const coreRoutes = ['/', '/search', '/clubs', '/notices', '/schedule', '/dashboard', '/profile'];
 
