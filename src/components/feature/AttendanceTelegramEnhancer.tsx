@@ -15,13 +15,9 @@ function normalizeText(value: string | null | undefined): string {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
-/** 출석 화면의 Telegram 버튼은 Telegram 앱으로 직접 연결한다. */
-function telegramAppHref(username: string): string {
-  return `tg://resolve?domain=${encodeURIComponent(username)}`;
-}
-
-function telegramWebFallback(username: string): string {
-  return `https://t.me/${encodeURIComponent(username)}`;
+function telegramAppHref(username?: string | null): string {
+  const normalized = normalizeTelegramUsername(username);
+  return normalized ? `tg://resolve?domain=${encodeURIComponent(normalized)}` : 'tg://';
 }
 
 export default function AttendanceTelegramEnhancer() {
@@ -43,31 +39,10 @@ export default function AttendanceTelegramEnhancer() {
       }
     };
 
-    const setDisabled = (element: TelegramElement, message: string) => {
+    const setEnabled = (element: TelegramElement, username: string | null | undefined, name: string) => {
       removeHandler(element);
-      if (element instanceof HTMLAnchorElement) {
-        element.removeAttribute('href');
-        element.removeAttribute('target');
-        element.removeAttribute('rel');
-      } else {
-        element.disabled = true;
-      }
-      const handler: TelegramHandler = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-      };
-      element.addEventListener('click', handler, true);
-      handlers.set(element, handler);
-      element.setAttribute('aria-disabled', 'true');
-      element.setAttribute('title', message);
-      element.classList.add('opacity-40', 'cursor-not-allowed');
-    };
-
-    const setEnabled = (element: TelegramElement, username: string, name: string) => {
-      removeHandler(element);
-      const appHref = telegramAppHref(username);
-      const webHref = telegramWebFallback(username);
+      const normalized = normalizeTelegramUsername(username);
+      const appHref = telegramAppHref(normalized || null);
 
       if (element instanceof HTMLAnchorElement) {
         element.href = appHref;
@@ -80,18 +55,9 @@ export default function AttendanceTelegramEnhancer() {
         event.stopPropagation();
         event.stopImmediatePropagation();
 
-        // 기존 요구대로 모바일/앱 환경에서는 Telegram 앱을 우선 연다.
-        // tg://를 지원하지 않는 브라우저는 https fallback으로 이동한다.
-        const fallbackTimer = window.setTimeout(() => {
-          if (!document.hidden) window.location.assign(webHref);
-        }, 900);
-        const onVisibility = () => {
-          window.clearTimeout(fallbackTimer);
-          document.removeEventListener('visibilitychange', onVisibility);
-        };
-        document.addEventListener('visibilitychange', onVisibility, { once: true });
-
-        window.location.assign(appHref);
+        // Always launch the native Telegram app. When a username exists,
+        // open that contact directly; otherwise simply open Telegram.
+        window.location.href = appHref;
       };
 
       element.addEventListener('click', handler, true);
@@ -99,7 +65,7 @@ export default function AttendanceTelegramEnhancer() {
       element.setAttribute('data-telegram-shortcut', 'true');
       element.removeAttribute('aria-disabled');
       element.classList.remove('opacity-40', 'cursor-not-allowed');
-      element.setAttribute('title', `${name}님 Telegram 앱 열기`);
+      element.setAttribute('title', normalized ? `${name}님 Telegram 앱 열기` : 'Telegram 앱 열기');
     };
 
     const candidateContainer = (element: TelegramElement): HTMLElement | null => {
@@ -113,14 +79,14 @@ export default function AttendanceTelegramEnhancer() {
       return element.parentElement;
     };
 
-    const resolveMatches = (element: TelegramElement): TelegramUser[] => {
+    const resolveMatch = (element: TelegramElement): TelegramUser | null => {
       const container = candidateContainer(element);
       const explicitUserId = container?.getAttribute('data-user-id') || container?.getAttribute('data-telegram-user-id');
       const validUsers = users.filter((user) => !user.is_expelled && TELEGRAM_USERNAME_RE.test(normalizeTelegramUsername(user.telegram_username)));
 
       if (explicitUserId) {
         const byId = validUsers.filter((user) => user.user_id === explicitUserId);
-        if (byId.length === 1) return byId;
+        if (byId.length === 1) return byId[0];
       }
 
       const text = normalizeText(container?.textContent || element.parentElement?.textContent || element.textContent);
@@ -128,15 +94,15 @@ export default function AttendanceTelegramEnhancer() {
         const name = normalizeText(user.name);
         return Boolean(name) && text.includes(name);
       });
-      if (nameMatches.length === 1) return nameMatches;
+      if (nameMatches.length === 1) return nameMatches[0];
       if (nameMatches.length > 1) {
         const clubMatches = nameMatches.filter((user) => {
           const club = normalizeText(user.club);
           return Boolean(club) && text.includes(club);
         });
-        if (clubMatches.length === 1) return clubMatches;
+        if (clubMatches.length === 1) return clubMatches[0];
       }
-      return [];
+      return null;
     };
 
     const apply = () => {
@@ -151,14 +117,8 @@ export default function AttendanceTelegramEnhancer() {
       });
 
       candidateSet.forEach((element) => {
-        const matches = resolveMatches(element);
-        if (matches.length !== 1) {
-          setDisabled(element, matches.length > 1 ? '동일한 이름의 사용자가 있어 Telegram을 자동 연결하지 않았습니다.' : 'Telegram username이 등록되지 않았습니다.');
-          return;
-        }
-
-        const username = normalizeTelegramUsername(matches[0].telegram_username);
-        setEnabled(element, username, matches[0].name);
+        const match = resolveMatch(element);
+        setEnabled(element, match?.telegram_username || null, match?.name || '사용자');
       });
     };
 
@@ -169,13 +129,13 @@ export default function AttendanceTelegramEnhancer() {
     };
 
     const load = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('user_roles')
         .select('user_id,name,club,telegram_username,is_expelled')
         .eq('is_active', true);
 
       if (cancelled) return;
-      users = error ? [] : ((data || []) as TelegramUser[]);
+      users = ((data || []) as TelegramUser[]);
       loaded = true;
       apply();
     };
