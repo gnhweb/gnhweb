@@ -64,7 +64,7 @@ const ToolsPage = lazy(() => import("@/pages/tools/page"));
 const AbsenceReasonsPage = lazy(() => import("@/pages/settings/absence-reasons/page"));
 const AttendanceLocationPage = lazy(() => import("@/pages/settings/attendance-location/page"));
 const ProfilePage = lazy(() => import("@/pages/profile/page"));
-const TeacherDashboard = lazy(() => import("@/pages/teacherDashboard/page"));
+const TeacherDashboard = lazy(() => import("@/pages/teacherDashboard/enhancedPage"));
 const GanghakNewsList = lazy(() => import("@/pages/ganghakNews/page"));
 const GanghakNewsDetail = lazy(() => import("@/pages/ganghakNews/detail/page"));
 const GanghakNewsWrite = lazy(() => import("@/pages/ganghakNews/write/page"));
