@@ -50,23 +50,17 @@ function walk(dir) {
 }
 walk(path.join(root, 'src'));
 
-const textFiles = repoFiles
-  .filter((f) => /\.(ts|tsx|js|jsx|css|json|html)$/.test(f))
-  // This verifier contains the literal pattern it uses to detect legacy Telegram schemes.
-  // Never scan itself for the pattern.
-  .filter((f) => path.relative(root, f) !== path.join('scripts', 'verify-site.mjs'));
+const textFiles = repoFiles.filter((f) => /\.(ts|tsx|js|jsx|css|json|html)$/.test(f));
 const telegramPlaceholders = [];
 for (const file of textFiles) {
   const text = fs.readFileSync(file, 'utf8');
-  if (/href=["']tg:\/\/["']|(?:window\.)?location\.(?:href|replace)\s*=\s*["']tg:\/\/["']/.test(text)) {
-    const rel = path.relative(root, file);
-    const allowedDynamicPlaceholder = /SmartAttendance\.tsx$|attendanceBoard[\\/]page\.tsx$/.test(rel)
-      && layoutSource.includes('AttendanceTelegramEnhancer')
-      && layoutSource.includes('/attendance-board');
-    if (!allowedDynamicPlaceholder) telegramPlaceholders.push(rel);
-  }
+  // Catch actual navigation to the legacy scheme, not selector/query strings.
+  const hasLegacyNavigation = /window\.location\.(?:href|assign|replace)\s*=\s*['"]tg:\/\//.test(text)
+    || /window\.location\.(?:assign|replace)\(\s*['"]tg:\/\//.test(text)
+    || /<a\b[^>]*\bhref\s*=\s*['"]tg:\/\//.test(text);
+  if (hasLegacyNavigation) telegramPlaceholders.push(path.relative(root, file));
 }
-if (telegramPlaceholders.length === 0) pass('Telegram legacy placeholder 없음');
+if (telegramPlaceholders.length === 0) pass('Telegram legacy navigation 없음');
 else fail(`Telegram 실제 placeholder/legacy scheme 발견: ${telegramPlaceholders.join(', ')}`);
 
 const pkgPath = path.join(root, 'package.json');
