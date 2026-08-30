@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabase';
 type TelegramUser = { user_id?: string; name: string; club?: string | null; telegram_username?: string | null };
 const TELEGRAM_USERNAME_RE = /^[A-Za-z0-9_]{5,32}$/;
 
+type TelegramElement = HTMLAnchorElement | HTMLButtonElement;
+type TelegramHandler = (event: Event) => void;
+
 function normalizeTelegramUsername(value: string | null | undefined): string {
   return String(value ?? '').trim().replace(/^@+/, '');
 }
@@ -21,19 +24,59 @@ export default function AttendanceTelegramEnhancer() {
     let cancelled = false;
     let loaded = false;
     let users: TelegramUser[] = [];
+    const handlers = new WeakMap<HTMLElement, TelegramHandler>();
 
-    const setDisabled = (element: HTMLAnchorElement | HTMLButtonElement, message: string) => {
+    const removeHandler = (element: TelegramElement) => {
+      const previous = handlers.get(element);
+      if (previous) {
+        element.removeEventListener('click', previous, true);
+        handlers.delete(element);
+      }
+    };
+
+    const setDisabled = (element: TelegramElement, message: string) => {
+      removeHandler(element);
       if (element instanceof HTMLAnchorElement) {
         element.removeAttribute('href');
         element.removeAttribute('target');
-        element.onclick = (event) => event.preventDefault();
       } else {
         element.disabled = true;
-        element.onclick = null;
       }
+      const handler: TelegramHandler = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if ('stopImmediatePropagation' in event) event.stopImmediatePropagation();
+      };
+      element.addEventListener('click', handler, true);
+      handlers.set(element, handler);
       element.setAttribute('aria-disabled', 'true');
       element.setAttribute('title', message);
       element.classList.add('opacity-40', 'cursor-not-allowed');
+    };
+
+    const setEnabled = (element: TelegramElement, href: string, name: string) => {
+      removeHandler(element);
+      if (element instanceof HTMLAnchorElement) {
+        element.href = href;
+        element.target = '_blank';
+        element.rel = 'noopener noreferrer';
+      } else {
+        element.disabled = false;
+        const handler: TelegramHandler = (event) => {
+          // The legacy React onClick points to a placeholder scheme. Capture the
+          // event before it reaches React's delegated handler and use the real URL.
+          event.preventDefault();
+          event.stopPropagation();
+          if ('stopImmediatePropagation' in event) event.stopImmediatePropagation();
+          window.location.assign(href);
+        };
+        element.addEventListener('click', handler, true);
+        handlers.set(element, handler);
+      }
+      element.setAttribute('data-telegram-shortcut', 'true');
+      element.removeAttribute('aria-disabled');
+      element.classList.remove('opacity-40', 'cursor-not-allowed');
+      element.setAttribute('title', `${name}님 Telegram 열기`);
     };
 
     const apply = () => {
@@ -41,7 +84,7 @@ export default function AttendanceTelegramEnhancer() {
       const validUsers = users.filter((user) => TELEGRAM_USERNAME_RE.test(normalizeTelegramUsername(user.telegram_username)));
       const selector = 'a[href="tg://"], a[href^="tg://"], button[data-telegram-placeholder="true"], button[data-telegram-shortcut="true"], a[data-telegram-shortcut="true"]';
 
-      document.querySelectorAll<HTMLAnchorElement | HTMLButtonElement>(selector).forEach((element) => {
+      document.querySelectorAll<TelegramElement>(selector).forEach((element) => {
         const container = element.closest('[data-user-id], [data-telegram-user-id]');
         const explicitUserId = container?.getAttribute('data-user-id') || container?.getAttribute('data-telegram-user-id');
         let matches = explicitUserId ? validUsers.filter((user) => user.user_id === explicitUserId) : [];
@@ -68,21 +111,7 @@ export default function AttendanceTelegramEnhancer() {
         }
 
         const username = normalizeTelegramUsername(matches[0].telegram_username);
-        const href = `https://t.me/${username}`;
-        if (element instanceof HTMLAnchorElement) {
-          element.href = href;
-          element.target = '_blank';
-          element.rel = 'noopener noreferrer';
-          element.onclick = null;
-        } else {
-          element.disabled = false;
-          element.onclick = () => { window.location.assign(href); };
-        }
-        element.setAttribute('data-telegram-shortcut', 'true');
-        element.setAttribute('data-telegram-user-id', matches[0].user_id || '');
-        element.removeAttribute('aria-disabled');
-        element.classList.remove('opacity-40', 'cursor-not-allowed');
-        element.setAttribute('title', `${matches[0].name}님 Telegram 열기`);
+        setEnabled(element, `https://t.me/${username}`, matches[0].name);
       });
     };
 
