@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 interface BadgeInfo {
@@ -17,137 +18,132 @@ const BADGES: BadgeInfo[] = [
   { name: '시작의 한걸음', icon: 'ri-footprint-line', days: 1, description: '첫 묵상 확인 또는 퀴즈 완료!' },
   { name: '말씀 새싹', icon: 'ri-seedling-line', days: 3, description: '3일 연속 말씀 묵상' },
   { name: '말씀의 길', icon: 'ri-road-map-line', days: 7, description: '7일 연속! 일주일을 말씀과 함께' },
-  { name: '믿음의 기초', icon: 'ri-anchor-line', days: 14, description: '2주 연속 말씀 뽑기' },
+  { name: '믿음의 기초', icon: 'ri-anchor-line', days: 14, description: '2주 연속 말씀 묵상' },
   { name: '말씀의 달인', icon: 'ri-book-3-line', days: 30, description: '30일 연속! 한 달을 말씀으로 채웠어요' },
   { name: '말씀 전사', icon: 'ri-shield-star-line', days: 50, description: '50일 연속 도전 성공' },
-  { name: '말씀의 성벽', icon: 'ri-building-2-line', days: 100, description: '100일 연속! 당신은 말씀의 성벽입니다' },
+  { name: '말씀의 성벽', icon: 'ri-building-2-line', days: 100, description: '100일 연속! 말씀의 성벽입니다' },
   { name: '영적 거인', icon: 'ri-star-smile-line', days: 200, description: '200일 연속! 영적 성장의 모범' },
   { name: '말씀의 기둥', icon: 'ri-building-line', days: 365, description: '1년 연속! 말씀의 기둥이 되셨습니다' },
 ];
 
 function getBadges(streak: number): BadgeInfo[] {
-  return BADGES.filter(b => b.days <= streak);
+  return BADGES.filter((badge) => badge.days <= streak);
 }
 
 function getNextBadge(streak: number): BadgeInfo | null {
-  return BADGES.find(b => b.days > streak) || null;
+  return BADGES.find((badge) => badge.days > streak) || null;
 }
 
-async function parseParams(req: Request): Promise<{ userId: string | null; club: string | null }> {
-  let userId: string | null = null;
-  let club: string | null = null;
+function getBearerToken(req: Request): string {
+  const header = req.headers.get('Authorization') || '';
+  return header.replace(/^Bearer\s+/i, '').trim();
+}
 
-  // 1. Try JSON body first (POST or GET with body)
-  if (req.body) {
-    try {
-      const cloned = req.clone();
-      const body = await cloned.json();
-      if (body && typeof body === 'object') {
-        if (body.userId) userId = String(body.userId);
-        if (body.club) club = String(body.club);
-      }
-    } catch { /* not JSON or empty */ }
+async function getAuthenticatedUserId(req: Request, supabaseUrl: string, anonKey: string): Promise<string | null> {
+  const token = getBearerToken(req);
+  if (!token || !anonKey) return null;
+  const client = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await client.auth.getUser();
+  if (error) return null;
+  return data.user?.id || null;
+}
+
+async function parseBody(req: Request): Promise<{ club: string | null }> {
+  if (req.method !== 'POST' || !req.body) return { club: null };
+  try {
+    const body = await req.json();
+    return { club: body && typeof body.club === 'string' ? body.club : null };
+  } catch {
+    return { club: null };
   }
+}
 
-  // 2. Fallback to URL query params
-  if (!userId || !club) {
-    const url = new URL(req.url);
-    if (!userId) userId = url.searchParams.get('userId');
-    if (!club) club = url.searchParams.get('club');
-  }
-
-  return { userId, club };
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+  });
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
+  if (req.method !== 'GET' && req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) return json({ error: '서버 설정이 올바르지 않습니다.' }, 500);
 
-    // Accept both GET and POST
-    if (req.method === 'GET' || req.method === 'POST') {
-      const { userId, club } = await parseParams(req);
+    const authenticatedUserId = await getAuthenticatedUserId(req, supabaseUrl, anonKey);
+    if (!authenticatedUserId) return json({ error: '로그인이 필요합니다.' }, 401);
 
-      let result: Record<string, unknown> = {};
+    const { club } = await parseBody(req);
+    const admin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
-      // 개인 스트릭
-      if (userId) {
-        const { data: streakData, error: streakErr } = await supabase
-          .from('bible_streaks')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
+    const result: Record<string, unknown> = {};
 
-        if (streakErr) {
-          console.error('streak query error:', streakErr);
-          result.individual = { streak: 0, maxStreak: 0, totalPicks: 0, badges: [], nextBadge: BADGES[0] };
-        } else if (streakData) {
-          result.individual = {
-            streak: streakData.streak_count,
-            maxStreak: streakData.max_streak,
-            totalPicks: streakData.total_picks,
-            lastPickDate: streakData.last_pick_date,
-            badges: getBadges(streakData.streak_count),
-            nextBadge: getNextBadge(streakData.streak_count),
-          };
-        } else {
-          result.individual = { streak: 0, maxStreak: 0, totalPicks: 0, badges: [], nextBadge: BADGES[0] };
-        }
-      }
+    const { data: streakData, error: streakErr } = await admin
+      .from('bible_streaks')
+      .select('streak_count,max_streak,total_picks,last_pick_date,club_name')
+      .eq('user_id', authenticatedUserId)
+      .maybeSingle();
 
-      // 동아리 랭킹
-      if (club) {
-        const { data: clubRank } = await supabase
-          .from('bible_streaks')
-          .select('user_id, streak_count, total_picks')
-          .eq('club_name', club)
-          .order('streak_count', { ascending: false })
-          .limit(20);
-        result.clubRanking = clubRank || [];
-      }
+    if (streakErr) return json({ error: '스트릭 정보를 불러오지 못했습니다.' }, 500);
 
-      // 전체 동아리 순위
-      const { data: allRank } = await supabase
-        .from('bible_streaks')
-        .select('club_name, streak_count, max_streak, total_picks')
-        .order('streak_count', { ascending: false });
+    const streak = streakData?.streak_count ?? 0;
+    result.individual = {
+      streak,
+      maxStreak: streakData?.max_streak ?? 0,
+      totalPicks: streakData?.total_picks ?? 0,
+      lastPickDate: streakData?.last_pick_date ?? null,
+      badges: getBadges(streak),
+      nextBadge: getNextBadge(streak),
+    };
 
-      const clubAgg: Record<string, { totalStreaks: number; memberCount: number; totalPicks: number }> = {};
-      for (const row of (allRank || [])) {
-        const cn = row.club_name || '미지정';
-        if (!clubAgg[cn]) clubAgg[cn] = { totalStreaks: 0, memberCount: 0, totalPicks: 0 };
-        clubAgg[cn].totalStreaks += row.streak_count;
-        clubAgg[cn].memberCount += 1;
-        clubAgg[cn].totalPicks += row.total_picks;
-      }
+    result.clubName = streakData?.club_name || club || '미지정';
 
-      result.clubOverall = Object.entries(clubAgg)
-        .map(([name, s]) => ({
-          club_name: name,
-          total_streaks: s.totalStreaks,
-          member_count: s.memberCount,
-          total_picks: s.totalPicks,
-          avg_streak: Math.round(s.totalStreaks / s.memberCount),
-        }))
-        .sort((a, b) => b.total_streaks - a.total_streaks);
-
-      return new Response(JSON.stringify(result), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
+    const rankingQuery = club
+      ? admin.from('bible_streaks').select('user_id,streak_count,total_picks').eq('club_name', club).order('streak_count', { ascending: false }).limit(20)
+      : null;
+    if (rankingQuery) {
+      const { data: clubRanking, error } = await rankingQuery;
+      if (error) return json({ error: '동아리 랭킹을 불러오지 못했습니다.' }, 500);
+      result.clubRanking = clubRanking || [];
     }
 
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : '서버 오류';
-    console.error('streak-tracker error:', message);
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    });
+    const { data: allRank, error: rankingErr } = await admin
+      .from('bible_streaks')
+      .select('club_name,streak_count,max_streak,total_picks');
+    if (rankingErr) return json({ error: '전체 랭킹을 불러오지 못했습니다.' }, 500);
+
+    const clubAgg: Record<string, { totalStreaks: number; memberCount: number; totalPicks: number }> = {};
+    for (const row of allRank || []) {
+      const name = row.club_name || '미지정';
+      if (!clubAgg[name]) clubAgg[name] = { totalStreaks: 0, memberCount: 0, totalPicks: 0 };
+      clubAgg[name].totalStreaks += Number(row.streak_count || 0);
+      clubAgg[name].memberCount += 1;
+      clubAgg[name].totalPicks += Number(row.total_picks || 0);
+    }
+
+    result.clubOverall = Object.entries(clubAgg)
+      .map(([name, stats]) => ({
+        club_name: name,
+        total_streaks: stats.totalStreaks,
+        member_count: stats.memberCount,
+        total_picks: stats.totalPicks,
+        avg_streak: stats.memberCount ? Math.round(stats.totalStreaks / stats.memberCount) : 0,
+      }))
+      .sort((a, b) => b.total_streaks - a.total_streaks);
+
+    return json(result);
+  } catch (error) {
+    console.error('streak-tracker error:', error);
+    return json({ error: '스트릭 정보를 처리하는 중 오류가 발생했습니다.' }, 500);
   }
 });
