@@ -43,6 +43,27 @@ export default function Layout(){
    return()=>subscription.unsubscribe();
  },[user?.id]);
 
+ // Mobile/PWA background lock: leaving the app (home screen, task switcher,
+ // another app/browser tab) locks the current session. Returning to the app
+ // therefore always requires PIN, or an immediately attempted platform passkey.
+ useEffect(()=>{
+   if(typeof document==='undefined'||!user||!hasPin)return;
+   const key=`gnh_pin_session_unlocked:${user.id}`;
+   const lockOnBackground=()=>{
+     if(document.visibilityState==='hidden'){
+       try{sessionStorage.removeItem(key);}catch{}
+       passkeyAttemptedRef.current=null;
+       lockApp();
+     }
+   };
+   document.addEventListener('visibilitychange',lockOnBackground);
+   window.addEventListener('pagehide',lockOnBackground);
+   return()=>{
+     document.removeEventListener('visibilitychange',lockOnBackground);
+     window.removeEventListener('pagehide',lockOnBackground);
+   };
+ },[user?.id,hasPin,lockApp]);
+
  useEffect(()=>{
    if(loading||!user||!hasPin||pinLocked)return;
    const key=`gnh_pin_session_unlocked:${user.id}`;
@@ -58,7 +79,7 @@ export default function Layout(){
  },[loading,user?.id,hasPin,pinLocked,lockApp]);
 
  useEffect(()=>{
-   if(loading||!user||!hasPin||!pinLocked||passkeyAttemptedRef.current !== null && passkeyAttemptedRef.current === user.id)return;
+   if(loading||!user||!hasPin||!pinLocked||passkeyAttemptedRef.current===user.id)return;
    passkeyAttemptedRef.current=user.id;
    let cancelled=false;
    const timer=window.setTimeout(async()=>{
