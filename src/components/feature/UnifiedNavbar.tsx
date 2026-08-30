@@ -11,7 +11,7 @@ const faithSections=[
  {label:'기록·성장',items:[['/bible-pick/history','말씀 히스토리'],['/bible-streak','말씀 스트릭'],['/faith-storybook','신앙 스토리북'],['/faith-journal','신앙 일지'],['/repentance-journal','회개 저널'],['/year-end-summary','월별 결산']]},
  {label:'기도·관계',items:[['/prayer-partner','신앙 짝꿍'],['/prayer-relay','기도 릴레이']]},
 ];
-const community=[['/memory-board','추억창'],['/song-vote','찬양투표'],['/missions/wall','사명 인증']];
+const community=[['/memory-board','추억창'],['/song-vote','찬양투표'],['/ganghak-news','강학뉴스'],['/missions/wall','사명 인증']];
 const games=[['/games','전체 게임'],['/wolves-and-sheep','양과 늑대'],['/pharisee','바리새인을 찾아라'],['/galilee-phone','갈릴리폰']];
 const mission=[['/teacher-dashboard','교사 대시보드'],['/dashboard/attendance','스마트 출석'],['/attendance-board','실시간 출석판'],['/meetings','회의록'],['/meeting-copilot','회의 코파일럿'],['/reports/weekly','주간 보고서'],['/reports/growth','성장 기록'],['/reports/events','행사 보고서'],['/visitations','심방 스케줄'],['/pds-planner','행사 기획'],['/event-ideas','행사 아이디어'],['/leadership-diary','리더십 코칭'],['/missions','작은 사명'],['/missions/leaderboard','사명왕']];
 const admin=[['/admin/approvals','가입 승인','teacher'],['/reports/review','보고서 검토','president'],['/admin/roles','권한 관리','chief'],['/admin/strategy','전략 대시보드','chief'],['/settings/absence-reasons','불참 사유 설정','chief'],['/settings/attendance-location','출석 위치 설정','teacher']];
@@ -56,5 +56,6 @@ export default function UnifiedNavbar(){
  <Link to="/faith" onClick={()=>setMobileOpen(false)} className="flex min-h-11 items-center rounded-xl px-3 font-semibold hover:bg-background-100">신앙 전체보기</Link><Link to="/telegram-settings" onClick={()=>setMobileOpen(false)} className="flex min-h-11 items-center rounded-xl px-3 font-semibold hover:bg-background-100">Telegram 연결 설정</Link><Link to="/profile" onClick={()=>setMobileOpen(false)} className="flex min-h-11 items-center rounded-xl px-3 font-semibold hover:bg-background-100">내 프로필</Link>
  <button type="button" onClick={toggleTheme} className="flex min-h-11 w-full items-center rounded-xl px-3 text-left font-semibold">{theme==='dark'?'화이트 모드':'다크 모드'}</button>{user&&<button type="button" onClick={async()=>{await signOut();setMobileOpen(false)}} className="flex min-h-11 w-full items-center rounded-xl px-3 text-left font-semibold text-rose-600">로그아웃</button>}
  </div></div></aside></div>}
- <NotificationsModal open={notifyOpen} onClose={()=>setNotifyOpen(false)}/><NotificationToast/></>;
+ <NotificationsModal open={notifyOpen} onClose={()=>setNotifyOpen(false)}/><NotificationToast/>
+ </>;
 }
