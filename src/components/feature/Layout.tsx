@@ -6,6 +6,7 @@ import BottomTabBar from '@/components/feature/BottomTabBar';
 import DynamicWatermark from '@/components/feature/DynamicWatermark';
 import AppLockScreen from '@/components/feature/AppLockScreen';
 import PinSetupPrompt from '@/components/feature/PinSetupPrompt';
+import DashboardAttendanceSummary from '@/components/feature/DashboardAttendanceSummary';
 import { useAutoLogout } from '@/hooks/useAutoLogout';
 import { MobileMenuProvider, useMobileMenu } from '@/hooks/useMobileMenu';
 
@@ -84,6 +85,8 @@ export default function Layout() {
     );
   }
 
+  const showMissionaryAttendanceSummary = location.pathname === '/dashboard' && profile?.role === 'member';
+
   return (
     <MobileMenuProvider>
       <div className="min-h-screen bg-background-50">
@@ -114,6 +117,7 @@ export default function Layout() {
         )}
 
         <main className={showNavbar ? 'max-md:pb-[calc(6rem+env(safe-area-inset-bottom))]' : ''}>
+          {showMissionaryAttendanceSummary && <DashboardAttendanceSummary />}
           <Outlet />
         </main>
 
