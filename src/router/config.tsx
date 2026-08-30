@@ -23,15 +23,15 @@ const Setup = lazy(() => import("@/pages/setup/page"));
 const Dashboard = lazy(() => import("@/pages/dashboard/page"));
 const WeeklyReports = lazy(() => import("@/pages/reports/weekly/page"));
 const WeeklyReportWrite = lazy(() => import("@/pages/reports/weekly/write/page"));
-const WeeklyReportDetail = lazy(() => import("@/pages/reports/weekly/detail/page"));
+const WeeklyReportDetail = lazy(() => import("@/pages/reports/weekly/humanDetail"));
 const WeeklyReportEdit = lazy(() => import("@/pages/reports/weekly/edit/page"));
 const GrowthReports = lazy(() => import("@/pages/reports/growth/page"));
 const GrowthReportWrite = lazy(() => import("@/pages/reports/growth/write/page"));
-const GrowthRecordDetail = lazy(() => import("@/pages/reports/growth/detail/page"));
+const GrowthRecordDetail = lazy(() => import("@/pages/reports/growth/humanDetail"));
 const GrowthReportEdit = lazy(() => import("@/pages/reports/growth/edit/page"));
 const EventReports = lazy(() => import("@/pages/reports/events/page"));
 const EventReportWrite = lazy(() => import("@/pages/reports/events/write/page"));
-const EventReportDetail = lazy(() => import("@/pages/reports/events/detail/page"));
+const EventReportDetail = lazy(() => import("@/pages/reports/events/humanDetail"));
 const EventReportEdit = lazy(() => import("@/pages/reports/events/edit/page"));
 const ReviewPage = lazy(() => import("@/pages/reports/review/page"));
 const AdminRolesPage = lazy(() => import("@/pages/admin/roles/page"));
@@ -156,6 +156,7 @@ const routes: RouteObject[] = [{
     { path: "/settings/attendance-location", element: <AuthGuard minRole="teacher">{withSuspense(<AttendanceLocationPage />)}</AuthGuard> },
     { path: "/profile", element: <AuthGuard minRole="member">{withSuspense(<ProfilePage />)}</AuthGuard> },
     { path: "/teacher-dashboard", element: <AuthGuard minRole="teacher">{withSuspense(<TeacherDashboard />)}</AuthGuard> },
+    { path: "/gangneung-news", element: withSuspense(<GanghakNewsList />) },
     { path: "/ganghak-news", element: withSuspense(<GanghakNewsList />) },
     { path: "/ganghak-news/:id", element: withSuspense(<GanghakNewsDetail />) },
     { path: "/ganghak-news/write", element: <AuthGuard minRole="teacher">{withSuspense(<GanghakNewsWrite />)}</AuthGuard> },
