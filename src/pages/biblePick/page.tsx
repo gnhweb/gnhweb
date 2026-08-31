@@ -7,74 +7,208 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
 const HISTORY_STORAGE_KEY = 'bible_picks_history';
-type Mode = 'pick' | 'sleep' | 'prayer';
-const MODES: Array<{ id: Mode; title: string; description: string; prompt: string; icon: string }> = [
-  { id: 'pick', title: '말씀뽑기', description: '지금 내 마음과 상황에 맞는 말씀을 받아보세요.', prompt: '지금 어떤 마음이나 상황인가요?', icon: 'ri-book-open-line' },
-  { id: 'sleep', title: '자기전', description: '하루를 내려놓고 평안하게 잠들기 위한 말씀입니다.', prompt: '오늘 하루를 돌아보며 마음에 남은 일을 적어주세요.', icon: 'ri-moon-line' },
-  { id: 'prayer', title: '기도', description: '기도하고 싶은 내용을 적으면 말씀과 기도로 함께 정리해 드려요.', prompt: '지금 하나님께 이야기하고 싶은 기도제목은 무엇인가요?', icon: 'ri-hand-heart-line' },
-];
 
 async function savePick(verseData: BibleVerseData, userText: string, userId?: string) {
-  const record = { emotion: verseData.primaryEmotion || verseData.analyzedEmotions?.[0] || '평안', situation: userText, verse: verseData.verse, reference: verseData.reference, practice: verseData.practice || '', prayers: verseData.prayers || [], created_at: new Date().toISOString() };
-  if (userId) { const { error } = await supabase.from('bible_picks').insert({ user_id: userId, ...record }); if (error) console.error('Failed to save bible pick:', error); return; }
-  try { const existing = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]'); existing.unshift(record); localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(existing)); } catch { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify([record])); }
+  const record = {
+    emotion: verseData.primaryEmotion || verseData.analyzedEmotions?.[0] || '평안',
+    situation: userText,
+    verse: verseData.verse,
+    reference: verseData.reference,
+    practice: verseData.practice || '',
+    prayers: verseData.prayers || [],
+    created_at: new Date().toISOString(),
+  };
+
+  if (userId) {
+    const { error } = await supabase.from('bible_picks').insert({
+      user_id: userId,
+      ...record,
+    });
+    if (error) console.error('Failed to save bible pick:', error);
+  } else {
+    try {
+      const existing = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]');
+      existing.unshift(record);
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(existing));
+    } catch {
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify([record]));
+    }
+  }
 }
 
 export default function BiblePick() {
   const { user } = useAuth();
-  const [mode, setMode] = useState<Mode>('pick');
   const [userText, setUserText] = useState('');
   const [verseData, setVerseData] = useState<BibleVerseData | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [error, setError] = useState('');
-  const activeMode = MODES.find((item) => item.id === mode)!;
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const fetchVerseFromAI = async (text: string): Promise<BibleVerseData> => {
-    const { data, error: fnError } = await supabase.functions.invoke('bible-pick', { body: { userText: text, mode } });
+    const { data, error: fnError } = await supabase.functions.invoke('bible-pick', {
+      body: { userText: text },
+    });
+
     if (fnError) {
       let errMsg = '';
-      try { if (fnError && typeof fnError === 'object' && 'context' in fnError) { const body = await (fnError as any).context.json(); errMsg = body?.error || body?.message || ''; } } catch { /* fallback */ }
-      throw new Error(errMsg || (fnError instanceof Error ? fnError.message : String(fnError)));
+      try {
+        if (fnError && typeof fnError === 'object' && 'context' in fnError) {
+          const response = (fnError as any).context as Response;
+          const body = await response.json();
+          errMsg = body?.error || body?.message || '';
+        }
+      } catch { /* fallback */ }
+      if (!errMsg) errMsg = fnError instanceof Error ? fnError.message : String(fnError);
+      throw new Error(errMsg);
     }
+
     if (data?.error) throw new Error(data.error);
+
     return data as BibleVerseData;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const text = userText.trim();
-    if (!text || isDrawing) return;
-    setIsDrawing(true); setError('');
-    try { const verse = await fetchVerseFromAI(text); setVerseData(verse); void savePick(verse, text, user?.id); }
-    catch (err) { setError(err instanceof Error ? err.message : '말씀을 준비하지 못했어요.'); }
-    finally { setIsDrawing(false); }
+    if (userText.trim().length === 0) return;
+
+    setIsDrawing(true);
+    setError('');
+
+    try {
+      const verse = await fetchVerseFromAI(userText.trim());
+      setVerseData(verse);
+      setIsSubmitted(true);
+      savePick(verse, userText.trim(), user?.id);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : '알 수 없는 오류';
+      setError(errMsg);
+    } finally {
+      setIsDrawing(false);
+    }
   };
 
-  const reset = () => { setVerseData(null); setUserText(''); setError(''); };
-  const changeMode = (next: Mode) => { setMode(next); reset(); };
+  const handleReset = () => {
+    setUserText('');
+    setVerseData(null);
+    setIsSubmitted(false);
+    setIsDrawing(false);
+    setError('');
+  };
 
   return (
     <div className="min-h-screen bg-background-50">
-      <div className="max-w-2xl mx-auto px-4 md:px-6 py-7 md:py-12 pb-28" style={{ perspective: 1200 }}>
-        <div className="mb-5 md:mb-7 flex gap-2 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="신앙 콘텐츠 종류">
-          {MODES.map((item) => <button key={item.id} type="button" role="tab" aria-selected={mode === item.id} onClick={() => changeMode(item.id)} className={`shrink-0 min-h-11 px-4 rounded-full border text-sm font-bold transition-all ${mode === item.id ? 'bg-primary-500 border-primary-500 text-white shadow-sm' : 'bg-background-100 border-background-200 text-foreground-600'}`}><i className={`${item.icon} mr-1.5`} aria-hidden="true" />{item.title}</button>)}
-        </div>
-
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-10 md:py-16" style={{ perspective: 1200 }}>
         <AnimatePresence mode="wait">
-          {verseData ? (
-            <motion.div key="result" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} transition={{ duration: .25 }}>
-              <div className="mb-4 rounded-2xl bg-background-100 border border-background-200 px-4 py-3 flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-primary-600">{activeMode.title}</p><p className="text-sm text-foreground-600 truncate">{activeMode.description}</p></div><button type="button" onClick={reset} className="shrink-0 min-h-11 px-3 rounded-full border border-background-200 text-sm font-semibold text-foreground-700">다시</button></div>
-              <VerseResult verseData={verseData} userText={userText} onReset={reset} />
+        {isSubmitted && verseData ? (
+          <motion.div
+            key="result"
+            initial={{ rotateY: 90, opacity: 0 }}
+            animate={{ rotateY: 0, opacity: 1 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            style={{ transformStyle: 'preserve-3d' }}
+          >
+            <VerseResult
+              verseData={verseData}
+              userText={userText}
+              onReset={handleReset}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="draw"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ rotateY: -90, opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            style={{ transformStyle: 'preserve-3d' }}
+          >
+            {/* Header */}
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-background-100 border border-background-200 mb-5">
+                <i className="ri-book-open-line text-3xl text-primary-600"></i>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-3">말씀 뽑기</h1>
+              <p className="text-foreground-600 text-sm md:text-base leading-relaxed">
+                지금 마음에 있는 이야기를 자유롭게 적어주세요<br />
+                AI가 당신의 감정을 이해하고 꼭 맞는 말씀을 찾아드려요
+              </p>
+            </div>
+
+            {/* Input Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8"
+            >
+              <form onSubmit={handleSubmit}>
+                <label className="block text-sm font-medium text-foreground-700 mb-3">
+                  오늘 어떤 마음인가요?
+                </label>
+                <textarea
+                  value={userText}
+                  onChange={(e) => { setUserText(e.target.value); setError(''); }}
+                  placeholder="예) 내일 중요한 발표가 있어서 너무 떨리고 걱정돼요. 준비는 열심히 했는데 자꾸 불안한 마음이 들어요..."
+                  maxLength={500}
+                  rows={5}
+                  className="w-full px-4 py-3 rounded-[13px] border border-background-200 bg-background-50 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition-all resize-none text-sm text-foreground-950 placeholder-foreground-600"
+                />
+                <div className="flex items-center justify-between mt-2 mb-1">
+                  <span className="text-xs text-foreground-600">{userText.length}/500</span>
+                </div>
+
+                {error && (
+                  <div className="mt-3 p-3 rounded-xl bg-accent-100 border border-accent-200 text-sm text-accent-700 flex items-start gap-2">
+                    <i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i>
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={userText.trim().length === 0}
+                  className="mt-5 w-full py-3.5 rounded-[20px] bg-primary-500 text-background-50 font-semibold text-base hover:bg-primary-600 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
+                >
+                  <i className="ri-book-open-line text-lg"></i>
+                  나를 위한 말씀 뽑기
+                </button>
+              </form>
             </motion.div>
-          ) : (
-            <motion.div key="form" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
-              <div className="text-center mb-7 md:mb-9"><div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-background-100 border border-background-200 mb-4"><i className={`${activeMode.icon} text-3xl text-primary-600`} aria-hidden="true" /></div><h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">{activeMode.title}</h1><p className="text-sm text-foreground-600 leading-relaxed">{activeMode.description}</p></div>
-              <div className="bg-background-100 border border-background-200 rounded-[22px] p-5 md:p-7 shadow-sm"><form onSubmit={handleSubmit}><label className="block text-sm font-bold text-foreground-700 mb-3">{activeMode.prompt}</label><textarea value={userText} onChange={(e) => { setUserText(e.target.value); setError(''); }} placeholder={mode === 'pick' ? '예) 내일 중요한 발표가 있어서 떨리고 걱정돼요.' : mode === 'sleep' ? '예) 오늘 친구와 다퉈서 마음이 무거워요.' : '예) 내일 발표를 잘 해내고 가족도 평안했으면 좋겠어요.'} maxLength={500} rows={6} className="w-full px-4 py-3.5 rounded-2xl border border-background-200 bg-background-50 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 resize-none text-[16px] text-foreground-950 placeholder-foreground-500" autoComplete="off" /><div className="flex justify-between mt-2"><span className="text-xs text-foreground-500">{userText.length}/500</span><Link to="/bible-pick/history" className="text-xs font-semibold text-primary-600">히스토리</Link></div>{error && <div className="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700 flex items-start gap-2"><i className="ri-error-warning-line" aria-hidden="true" /><span>{error}</span></div>}<button type="submit" disabled={!userText.trim() || isDrawing} className="mt-5 w-full min-h-12 rounded-2xl bg-primary-500 text-white font-bold text-base hover:bg-primary-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"><i className={`${activeMode.icon} text-lg`} aria-hidden="true" />{isDrawing ? '준비하고 있어요…' : mode === 'pick' ? '나를 위한 말씀 뽑기' : mode === 'sleep' ? '오늘 밤의 말씀 받기' : '기도와 말씀 받기'}</button></form></div>
-            </motion.div>
-          )}
+
+            {/* 하단 링크 */}
+            <div className="text-center mt-8">
+              <Link
+                to="/bible-pick/history"
+                className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-amber-600 transition-colors cursor-pointer"
+              >
+                <i className="ri-history-line"></i>
+                지금까지 뽑은 말씀 보기
+              </Link>
+            </div>
+          </motion.div>
+        )}
         </AnimatePresence>
 
-        {isDrawing && <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4" aria-live="polite"><div className="w-full max-w-sm rounded-[22px] bg-background-100 border border-background-200 p-8 text-center shadow-xl"><motion.div className="w-16 h-16 mx-auto mb-5 rounded-full border-4 border-primary-200 border-t-primary-500" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} /><p className="text-lg font-bold text-foreground-950">{activeMode.title}을 준비하고 있어요</p><p className="text-sm text-foreground-600 mt-2">입력한 내용을 바탕으로 맞춤 말씀을 찾고 있습니다.</p></div></div>}
+        {/* Loading overlay — 카드 뒤집기(제비뽑기) 느낌 */}
+        {isDrawing && (
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center" style={{ perspective: 800 }}>
+            <div className="bg-background-100 border border-background-200 rounded-[20px] p-10 md:p-14 text-center max-w-sm w-full mx-4">
+              <motion.div
+                className="relative w-20 h-20 mx-auto mb-6"
+                animate={{ rotateY: [0, 180, 360] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ transformStyle: 'preserve-3d' }}
+              >
+                <div className="absolute inset-0 rounded-full border-4 border-primary-200"></div>
+                <div className="absolute inset-2 rounded-2xl bg-primary-100 flex items-center justify-center">
+                  <i className="ri-book-open-line text-3xl text-primary-600"></i>
+                </div>
+              </motion.div>
+              <p className="text-lg font-semibold text-foreground-950 mb-2">말씀을 준비하고 있어요</p>
+              <p className="text-sm text-foreground-600">AI가 당신의 마음을 읽고 맞춤 말씀을 찾는 중...</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
