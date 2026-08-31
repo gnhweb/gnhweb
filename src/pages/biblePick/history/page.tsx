@@ -352,35 +352,32 @@ export default function BiblePickHistory() {
               </div>
 
               {/* Verse */}
-              <div className="bg-primary-100 rounded-xl p-3 md:p-4 mb-3">
-                <div className="flex items-start gap-2 mb-2">
-                  <i className="ri-double-quotes-l text-primary-400 text-sm mt-0.5"></i>
-                  <p className="text-sm md:text-base leading-relaxed text-foreground-700 font-medium">
-                    {record.verse}
-                  </p>
-                </div>
-                <p className="text-right text-xs font-semibold text-primary-600">{record.reference}</p>
+              <div className="mb-4">
+                <p className="font-quote text-base md:text-lg leading-[1.75] text-foreground-900">
+                  {record.verse}
+                </p>
+                <p className="text-right text-xs font-semibold text-primary-600 mt-1.5">{record.reference}</p>
               </div>
 
-              {/* Practice */}
-              {record.practice && (
-                <div className="bg-secondary-100 border border-secondary-200 rounded-xl p-3 md:p-4 mb-3">
-                  <p className="text-xs font-semibold text-secondary-700 mb-1">실천 방법</p>
-                  <p className="text-sm text-secondary-700 leading-relaxed">{record.practice}</p>
-                </div>
-              )}
-
-              {/* Prayers */}
-              {record.prayers && record.prayers.length > 0 && (
-                <div className="bg-accent-100 border border-accent-200 rounded-xl p-3 md:p-4 mb-3">
-                  <p className="text-xs font-semibold text-accent-700 mb-2">기도문</p>
-                  <div className="space-y-1.5">
-                    {record.prayers.map((p, i) => (
-                      <p key={i} className="text-sm text-accent-700 leading-relaxed">
-                        {p}
-                      </p>
-                    ))}
-                  </div>
+              {/* Practice + Prayers */}
+              {(record.practice || (record.prayers && record.prayers.length > 0)) && (
+                <div className="border-t border-background-200 pt-3.5 mb-1 space-y-3">
+                  {record.practice && (
+                    <div className="flex gap-2.5">
+                      <i className="ri-footprint-line text-accent-600 text-sm mt-0.5 flex-shrink-0"></i>
+                      <p className="text-sm text-foreground-700 leading-relaxed">{record.practice}</p>
+                    </div>
+                  )}
+                  {record.prayers && record.prayers.length > 0 && (
+                    <div className="flex gap-2.5">
+                      <i className="ri-moon-line text-secondary-600 text-sm mt-0.5 flex-shrink-0"></i>
+                      <div className="space-y-1">
+                        {record.prayers.map((p, i) => (
+                          <p key={i} className="text-sm text-foreground-700 leading-relaxed">{p}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
