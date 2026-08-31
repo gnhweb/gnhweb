@@ -1,46 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchQuizData, type QuizQuestion } from '@/lib/nvidiaNim';
+import { fetchQuizData } from '@/lib/nvidiaNim';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import LeaderboardModal from '@/pages/bibleQuiz/components/LeaderboardModal';
 import ReportQuestionModal from '@/pages/bibleQuiz/components/ReportQuestionModal';
+import type { QuizQuestion } from '@/lib/nvidiaNim';
 
-type Difficulty = 'easy' | 'normal' | 'hard';
-
-const DIFFICULTIES: Record<Difficulty, {
-  label: string;
-  audience: string;
-  description: string;
-  points: number;
-  icon: string;
-}> = {
-  easy: {
-    label: '입문',
-    audience: '성경을 처음 배우는 분',
-    description: '성경의 기본 인물과 사건을 이야기로 익혀요.',
-    points: 20,
-    icon: 'ri-seedling-line',
-  },
-  normal: {
-    label: '보통',
-    audience: '교회 3개월 정도',
-    description: '주요 사건의 흐름과 인물 관계를 이해하는 문제예요.',
-    points: 50,
-    icon: 'ri-book-open-line',
-  },
-  hard: {
-    label: '도전',
-    audience: '교회 3년 정도',
-    description: '본문의 맥락과 세부적인 사건을 연결해 풀어요.',
-    points: 80,
-    icon: 'ri-fire-line',
-  },
+const CLUB_COLORS: Record<string, { name: string; icon: string; color: string }> = {
+  saeullim: { name: '새울림', icon: 'ri-music-line', color: '#f59e0b' },
+  cheonjipoong: { name: '천지풍', icon: 'ri-palette-line', color: '#10b981' },
+  cheonjihu: { name: '천지후', icon: 'ri-heart-pulse-line', color: '#0ea5e9' },
+  munhwabu: { name: '문화부', icon: 'ri-camera-line', color: '#f43f5e' },
+  cheonhwarae_cheongmyeong: { name: '천화래와 청명', icon: 'ri-music-2-line', color: '#8b5cf6' },
 };
 
-const QUESTION_HISTORY_KEY = 'bible_quiz_question_history';
-const MAX_HISTORY = 60;
-const QUESTION_TIME = 15;
+const DIFFICULTIES = [
+  { key: 'easy' as const, label: '입문', color: 'text-emerald-600', bg: 'bg-emerald-100', border: 'border-emerald-200', scorePerQ: 20, stars: 1, gradient: 'from-emerald-400 to-emerald-500', icon: 'ri-seedling-line' },
+  { key: 'normal' as const, label: '보통', color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-200', scorePerQ: 50, stars: 2, gradient: 'from-amber-400 to-amber-500', icon: 'ri-flashlight-line' },
+  { key: 'hard' as const, label: '도전', color: 'text-rose-600', bg: 'bg-rose-100', border: 'border-rose-200', scorePerQ: 80, stars: 3, gradient: 'from-rose-400 to-rose-500', icon: 'ri-fire-line' },
+];
+
+type Difficulty = 'easy' | 'normal' | 'hard';
 
 interface CumulativeStats {
   total_score: number;
@@ -51,19 +32,17 @@ interface CumulativeStats {
   accuracy: number;
 }
 
-function loadQuestionHistory(): string[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(QUESTION_HISTORY_KEY) || '[]');
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
-  } catch {
-    return [];
-  }
-}
+const QUESTION_HISTORY_KEY = 'bible_quiz_question_history';
+const MAX_HISTORY = 60;
 
+function loadQuestionHistory(): string[] {
+  try { return JSON.parse(localStorage.getItem(QUESTION_HISTORY_KEY) || '[]'); } catch { return []; }
+}
 function addToQuestionHistory(questions: QuizQuestion[]) {
   const existing = loadQuestionHistory();
-  const keys = questions.map((question) => question.question.trim().replace(/\s+/g, '').slice(0, 80));
-  localStorage.setItem(QUESTION_HISTORY_KEY, JSON.stringify([...new Set([...keys, ...existing])].slice(0, MAX_HISTORY)));
+  const newExcerpts = questions.map(q => q.question.substring(0, 30));
+  const merged = [...new Set([...newExcerpts, ...existing])].slice(0, MAX_HISTORY);
+  localStorage.setItem(QUESTION_HISTORY_KEY, JSON.stringify(merged));
 }
 
 export default function BibleQuiz() {
@@ -72,285 +51,331 @@ export default function BibleQuiz() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentQ, setCurrentQ] = useState(0);
   const [score, setScore] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
+  const [totalPoints, setTotalPoints] = useState(0);
   const [streak, setStreak] = useState(0);
   const [maxStreak, setMaxStreak] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [showResult, setShowResult] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [timer, setTimer] = useState(QUESTION_TIME);
-  const [timerActive, setTimerActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showResult, setShowResult] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [timer, setTimer] = useState(15);
+  const [timerActive, setTimerActive] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [savingScore, setSavingScore] = useState(false);
-  const [saveError, setSaveError] = useState('');
+  const [cumulativeStats, setCumulativeStats] = useState<CumulativeStats | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const cumulativeStats = null as CumulativeStats | null;
-  const diffInfo = DIFFICULTIES[difficulty];
-  const currentQuestion = questions[currentQ];
+  const autoClub = profile?.club && CLUB_COLORS[profile.club] ? profile.club : null;
+  const autoClubInfo = autoClub ? CLUB_COLORS[autoClub] : null;
+
+  const fetchCumulativeStats = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase.functions.invoke('quiz-leaderboard', {
+        method: 'GET',
+        body: { user_id: user.id },
+      });
+      if (data) {
+        setCumulativeStats(data as CumulativeStats);
+      }
+    } catch { /* 조용히 실패 */ }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) fetchCumulativeStats();
+  }, [user, fetchCumulativeStats]);
+
+  useEffect(() => {
+    if (showResult && user) {
+      const t = setTimeout(() => fetchCumulativeStats(), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [showResult, user, fetchCumulativeStats]);
 
   const startQuiz = async () => {
     setIsLoading(true);
     setError('');
-    setSaveError('');
     try {
-      const data = await fetchQuizData(difficulty, loadQuestionHistory());
-      if (data.length !== 10 || data.some((question) => question.difficulty !== difficulty || question.points !== diffInfo.points)) {
-        throw new Error('선택한 난이도와 점수가 맞지 않는 문제가 포함되어 있어요. 다시 시도해주세요.');
-      }
+      const history = loadQuestionHistory();
+      const data = await fetchQuizData(difficulty, history);
       setQuestions(data);
       setCurrentQ(0);
       setScore(0);
-      setCorrectCount(0);
+      setTotalPoints(0);
       setStreak(0);
       setMaxStreak(0);
+      setCorrectCount(0);
       setSelectedAnswer(null);
       setIsCorrect(null);
       setShowResult(false);
-      setTimer(QUESTION_TIME);
+      setTimer(15);
       setTimerActive(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '퀴즈를 불러오지 못했어요.');
+      setError(err instanceof Error ? err.message : '퀴즈를 불러오지 못했어요');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAnswer = useCallback((answer: string) => {
-    if (selectedAnswer !== null || !currentQuestion) return;
-    const correct = answer === currentQuestion.answer;
+  useEffect(() => {
+    if (timerActive && timer > 0 && selectedAnswer === null) {
+      timerRef.current = setInterval(() => setTimer(t => t - 1), 1000);
+    } else if (timer === 0 && selectedAnswer === null && questions.length > 0) {
+      handleAnswer('TIMEOUT');
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [timerActive, timer, selectedAnswer, questions.length]);
+
+  const handleAnswer = (answer: string) => {
+    if (selectedAnswer !== null || !questions[currentQ]) return;
+    const q = questions[currentQ];
+    const correct = answer === q.answer;
     setSelectedAnswer(answer);
     setIsCorrect(correct);
     setTimerActive(false);
 
     if (correct) {
-      setScore((previous) => previous + diffInfo.points);
-      setCorrectCount((previous) => previous + 1);
-      setStreak((previous) => previous + 1);
-      setMaxStreak((previous) => Math.max(previous, streak + 1));
+      const pts = q.points || 20;
+      const streakBonus = Math.min(streak, 5) * 2;
+      const timeBonus = Math.max(0, Math.round(timer * 0.5));
+      const finalPts = pts + streakBonus + timeBonus;
+      setScore(prev => prev + finalPts);
+      setTotalPoints(prev => prev + finalPts);
+      setStreak(prev => prev + 1);
+      setMaxStreak(prev => Math.max(prev, streak + 1));
+      setCorrectCount(prev => prev + 1);
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 2000);
     } else {
       setStreak(0);
     }
-  }, [currentQuestion, diffInfo.points, selectedAnswer, streak]);
-
-  useEffect(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (!timerActive || selectedAnswer !== null || !currentQuestion) return undefined;
-    if (timer <= 0) {
-      handleAnswer('TIMEOUT');
-      return undefined;
-    }
-    timerRef.current = setInterval(() => setTimer((previous) => Math.max(0, previous - 1)), 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [currentQuestion, handleAnswer, selectedAnswer, timer, timerActive]);
-
-  const saveResult = useCallback(async (finalScore: number, finalCorrectCount: number) => {
-    if (!user || !profile) return;
-    setSavingScore(true);
-    setSaveError('');
-    try {
-      const { data: freshProfile, error: profileError } = await supabase
-        .from('user_roles')
-        .select('club')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (profileError) throw profileError;
-
-      const club = typeof freshProfile?.club === 'string' ? freshProfile.club : (profile.club || '미지정');
-      const { error: saveScoreError } = await supabase.functions.invoke('quiz-leaderboard', {
-        method: 'POST',
-        body: {
-          user_id: user.id,
-          nickname: profile.name || '익명',
-          club_name: club,
-          score: finalScore,
-          total_questions: questions.length,
-          correct_count: finalCorrectCount,
-          difficulty,
-        },
-      });
-      if (saveScoreError) throw saveScoreError;
-    } catch (err) {
-      console.error('[BibleQuiz] score save failed:', err);
-      setSaveError('점수 저장에 실패했어요. 결과는 화면에 표시되지만 기록이 저장되지 않을 수 있어요.');
-    } finally {
-      setSavingScore(false);
-    }
-  }, [difficulty, profile, questions.length, user]);
+  };
 
   const nextQuestion = async () => {
     if (currentQ < questions.length - 1) {
-      setCurrentQ((previous) => previous + 1);
+      setCurrentQ(prev => prev + 1);
       setSelectedAnswer(null);
       setIsCorrect(null);
-      setTimer(QUESTION_TIME);
+      setTimer(15);
       setTimerActive(true);
-      return;
-    }
+    } else {
+      addToQuestionHistory(questions);
+      setShowResult(true);
+      if (user && profile) {
+        setSavingScore(true);
+        const { data: freshProfile } = await supabase
+          .from('user_roles')
+          .select('club')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        const currentClub = freshProfile?.club || profile.club;
+        const clubInfo = currentClub && CLUB_COLORS[currentClub] ? CLUB_COLORS[currentClub] : null;
+        const clubName = clubInfo?.name || currentClub || '미지정';
 
-    addToQuestionHistory(questions);
-    setTimerActive(false);
-    setShowResult(true);
-    await saveResult(score, correctCount);
+        supabase.functions.invoke('quiz-leaderboard', {
+          method: 'POST',
+          body: {
+            user_id: user.id,
+            nickname: profile.name || '익명',
+            club_name: clubName,
+            score,
+            total_questions: questions.length,
+            correct_count: correctCount,
+            difficulty,
+          },
+        }).then(({ data: result, error: saveError }) => {
+          if (saveError) {
+            console.error('[BibleQuiz] score save failed:', saveError);
+            return;
+          }
+          if (result?.cumulative) {
+            setCumulativeStats(result.cumulative as CumulativeStats);
+          }
+        }).finally(() => setSavingScore(false));
+      }
+    }
   };
 
-  const resetQuiz = () => {
+  const handleBackToDifficulty = () => {
     setQuestions([]);
     setCurrentQ(0);
     setScore(0);
-    setCorrectCount(0);
+    setTotalPoints(0);
     setStreak(0);
     setMaxStreak(0);
+    setCorrectCount(0);
     setSelectedAnswer(null);
     setIsCorrect(null);
-    setTimer(QUESTION_TIME);
-    setTimerActive(false);
     setShowResult(false);
     setError('');
-    setSaveError('');
+    setTimer(15);
+    setTimerActive(false);
   };
 
-  const rankText = correctCount === questions.length
-    ? '완벽해요. 성경 이야기를 잘 이해하고 있어요.'
-    : correctCount / questions.length >= 0.8
-      ? '잘 풀었어요. 본문을 계속 읽어보면 더 좋아져요.'
-      : correctCount / questions.length >= 0.5
-        ? '좋아요. 틀린 문제의 본문을 다시 확인해보세요.'
-        : '괜찮아요. 성경 이야기를 다시 읽으며 차근차근 익혀보세요.';
+  const getRankComment = () => {
+    const pct = questions.length > 0 ? correctCount / questions.length : 0;
+    if (pct === 1) return { text: '완벽해요! 성경 박사 등극!', icon: 'ri-vip-crown-line', color: 'text-amber-500' };
+    if (pct >= 0.8) return { text: '대단해요! 거의 다 맞췄어요', icon: 'ri-medal-line', color: 'text-emerald-500' };
+    if (pct >= 0.6) return { text: '괜찮아요! 계속 도전하세요', icon: 'ri-thumb-up-line', color: 'text-primary-500' };
+    if (pct >= 0.4) return { text: '조금만 더 공부하면 돼요', icon: 'ri-book-open-line', color: 'text-secondary-500' };
+    return { text: '다음엔 더 잘할 수 있어요!', icon: 'ri-emotion-happy-line', color: 'text-foreground-500' };
+  };
+
+  const diffInfo = DIFFICULTIES.find(d => d.key === difficulty);
+  const scorePerQ = diffInfo?.scorePerQ || 20;
 
   return (
     <div className="min-h-screen bg-background-50">
-      <main className="mx-auto w-full max-w-2xl px-4 py-8 pb-20 md:px-6 md:py-12">
-        <header className="mb-7 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-card bg-secondary-100 dark:bg-secondary-900/30">
-            <i className="ri-book-open-line text-2xl text-secondary-600 dark:text-secondary-300" />
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-10 md:py-16">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-secondary-100 border border-secondary-200 mb-5">
+            <i className="ri-question-answer-line text-3xl text-secondary-600"></i>
           </div>
-          <h1 className="font-heading text-2xl font-bold text-foreground-950 dark:text-foreground-50 md:text-3xl">성경 퀴즈</h1>
-          <p className="mt-2 text-sm text-foreground-600 dark:text-foreground-300">개역한글 본문의 이야기와 사건을 중심으로 성경을 익혀보세요.</p>
-        </header>
-
-        {questions.length === 0 && !showResult && (
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-card border border-background-200 bg-background-100 p-5 shadow-card dark:border-background-700 dark:bg-background-900 md:p-7">
-            <div className="mb-5">
-              <h2 className="font-heading text-lg font-bold text-foreground-950 dark:text-foreground-50">난이도를 선택하세요</h2>
-              <p className="mt-1 text-sm text-foreground-500 dark:text-foreground-400">문제마다 정해진 점수만 획득합니다. 시간·연속 정답 보너스는 없습니다.</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">AI 성경 퀴즈</h1>
+          <p className="text-sm text-foreground-600">난이도를 골라 AI가 출제하는 성경 퀴즈에 도전하세요!</p>
+          {autoClubInfo && (
+            <div className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-accent-200 bg-accent-50">
+              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ backgroundColor: `${autoClubInfo.color}20` }}>
+                <i className={`${autoClubInfo.icon} text-sm`} style={{ color: autoClubInfo.color }}></i>
+              </div>
+              <span className="text-sm font-bold text-accent-700">{autoClubInfo.name} 대표 출전</span>
             </div>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              {(Object.keys(DIFFICULTIES) as Difficulty[]).map((key) => {
-                const item = DIFFICULTIES[key];
-                const active = difficulty === key;
-                return (
-                  <button key={key} type="button" onClick={() => setDifficulty(key)} className={`min-h-[126px] rounded-card border p-4 text-left transition-all ${active ? 'border-secondary-500 bg-secondary-50 shadow-card dark:border-secondary-400 dark:bg-secondary-950/30' : 'border-background-200 bg-background-50 dark:border-background-700 dark:bg-background-950'}`}>
-                    <div className="flex items-center justify-between">
-                      <i className={`${item.icon} text-xl ${active ? 'text-secondary-600 dark:text-secondary-300' : 'text-foreground-500'}`} />
-                      <span className="rounded-chip bg-background-200 px-2.5 py-1 text-xs font-bold text-foreground-700 dark:bg-background-800 dark:text-foreground-200">{item.points}점</span>
-                    </div>
-                    <p className="mt-3 font-heading text-base font-bold text-foreground-950 dark:text-foreground-50">{item.label}</p>
-                    <p className="mt-1 text-xs font-semibold text-foreground-700 dark:text-foreground-200">{item.audience}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-foreground-500 dark:text-foreground-400">{item.description}</p>
-                  </button>
-                );
-              })}
+          )}
+          {!autoClub && (
+            <div className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-amber-200 bg-amber-50">
+              <i className="ri-information-line text-amber-600"></i>
+              <span className="text-sm font-medium text-amber-700">동아리 소속 정보가 없어요. 프로필에서 동아리를 먼저 설정해주세요.</span>
             </div>
+          )}
+          {cumulativeStats && cumulativeStats.games_played > 0 && (
+            <div className="mt-4 inline-flex items-center gap-3 px-5 py-2.5 bg-amber-50 border border-amber-200 rounded-full">
+              <div className="flex items-center gap-1.5"><i className="ri-trophy-line text-amber-600 text-sm"></i><span className="text-sm font-bold text-amber-700">{cumulativeStats.total_score.toLocaleString()}점</span></div>
+              <div className="w-px h-4 bg-amber-200"></div>
+              <div className="flex items-center gap-1.5"><i className="ri-gamepad-line text-amber-600 text-sm"></i><span className="text-xs font-medium text-amber-700">{cumulativeStats.games_played}회</span></div>
+              <div className="w-px h-4 bg-amber-200"></div>
+              <div className="flex items-center gap-1.5"><i className="ri-check-double-line text-amber-600 text-sm"></i><span className="text-xs font-medium text-amber-700">정답률 {cumulativeStats.accuracy}%</span></div>
+            </div>
+          )}
+        </motion.div>
 
-            <button type="button" onClick={startQuiz} disabled={isLoading} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-input bg-secondary-500 px-5 py-3.5 font-label text-sm font-bold text-background-50 transition-colors hover:bg-secondary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-background-950">
-              <i className="ri-play-circle-line text-lg" />
-              {isLoading ? '문제 준비 중...' : '퀴즈 시작하기'}
+        {questions.length === 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-6">
+            <button onClick={() => setShowLeaderboard(true)} className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-amber-50 border-2 border-amber-200 text-amber-700 font-semibold text-sm hover:bg-amber-100 transition-all cursor-pointer whitespace-nowrap">
+              <i className="ri-trophy-line text-lg"></i>전체 리더보드 보기
             </button>
-            {error && <div className="mt-4 rounded-input border border-accent-200 bg-accent-50 p-3 text-sm text-accent-700 dark:border-accent-800 dark:bg-accent-950/30 dark:text-accent-200">{error}</div>}
-
-            <button type="button" onClick={() => setShowLeaderboard(true)} className="mx-auto mt-5 flex min-h-11 items-center gap-2 rounded-chip px-4 py-2 text-sm font-semibold text-secondary-700 hover:bg-secondary-50 dark:text-secondary-300 dark:hover:bg-secondary-950/30">
-              <i className="ri-trophy-line" /> 리더보드 보기
-            </button>
-          </motion.section>
+          </motion.div>
         )}
 
-        {questions.length > 0 && !showResult && currentQuestion && (
-          <motion.section key={currentQ} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-card border border-background-200 bg-background-100 p-4 shadow-card dark:border-background-700 dark:bg-background-900 md:p-7">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <span className="text-xs font-bold text-foreground-600 dark:text-foreground-300">{currentQ + 1} / {questions.length}</span>
+        {questions.length === 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8 mb-6">
+            <div className="text-center mb-6">
+              <p className="text-lg font-bold text-foreground-950 mb-1">난이도 선택</p>
+              <p className="text-sm text-foreground-500">AI가 난이도에 맞춰 문제를 출제합니다</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-xs font-medium text-foreground-600 mb-3 text-center">난이도를 선택하세요</label>
+              <div className="grid grid-cols-3 gap-2.5">
+                {DIFFICULTIES.map(d => {
+                  const active = difficulty === d.key;
+                  return (
+                    <motion.button key={d.key} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }} onClick={() => setDifficulty(d.key)} className={`relative flex flex-col items-center gap-1.5 py-4 px-2 rounded-[20px] transition-all cursor-pointer overflow-hidden ${active ? `bg-gradient-to-br ${d.gradient} shadow-card-lg` : 'bg-background-50 border border-background-200'}`}>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center ${active ? 'bg-background-100/25' : d.bg}`}><i className={`${d.icon} text-lg ${active ? 'text-white' : d.color}`}></i></div>
+                      <div className={`text-sm font-bold ${active ? 'text-white' : 'text-foreground-800'}`}>{d.label}</div>
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 3 }).map((_, i) => <i key={i} className={`ri-star-fill text-[10px] ${i < d.stars ? (active ? 'text-white' : 'text-amber-400') : (active ? 'text-white/30' : 'text-background-300')}`}></i>)}
+                      </div>
+                      <div className={`text-[10px] font-medium ${active ? 'text-white/85' : 'text-foreground-400'}`}>문제당 {d.scorePerQ}점</div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-foreground-400 text-center mt-3">
+                {difficulty === 'easy' ? '입문: 문제당 20점 — 기본 성경 상식 문제' : difficulty === 'hard' ? '도전: 문제당 80점 — 높은 점수와 함께 심화 문제' : '보통: 문제당 50점 — 중급 성경 지식 문제'}
+              </p>
+            </div>
+            <button onClick={() => startQuiz()} disabled={isLoading} className="w-full py-3.5 rounded-[20px] bg-secondary-500 text-background-50 font-semibold text-base hover:bg-secondary-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap">
+              <i className="ri-play-circle-line text-lg"></i>{isLoading ? '문제 불러오는 중...' : '퀴즈 시작하기'}
+            </button>
+            {error && <div className="mt-4 p-3 rounded-xl bg-accent-100 border border-accent-200 text-sm text-accent-700 flex items-start gap-2"><i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i><span>{error}</span></div>}
+          </motion.div>
+        )}
+
+        {isLoading && questions.length === 0 && <div className="flex items-center justify-center py-8"><div className="w-6 h-6 rounded-full border-2 border-secondary-400 border-t-transparent animate-spin mr-3"></div><span className="text-sm text-foreground-500">문제 준비 중...</span></div>}
+
+        {questions.length > 0 && !showResult && (
+          <motion.div key={currentQ} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35 }} className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <button onClick={handleBackToDifficulty} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-background-200 text-xs font-medium text-foreground-600 hover:bg-background-300 transition-colors cursor-pointer"><i className="ri-arrow-left-line text-sm"></i><span>뒤로가기</span></button>
               <div className="flex items-center gap-2">
-                <span className="rounded-chip bg-secondary-100 px-2.5 py-1 text-xs font-bold text-secondary-700 dark:bg-secondary-900/40 dark:text-secondary-200">{diffInfo.points}점</span>
-                <span className={`rounded-chip px-2.5 py-1 text-xs font-bold ${timer <= 5 ? 'bg-accent-100 text-accent-700 dark:bg-accent-950/40 dark:text-accent-200' : 'bg-background-200 text-foreground-700 dark:bg-background-800 dark:text-foreground-200'}`}>{timer}초</span>
+                {streak >= 2 && <span className="text-xs font-bold text-amber-600 flex items-center gap-1"><i className="ri-fire-line"></i> x{streak}</span>}
+                <div className={`text-xs font-bold px-2 py-1 rounded-full ${timer <= 5 ? 'bg-rose-100 text-rose-600' : 'bg-background-200 text-foreground-600'}`}>{timer}s</div>
               </div>
             </div>
-            <div className="mb-5 h-2 overflow-hidden rounded-chip bg-background-200 dark:bg-background-800">
-              <div className="h-full rounded-chip bg-secondary-500 transition-all duration-300" style={{ width: `${((currentQ + (selectedAnswer ? 1 : 0)) / questions.length) * 100}%` }} />
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1.5"><span className="text-xs font-bold text-foreground-600">{currentQ + 1} / {questions.length}</span><span className={`text-xs px-2.5 py-1 rounded-full font-bold ${questions[currentQ]?.type === 'ox' ? 'bg-primary-100 text-primary-700' : 'bg-secondary-100 text-secondary-700'}`}>{questions[currentQ]?.type === 'ox' ? 'O/X' : '객관식'}</span></div>
+              <div className="h-2.5 rounded-full bg-background-200 overflow-hidden"><motion.div initial={{ width: 0 }} animate={{ width: `${((currentQ + (selectedAnswer !== null ? 1 : 0)) / questions.length) * 100}%` }} transition={{ duration: 0.4, ease: 'easeOut' }} className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500"></motion.div></div>
             </div>
-
-            <div className="mb-6 rounded-card bg-background-50 p-5 dark:bg-background-950 md:p-6">
-              <p className="font-heading text-lg font-bold leading-relaxed text-foreground-950 dark:text-foreground-50 md:text-xl">{currentQuestion.question}</p>
-            </div>
-
-            <div className="space-y-2.5">
-              {currentQuestion.options.map((option, index) => {
-                const selected = selectedAnswer === option;
-                const correctAnswer = option === currentQuestion.answer;
-                const reveal = isCorrect !== null || selectedAnswer === 'TIMEOUT';
-                const correctStyle = reveal && correctAnswer ? 'border-secondary-500 bg-secondary-50 dark:border-secondary-400 dark:bg-secondary-950/30' : '';
-                const wrongStyle = selected && !isCorrect ? 'border-accent-500 bg-accent-50 dark:border-accent-400 dark:bg-accent-950/30' : '';
-                return (
-                  <button key={`${currentQuestion.id || currentQuestion.question}-${index}`} type="button" disabled={selectedAnswer !== null} onClick={() => handleAnswer(option)} className={`flex min-h-14 w-full items-center gap-3 rounded-input border-2 bg-background-50 px-4 py-3 text-left transition-colors disabled:cursor-default dark:bg-background-950 ${correctStyle || wrongStyle || 'border-background-200 hover:border-secondary-300 dark:border-background-700 dark:hover:border-secondary-600'}`}>
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background-200 text-sm font-bold text-foreground-700 dark:bg-background-800 dark:text-foreground-200">{index + 1}</span>
-                    <span className="flex-1 text-sm font-semibold leading-relaxed text-foreground-900 dark:text-foreground-100">{option}</span>
-                    {reveal && correctAnswer && <i className="ri-check-line text-xl text-secondary-600 dark:text-secondary-300" />}
-                    {selected && !isCorrect && <i className="ri-close-line text-xl text-accent-600 dark:text-accent-300" />}
-                  </button>
-                );
-              })}
-            </div>
-
-            {selectedAnswer !== null && (
-              <div className="mt-5 rounded-card border border-background-200 bg-background-50 p-4 dark:border-background-700 dark:bg-background-950">
-                <p className="text-sm font-bold text-foreground-950 dark:text-foreground-50">{selectedAnswer === 'TIMEOUT' ? '시간이 끝났어요.' : isCorrect ? `정답이에요. +${diffInfo.points}점` : '아쉬워요. 정답을 확인해보세요.'}</p>
-                <p className="mt-2 text-sm leading-relaxed text-foreground-700 dark:text-foreground-200">정답: <strong>{currentQuestion.answer}</strong>{currentQuestion.explanation ? ` · ${currentQuestion.explanation}` : ''}</p>
-                <button type="button" onClick={nextQuestion} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-input bg-secondary-500 px-5 py-3 font-label text-sm font-bold text-background-50 hover:bg-secondary-600 dark:text-background-950">
-                  {currentQ < questions.length - 1 ? '다음 문제' : '결과 보기'} <i className="ri-arrow-right-line" />
-                </button>
+            {currentQ === questions.length - 1 && <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-3 text-center"><span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold"><i className="ri-vip-crown-line"></i> 보스 라운드! 보너스 점수 2배!</span></motion.div>}
+            <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8">
+              <p className="text-xl font-bold text-foreground-950 mb-6 text-center leading-snug">{questions[currentQ]?.question}</p>
+              <div className="space-y-3">
+                {questions[currentQ]?.options.map((option, idx) => {
+                  const isSelected = selectedAnswer === option;
+                  const isCorrectAnswer = option === questions[currentQ]?.answer;
+                  const isTimeout = selectedAnswer === 'TIMEOUT';
+                  const isWrongPick = isSelected && !isCorrect;
+                  const isHighlightedCorrect = (isSelected && isCorrect) || (!isSelected && (isCorrect !== null || isTimeout) && isCorrectAnswer);
+                  let cardStyle = 'border-2 border-background-200 bg-background-50';
+                  let textStyle = 'text-foreground-800';
+                  if (isHighlightedCorrect) { cardStyle = 'border-2 border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-500'; textStyle = 'text-emerald-900 dark:text-emerald-100'; }
+                  else if (isWrongPick) { cardStyle = 'border-2 border-rose-400 bg-rose-50 dark:bg-rose-950/40 dark:border-rose-500'; textStyle = 'text-rose-900 dark:text-rose-100'; }
+                  return (
+                    <motion.button key={idx} initial={{ opacity: 0, y: 8 }} animate={isWrongPick ? { opacity: 1, y: 0, x: [0, -6, 6, -4, 4, 0] } : { opacity: 1, y: 0 }} whileTap={selectedAnswer === null ? { scale: 0.97 } : undefined} transition={{ duration: isWrongPick ? 0.4 : 0.25, delay: isWrongPick ? 0 : idx * 0.06 }} onClick={() => handleAnswer(option)} disabled={selectedAnswer !== null} className={`w-full min-h-[56px] text-left px-4 py-4 rounded-2xl transition-colors duration-150 cursor-pointer group ${cardStyle}`}>
+                      <div className="flex items-center gap-3"><div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${isSelected && isCorrect ? 'bg-emerald-500' : isWrongPick ? 'bg-rose-500' : 'bg-background-200'}`}><span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-foreground-600'}`}>{idx + 1}</span></div><span className={`text-base font-semibold flex-1 ${textStyle}`}>{option}</span>{isSelected && isCorrect && <i className="ri-check-line text-emerald-500 text-xl"></i>}{isWrongPick && <i className="ri-close-line text-rose-500 text-xl"></i>}{!isSelected && (isCorrect !== null || isTimeout) && isCorrectAnswer && <i className="ri-check-line text-emerald-500 text-xl"></i>}</div>
+                    </motion.button>
+                  );
+                })}
               </div>
-            )}
-
-            <div className="mt-5 flex items-center justify-between gap-3">
-              <button type="button" onClick={resetQuiz} className="min-h-11 rounded-chip px-4 py-2 text-xs font-semibold text-foreground-500 hover:bg-background-200 dark:text-foreground-400 dark:hover:bg-background-800"><i className="ri-arrow-left-line mr-1" />난이도 선택</button>
-              <button type="button" onClick={() => setShowReportModal(true)} className="min-h-11 rounded-chip px-4 py-2 text-xs font-semibold text-foreground-500 hover:bg-background-200 dark:text-foreground-400 dark:hover:bg-background-800"><i className="ri-flag-2-line mr-1" />문제 제보</button>
+              {selectedAnswer === 'TIMEOUT' && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto'}} className="mt-5 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700"><div className="flex items-center gap-2 mb-1"><i className="ri-time-line text-amber-600 dark:text-amber-300"></i><span className="text-xs font-bold text-amber-700 dark:text-amber-200">시간 초과!</span></div><p className="text-sm text-foreground-900 dark:text-amber-50 leading-relaxed">정답은 <strong>{questions[currentQ]?.answer}</strong>였어요. {questions[currentQ]?.explanation}</p></motion.div>}
+              {isCorrect !== null && selectedAnswer !== 'TIMEOUT' && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className={`mt-5 p-4 rounded-xl ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-700' : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-700'}`}><div className="flex items-center gap-2 mb-1"><i className={`text-sm ${isCorrect ? 'ri-check-line text-emerald-600 dark:text-emerald-300' : 'ri-information-line text-rose-600 dark:text-rose-300'}`}></i><span className={`text-xs font-bold ${isCorrect ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'}`}>{isCorrect ? `정답! (+${questions[currentQ]?.points || 20}점)` : '틀렸어요'}</span>{streak >= 2 && isCorrect && <span className="text-xs font-bold text-amber-600 dark:text-amber-300 ml-1">🔥 연속 {streak}정답 보너스!</span>}</div><p className={`text-sm leading-relaxed ${isCorrect ? 'text-emerald-950 dark:text-emerald-50' : 'text-rose-950 dark:text-rose-50'}`}>{questions[currentQ]?.explanation}</p></motion.div>}
+              {selectedAnswer !== null && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-5 text-center"><button onClick={nextQuestion} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-secondary-500 text-background-50 font-semibold text-sm hover:bg-secondary-600 transition-all duration-300 cursor-pointer whitespace-nowrap">{currentQ < questions.length - 1 ? '다음 문제' : '결과 보기'}<i className="ri-arrow-right-line"></i></button></motion.div>}
+              <div className="mt-5 text-center"><button onClick={() => setShowReportModal(true)} className="inline-flex items-center gap-1.5 text-xs text-foreground-400 hover:text-rose-500 transition-colors cursor-pointer whitespace-nowrap"><i className="ri-flag-2-line"></i>문제가 이상해요! (제보하기)</button></div>
             </div>
-          </motion.section>
+          </motion.div>
         )}
 
         <AnimatePresence>
           {showResult && (
-            <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-card border border-background-200 bg-background-100 p-6 text-center shadow-card dark:border-background-700 dark:bg-background-900 md:p-8">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-secondary-100 dark:bg-secondary-900/30"><i className="ri-trophy-line text-3xl text-secondary-600 dark:text-secondary-300" /></div>
-              <h2 className="mt-5 font-heading text-2xl font-bold text-foreground-950 dark:text-foreground-50">퀴즈 완료</h2>
-              <p className="mt-2 text-sm text-foreground-600 dark:text-foreground-300">{diffInfo.label} · {diffInfo.points}점 문제 · 10문제</p>
-
-              <div className="mx-auto mt-6 grid max-w-md grid-cols-3 gap-2">
-                <div className="rounded-input bg-background-50 p-3 dark:bg-background-950"><p className="text-2xl font-black text-secondary-600 dark:text-secondary-300">{score}</p><p className="mt-1 text-xs text-foreground-500">획득 점수</p></div>
-                <div className="rounded-input bg-background-50 p-3 dark:bg-background-950"><p className="text-2xl font-black text-foreground-900 dark:text-foreground-100">{correctCount}/{questions.length}</p><p className="mt-1 text-xs text-foreground-500">정답</p></div>
-                <div className="rounded-input bg-background-50 p-3 dark:bg-background-950"><p className="text-2xl font-black text-foreground-900 dark:text-foreground-100">{maxStreak}</p><p className="mt-1 text-xs text-foreground-500">최대 연속</p></div>
-              </div>
-
-              <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-foreground-700 dark:text-foreground-200">{rankText}</p>
-              {savingScore && <p className="mt-3 text-xs text-foreground-500">점수 저장 중...</p>}
-              {saveError && <p className="mt-3 rounded-input bg-accent-50 p-3 text-xs text-accent-700 dark:bg-accent-950/30 dark:text-accent-200">{saveError}</p>}
-
-              <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-                <button type="button" onClick={resetQuiz} className="min-h-12 rounded-input bg-secondary-500 px-5 py-3 font-label text-sm font-bold text-background-50 hover:bg-secondary-600 dark:text-background-950"><i className="ri-refresh-line mr-1" />다시 풀기</button>
-                <button type="button" onClick={() => setShowLeaderboard(true)} className="min-h-12 rounded-input border border-background-300 bg-background-50 px-5 py-3 font-label text-sm font-bold text-foreground-800 hover:bg-background-100 dark:border-background-700 dark:bg-background-950 dark:text-foreground-100"><i className="ri-trophy-line mr-1" />리더보드</button>
-              </div>
-            </motion.section>
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8 text-center">
+              <div className="w-20 h-20 rounded-full bg-secondary-100 border-4 border-secondary-200 flex items-center justify-center mx-auto mb-5"><i className="ri-trophy-line text-4xl text-secondary-600"></i></div>
+              <h2 className="text-xl font-bold text-foreground-950 mb-2">퀴즈 완료!</h2>
+              <p className="text-xs text-foreground-500 mb-4">{autoClubInfo && <span>{autoClubInfo.name} · </span>}난이도: {difficulty === 'easy' ? '입문' : difficulty === 'hard' ? '도전' : '보통'} · 문제당 {scorePerQ}점</p>
+              <div className="flex items-center justify-center gap-4 mb-4"><div className="text-center"><p className="text-3xl font-black text-secondary-600">{score}</p><p className="text-xs text-foreground-500">이번 점수</p></div><div className="w-px h-10 bg-background-300"></div><div className="text-center"><p className="text-3xl font-black text-foreground-800">{correctCount}/{questions.length}</p><p className="text-xs text-foreground-500">정답</p></div><div className="w-px h-10 bg-background-300"></div><div className="text-center"><p className="text-3xl font-black text-amber-500">{maxStreak}</p><p className="text-xs text-foreground-500">최대 연속</p></div></div>
+              {cumulativeStats && cumulativeStats.games_played > 0 && <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200"><div className="flex items-center justify-center gap-1 mb-2"><i className="ri-stack-line text-amber-600 text-sm"></i><span className="text-xs font-bold text-amber-700">누적 기록</span></div><div className="flex items-center justify-center gap-4"><div className="text-center"><p className="text-xl font-black text-amber-700">{cumulativeStats.total_score.toLocaleString()}</p><p className="text-xs text-amber-600">총 점수</p></div><div className="w-px h-8 bg-amber-200"></div><div className="text-center"><p className="text-xl font-black text-amber-700">{cumulativeStats.games_played}</p><p className="text-xs text-amber-600">게임 수</p></div><div className="w-px h-8 bg-amber-200"></div><div className="text-center"><p className="text-xl font-black text-amber-700">{cumulativeStats.accuracy}%</p><p className="text-xs text-amber-600">정답률</p></div></div>{savingScore && <p className="text-xs text-amber-500 mt-2">점수 저장 중...</p>}</motion.div>}
+              {(() => { const rank = getRankComment(); return <div className="flex items-center justify-center gap-2 mb-6"><i className={`${rank.icon} ${rank.color} text-xl`}></i><p className={`text-sm font-bold ${rank.color}`}>{rank.text}</p></div>; })()}
+              <div className="flex items-center justify-center gap-3 mt-6 flex-wrap"><button onClick={handleBackToDifficulty} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-secondary-500 text-background-50 font-semibold text-sm hover:bg-secondary-600 transition-all cursor-pointer whitespace-nowrap"><i className="ri-refresh-line"></i>다시 퀴즈 풀기</button><button onClick={() => setShowLeaderboard(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-50 border-2 border-amber-200 text-amber-700 font-semibold text-sm hover:bg-amber-100 transition-all cursor-pointer whitespace-nowrap"><i className="ri-trophy-line"></i>리더보드</button></div>
+            </motion.div>
           )}
         </AnimatePresence>
 
+        <AnimatePresence>{showConfetti && <ConfettiOverlay />}</AnimatePresence>
         <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />
-        <ReportQuestionModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} question={currentQuestion || null} />
-      </main>
+        <ReportQuestionModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} question={questions[currentQ] || null} />
+      </div>
     </div>
+  );
+}
+
+function ConfettiOverlay() {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
+      {Array.from({ length: 40 }).map((_, i) => (
+        <motion.div key={i} initial={{ x: 0, y: 0, opacity: 1, scale: 0 }} animate={{ x: (Math.random() - 0.5) * 500, y: (Math.random() - 0.5) * 500 - 100, opacity: 0, scale: 1, rotate: Math.random() * 720 }} transition={{ duration: 1.2 + Math.random() * 0.8, ease: 'easeOut' }} className="absolute w-3 h-3 rounded-sm" style={{ backgroundColor: ['#f59e0b', '#10b981', '#0ea5e9', '#f43f5e', '#8b5cf6', '#ec4899'][i % 6], left: '50%', top: '50%' }}></motion.div>
+      ))}
+    </motion.div>
   );
 }
