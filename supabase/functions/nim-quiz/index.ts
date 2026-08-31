@@ -7,116 +7,81 @@ const CORS_HEADERS = {
 };
 
 interface QuizQuestion {
+  id?: string;
   question: string;
   options: string[];
   answer: string;
   explanation: string;
   type: 'ox' | 'multiple';
-  difficulty: 'easy' | 'normal' | 'hard';
+  difficulty: string;
   points: number;
 }
 
-function shuffleArray<T>(arr: T[]): T[] {
-  const result = [...arr];
-  for (let i = result.length - 1; i > 0; i--) {
+function shuffle<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
 }
 
-function shuffleQuestionOptions(q: QuizQuestion): QuizQuestion {
-  if (q.type === 'ox') return q;
-  const indexed = q.options.map((opt) => ({ opt, isAnswer: opt === q.answer }));
-  for (let i = indexed.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [indexed[i], indexed[j]] = [indexed[j], indexed[i]];
-  }
-  return {
-    ...q,
-    options: indexed.map((x) => x.opt),
-    answer: indexed.find((x) => x.isAnswer)!.opt,
-  };
+function normalize(value: string): string {
+  return value.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
 }
 
-/**
- * LENGTH BIAS DETECTION (v2)
- * Detects whether the correct answer stands out purely because of its length.
- * - Answer >30% longer than second-longest wrong option → biased
- * - Answer >40% longer than average wrong option → biased
- */
-function isAnswerVisuallyBiased(q: QuizQuestion): boolean {
-  if (q.type === 'ox') return false;
-  const answerLen = q.answer.length;
-  const wrongLengths = q.options
-    .filter((o) => o !== q.answer)
-    .map((o) => o.length)
-    .sort((a, b) => b - a);
+function questionKey(question: QuizQuestion): string {
+  return normalize(question.question);
+}
 
-  if (wrongLengths.length === 0) return false;
+function optionSetKey(question: QuizQuestion): string {
+  return [...question.options].map(normalize).sort().join('|');
+}
 
-  const secondLongestWrong = wrongLengths.length >= 2 ? wrongLengths[1] : wrongLengths[0];
-  const maxWrongLen = wrongLengths[0];
+function isExcluded(question: QuizQuestion, excluded: string[]): boolean {
+  const key = questionKey(question);
+  return excluded.some((item) => {
+    const normalized = normalize(item);
+    return normalized.length >= 8 && (key.startsWith(normalized) || normalized.startsWith(key));
+  });
+}
 
-  if (answerLen > maxWrongLen && answerLen > secondLongestWrong * 1.2) {
-    return true;
-  }
+function isBadQuestion(question: QuizQuestion): boolean {
+  if (!question.question.trim() || !question.explanation.trim()) return true;
+  if (!Array.isArray(question.options) || question.options.length !== 4) return true;
+  const options = question.options.map((option) => String(option).trim());
+  if (options.some((option) => !option)) return true;
+  if (new Set(options.map(normalize)).size !== 4) return true;
+  if (!options.some((option) => normalize(option) === normalize(question.answer))) return true;
 
-  const avgWrongLen = wrongLengths.reduce((s, l) => s + l, 0) / wrongLengths.length;
-  if (answerLen > avgWrongLen * 1.4) {
-    return true;
-  }
-
+  const text = `${question.question} ${question.explanation}`;
+  if (/\\\"한 성경|\\\"한 사람|\\\"한 장소|에 해당하는 것은 무엇인가요\?\\\"한/.test(text)) return true;
+  if (/성경의? .+에서 \\\".+\\\"에 해당하는/.test(question.question)) return true;
+  if (/삼위일체|성부.*성자.*성령|위격|예정론|자유의지|세대주의|은사.*논쟁|개혁신학/.test(text)) return true;
   return false;
 }
 
-/**
- * THEOLOGICAL / INTERPRETIVE QUESTION FILTER
- */
-const FORBIDDEN_PATTERNS = [
-  /삼위일체/, /성부.*성자.*성령/, /위격/, /예정론/, /자유의지/,
-  /세대주의/, /은사.*논쟁/, /개혁신학/,
-];
-
-function isInterpretiveWithoutTextBasis(q: QuizQuestion): boolean {
-  const text = q.question + ' ' + (q.explanation || '');
-  return FORBIDDEN_PATTERNS.some((p) => p.test(text));
+function storyScore(question: QuizQuestion): number {
+  const text = question.question;
+  let score = 0;
+  if (/누가|무엇을|어디|왜|어떻게|무슨|몇 명|말했|만났|떠났|도망|구원|구출|죽|태어|낳|갔|왔|지었|먹|마셨|기도|배반|용서|전쟁|기적/.test(text)) score += 3;
+  if (/사건|장면|이야기|본문/.test(text)) score += 1;
+  return score;
 }
 
-function isStoryCentered(q: QuizQuestion): boolean {
-  const storyPatterns = [
-    /이야기/, /비유/, /사건/, /만났/, /싸웠/, /이겼/, /보냈/, /갔/, /왔/,
-    /주었/, /만들었/, /지었/, /낳았/, /결혼/, /전쟁/, /전투/, /도망/, /숨겼/,
-    /던졌/, /던지/, /물리쳤/, /정복/, /건넜/, /열렸/, /꿈/, /환상/, /예언.*했/,
-    /말했/, /물었/, /대답/, /기도.*했/, /찬양/, /울었/, /기뻐/, /잡혔/, /팔렸/,
-    /먹었/, /마셨/, /걸었/, /올랐/, /내려왔/, /죽었/, /살아났/, /헌금/,
-  ];
-  return storyPatterns.some((p) => p.test(q.question));
-}
-
-function selectQuestions(candidates: QuizQuestion[], size: number): QuizQuestion[] {
-  const storyQuestions = candidates.filter(isStoryCentered);
-  const factualQuestions = candidates.filter((q) => !isStoryCentered(q));
-
-  const shuffledStory = shuffleArray(storyQuestions);
-  const shuffledFactual = shuffleArray(factualQuestions);
-
-  const mixed: QuizQuestion[] = [];
-  const storyTarget = Math.min(shuffledStory.length, Math.ceil(size * 0.7));
-  const factualTarget = Math.min(shuffledFactual.length, size - storyTarget);
-
-  mixed.push(...shuffledStory.slice(0, storyTarget));
-  mixed.push(...shuffledFactual.slice(0, factualTarget));
-
-  if (mixed.length < size) {
-    const usedKeys = new Set(mixed.map((q) => q.question.substring(0, 20)));
-    const remaining = shuffleArray(candidates).filter(
-      (q) => !usedKeys.has(q.question.substring(0, 20))
-    );
-    mixed.push(...remaining.slice(0, size - mixed.length));
-  }
-
-  return shuffleArray(mixed).slice(0, size);
+function normalizeRow(row: any): QuizQuestion {
+  const difficulty = String(row.difficulty);
+  const points = difficulty === '하' ? 20 : difficulty === '중' ? 50 : difficulty === '상' ? 80 : 20;
+  return {
+    id: row.id,
+    question: String(row.question),
+    options: Array.isArray(row.options) ? row.options.map(String) : [],
+    answer: String(row.answer),
+    explanation: String(row.explanation || ''),
+    type: row.type === 'ox' ? 'ox' : 'multiple',
+    difficulty,
+    points,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -124,140 +89,71 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const difficulty = ['easy', 'normal', 'hard'].includes(body.difficulty) ? body.difficulty : 'normal';
-    const excludeQuestions: string[] = Array.isArray(body.excludeQuestions) ? body.excludeQuestions : [];
-    // source: 호출 출처 로그용 ('site' | 'game' 등). 없으면 'site'로 간주(기존 호출부와 동일 동작).
-    const source: string = typeof body.source === 'string' && body.source ? body.source : 'site';
+    const requested = ['easy', 'normal', 'hard'].includes(body.difficulty) ? body.difficulty : 'normal';
+    const difficultyMap: Record<string, string> = { easy: '하', normal: '중', hard: '상' };
+    const requestedDifficulty = difficultyMap[requested];
+    const count = Math.min(Math.max(Number(body.count) || 10, 1), 30);
+    const excluded = Array.isArray(body.excludeQuestions) ? body.excludeQuestions.map(String) : [];
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase configuration missing');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    // count 파라미터화: 미지정/유효하지 않으면 기존과 동일하게 10개(하위 호환). 1~30 사이로 clamp.
-    const QUIZ_SIZE = Math.min(Math.max(Number(body.count) || 10, 1), 30);
-    console.log(`[nim-quiz] source=${source} count=${QUIZ_SIZE} difficulty=${difficulty}`);
-
-    // Map English difficulty to Korean (DB stores Korean values: 하/중/상)
-    const engToKor: Record<string, string> = {
-      easy: '하',
-      normal: '중',
-      hard: '상',
-    };
-
-    const difficultyOrderKor = [engToKor[difficulty] || '중'];
-    if (difficulty !== 'normal') difficultyOrderKor.push('중');
-    if (difficulty !== 'easy') difficultyOrderKor.push('하');
-    if (difficulty !== 'hard') difficultyOrderKor.push('상');
-
-    let allCandidates: QuizQuestion[] = [];
-    const excludeSet = new Set(excludeQuestions.map((e: string) => e.substring(0, 20)));
-
-    for (const diff of difficultyOrderKor) {
-      const { data: dbQuestions, error: fetchError } = await supabase
-        .from('quiz_questions')
-        .select('*')
-        .eq('difficulty', diff);
-
-      if (fetchError || !dbQuestions || dbQuestions.length === 0) continue;
-
-      const mapped = dbQuestions.map((q: any) => ({
-        question: q.question,
-        options: q.options,
-        answer: q.answer,
-        explanation: q.explanation,
-        type: q.type,
-        difficulty: q.difficulty,
-        points: q.points || (q.difficulty === '상' ? 30 : q.difficulty === '중' ? 20 : 10),
-      }));
-
-      const filtered = mapped
-        .filter((q: QuizQuestion) => !isInterpretiveWithoutTextBasis(q))
-        .filter((q: QuizQuestion) => !excludeSet.has(q.question.substring(0, 20)));
-
-      allCandidates.push(...filtered);
-      if (allCandidates.length >= QUIZ_SIZE * 5) break;
-    }
-
-    if (allCandidates.length === 0) {
-      return new Response(
-        JSON.stringify({ error: '문제은행에 사용 가능한 문제가 없습니다. 관리자에게 문제 추가를 요청해주세요.' }),
-        { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const seenQuestions = new Set<string>();
-    const deduped: QuizQuestion[] = [];
-    for (const q of shuffleArray(allCandidates)) {
-      const key = q.question.substring(0, 20);
-      if (!seenQuestions.has(key)) {
-        seenQuestions.add(key);
-        deduped.push(q);
-      }
-    }
-
-    const selected = selectQuestions(deduped, QUIZ_SIZE);
-
-    const unbiasedPool: QuizQuestion[] = [];
-    const biasedPool: QuizQuestion[] = [];
-
-    for (const q of selected) {
-      if (isAnswerVisuallyBiased(q)) {
-        biasedPool.push(q);
-      } else {
-        unbiasedPool.push(q);
-      }
-    }
-
-    const usedQuestions = new Set(selected.map((q) => q.question.substring(0, 20)));
-    const backupUnbiased = deduped.filter(
-      (q) => !usedQuestions.has(q.question.substring(0, 20)) && !isAnswerVisuallyBiased(q)
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
     );
 
-    let resultPool = [...unbiasedPool];
+    const { data, error } = await supabase
+      .from('quiz_questions')
+      .select('id,question,options,answer,explanation,type,difficulty,points')
+      .eq('difficulty', requestedDifficulty);
 
-    if (biasedPool.length > 0) {
-      const needed = QUIZ_SIZE - resultPool.length;
-      const replacements = shuffleArray(backupUnbiased).slice(0, needed);
-      resultPool.push(...replacements);
+    if (error) throw error;
 
-      if (resultPool.length < QUIZ_SIZE) {
-        const remainingBiased = biasedPool.slice(0, QUIZ_SIZE - resultPool.length);
-        resultPool.push(...remainingBiased);
-        console.log(
-          `[nim-quiz] ⚠️ Unbiased pool exhausted. Accepted ${remainingBiased.length} biased question(s) as fallback.`
-        );
-      } else {
-        console.log(
-          `[nim-quiz] ✅ Replaced ${biasedPool.length} biased question(s) with unbiased alternatives.`
-        );
-      }
+    const pool = (data || [])
+      .map(normalizeRow)
+      .filter((question) => !isBadQuestion(question) && !isExcluded(question, excluded));
+
+    const unique = new Map<string, QuizQuestion>();
+    for (const question of pool) {
+      const key = questionKey(question);
+      if (!unique.has(key)) unique.set(key, question);
     }
 
-    const result: QuizQuestion[] = resultPool
-      .slice(0, QUIZ_SIZE)
-      .map((q) => shuffleQuestionOptions(q));
+    const candidates = shuffle([...unique.values()]).sort((a, b) => storyScore(b) - storyScore(a));
+    const selected: QuizQuestion[] = [];
+    const usedOptionSets = new Set<string>();
 
-    const stillBiased = result.filter((q) => isAnswerVisuallyBiased(q));
-    if (stillBiased.length > 0) {
-      console.log(
-        `[nim-quiz] 🔍 Final check: ${stillBiased.length}/${result.length} questions still biased (pool exhausted).`
+    for (const question of candidates) {
+      const optionKey = optionSetKey(question);
+      if (usedOptionSets.has(optionKey)) continue;
+      selected.push(question);
+      usedOptionSets.add(optionKey);
+      if (selected.length >= count) break;
+    }
+
+    if (selected.length < count) {
+      return new Response(
+        JSON.stringify({ error: `선택한 난이도에서 품질 기준을 통과한 문제가 ${count}개보다 부족합니다.` }),
+        { status: 422, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
       );
-    } else {
-      console.log(`[nim-quiz] ✅ Final check: all ${result.length} questions are visually unbiased.`);
     }
+
+    const result = shuffle(selected).map((question) => {
+      const options = shuffle(question.options.map((option) => ({
+        option,
+        correct: normalize(option) === normalize(question.answer),
+      })));
+      return {
+        ...question,
+        options: options.map((item) => item.option),
+        answer: options.find((item) => item.correct)?.option || question.answer,
+      };
+    });
 
     return new Response(JSON.stringify(result), {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
-
-  } catch (err) {
-    const message = err instanceof Error ? err.message : '서버 오류';
-    console.error('nim-quiz error:', err);
-    return new Response(JSON.stringify({ error: message }), {
+  } catch (error) {
+    console.error('[nim-quiz]', error);
+    return new Response(JSON.stringify({ error: '퀴즈를 불러오는 중 오류가 발생했습니다.' }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
