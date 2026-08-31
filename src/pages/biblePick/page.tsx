@@ -122,7 +122,6 @@ export default function BiblePick() {
             transition={{ duration: 0.5 }}
             style={{ transformStyle: 'preserve-3d' }}
           >
-            {/* Header */}
             <div className="text-center mb-10">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-background-100 border border-background-200 mb-5">
                 <i className="ri-book-open-line text-3xl text-primary-600"></i>
@@ -134,7 +133,6 @@ export default function BiblePick() {
               </p>
             </div>
 
-            {/* Input Card */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -175,7 +173,6 @@ export default function BiblePick() {
               </form>
             </motion.div>
 
-            {/* 하단 링크 */}
             <div className="text-center mt-8">
               <Link
                 to="/bible-pick/history"
@@ -189,7 +186,6 @@ export default function BiblePick() {
         )}
         </AnimatePresence>
 
-        {/* Loading overlay — 카드 뒤집기(제비뽑기) 느낌 */}
         {isDrawing && (
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center" style={{ perspective: 800 }}>
             <div className="bg-background-100 border border-background-200 rounded-[20px] p-10 md:p-14 text-center max-w-sm w-full mx-4">
