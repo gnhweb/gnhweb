@@ -54,7 +54,7 @@ function filterExcludedQuestions(rows: QuizQuestion[], excludeQuestions: string[
   const excluded = excludeQuestions.map((value) => value.trim().replace(/[\s\p{P}\p{S}]+/gu, '')).filter((value) => value.length >= 8);
   return rows.filter((q) => {
     const key = q.question.replace(/[\s\p{P}\p{S}]+/gu, '');
-    return !excluded.some((prefix) => key.startsWith(prefix) || prefix.startsWith(key));
+    return !excluded.some((prefix) => key === prefix || key.startsWith(prefix) || prefix.startsWith(key));
   });
 }
 
@@ -64,18 +64,15 @@ export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', exc
     body: { difficulty: requestedDifficulty, excludeQuestions, count: 10, source: 'site' },
   });
 
-  if (!error && Array.isArray(data) && data.length > 0) {
+  if (!error && Array.isArray(data)) {
     const normalized = normalizeQuizRows(data, requestedDifficulty);
-    if (normalized.length === 10 && normalized.every((question) => question.difficulty === requestedDifficulty)) return normalized;
+    if (normalized.length === 10 && normalized.every((question) => question.difficulty === requestedDifficulty && question.points === QUIZ_POINTS[requestedDifficulty])) return normalized;
   }
 
-  // Recovery path stays inside the selected difficulty. Mixing difficulties makes the
-  // player receive a level they did not choose, so an insufficient pool is reported instead.
   const { data: dbRows, error: dbError } = await supabase
-    .from('quiz_questions')
+    .from('quiz_questions_curated')
     .select('id,question,options,answer,explanation,type,difficulty,points')
-    .eq('difficulty', QUIZ_DIFFICULTY_KR[requestedDifficulty])
-    .limit(1000);
+    .eq('difficulty', QUIZ_DIFFICULTY_KR[requestedDifficulty]);
 
   if (!dbError && dbRows) {
     const normalized = filterExcludedQuestions(normalizeQuizRows(dbRows, requestedDifficulty), excludeQuestions);
@@ -89,7 +86,7 @@ export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', exc
   }
 
   if (error || dbError) throw new Error('퀴즈 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
-  throw new Error('선택한 난이도의 품질 기준을 통과한 문제가 부족해요. 다른 난이도를 선택하거나 관리자에게 문제 보강을 요청해주세요.');
+  throw new Error('선택한 난이도의 문제가 부족해요. 다른 난이도를 선택해주세요.');
 }
 
 export async function generatePlan(eventPurpose: string): Promise<PDSChecklist> {
