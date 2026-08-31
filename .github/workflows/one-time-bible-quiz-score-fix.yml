@@ -2,14 +2,13 @@ name: One-time Bible Quiz Score Fix
 
 on:
   push:
-    paths:
-      - '.github/workflows/one-time-bible-quiz-score-fix.yml'
 
 permissions:
   contents: write
 
 jobs:
   patch:
+    if: ${{ !contains(github.event.head_commit.message, 'fix: enforce bible quiz fixed scoring') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +21,7 @@ jobs:
           s = p.read_text()
 
           old = '''      const pts = q.points || 20;\n      const streakBonus = Math.min(streak, 5) * 2;\n      const timeBonus = Math.max(0, Math.round(timer * 0.5));\n      const finalPts = pts + streakBonus + timeBonus;\n      setScore(prev => prev + finalPts);\n      setTotalPoints(prev => prev + finalPts);'''
-          new = '''      const finalPts = q.points || diffInfo?.scorePerQ || 20;\n      setScore(prev => prev + finalPts);\n      setTotalPoints(prev => prev + finalPts);'''
+          new = '''      const finalPts = q.points || (difficulty === 'easy' ? 20 : difficulty === 'hard' ? 80 : 50);\n      setScore(prev => prev + finalPts);\n      setTotalPoints(prev => prev + finalPts);'''
           if old not in s:
               raise SystemExit('score block not found')
           s = s.replace(old, new, 1)
@@ -51,14 +50,14 @@ jobs:
 
       - name: Verify patch
         run: |
-          grep -n "streakBonus\|timeBonus\|보스 라운드\|연속.*보너스" src/pages/bibleQuiz/page.tsx || true
+          ! grep -n "streakBonus\|timeBonus\|보스 라운드\|연속.*보너스" src/pages/bibleQuiz/page.tsx
           grep -n "const finalPts" src/pages/bibleQuiz/page.tsx
 
-      - name: Commit patch and remove one-time workflow
+      - name: Commit patch and remove one-time files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/pages/bibleQuiz/page.tsx
-          git rm .github/workflows/one-time-bible-quiz-score-fix.yml
+          git rm .github/workflows/one-time-bible-quiz-score-fix.yml .github/bible-quiz-score-fix-trigger.txt
           git commit -m "fix: enforce bible quiz fixed scoring"
           git push
