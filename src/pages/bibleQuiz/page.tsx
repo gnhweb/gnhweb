@@ -139,10 +139,7 @@ export default function BibleQuiz() {
     setTimerActive(false);
 
     if (correct) {
-      const pts = q.points || 20;
-      const streakBonus = Math.min(streak, 5) * 2;
-      const timeBonus = Math.max(0, Math.round(timer * 0.5));
-      const finalPts = pts + streakBonus + timeBonus;
+      const finalPts = q.points || 20;
       setScore(prev => prev + finalPts);
       setTotalPoints(prev => prev + finalPts);
       setStreak(prev => prev + 1);
@@ -175,6 +172,8 @@ export default function BibleQuiz() {
         const currentClub = freshProfile?.club || profile.club;
         const clubInfo = currentClub && CLUB_COLORS[currentClub] ? CLUB_COLORS[currentClub] : null;
         const clubName = clubInfo?.name || currentClub || '미지정';
+        const finalScore = score + (isCorrect === true ? (questions[currentQ]?.points || 20) : 0);
+        const finalCorrectCount = correctCount + (isCorrect === true ? 1 : 0);
 
         supabase.functions.invoke('quiz-leaderboard', {
           method: 'POST',
@@ -182,9 +181,9 @@ export default function BibleQuiz() {
             user_id: user.id,
             nickname: profile.name || '익명',
             club_name: clubName,
-            score,
+            score: finalScore,
             total_questions: questions.length,
-            correct_count: correctCount,
+            correct_count: finalCorrectCount,
             difficulty,
           },
         }).then(({ data: result, error: saveError }) => {
@@ -319,7 +318,6 @@ export default function BibleQuiz() {
               <div className="flex items-center justify-between mb-1.5"><span className="text-xs font-bold text-foreground-600">{currentQ + 1} / {questions.length}</span><span className={`text-xs px-2.5 py-1 rounded-full font-bold ${questions[currentQ]?.type === 'ox' ? 'bg-primary-100 text-primary-700' : 'bg-secondary-100 text-secondary-700'}`}>{questions[currentQ]?.type === 'ox' ? 'O/X' : '객관식'}</span></div>
               <div className="h-2.5 rounded-full bg-background-200 overflow-hidden"><motion.div initial={{ width: 0 }} animate={{ width: `${((currentQ + (selectedAnswer !== null ? 1 : 0)) / questions.length) * 100}%` }} transition={{ duration: 0.4, ease: 'easeOut' }} className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500"></motion.div></div>
             </div>
-            {currentQ === questions.length - 1 && <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-3 text-center"><span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold"><i className="ri-vip-crown-line"></i> 보스 라운드! 보너스 점수 2배!</span></motion.div>}
             <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8">
               <p className="text-xl font-bold text-foreground-950 mb-6 text-center leading-snug">{questions[currentQ]?.question}</p>
               <div className="space-y-3">
@@ -341,7 +339,7 @@ export default function BibleQuiz() {
                 })}
               </div>
               {selectedAnswer === 'TIMEOUT' && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto'}} className="mt-5 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700"><div className="flex items-center gap-2 mb-1"><i className="ri-time-line text-amber-600 dark:text-amber-300"></i><span className="text-xs font-bold text-amber-700 dark:text-amber-200">시간 초과!</span></div><p className="text-sm text-foreground-900 dark:text-amber-50 leading-relaxed">정답은 <strong>{questions[currentQ]?.answer}</strong>였어요. {questions[currentQ]?.explanation}</p></motion.div>}
-              {isCorrect !== null && selectedAnswer !== 'TIMEOUT' && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className={`mt-5 p-4 rounded-xl ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-700' : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-700'}`}><div className="flex items-center gap-2 mb-1"><i className={`text-sm ${isCorrect ? 'ri-check-line text-emerald-600 dark:text-emerald-300' : 'ri-information-line text-rose-600 dark:text-rose-300'}`}></i><span className={`text-xs font-bold ${isCorrect ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'}`}>{isCorrect ? `정답! (+${questions[currentQ]?.points || 20}점)` : '틀렸어요'}</span>{streak >= 2 && isCorrect && <span className="text-xs font-bold text-amber-600 dark:text-amber-300 ml-1">🔥 연속 {streak}정답 보너스!</span>}</div><p className={`text-sm leading-relaxed ${isCorrect ? 'text-emerald-950 dark:text-emerald-50' : 'text-rose-950 dark:text-rose-50'}`}>{questions[currentQ]?.explanation}</p></motion.div>}
+              {isCorrect !== null && selectedAnswer !== 'TIMEOUT' && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className={`mt-5 p-4 rounded-xl ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-700' : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-700'}`}><div className="flex items-center gap-2 mb-1"><i className={`text-sm ${isCorrect ? 'ri-check-line text-emerald-600 dark:text-emerald-300' : 'ri-information-line text-rose-600 dark:text-rose-300'}`}></i><span className={`text-xs font-bold ${isCorrect ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'}`}>{isCorrect ? `정답! (+${questions[currentQ]?.points || scorePerQ}점)` : '틀렸어요'}</span></div><p className={`text-sm leading-relaxed ${isCorrect ? 'text-emerald-950 dark:text-emerald-50' : 'text-rose-950 dark:text-rose-50'}`}>{questions[currentQ]?.explanation}</p></motion.div>}
               {selectedAnswer !== null && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-5 text-center"><button onClick={nextQuestion} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-secondary-500 text-background-50 font-semibold text-sm hover:bg-secondary-600 transition-all duration-300 cursor-pointer whitespace-nowrap">{currentQ < questions.length - 1 ? '다음 문제' : '결과 보기'}<i className="ri-arrow-right-line"></i></button></motion.div>}
               <div className="mt-5 text-center"><button onClick={() => setShowReportModal(true)} className="inline-flex items-center gap-1.5 text-xs text-foreground-400 hover:text-rose-500 transition-colors cursor-pointer whitespace-nowrap"><i className="ri-flag-2-line"></i>문제가 이상해요! (제보하기)</button></div>
             </div>
