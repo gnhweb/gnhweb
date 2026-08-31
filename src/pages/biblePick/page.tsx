@@ -8,7 +8,18 @@ import { useAuth } from '@/hooks/useAuth';
 
 const HISTORY_STORAGE_KEY = 'bible_picks_history';
 
-async function savePick(verseData: BibleVerseData, userText: string, userId?: string) {
+function saveToLocalHistory(record: Record<string, unknown>) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]');
+    existing.unshift(record);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(existing));
+  } catch {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify([record]));
+  }
+}
+
+// 히스토리 기록 실패를 조용히 무시하지 않고 true/false로 성공 여부를 알려줍니다.
+async function savePick(verseData: BibleVerseData, userText: string, userId?: string): Promise<boolean> {
   const record = {
     emotion: verseData.primaryEmotion || verseData.analyzedEmotions?.[0] || '평안',
     situation: userText,
@@ -24,16 +35,17 @@ async function savePick(verseData: BibleVerseData, userText: string, userId?: st
       user_id: userId,
       ...record,
     });
-    if (error) console.error('Failed to save bible pick:', error);
-  } else {
-    try {
-      const existing = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]');
-      existing.unshift(record);
-      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(existing));
-    } catch {
-      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify([record]));
+    if (error) {
+      console.error('Failed to save bible pick:', error);
+      // DB 저장이 실패해도 기록 자체가 사라지지 않도록 로컬에라도 남겨둡니다.
+      saveToLocalHistory(record);
+      return false;
     }
+    return true;
   }
+
+  saveToLocalHistory(record);
+  return true;
 }
 
 export default function BiblePick() {
@@ -78,7 +90,10 @@ export default function BiblePick() {
       const verse = await fetchVerseFromAI(userText.trim());
       setVerseData(verse);
       setIsSubmitted(true);
-      savePick(verse, userText.trim(), user?.id);
+      const saved = await savePick(verse, userText.trim(), user?.id);
+      if (!saved) {
+        setError('말씀은 준비됐지만 히스토리 저장에는 실패했어요. 나의 히스토리에서 보이지 않는다면 다시 시도해주세요.');
+      }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : '알 수 없는 오류';
       setError(errMsg);
@@ -107,6 +122,12 @@ export default function BiblePick() {
             transition={{ duration: 0.5, ease: 'easeOut' }}
             style={{ transformStyle: 'preserve-3d' }}
           >
+            {error && (
+              <div className="mb-4 p-3 rounded-xl bg-accent-100 border border-accent-200 text-sm text-accent-700 flex items-start gap-2">
+                <i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i>
+                <span>{error}</span>
+              </div>
+            )}
             <VerseResult
               verseData={verseData}
               userText={userText}

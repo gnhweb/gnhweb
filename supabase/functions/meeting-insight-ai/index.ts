@@ -1,12 +1,15 @@
 // Meeting Insight AI - 회의록 반복 이슈 분석
 // 최근 회의록 데이터를 분석하여 반복되는 이슈, 미결 사항, 병목 요인 도출
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 const NIM_API_KEY = Deno.env.get("NVIDIA_KEY_MEETING");
 const NIM_BASE_URL = "https://integrate.api.nvidia.com/v1";
+// google/gemma-4-31b-it는 사이트 내 다른 AI 기능(회의 코파일럿, 말씀뽑기 등)에서도
+// 검증된 모델. nvidia/llama-3.1-nemotron-70b-instruct는 NVIDIA 카탈로그에서
+// 제거되어 매 호출이 실패하고 있었음 — 다른 기능과 동일한 모델로 통일.
+const NIM_MODEL = Deno.env.get("NVIDIA_NIM_MODEL") || "google/gemma-4-31b-it";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +17,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -125,7 +128,7 @@ async function callNVIDIA(prompt: string): Promise<string> {
       "Authorization": `Bearer ${NIM_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "nvidia/llama-3.1-nemotron-70b-instruct",
+      model: NIM_MODEL,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 2000,
       temperature: 0.3,

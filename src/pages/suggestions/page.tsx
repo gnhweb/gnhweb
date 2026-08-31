@@ -17,6 +17,7 @@ interface Suggestion {
   content: string;
   status: string;
   response: string | null;
+  is_anonymous?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -42,6 +43,7 @@ export default function SuggestionsPage() {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -103,12 +105,14 @@ export default function SuggestionsPage() {
           title: title.trim(),
           content: content.trim(),
           status: 'pending',
+          is_anonymous: isAnonymous,
         });
 
       if (insertError) throw insertError;
 
       setTitle('');
       setContent('');
+      setIsAnonymous(false);
       setShowForm(false);
       setSuccessMsg('건의사항이 제출되었습니다. 검토 후 답변 드리겠습니다.');
       setTimeout(() => setSuccessMsg(null), 3500);
@@ -322,6 +326,21 @@ export default function SuggestionsPage() {
                       className="w-full px-4 py-3 text-sm bg-background-50 border border-background-200 rounded-xl outline-none focus:border-primary-400 transition-colors resize-none"
                     ></textarea>
                   </div>
+                  <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isAnonymous}
+                      onChange={(e) => setIsAnonymous(e.target.checked)}
+                      className="w-4 h-4 rounded border-background-300 text-primary-500 focus:ring-primary-400 cursor-pointer"
+                    />
+                    <span className="text-sm text-foreground-700">
+                      <i className="ri-user-unfollow-line mr-1 text-foreground-500"></i>
+                      익명으로 제출하기
+                    </span>
+                  </label>
+                  <p className="text-xs text-foreground-500 -mt-3 mb-4">
+                    익명으로 제출하면 다른 학생과 검토자 모두에게 이름이 표시되지 않아요
+                  </p>
                   <button
                     type="submit"
                     disabled={submitting || !title.trim() || !content.trim()}
@@ -384,7 +403,7 @@ export default function SuggestionsPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-foreground-500 flex-wrap">
-                            <span>{item.author_name}</span>
+                            <span>{item.is_anonymous && !isMySuggestion ? '익명' : item.author_name}</span>
                             {clubInfo && (
                               <>
                                 <span className="text-gray-200">|</span>

@@ -27,6 +27,7 @@ export default function MemoryBoard() {
   const [error, setError] = useState<string | null>(null);
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -135,6 +136,20 @@ export default function MemoryBoard() {
     }
   };
 
+  const handleDeleteAtIndex = async (index: number) => {
+    const photo = filteredPhotos[index];
+    if (!photo) return;
+    setDeletingIndex(index);
+    await handleDeletePhoto(photo);
+    setDeletingIndex(null);
+    setLightboxIndex(prev => {
+      if (prev === null) return prev;
+      const remaining = filteredPhotos.length - 1;
+      if (remaining <= 0) return null;
+      return Math.min(prev, remaining - 1);
+    });
+  };
+
   const filteredPhotos = filter === 'all' ? photos : photos.filter(p => p.club === filter);
 
   if (loading) {
@@ -193,14 +208,6 @@ export default function MemoryBoard() {
                 <div className="aspect-[4/3] overflow-hidden">
                   <img src={photo.photo_url} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 </div>
-                {isEditor && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
-                    className="absolute top-2 right-2 w-10 h-10 md:w-7 md:h-7 rounded-full bg-black/50 text-white flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer"
-                  >
-                    <i className="ri-close-line text-sm"></i>
-                  </button>
-                )}
                 <div className="p-3">
                   <p className="text-sm font-semibold text-foreground-800 truncate">{photo.title}</p>
                   <div className="flex items-center justify-between mt-1">
@@ -228,14 +235,6 @@ export default function MemoryBoard() {
                 className="relative aspect-square cursor-pointer overflow-hidden bg-background-100"
               >
                 <img src={photo.photo_url} alt={photo.title} className="w-full h-full object-cover" />
-                {isEditor && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
-                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center cursor-pointer"
-                  >
-                    <i className="ri-close-line text-xs"></i>
-                  </button>
-                )}
               </motion.div>
             ))}
           </div>
@@ -262,6 +261,8 @@ export default function MemoryBoard() {
           captions={filteredPhotos.map(p => p.title)}
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
+          onDelete={isEditor ? handleDeleteAtIndex : undefined}
+          deletingIndex={deletingIndex}
         />
       )}
 

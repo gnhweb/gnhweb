@@ -7,6 +7,8 @@ interface PhotoLightboxProps {
   initialIndex: number;
   onClose: () => void;
   captions?: (string | null | undefined)[];
+  onDelete?: (index: number) => void;
+  deletingIndex?: number | null;
 }
 
 /**
@@ -17,7 +19,7 @@ interface PhotoLightboxProps {
  * - 아래로 스와이프하거나 배경/닫기 버튼 탭으로 닫기
  * - 데스크톱: 화살표 키 이동, ESC 닫기, 마우스 휠/드래그도 지원
  */
-export default function PhotoLightbox({ photos, initialIndex, onClose, captions }: PhotoLightboxProps) {
+export default function PhotoLightbox({ photos, initialIndex, onClose, captions, onDelete, deletingIndex }: PhotoLightboxProps) {
   const [index, setIndex] = useState(initialIndex);
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
@@ -191,13 +193,29 @@ export default function PhotoLightbox({ photos, initialIndex, onClose, captions 
           <span className="text-white/80 text-xs font-medium tabular-nums">
             {photos.length > 1 ? `${index + 1} / ${photos.length}` : ''}
           </span>
-          <button
-            onClick={onClose}
-            aria-label="닫기"
-            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer active:scale-90 transition-transform"
-          >
-            <i className="ri-close-line text-xl"></i>
-          </button>
+          <div className="flex items-center gap-2">
+            {onDelete && (
+              <button
+                onClick={() => {
+                  if (window.confirm('이 사진을 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) {
+                    onDelete(index);
+                  }
+                }}
+                disabled={deletingIndex === index}
+                aria-label="삭제"
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-rose-500/70 text-white flex items-center justify-center cursor-pointer active:scale-90 transition-transform disabled:opacity-50"
+              >
+                <i className={`${deletingIndex === index ? 'ri-loader-4-line animate-spin' : 'ri-delete-bin-line'} text-lg`}></i>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="닫기"
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer active:scale-90 transition-transform"
+            >
+              <i className="ri-close-line text-xl"></i>
+            </button>
+          </div>
         </div>
 
         {/* 이미지 영역 */}

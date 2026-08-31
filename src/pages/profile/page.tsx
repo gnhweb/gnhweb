@@ -752,6 +752,7 @@ export default function ProfilePage() {
                   <option value={30}>30분</option>
                   <option value={60}>1시간</option>
                   <option value={120}>2시간</option>
+                  <option value={300}>5시간</option>
                   <option value={0}>안 함</option>
                 </select>
               </div>
