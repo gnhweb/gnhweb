@@ -1,0 +1,64 @@
+name: One-time Bible Quiz Score Fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-time-bible-quiz-score-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch score logic without changing UI
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/bibleQuiz/page.tsx')
+          s = p.read_text()
+
+          old = '''      const pts = q.points || 20;\n      const streakBonus = Math.min(streak, 5) * 2;\n      const timeBonus = Math.max(0, Math.round(timer * 0.5));\n      const finalPts = pts + streakBonus + timeBonus;\n      setScore(prev => prev + finalPts);\n      setTotalPoints(prev => prev + finalPts);'''
+          new = '''      const finalPts = q.points || diffInfo?.scorePerQ || 20;\n      setScore(prev => prev + finalPts);\n      setTotalPoints(prev => prev + finalPts);'''
+          if old not in s:
+              raise SystemExit('score block not found')
+          s = s.replace(old, new, 1)
+
+          old = "{streak >= 2 && isCorrect && <span className=\"text-xs font-bold text-amber-600 dark:text-amber-300 ml-1\">🔥 연속 {streak}정답 보너스!</span>}"
+          if old in s:
+              s = s.replace(old, '', 1)
+
+          old = "{currentQ === questions.length - 1 && <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className=\"mb-3 text-center\"><span className=\"inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold\"><i className=\"ri-vip-crown-line\"></i> 보스 라운드! 보너스 점수 2배!</span></motion.div>}"
+          if old in s:
+              s = s.replace(old, '', 1)
+
+          old = "{isCorrect ? `정답! (+${questions[currentQ]?.points || 20}점)` : '틀렸어요'}"
+          new = "{isCorrect ? `정답! (+${questions[currentQ]?.points || scorePerQ}점)` : '틀렸어요'}"
+          if old in s:
+              s = s.replace(old, new, 1)
+
+          old = '''            score,\n            total_questions: questions.length,\n            correct_count: correctCount,'''
+          new = '''            score: score + (isCorrect === true ? (questions[currentQ]?.points || scorePerQ) : 0),\n            total_questions: questions.length,\n            correct_count: correctCount + (isCorrect === true ? 1 : 0),'''
+          if old not in s:
+              raise SystemExit('save block not found')
+          s = s.replace(old, new, 1)
+
+          p.write_text(s)
+          PY
+
+      - name: Verify patch
+        run: |
+          grep -n "streakBonus\|timeBonus\|보스 라운드\|연속.*보너스" src/pages/bibleQuiz/page.tsx || true
+          grep -n "const finalPts" src/pages/bibleQuiz/page.tsx
+
+      - name: Commit patch and remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/bibleQuiz/page.tsx
+          git rm .github/workflows/one-time-bible-quiz-score-fix.yml
+          git commit -m "fix: enforce bible quiz fixed scoring"
+          git push
