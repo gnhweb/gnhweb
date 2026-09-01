@@ -23,6 +23,78 @@ const CATEGORIES = [
   { key: 'personal', label: '개인 고민', icon: 'ri-user-heart-line' },
 ];
 
+function renderInlineMarkdown(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, index) =>
+    part.startsWith('**') && part.endsWith('**')
+      ? <strong key={index} className="font-bold text-foreground-950">{part.slice(2, -2)}</strong>
+      : <span key={index}>{part}</span>
+  );
+}
+
+function CoachingMarkdown({ content }: { content: string }) {
+  const lines = content.replace(/\r/g, '').split('\n');
+
+  return (
+    <div className="space-y-3 text-sm text-foreground-800 leading-7">
+      {lines.map((line, index) => {
+        const trimmed = line.trim();
+
+        if (!trimmed) return <div key={`blank-${index}`} className="h-1" aria-hidden="true" />;
+
+        const heading = trimmed.match(/^#{1,3}\s+(.+)$/);
+        if (heading) {
+          return (
+            <h3 key={index} className="pt-1 text-base font-bold text-foreground-950">
+              {renderInlineMarkdown(heading[1])}
+            </h3>
+          );
+        }
+
+        if (trimmed.startsWith('> ')) {
+          return (
+            <blockquote key={index} className="border-l-2 border-accent-300 pl-3 text-sm text-foreground-700 font-quote leading-7">
+              {renderInlineMarkdown(trimmed.slice(2))}
+            </blockquote>
+          );
+        }
+
+        const numbered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+        if (numbered) {
+          return (
+            <div key={index} className="flex items-start gap-2.5 rounded-input bg-background-50 border border-background-200 px-3 py-2.5">
+              <span className="mt-0.5 flex h-5 min-w-5 items-center justify-center rounded-chip bg-accent-100 px-1 text-[11px] font-bold text-accent-700">
+                {trimmed.match(/^\d+/)?.[0]}
+              </span>
+              <p className="min-w-0 flex-1">{renderInlineMarkdown(numbered[1])}</p>
+            </div>
+          );
+        }
+
+        const bullet = trimmed.match(/^[-•]\s+(.+)$/);
+        if (bullet) {
+          return (
+            <div key={index} className="flex items-start gap-2.5">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-chip bg-accent-400" aria-hidden="true" />
+              <p className="min-w-0 flex-1">{renderInlineMarkdown(bullet[1])}</p>
+            </div>
+          );
+        }
+
+        if (/^---+$/.test(trimmed)) {
+          return <div key={index} className="border-t border-background-200 pt-1" aria-hidden="true" />;
+        }
+
+        return (
+          <p key={index} className="text-sm text-foreground-800 leading-7">
+            {renderInlineMarkdown(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function detectCategory(concern: string): string {
   const lower = concern.toLowerCase();
   if (lower.includes('팀') || lower.includes('인원') || lower.includes('조직')) return 'team';
@@ -204,7 +276,7 @@ export default function LeadershipDiary() {
             <i className="ri-book-read-line text-3xl text-accent-600"></i>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">리더십 코칭 다이어리</h1>
-          <p className="text-sm text-foreground-600">조직 운영의 어려움을 기록하고 최고의 리더에게 깊이 있는 조언을 받아보세요</p>
+          <p className="text-sm text-foreground-600">학생회에서 겪는 리더십 고민을 적어주세요. 지금 할 행동과 실제 대화, 성경 속 비슷한 사건까지 함께 살펴드려요</p>
         </motion.div>
 
         {entries.length > 0 && (
@@ -228,9 +300,9 @@ export default function LeadershipDiary() {
             <label className="block text-xs font-semibold text-foreground-600 mb-2">AI 코칭 톤</label>
             <div className="flex gap-2">
               <button type="button" onClick={() => setTone('direct')} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${tone === 'direct' ? 'bg-rose-500 text-white' : 'bg-background-50 border border-background-200 text-foreground-600 hover:bg-background-100'}`}><i className="ri-flashlight-line"></i>직설적으로</button>
-              <button type="button" onClick={() => setTone('empathetic')} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${tone === 'empathetic' ? 'bg-teal-500 text-white' : 'bg-background-50 border border-background-200 text-foreground-600 hover:bg-background-100'}`}><i className="ri-heart-line"></i>감정적으로 공감하며</button>
+              <button type="button" onClick={() => setTone('empathetic')} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${tone === 'empathetic' ? 'bg-teal-500 text-white' : 'bg-background-50 border border-background-200 text-foreground-600 hover:bg-background-100'}`}><i className="ri-heart-line"></i>따뜻하게 공감하며</button>
             </div>
-            <p className="text-[10px] text-foreground-400 mt-1.5">{tone === 'direct' ? '단호하고 실용적인 조언을 드려요. 빠른 결단과 실행에 초점을 맞춥니다.' : '먼저 마음을 알아주고, 부드럽게 방향을 제시해드려요.'}</p>
+            <p className="text-[10px] text-foreground-400 mt-1.5">{tone === 'direct' ? '필요한 말은 분명하게 하고, 오늘 할 행동까지 짚어드려요.' : '마음을 먼저 살피면서도 책임과 다음 행동은 분명하게 짚어드려요.'}</p>
           </div>
 
           {(error || actionError) && (
@@ -261,7 +333,7 @@ export default function LeadershipDiary() {
           {advice && !isLoading && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="hidden md:block bg-accent-50 border border-accent-200 rounded-[20px] p-6 md:p-8 mb-8">
               <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl bg-accent-200 flex items-center justify-center"><i className="ri-lightbulb-flash-line text-xl text-accent-700"></i></div><div><p className="text-base font-bold text-accent-800">AI 코치의 조언</p><p className="text-xs text-accent-600">방금 전</p></div></div>
-              <p className="text-sm text-accent-800 leading-relaxed whitespace-pre-wrap">{advice}</p>
+              <CoachingMarkdown content={advice} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -272,8 +344,10 @@ export default function LeadershipDiary() {
               <div className="w-8 h-8 rounded-full bg-accent-200 flex items-center justify-center flex-shrink-0 mt-0.5"><i className="ri-lightbulb-flash-line text-accent-700 text-sm"></i></div>
               <div className="flex-1 min-w-0 bg-accent-50 border border-accent-200 rounded-2xl rounded-tl-sm p-4">
                 <p className="text-xs font-bold text-accent-700 mb-1.5">AI 코치의 조언</p>
-                <p className={`text-sm text-accent-800 leading-relaxed whitespace-pre-wrap ${!adviceExpanded && advice.length > 220 ? 'line-clamp-6' : ''}`}>{advice}</p>
-                {advice.length > 220 && <button onClick={() => setAdviceExpanded(v => !v)} className="mt-1.5 text-xs font-semibold text-accent-600 cursor-pointer">{adviceExpanded ? '접기' : '더 보기'}</button>}
+                <div className={!adviceExpanded && advice.length > 700 ? 'max-h-72 overflow-hidden' : ''}>
+                  <CoachingMarkdown content={advice} />
+                </div>
+                {advice.length > 700 && <button type="button" onClick={() => setAdviceExpanded(v => !v)} className="mt-3 min-h-10 px-3 rounded-chip bg-accent-100 text-xs font-semibold text-accent-700 cursor-pointer">{adviceExpanded ? '접기' : '더 보기'}</button>}
               </div>
             </motion.div>
           )}
@@ -318,7 +392,9 @@ export default function LeadershipDiary() {
                     <AnimatePresence>
                       {isExpanded && (
                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                          <div className="px-4 pb-4 pt-0 border-t border-background-200"><p className="text-sm text-foreground-700 leading-relaxed mt-3 whitespace-pre-wrap">{entry.advice}</p></div>
+                          <div className="px-4 pb-5 pt-4 border-t border-background-200">
+                            <CoachingMarkdown content={entry.advice} />
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
