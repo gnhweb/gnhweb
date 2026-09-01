@@ -1,0 +1,78 @@
+name: Generate Bible MBTI figure assets
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: ${{ !contains(github.event.head_commit.message, '[skip mbti art]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate independent figure assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pillow
+          python3 <<'PY'
+          import base64, html, pathlib, re
+          from PIL import Image, ImageChops
+
+          svg = pathlib.Path('public/bible-mbti/characters.svg').read_text(encoding='utf-8')
+          match = re.search(r'data:image/webp;base64,([^\" ]+)', svg)
+          if not match:
+              raise SystemExit('characters.svg does not contain an embedded WebP image')
+          raw = base64.b64decode(match.group(1))
+          pathlib.Path('/tmp/sheet.webp').write_bytes(raw)
+          sheet = Image.open('/tmp/sheet.webp').convert('RGBA')
+          print('source sheet:', sheet.size)
+
+          names = ['moses','abraham','joshua','david','joseph','ruth','esther','daniel','paul','peter','nehemiah','timothy','barnabas','mary','elijah','isaiah','jeremiah','samuel','martha','john']
+          out_dir = pathlib.Path('public/bible-mbti/figures')
+          out_dir.mkdir(parents=True, exist_ok=True)
+          w, h = sheet.size
+          cell_w, cell_h = w / 5, h / 4
+          for i, name in enumerate(names):
+              row, col = divmod(i, 5)
+              left, top = round(col * cell_w), round(row * cell_h)
+              right, bottom = round((col + 1) * cell_w), round((row + 1) * cell_h)
+              crop = sheet.crop((left, top, right, bottom))
+              # Keep only the supplied illustration area; remove the near-white sheet background.
+              px = crop.load()
+              for y in range(crop.height):
+                  for x in range(crop.width):
+                      r,g,b,a = px[x,y]
+                      if r > 246 and g > 246 and b > 246:
+                          px[x,y] = (r,g,b,0)
+              # Preserve a stable square canvas for the existing aspect-square result slots.
+              crop = crop.resize((160,160), Image.Resampling.LANCZOS)
+              png = pathlib.Path('/tmp') / f'{name}.png'
+              crop.save(png, 'PNG', optimize=True)
+              data = base64.b64encode(png.read_bytes()).decode('ascii')
+              doc = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img"><image href="data:image/png;base64,{data}" width="160" height="160"/></svg>\n'''
+              (out_dir / f'{name}.svg').write_text(doc, encoding='utf-8')
+          print('generated', len(names), 'figure assets')
+          PY
+
+      - name: Commit generated assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/bible-mbti/figures
+          if git diff --cached --quiet; then
+            echo 'No asset changes.'
+            exit 0
+          fi
+          git commit -m 'fix: split Bible MBTI supplied artwork into individual assets [skip mbti art]'
+          git push origin HEAD:main
