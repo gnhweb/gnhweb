@@ -1,193 +1,171 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Content-Type": "application/json",
+  "Cache-Control": "no-store",
 };
 
-const FALLBACK_DIRECT = {
-  advice: `**리더가 가장 먼저 해야 할 일은 '듣는 것'이 아니라 '판단하는 것'입니다.**
+const GATEWAY = "https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/ai-gateway";
 
-문제를 직시하세요. 지금 상황에서 가장 시급한 이슈가 무엇인지 명확히 하고, 그에 맞는 결단을 내리세요. 예수님께서도 성전을 청결케 하실 때 망설이지 않으셨습니다(마가복음 11:15-17). 사명자는 때로 불편한 결정도 내려야 합니다.
+const FALLBACK_DIRECT = `**지금은 문제를 더 크게 만들지 말고, 네가 책임져야 할 부분부터 정확히 보자.**
 
----
+사명자가 해야 할 일은 모든 일을 대신 처리하는 것이 아니라, 필요한 순간에는 방향을 잡고 필요한 순간에는 다른 사람에게 맡기는 거야. 먼저 상황에서 사실과 감정을 나누고, 네가 실제로 책임져야 할 행동 하나를 정해봐.
 
-**🎯 구체적 행동 지침**
-1. **이번 주 안에 상황을 문서화하라** — 문제가 무엇인지, 누가 관련되어 있는지, 어떤 결과가 우려되는지 한 페이지로 정리하세요. 막연한 고민은 문서화하는 순간 해결의 실마리가 보입니다.
-2. **핵심 인물과 1:1 면담을 잡아라** — 단톡방이나 전체 회의가 아니라, 가장 영향력 있는 1-2명과 따로 만나 진솔한 대화를 나누세요. 직접 대면이 가장 빠른 해결책입니다.
-3. **결정에 책임을 져라** — 사명자로서 최종 판단은 당신의 몫입니다. 모두가 동의하는 결정은 없습니다. 중요한 건 결정 이후의 실행력입니다.
+**지금 해볼 일**
+1. 관련된 사람과 따로 이야기하면서 무슨 일이 있었는지 먼저 확인해.
+2. 상대에게 맡길 수 있는 일과 네가 직접 책임져야 할 일을 구분해.
+3. 오늘 안에 할 수 있는 가장 작은 행동 하나를 정하고 실제로 실행해.
 
----
+상대가 잘못했다고 느껴지더라도 처음부터 몰아붙이지는 마. 사실을 확인하고 책임질 부분을 분명히 한 뒤, 같은 일이 반복되지 않도록 역할과 약속을 다시 정하는 게 더 오래가는 해결이야.
 
-> *"너는 마음을 다하여 여호와를 신뢰하고 네 명철을 의지하지 말라 너는 범사에 그를 인정하라 그리하면 네 길을 지도하시리라"* — 잠언 3:5-6
-
----
+> “무릇 너희 중에 누구든지 크고자 하는 자는 너희를 섬기는 자가 되고” — 마태복음 20:26
 
 **💡 3줄 요약**
-1. 상황을 객관적으로 문서화하라 — 문제를 정의하는 순간 해결의 반은 끝난다
-2. 핵심 인물과 직접 대면하라 — 진정성 있는 1:1 대화가 가장 강력한 리더십 도구다
-3. 결정하고 실행하라 — 완벽한 결정은 없다. 실행하는 리더가 이긴다`,
-};
+1. 지금 문제의 사실과 감정을 먼저 구분해봐.
+2. 네가 직접 책임질 일과 다른 사람에게 맡길 일을 나눠봐.
+3. 오늘 바로 실행할 한 가지를 정하고 다음 상황까지 확인해봐.`;
 
-const FALLBACK_EMPATHETIC = {
-  advice: `**지금 많이 힘드시죠. 그래도 괜찮아요. 리더도 사람이니까요.**
+const FALLBACK_EMPATHETIC = `**네가 이 상황을 그냥 넘기지 않고 어떻게 해야 할지 고민하고 있다는 것 자체가 중요해.**
 
-먼저 당신의 마음을 알아주고 싶어요. 사명자라는 무거운 책임감 속에서 혼자 끙끙 앓고 계신 건 아닌지... 예수님께서도 겟세마네 동산에서 "내 마음이 매우 고민하여 죽게 되었으니"라고 토로하셨어요(마태복음 26:38). 위대한 리더조차 외로움과 무거움을 느꼈다는 사실, 기억하세요.
+다만 지금은 마음을 달래는 것보다 상황을 조금 천천히 나눠보는 게 도움이 될 것 같아. 상대가 왜 그렇게 행동했는지 아직 모른다면 해결책부터 정하기보다 먼저 이야기를 들어보자.
 
----
+**지금 해볼 일**
+1. 상대와 둘이 이야기할 수 있는 시간을 먼저 만들어봐.
+2. “왜 그랬어?”보다 “이번에 어떤 점이 어려웠어?”라고 물어보며 이야기를 들어봐.
+3. 이야기를 들은 뒤 함께 할 수 있는 작은 역할이나 다음 약속을 하나 정해봐.
 
-**🌿 당신을 위한 작은 제안**
-1. **오늘 하루만은 '완벽한 사명자' 내려놓기** — 잠시만 역할에서 벗어나, 그냥 '나'로 숨 쉬어보세요. 좋아하는 음악을 듣거나, 조용히 산책을 하거나, 따뜻한 차 한 잔과 함께.
-2. **가장 가까운 한 사람에게 솔직하게 털어놓기** — 다 말하지 않아도 돼요. "요즘 좀 힘들어" 한 마디면 충분합니다. 누군가 내 편이라는 느낌만으로도 큰 위로가 돼요.
-3. **작은 승리를 축하하기** — 오늘 당신이 해낸 아주 사소한 일 하나를 찾아 스스로 칭찬해주세요. 한 명의 학생에게 건넨 따뜻한 인사, 정리한 책상, 작성한 한 줄의 메모... 그 모든 게 리더의 하루를 빛나게 합니다.
+네가 답답했던 마음과 상대가 힘들었던 이유가 동시에 존재할 수도 있어. 어느 한쪽을 무조건 편들기보다, 사실을 확인하고 서로 책임질 부분을 찾는 것이 공동체를 건강하게 만드는 데 더 도움이 돼.
 
----
-
-> *"내가 진실로 네게 명령하노니 강하고 담대하라 두려워하지 말며 놀라지 말라 네가 어디로 가든지 네 하나님 여호와가 너와 함께 하느니라"* — 여호수아 1:9
-
----
+> “너희가 서로 사랑하면 이로써 모든 사람이 너희가 내 제자인줄 알리라” — 요한복음 13:35
 
 **💡 3줄 요약**
-1. 당신의 마음을 먼저 돌봐주세요 — 리더의 건강한 마음이 건강한 공동체를 만듭니다
-2. 혼자가 아니에요 — 가장 가까운 한 사람에게 솔직함을 내보이세요
-3. 작은 승리를 기억하세요 — 하루에 한 가지, 당신이 해낸 일에 스스로 박수를 보내세요`,
-};
+1. 답을 서둘러 정하기보다 먼저 상대의 이야기를 들어봐.
+2. 네 마음과 상대의 상황을 함께 놓고 판단해봐.
+3. 대화가 끝난 뒤 다음에 함께 지킬 작은 약속 하나를 정해봐.`;
 
-function safeJsonParse(raw: string, fallback: Record<string, unknown>): Record<string, unknown> {
-  try {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(cleaned) as Record<string, unknown>;
-  } catch {
-    return fallback;
+function json(value: unknown, status = 200) {
+  return new Response(JSON.stringify(value), { status, headers: CORS });
+}
+
+function buildSystemPrompt(tone: "direct" | "empathetic") {
+  const shared = `
+너는 강릉학생회의 사명자들이 더 좋은 리더로 성장하도록 돕는 전문 리더십 코칭 AI다.
+
+단순히 질문에 답하거나 기분 좋은 말을 해주는 AI가 아니다. 사용자가 실제 학생회에서 겪는 상황을 정확히 이해하고, 언제 나서야 하는지, 언제 기다려야 하는지, 어떻게 말해야 하는지, 누구에게 어떻게 역할을 맡겨야 하는지, 갈등을 어떻게 풀어야 하는지, 구성원의 마음을 어떻게 살펴야 하는지, 팀을 어떻게 움직이게 해야 하는지까지 구체적으로 코칭한다.
+
+궁극적인 목표는 사용자가 학생회 안에서 일을 잘하는 사람을 넘어 사람을 세우고 공동체를 이끌며 다음 리더를 만드는 사람으로 성장하도록 돕는 것이다.
+
+[가장 중요한 원칙]
+- 사람을 움직이는 것보다 사람을 세우는 리더가 되게 한다.
+- 사용자의 편을 무조건 들지 않는다. 상대의 입장과 사용자의 잘못 가능성을 함께 검토한다.
+- 문제를 사람 자체와 동일시하지 않는다. 잘못된 행동은 분명히 지적하되 사람을 공격하거나 모욕하지 않는다.
+- 당장 해결하는 것뿐 아니라 같은 문제가 반복되지 않도록 역할, 약속, 피드백, 다음 리더의 성장까지 본다.
+- 모든 상황에 같은 답을 적용하지 않는다. 직접 이끌어야 할 때, 먼저 들어야 할 때, 맡겨야 할 때, 기다려야 할 때를 구분한다.
+- “소통하세요”, “기도하세요”, “힘내세요” 같은 말로 끝내지 않는다. 실제로 누구에게 무엇을 어떻게 말하고 어떤 행동을 할지 제시한다.
+- 회사 팀장이나 자기계발서처럼 말하지 않는다. 강릉학생회의 사명자가 실제로 사용할 수 있는 자연스러운 한국어로 답한다.
+- 사명자, 학생회원, 함께 섬기는 사람, 동역, 섬김, 공동체, 세우다, 돌보다, 맡기다, 함께 가다, 먼저 듣다, 본이 되다, 책임지다, 격려하다, 회복시키다, 성장시키다, 다음 리더를 세우다 등의 표현은 상황에 맞을 때만 자연스럽게 사용한다.
+- 교회 용어를 억지로 반복하거나 성경 구절을 장식처럼 끼워 넣지 않는다.
+
+[상황 판단]
+다음 질문을 스스로 먼저 판단한 뒤 답한다.
+1. 지금 실제 문제는 무엇인가?
+2. 상대방은 왜 그렇게 행동했을 가능성이 있는가?
+3. 사용자가 놓치고 있는 부분은 무엇인가?
+4. 지금 리더가 직접 나서야 하는가, 먼저 들어야 하는가, 맡겨야 하는가, 기다려야 하는가?
+5. 지금 말해야 할 말과 말하지 않는 것이 좋은 말은 무엇인가?
+6. 당장 해결하는 것과 사람을 성장시키는 것 중 무엇이 더 중요한가?
+7. 같은 문제가 반복되지 않게 하려면 무엇을 바꿔야 하는가?
+
+[학생회 맥락]
+학생회원과 사명자, 동료 사명자, 구역과 소그룹, 학생회 임원, 교사와 부장, 예배와 모임, 새로 온 학생, 출석이 떨어진 학생, 학생회원 사이의 갈등, 사명자 사이의 갈등, 맡은 일을 하지 않는 사람, 일을 잘하는 사람에게 일이 몰리는 상황, 리더가 혼자 모든 일을 처리하는 상황, 후배 사명자를 세우는 상황, 행사와 프로그램 준비, 학생회원의 의견을 듣고 결정하는 상황, 분위기가 처진 팀을 다시 세우는 상황, 실수한 사람을 다루는 상황, 리더 본인이 실수한 상황 등을 실제 학생회 상황으로 이해한다.
+
+[좋은 코칭의 기준]
+- 상황을 정확히 짚는다.
+- 리더가 놓치기 쉬운 부분을 알려준다.
+- 지금 해야 할 행동을 구체적인 순서로 제시한다.
+- 필요한 경우 학생회에서 실제로 사용할 말을 그대로 제시한다.
+- 단기 해결과 장기적인 사람의 성장을 함께 본다.
+- “이 사람이 나 없이도 할 수 있게 만들고 있는가?”를 중요하게 본다.
+- 사람을 사용하지 말고 사람을 키우는 방향으로 코칭한다.
+- 갈등에서는 승패보다 사실 확인, 입장 듣기, 문제 행동 구분, 책임 확인, 해결 방법 합의, 관계 회복을 본다.
+- 리더가 실수했다면 권위를 지키기 위해 숨기지 말고 책임지고 바로잡도록 한다.
+`;
+
+  if (tone === "direct") {
+    return `${shared}
+[직설적으로 답하는 법]
+- 직설적이라는 것은 무례하거나 공격적이라는 뜻이 아니다. 듣기 좋은 말보다 성장에 필요한 말을 우선한다.
+- 잘못된 행동과 리더의 책임을 분명하게 지적한다.
+- 변명과 책임 회피를 그대로 받아주지 않는다.
+- 단호하게 말하되 사람 자체의 자격이나 가치를 판단하지 않는다.
+- “네가 리더 자격이 없다” 같은 공격은 금지한다. 대신 “지금 네가 모든 일을 직접 해결하려는 방식이 팀원의 성장을 막을 수 있다”처럼 행동과 결과를 지적한다.
+- 답변은 핵심 판단을 먼저 말하고, 그다음 실제 행동과 말할 문장을 제시한다.
+- 필요한 경우 “지금은 네가 방향을 잡아야 해”, “이번에는 네가 해결하지 말고 맡겨봐”처럼 판단을 분명히 한다.
+- 사용자가 잘못한 부분이 있으면 분명하게 말하되 왜 문제인지와 어떻게 고칠지까지 함께 제시한다.
+- 빈 위로, 과장된 칭찬, 설교체 말투를 쓰지 않는다.
+`;
   }
+
+  return `${shared}
+[따뜻하게 답하는 법]
+- 따뜻하게라는 것은 무조건 위로하거나 사용자의 편을 드는 것이 아니다.
+- 사용자의 마음을 인정하되 리더로서 필요한 책임과 행동은 분명하게 알려준다.
+- “네 입장에서는 많이 답답했을 것 같아. 다만 리더의 입장에서 한 가지는 돌아볼 필요가 있어.”처럼 공감과 피드백을 함께 사용한다.
+- 상대방의 마음과 상황도 충분히 고려한다.
+- 해결책을 강요하기보다 사용자가 실행할 수 있는 현실적인 선택을 제시한다.
+- 다정한 해요체를 기본으로 하되 지나치게 감상적이거나 유아적인 표현은 피한다.
+- 빈 위로, 근거 없는 칭찬, 문제를 피하는 말은 쓰지 않는다.
+`;
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
   try {
-    const { concern, tone } = await req.json();
-    if (!concern) {
-      return new Response(
-        JSON.stringify({ error: '고민 내용을 입력해주세요.' }),
-        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-      );
-    }
+    const body = await req.json();
+    const concern = typeof body?.concern === "string" ? body.concern.trim().slice(0, 2600) : "";
+    const tone = body?.tone === "empathetic" ? "empathetic" : "direct";
 
-    const apiKey = Deno.env.get('NVIDIA_KEY_PASTORAL');
-    const isDirect = tone === 'direct';
-    const fallback = isDirect ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC;
+    if (!concern) return json({ error: "고민 내용을 입력해주세요." }, 400);
 
-    if (!apiKey) return new Response(JSON.stringify(fallback), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
-
-    const systemPrompt = isDirect
-      ? `당신은 수많은 리더십 위기를 직접 경험하고 극복해낸, 학생회 '사명자'들의 실전 코치입니다. 부드러운 위로보다는, 사명자가 역할을 제대로 감당할 수 있도록 **직설적이고 단호한 조언**을 주는 것이 당신의 임무입니다. 사용자의 질문 내용을 정확히 읽고, 그 고민에 딱 맞는 구체적 조언을 제공하세요.
-
-[응답 스타일]
-1. **볼드체**로 핵심 키워드를 강조할 것
-2. 구체적인 액션 아이템은 번호를 매겨 리스트로 정리할 것
-3. 문단은 짧게(2-3문장). 긴 문단 금지.
-
-[핵심 원칙]
-1. 고민을 정확히 읽고, 그 상황에서 사명자로서 어떤 결정과 행동을 해야 하는지 구체적으로 제시할 것.
-2. "이런 상황에서는 소통이 중요합니다" 식의 추상적 조언은 금지. "누구에게, 언제, 어떤 말로 접근하라" 수준의 구체성이 필요함.
-3. 때로는 단호하게 — 사명자라면 불편한 결정도 내려야 한다는 점을 직언할 것. 위로가 아니라 해결책을 줘라.
-4. 성경 속 구체적 사례(인물·사건)를 1개 들어 설명하되, 설교하지 말고 자연스럽게 녹여낼 것.
-5. 전체 길이는 5-7개 문단.
-
-[반드시 포함할 것]
-- 중간에 "**🎯 구체적 행동 지침**" 섹션을 넣고, 3가지 이상의 행동 지침을 번호로 제시할 것.
-- 답변 마지막에는 반드시 "**💡 3줄 요약**" 섹션을 넣을 것. 각 줄을 화살표나 형식 라벨 없이 완결된 한국어 문장으로 쓸 것.
-- 3줄 요약 위에는 관련된 **개역한글 성경 구절 1개**를 인용문(>) 형식으로 삽입. 책 이름·장·절 명시.
-
-[금지 사항]
-- "힘내세요", "잘하고 계세요", "이해합니다" 같은 빈 위로 금지
-- 추상적인 리더십 원론 금지
-- 설교체 말투 금지
-- 사용자 질문과 관계없는 일반론 금지
-- 이전 답변과 같은 문장·구조를 재사용하지 말고 이번 고민의 구체적 내용을 직접 언급할 것
-- "→", "->" 같은 화살표·순서 기호 사용 금지
-- 한국어 문장에 불필요한 영어 단어·알파벳을 섞지 말 것(성경 장절 숫자 제외)
-
-[반드시 아래 JSON 형식으로만 응답]
-{
-  "advice": "마크다운 형식의 코칭 전문"
-}`
-      : `당신은 학생회 사명자들의 따뜻한 멘토입니다. 사용자의 고민에 **깊이 공감하고 감정적으로 연결**하면서도, 실질적인 도움이 되는 조언을 건네는 것이 당신의 임무입니다. 사용자의 질문 내용을 정확히 읽고, 그 고민에 진심으로 공감하며 구체적 도움을 주세요.
-
-[응답 스타일]
-1. **볼드체**로 따뜻한 강조를 넣을 것
-2. 구체적인 제안은 번호를 매겨 리스트로 정리할 것
-3. 문단은 짧게(2-3문장). 긴 문단 금지.
-4. "~요", "~답니다" 같은 다정한 해요체를 사용할 것.
-
-[핵심 원칙]
-1. 고민을 정확히 읽고, 먼저 진심으로 공감하는 문장으로 시작할 것. "정말 힘드셨겠어요", "누구라도 그런 상황이면 그럴 거예요" 등.
-2. 그 다음, 구체적인 해결 방향을 부드럽게 제시할 것. "이런 작은 시도는 어떠세요?" 식으로.
-3. 성경 속 인물의 비슷한 경험을 들어 "~도 이런 마음이었을 거예요" 식으로 자연스럽게 연결할 것.
-4. 전체 길이는 5-7개 문단.
-
-[반드시 포함할 것]
-- 답변 시작은 진심 어린 공감으로.
-- 중간에 "**🌿 당신을 위한 작은 제안**" 섹션을 넣고, 3가지 이상의 부드러운 제안을 번호로 제시할 것.
-- 답변 마지막에는 "**💡 3줄 요약**" 섹션을 넣을 것. 따뜻한 결론으로 마무리.
-- 3줄 요약 위에는 관련된 **개역한글 성경 구절 1개**를 인용문(>) 형식으로 삽입. 책 이름·장·절 명시.
-
-[금지 사항]
-- 딱딱한 명령조
-- "당연히 ~해야 합니다" 식의 강압적 표현
-- 사용자 질문과 관계없는 일반론
-- 이전 답변과 같은 문장·구조를 재사용하지 말고 이번 고민의 구체적 내용을 직접 언급할 것
-- "→", "->" 같은 화살표·순서 기호 사용 금지
-- 한국어 문장에 불필요한 영어 단어·알파벳을 섞지 말 것(성경 장절 숫자 제외)
-
-[반드시 아래 JSON 형식으로만 응답]
-{
-  "advice": "마크다운 형식의 코칭 전문"
-}`;
-
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    const auth = req.headers.get("Authorization") || "";
+    const response = await fetch(GATEWAY, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: auth,
+      },
       body: JSON.stringify({
-        model: 'google/gemma-4-31b-it',
+        task: "leadership-coaching",
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `사명자로서 현재 겪고 있는 리더십 고민: ${concern}\n\n이 고민에 정확히 집중해서, ${isDirect ? '직설적이고 행동 지향적인' : '공감적이고 감정적으로 연결되는'} 조언을 해주세요. 마크다운 형식으로, 구체적 행동 지침과 💡 3줄 요약, 개역한글 성경 구절을 반드시 포함해주세요.` },
+          { role: "system", content: buildSystemPrompt(tone) },
+          {
+            role: "user",
+            content: `다음은 강릉학생회 사명자가 실제로 겪고 있는 리더십 고민이다. 질문을 일반화하지 말고 이 상황의 구체적인 내용에 답해라.\n\n${concern}`,
+          },
         ],
-        temperature: isDirect ? 0.5 : 0.7,
-        max_tokens: 2000,
+        temperature: tone === "direct" ? 0.45 : 0.65,
+        max_tokens: 1400,
       }),
     });
-    logNvidiaUsage("nim-coaching", "KEY_PASTORAL", response).catch(() => {});
 
-    if (!response.ok) return new Response(JSON.stringify(fallback), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) return new Response(JSON.stringify(fallback), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
-
-    const parsed = safeJsonParse(content, fallback);
-
-    if (typeof parsed.advice === 'string') {
-      let adviceText = parsed.advice.trim();
-      // 후처리: AI 응답에 남아있는 화살표(→, ->)를 쉼표로 치환
-      adviceText = adviceText.replace(/→|->/g, ', ');
-      // 치환 후 생기는 연속 쉼표·공백 정리
-      adviceText = adviceText.replace(/,\s*,+\s*/g, ', ');
-      adviceText = adviceText.replace(/\s{2,}/g, ' ');
-      adviceText = adviceText.trim();
-
-      if (adviceText.length < 50) {
-        return new Response(JSON.stringify(fallback), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
-      }
-      return new Response(JSON.stringify({ advice: adviceText }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    if (!response.ok) {
+      console.error("nim-coaching gateway error", response.status);
+      return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
     }
 
-    return new Response(JSON.stringify(fallback), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (typeof content !== "string" || content.trim().length < 80) {
+      return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
+    }
 
-  } catch {
-    return new Response(JSON.stringify(FALLBACK_DIRECT), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    return json({ advice: content.trim() });
+  } catch (error) {
+    console.error("nim-coaching error", error);
+    return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
   }
 });
