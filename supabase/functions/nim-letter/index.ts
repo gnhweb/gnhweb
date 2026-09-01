@@ -1,10 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const GATEWAY = `${Deno.env.get('SUPABASE_URL')}/functions/v1/ai-gateway`;
 
 const FALLBACK = {
   message: '',
@@ -36,13 +37,6 @@ Deno.serve(async (req) => {
 
     const defaultMessage = `${studentName}아 안녕! 요즘 어떻게 지내?\n\n혹시 바쁘거나 힘든 일 있으면 언제든지 편하게 이야기해줘. 하나님은 "너는 내게 부르짖으라 내가 네게 응답하겠고 네가 알지 못하는 크고 은밀한 일을 네게 보이리라"(예레미야 33:3)라고 약속하셨어.\n\n다음에 만나서 같이 기도하자! 기다리고 있을게`;
 
-    const apiKey = Deno.env.get('NVIDIA_KEY_PASTORAL');
-    if (!apiKey) {
-      return new Response(JSON.stringify({ ...FALLBACK, message: defaultMessage, tone: tone || '따뜻함' }), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
-
     const systemPrompt = `당신은 10대 학생에게 카톡 메시지를 보내는 같은 또래의 친한 친구입니다. 절대 선생님이나 어른 말투로 쓰지 마세요.
 
 [절대 규칙]
@@ -66,11 +60,12 @@ Deno.serve(async (req) => {
   "followUpQuestions": ["자연스러운 후속 질문 1", "질문 2"]
 }`;
 
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const auth = req.headers.get('Authorization') || '';
+    const response = await fetch(GATEWAY, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: auth } : {}) },
       body: JSON.stringify({
-        model: 'google/gemma-4-31b-it',
+        task: 'pastoral-letter',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `친구 이름: ${studentName}\n상황: ${situation}\n원하는 느낌: ${tone || '따뜻함'}\n\n이 친구한테 보낼 아주 자연스러운 카톡 메시지를 써줘. 진짜 사람이 쓴 것처럼. 이름은 한 번만 부르고, 종교적인 말투 절대 쓰지 마.` },
@@ -79,7 +74,6 @@ Deno.serve(async (req) => {
         max_tokens: 900,
       }),
     });
-    logNvidiaUsage("nim-letter", "KEY_PASTORAL", response).catch(() => {});
 
     if (!response.ok) {
       return new Response(JSON.stringify({ ...FALLBACK, message: defaultMessage, tone: tone || '따뜻함' }), {
@@ -100,15 +94,12 @@ Deno.serve(async (req) => {
       parsed.message = defaultMessage;
     }
 
-    // Don't force-prepend name - let the AI handle it once naturally
-    // But if name is completely missing, add it once at the start
     const msg = parsed.message as string;
     if (!msg.includes(studentName)) {
       parsed.message = `${studentName}아, ${msg}`;
     }
 
     return new Response(JSON.stringify(parsed), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
-
   } catch {
     return new Response(JSON.stringify(FALLBACK), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
   }
