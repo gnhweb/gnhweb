@@ -33,7 +33,7 @@ const EventReports = lazy(() => import("@/pages/reports/events/page"));
 const EventReportWrite = lazy(() => import("@/pages/reports/events/write/page"));
 const EventReportDetail = lazy(() => import("@/pages/reports/events/humanDetail"));
 const EventReportEdit = lazy(() => import("@/pages/reports/events/edit/page"));
-const ReviewPage = lazy(() => import("@/pages/reports/review/page"));
+const ReviewPage = lazy(() => import("@/pages/reports/review/workflow"));
 const AdminRolesPage = lazy(() => import("@/pages/admin/roles/page"));
 const StrategyDashboard = lazy(() => import("@/pages/admin/strategy/page"));
 const AdminApprovals = lazy(() => import("@/pages/admin/approvals/page"));
@@ -147,7 +147,7 @@ const routes: RouteObject[] = [{
     { path: "/reports/events/write", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<EventReportWrite />)}</AuthGuard> },
     { path: "/reports/events/:id", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<EventReportDetail />)}</AuthGuard> },
     { path: "/reports/events/:id/edit", element: <AuthGuard minRole="assistant_zone_leader">{withSuspense(<EventReportEdit />)}</AuthGuard> },
-    { path: "/reports/review", element: <AuthGuard minRole="teacher">{withSuspense(<ReviewPage />)}</AuthGuard> },
+    { path: "/reports/review", element: <AuthGuard minRole="president">{withSuspense(<ReviewPage />)}</AuthGuard> },
     { path: "/admin/roles", element: <AuthGuard minRole="president">{withSuspense(<AdminRolesPage />)}</AuthGuard> },
     { path: "/admin/strategy", element: <AuthGuard minRole="president">{withSuspense(<StrategyDashboard />)}</AuthGuard> },
     { path: "/admin/approvals", element: <AuthGuard minRole="president">{withSuspense(<AdminApprovals />)}</AuthGuard> },
