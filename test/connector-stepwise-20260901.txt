@@ -1,0 +1,2 @@
+GitHub Connector write-path test.
+Created 2026-09-01 to isolate create -> fetch -> delete behavior.
