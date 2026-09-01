@@ -15,19 +15,51 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Restore supplied figure crops
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/figures public/bible-mbti/figures
-          cat > /tmp/figures.tgz.b64 <<'EOF'
-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[...]
-EOF
-          base64 -d /tmp/figures.tgz.b64 > /tmp/figures.tgz
+          base64 -d public/bible-mbti/figures.bundle.b64 > /tmp/figures.tgz
           tar -xzf /tmp/figures.tgz -C /tmp/figures
           cp /tmp/figures/*.webp public/bible-mbti/figures/
+
+      - name: Apply direct per-figure image rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > src/bible-mbti-supplied-art.css <<'EOF'
+/* Bible MBTI: use the supplied 20-person artwork as one independent image per result slot. */
+svg[aria-label$="성경인물 프로필"] {
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+}
+svg[aria-label$="성경인물 프로필"] > * { visibility: hidden; }
+svg[aria-label*="모세 성경인물 프로필"] { background-image: url("/bible-mbti/figures/moses.webp"); }
+svg[aria-label*="아브라함 성경인물 프로필"] { background-image: url("/bible-mbti/figures/abraham.webp"); }
+svg[aria-label*="여호수아 성경인물 프로필"] { background-image: url("/bible-mbti/figures/joshua.webp"); }
+svg[aria-label*="다윗 성경인물 프로필"] { background-image: url("/bible-mbti/figures/david.webp"); }
+svg[aria-label*="요셉 성경인물 프로필"] { background-image: url("/bible-mbti/figures/joseph.webp"); }
+svg[aria-label*="룻 성경인물 프로필"] { background-image: url("/bible-mbti/figures/ruth.webp"); }
+svg[aria-label*="에스더 성경인물 프로필"] { background-image: url("/bible-mbti/figures/esther.webp"); }
+svg[aria-label*="다니엘 성경인물 프로필"] { background-image: url("/bible-mbti/figures/daniel.webp"); }
+svg[aria-label*="바울 성경인물 프로필"] { background-image: url("/bible-mbti/figures/paul.webp"); }
+svg[aria-label*="베드로 성경인물 프로필"] { background-image: url("/bible-mbti/figures/peter.webp"); }
+svg[aria-label*="느헤미야 성경인물 프로필"] { background-image: url("/bible-mbti/figures/nehemiah.webp"); }
+svg[aria-label*="디모데 성경인물 프로필"] { background-image: url("/bible-mbti/figures/timothy.webp"); }
+svg[aria-label*="바나바 성경인물 프로필"] { background-image: url("/bible-mbti/figures/barnabas.webp"); }
+svg[aria-label*="마리아 성경인물 프로필"] { background-image: url("/bible-mbti/figures/mary.webp"); }
+svg[aria-label*="엘리야 성경인물 프로필"] { background-image: url("/bible-mbti/figures/elijah.webp"); }
+svg[aria-label*="이사야 성경인물 프로필"] { background-image: url("/bible-mbti/figures/isaiah.webp"); }
+svg[aria-label*="예레미야 성경인물 프로필"] { background-image: url("/bible-mbti/figures/jeremiah.webp"); }
+svg[aria-label*="사무엘 성경인물 프로필"] { background-image: url("/bible-mbti/figures/samuel.webp"); }
+svg[aria-label*="마르다 성경인물 프로필"] { background-image: url("/bible-mbti/figures/martha.webp"); }
+svg[aria-label*="요한 성경인물 프로필"] { background-image: url("/bible-mbti/figures/john.webp"); }
+EOF
 
       - name: Commit generated assets
         shell: bash
@@ -35,10 +67,13 @@ EOF
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add public/bible-mbti/figures
+          git add public/bible-mbti/figures src/bible-mbti-supplied-art.css
+          rm -f public/bible-mbti/figures.bundle.b64
+          git add public/bible-mbti/figures.bundle.b64
+          git rm -f .github/workflows/generate-bible-mbti-art.yml
           if git diff --cached --quiet; then
-            echo 'No asset changes.'
+            echo 'No generated changes.'
             exit 0
           fi
-          git commit -m 'fix: split Bible MBTI supplied artwork into individual assets [skip mbti art]'
+          git commit -m 'fix: use individual supplied Bible MBTI figure assets [skip mbti art]'
           git push origin HEAD:main
