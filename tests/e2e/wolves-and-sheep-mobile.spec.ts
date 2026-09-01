@@ -40,7 +40,7 @@ test.describe('wolves and sheep mobile gameplay', () => {
       browser.newContext(),
       browser.newContext(),
     ]);
-    const pages = contexts.map((context) => context.pages()[0] ?? context.newPage()) as Page[];
+    const pages = await Promise.all(contexts.map(async (context) => context.pages()[0] ?? context.newPage()));
 
     try {
       await Promise.all(accounts.map((account, index) => signIn(pages[index], account.email!, account.password!)));
@@ -53,10 +53,10 @@ test.describe('wolves and sheep mobile gameplay', () => {
         pages[2].goto(`/wolves-and-sheep?room=${roomCode}`, { waitUntil: 'domcontentloaded' }),
       ]);
 
-      const participantText = pages[0].locator('text=/참가자 \(3명/');
+      const participantText = pages[0].locator('text=/참가자 \\(3명/');
       await expect(participantText).toBeVisible({ timeout: 15_000 });
-      await expect(pages[1].locator('text=/참가자 \(3명/')).toBeVisible({ timeout: 15_000 });
-      await expect(pages[2].locator('text=/참가자 \(3명/')).toBeVisible({ timeout: 15_000 });
+      await expect(pages[1].locator('text=/참가자 \\(3명/')).toBeVisible({ timeout: 15_000 });
+      await expect(pages[2].locator('text=/참가자 \\(3명/')).toBeVisible({ timeout: 15_000 });
 
       const start = pages[0].getByRole('button', { name: '게임 시작', exact: true });
       await expect(start).toBeEnabled({ timeout: 10_000 });
