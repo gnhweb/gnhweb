@@ -1,5 +1,4 @@
-/* Bible MBTI supplied-art asset source is being regenerated from the known-good supplied-art commit. */
-/* The existing sprite rules remain temporarily until the independent assets are generated. */
+/* Bible MBTI supplied-art generation trigger: independent assets are staged in the next build commit. */
 svg[aria-label$="성경인물 프로필"] {
   background-color: transparent;
   background-image: url("/bible-mbti/characters.svg");
