@@ -1,37 +1,21 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
+const GATEWAY = `${Deno.env.get('SUPABASE_URL')}/functions/v1/ai-gateway`;
 const SENSITIVE_KEYWORDS = ['자살', '죽고싶', '죽고 싶', '자해', '극단적', '끝내고 싶', '살기 싫', '살기싫', '목숨', '죽을'];
-
-function detectCrisis(text: string): boolean {
-  return SENSITIVE_KEYWORDS.some(k => text.toLowerCase().includes(k));
-}
+function detectCrisis(text: string): boolean { return SENSITIVE_KEYWORDS.some(k => text.toLowerCase().includes(k)); }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
-
   try {
     const { messages, userName, profile } = await req.json();
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return new Response(JSON.stringify({ error: '대화 내용이 필요합니다.' }), { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
-    }
-
-    const apiKey = Deno.env.get('NVIDIA_KEY_COUNSELING');
-    if (!apiKey) {
-      return new Response(JSON.stringify({ reply: '죄송해요, 지금은 AI 상담 서비스를 이용할 수 없어요. 잠시 후 다시 시도해주세요.' }), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
+    if (!messages || !Array.isArray(messages) || messages.length === 0) return new Response(JSON.stringify({ error: '대화 내용이 필요합니다.' }), { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
 
     const lastUserMsg = [...messages].reverse().find((m: { role: string; content: string }) => m.role === 'user');
     const isCrisis = lastUserMsg ? detectCrisis(lastUserMsg.content) : false;
-
-    // Build profile context string (same as chat-ari)
     let profileContext = "";
     if (profile?.name) {
       profileContext = `\n# 현재 대화 상대 프로필\n이름: ${profile.name}\n`;
@@ -85,52 +69,21 @@ ${profileContext}
 
 당신은 인공지능이지만, 대화 중에 "AI로서" 같은 언급은 하지 마세요. 그냥 친근한 상담사 아리로 자연스럽게 대화하세요.`;
 
-    const chatMessages = [
-      { role: 'system', content: systemPrompt },
-      ...messages,
-    ];
+    const chatMessages: Array<{ role: string; content: string }> = [{ role: 'system', content: systemPrompt }, ...messages];
+    if (isCrisis) chatMessages.push({ role: 'system', content: '[긴급] 사용자가 위험한 생각을 표현했습니다. 반드시 위기 상담 안내와 함께 생명의 전화(1393), 청소년 상담(1388)을 언급하세요. 따뜻하고 비판단적으로 응답하세요.' });
 
-    if (isCrisis) {
-      chatMessages.push({
-        role: 'system',
-        content: '[긴급] 사용자가 위험한 생각을 표현했습니다. 반드시 위기 상담 안내와 함께 생명의 전화(1393), 청소년 상담(1388)을 언급하세요. 따뜻하고 비판단적으로 응답하세요.',
-      });
-    }
-
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const auth = req.headers.get('Authorization') || '';
+    const response = await fetch(GATEWAY, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'google/gemma-4-31b-it',
-        messages: chatMessages,
-        temperature: 0.65,
-        max_tokens: 700,
-      }),
+      headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: auth } : {}) },
+      body: JSON.stringify({ task: 'counseling', messages: chatMessages, temperature: 0.65, max_tokens: 700 }),
     });
-    logNvidiaUsage("nim-counseling", "KEY_COUNSELING", response).catch(() => {});
-
-    if (!response.ok) {
-      return new Response(JSON.stringify({ reply: '죄송해요, 잠시 생각이 길어졌어요. 다시 한번 말씀해주실래요?' }), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
-
+    if (!response.ok) return new Response(JSON.stringify({ reply: '죄송해요, 잠시 생각이 길어졌어요. 다시 한번 말씀해주실래요?' }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
     const data = await response.json();
     const reply = data.choices?.[0]?.message?.content;
-
-    if (!reply) {
-      return new Response(JSON.stringify({ reply: '음... 잠시 생각이 정리가 안 됐어요. 조금 더 쉽게 말씀해주실 수 있을까요?' }), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
-
-    return new Response(JSON.stringify({ reply, isCrisis }), {
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    });
-
+    if (!reply) return new Response(JSON.stringify({ reply: '음... 잠시 생각이 정리가 안 됐어요. 조금 더 쉽게 말씀해주실 수 있을까요?' }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ reply, isCrisis }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
   } catch {
-    return new Response(JSON.stringify({ reply: '앗, 죄송해요. 지금 연결이 원활하지 않네요. 잠시 후에 다시 대화 나눠요!' }), {
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({ reply: '앗, 죄송해요. 지금 연결이 원활하지 않네요. 잠시 후에 다시 대화 나눠요!' }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
   }
 });
