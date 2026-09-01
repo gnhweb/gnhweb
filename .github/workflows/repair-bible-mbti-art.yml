@@ -26,8 +26,7 @@ jobs:
           css = Path('src/bible-mbti-figure-images.css').read_text(encoding='utf-8')
           m = re.search(r'data:image/(?:jpeg|jpg);base64,([A-Za-z0-9+/=]+)', css)
           if not m: raise SystemExit('image source not found')
-          s = re.sub(r'[^A-Za-z0-9+/=]', '', m.group(1))
-          if len(s) % 4 == 1: s = s[:-1]
+          s = re.sub(r'[^A-Za-z0-9+/]', '', m.group(1))
           s += '=' * (-len(s) % 4)
           Path('/tmp/sheet.jpg').write_bytes(base64.b64decode(s))
           PY
