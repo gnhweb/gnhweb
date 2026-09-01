@@ -25,24 +25,29 @@ export interface EventIdea { title: string; ideas: string[]; bibleRef: string; }
 const QUIZ_DIFFICULTY_KR: Record<'easy' | 'normal' | 'hard', string> = { easy: '하', normal: '중', hard: '상' };
 const QUIZ_POINTS: Record<'easy' | 'normal' | 'hard', number> = { easy: 20, normal: 50, hard: 80 };
 
+type QuizRow = Record<string, unknown>;
+
 function normalizeQuizRows(rows: unknown[], requestedDifficulty: 'easy' | 'normal' | 'hard'): QuizQuestion[] {
   return rows
-    .filter((q): q is Record<string, unknown> => !!q && typeof q === 'object')
+    .filter((q): q is QuizRow => !!q && typeof q === 'object')
     .filter((q) => typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4 && typeof q.answer === 'string')
-    .map((q) => {
+    .map((q): QuizQuestion | null => {
       const difficultyByRow: Record<string, 'easy' | 'normal' | 'hard'> = { '하': 'easy', '중': 'normal', '상': 'hard', easy: 'easy', normal: 'normal', hard: 'hard' };
       const normalizedDifficulty = difficultyByRow[String(q.difficulty)] || requestedDifficulty;
-      const options = (q.options as unknown[]).filter((value): value is string => typeof value === 'string').map((value) => value.trim());
-      const answer = String(q.answer).trim();
+      const question = q.question as string;
+      const rawOptions = q.options as unknown[];
+      const options = rawOptions.filter((value): value is string => typeof value === 'string').map((value) => value.trim());
+      const answer = (q.answer as string).trim();
       const valid = options.length === 4 && new Set(options.map((value) => value.replace(/\s+/g, ''))).size === 4 && options.some((value) => value.replace(/\s+/g, '') === answer.replace(/\s+/g, ''));
       if (!valid) return null;
+      const type: QuizQuestion['type'] = q.type === 'ox' ? 'ox' : 'multiple';
       return {
         id: typeof q.id === 'string' ? q.id : undefined,
-        question: q.question.trim(),
+        question: question.trim(),
         options,
         answer,
         explanation: typeof q.explanation === 'string' ? q.explanation.trim() : '',
-        type: q.type === 'ox' ? 'ox' : 'multiple',
+        type,
         difficulty: normalizedDifficulty,
         points: QUIZ_POINTS[normalizedDifficulty],
       };

@@ -1,6 +1,28 @@
 name: Verify site
 
 on:
+  push:
+    branches: ['**']
+  pull_request:
   workflow_dispatch:
 
-jobs: {}
+env:
+  NODE_ENV: development
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
+      - name: Verify site
+        run: npm run verify
+      - name: Unit tests
+        run: npm test

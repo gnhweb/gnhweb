@@ -79,8 +79,6 @@ Deno.serve(async (req) => {
     if (!supabaseUrl || !serviceRoleKey || !anonKey) return json({ error: '서버 설정이 올바르지 않습니다.' }, 500);
 
     const authenticatedUserId = await getAuthenticatedUserId(req, supabaseUrl, anonKey);
-    if (!authenticatedUserId) return json({ error: '로그인이 필요합니다.' }, 401);
-
     const { club } = await parseBody(req);
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -88,25 +86,30 @@ Deno.serve(async (req) => {
 
     const result: Record<string, unknown> = {};
 
-    const { data: streakData, error: streakErr } = await admin
-      .from('bible_streaks')
-      .select('streak_count,max_streak,total_picks,last_pick_date,club_name')
-      .eq('user_id', authenticatedUserId)
-      .maybeSingle();
+    if (authenticatedUserId) {
+      const { data: streakData, error: streakErr } = await admin
+        .from('bible_streaks')
+        .select('streak_count,max_streak,total_picks,last_pick_date,club_name')
+        .eq('user_id', authenticatedUserId)
+        .maybeSingle();
 
-    if (streakErr) return json({ error: '스트릭 정보를 불러오지 못했습니다.' }, 500);
+      if (streakErr) return json({ error: '스트릭 정보를 불러오지 못했습니다.' }, 500);
 
-    const streak = streakData?.streak_count ?? 0;
-    result.individual = {
-      streak,
-      maxStreak: streakData?.max_streak ?? 0,
-      totalPicks: streakData?.total_picks ?? 0,
-      lastPickDate: streakData?.last_pick_date ?? null,
-      badges: getBadges(streak),
-      nextBadge: getNextBadge(streak),
-    };
+      const streak = streakData?.streak_count ?? 0;
+      result.individual = {
+        streak,
+        maxStreak: streakData?.max_streak ?? 0,
+        totalPicks: streakData?.total_picks ?? 0,
+        lastPickDate: streakData?.last_pick_date ?? null,
+        badges: getBadges(streak),
+        nextBadge: getNextBadge(streak),
+      };
 
-    result.clubName = streakData?.club_name || club || '미지정';
+      result.clubName = streakData?.club_name || club || '미지정';
+    } else {
+      result.individual = null;
+      result.clubName = club || null;
+    }
 
     const rankingQuery = club
       ? admin.from('bible_streaks').select('user_id,streak_count,total_picks').eq('club_name', club).order('streak_count', { ascending: false }).limit(20)
