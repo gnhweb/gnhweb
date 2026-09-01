@@ -1,4 +1,5 @@
 name: Playwright Mobile E2E
+run-name: Production mobile E2E (${{ github.sha }})
 
 on:
   push:
