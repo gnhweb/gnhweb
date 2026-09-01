@@ -15,47 +15,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebuild character sprite from the existing supplied-art source
+      - name: Restore the known-good sprite and remove this temporary workflow
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import base64, re
-          from pathlib import Path
-
-          css = Path('src/bible-mbti-figure-images.css').read_text(encoding='utf-8')
-          match = re.search(r'data:image/(?:jpeg|jpg);base64,([A-Za-z0-9+/=]+)', css)
-          if not match:
-              raise SystemExit('supplied character image source not found')
-          encoded = match.group(1)
-          encoded += '=' * (-len(encoded) % 4)
-          Path('/tmp/sheet.jpg').write_bytes(base64.b64decode(encoded))
-          PY
-
-          identify /tmp/sheet.jpg
-          mkdir -p /tmp/mbti-crops
-          convert /tmp/sheet.jpg -crop 5x4@ +repage -strip -quality 90 /tmp/mbti-crops/tile-%02d.webp
-
-          python3 - <<'PY'
-          import base64
-          from pathlib import Path
-
-          tiles = sorted(Path('/tmp/mbti-crops').glob('tile-*.webp'))
-          if len(tiles) != 20:
-              raise SystemExit(f'expected 20 character tiles, got {len(tiles)}')
-
-          parts = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 680">']
-          for i, tile in enumerate(tiles):
-              data = base64.b64encode(tile.read_bytes()).decode('ascii')
-              x = (i % 5) * 170
-              y = (i // 5) * 170
-              parts.append(f'<image href="data:image/webp;base64,{data}" x="{x}" y="{y}" width="170" height="170" preserveAspectRatio="none"/>')
-          parts.append('</svg>')
-          Path('public/bible-mbti/characters.svg').write_text(''.join(parts), encoding='utf-8')
-          PY
-
+          git show da2402ea47a9e7ea3434d297ffdd9f4baf9d3252^:public/bible-mbti/characters.svg > public/bible-mbti/characters.svg
+          rm -f .github/workflows/repair-bible-mbti-art.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add public/bible-mbti/characters.svg
-          git commit -m 'fix: rebuild bible mbti character sprite' || exit 0
+          git add public/bible-mbti/characters.svg .github/workflows/repair-bible-mbti-art.yml
+          git commit -m 'revert: restore Bible MBTI sprite after failed repair'
           git push
