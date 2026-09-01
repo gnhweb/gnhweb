@@ -105,7 +105,7 @@ const routes: RouteObject[] = [{
     { path: "/wolves-and-sheep", element: withSuspense(<WolvesAndSheep />) },
     { path: "/pharisee", element: withSuspense(<Pharisee />) },
     { path: "/galilee-phone", element: withSuspense(<GalileePhone />) },
-    { path: "/bible-streak", element: withSuspense(<BibleStreak />) },
+    { path: "/bible-streak", element: <AuthGuard minRole="member">{withSuspense(<BibleStreak />)}</AuthGuard> },
     { path: "/bible-by-age", element: withSuspense(<BibleByAge />) },
     { path: "/prayer-relay", element: withSuspense(<PrayerRelay />) },
     { path: "/faith-storybook", element: withSuspense(<FaithStorybook />) },
