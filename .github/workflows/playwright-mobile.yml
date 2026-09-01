@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  NODE_ENV: development
+
 jobs:
   mobile-e2e:
     runs-on: ubuntu-latest
