@@ -31,7 +31,6 @@ jobs:
           s += '=' * (-len(s) % 4)
           Path('/tmp/sheet.jpg').write_bytes(base64.b64decode(s))
           PY
-          identify /tmp/sheet.jpg
           mkdir -p /tmp/tiles
           convert /tmp/sheet.jpg -crop 5x4@ +repage -strip -quality 90 /tmp/tiles/tile-%02d.webp
           python3 - <<'PY'
