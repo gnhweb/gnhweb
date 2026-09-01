@@ -1,10 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+const GATEWAY = `${Deno.env.get('SUPABASE_URL')}/functions/v1/ai-gateway`;
 
 const FALLBACK = {
   plan: [
@@ -45,11 +45,8 @@ function safeJsonParse(raw: string, fallback: Record<string, unknown>): Record<s
   try {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     return JSON.parse(cleaned) as Record<string, unknown>;
-  } catch {
-    return fallback;
-  }
+  } catch { return fallback; }
 }
-
 function validateItem(item: unknown): boolean {
   const obj = item as Record<string, unknown>;
   if (!obj.text || typeof obj.text !== 'string' || obj.text.length < 3) return false;
@@ -59,17 +56,9 @@ function validateItem(item: unknown): boolean {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
-
   try {
     const { eventPurpose } = await req.json();
-    if (!eventPurpose) {
-      return new Response(JSON.stringify({ error: '행사 목적을 입력해주세요.' }), {
-        status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const apiKey = Deno.env.get('NVIDIA_KEY_EVENTS');
-    if (!apiKey) return new Response(JSON.stringify(FALLBACK), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    if (!eventPurpose) return new Response(JSON.stringify({ error: '행사 목적을 입력해주세요.' }), { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
 
     const systemPrompt = `당신은 교회 학생회 행사 기획 전문가입니다. 입력된 행사 목적에 꼭 맞는 Plan-Do-See 체크리스트를 꼼꼼하게 만들어주세요.
 
@@ -89,43 +78,29 @@ Deno.serve(async (req) => {
   "see": [{"text":"사후 평가/정리 항목","priority":"high/medium/low","assignee":"담당","deadline":"D+N"}],
   "bibleVerse": "📖 구절 (출처)"
 }`;
-
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const auth = req.headers.get('Authorization') || '';
+    const response = await fetch(GATEWAY, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'google/gemma-4-31b-it',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `행사 목적: ${eventPurpose}\n\n이 행사에 딱 맞는 꼼꼼하고 구체적인 Plan-Do-See 체크리스트를 만들어주세요. 일반적인 항목 말고 이 행사만을 위한 특별한 항목도 꼭 포함해주세요.` },
-        ],
-        temperature: 0.3,
-        max_tokens: 2500,
-      }),
+      headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: auth } : {}) },
+      body: JSON.stringify({ task: 'event-plan', messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `행사 목적: ${eventPurpose}\n\n이 행사에 딱 맞는 꼼꼼하고 구체적인 Plan-Do-See 체크리스트를 만들어주세요. 일반적인 항목 말고 이 행사만을 위한 특별한 항목도 꼭 포함해주세요.` },
+      ], temperature: 0.3, max_tokens: 2500 }),
     });
-    logNvidiaUsage("nim-pds", "KEY_EVENTS", response).catch(() => {});
-
     if (!response.ok) return new Response(JSON.stringify(FALLBACK), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
-
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
     if (!content) return new Response(JSON.stringify(FALLBACK), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
-
     const parsed = safeJsonParse(content, FALLBACK);
-
     const sections = ['plan', 'do', 'see'] as const;
     for (const sec of sections) {
-      if (!Array.isArray(parsed[sec]) || (parsed[sec] as unknown[]).length < 3) {
-        parsed[sec] = FALLBACK[sec];
-      } else {
+      if (!Array.isArray(parsed[sec]) || (parsed[sec] as unknown[]).length < 3) parsed[sec] = FALLBACK[sec];
+      else {
         const valid = (parsed[sec] as unknown[]).filter(validateItem);
-        if (valid.length >= 3) parsed[sec] = valid;
-        else parsed[sec] = FALLBACK[sec];
+        parsed[sec] = valid.length >= 3 ? valid : FALLBACK[sec];
       }
     }
-
     return new Response(JSON.stringify(parsed), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
-
   } catch {
     return new Response(JSON.stringify(FALLBACK), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
   }
