@@ -20,14 +20,16 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import base64, re, subprocess
+          import base64, re
           from pathlib import Path
 
           css = Path('src/bible-mbti-figure-images.css').read_text(encoding='utf-8')
-          match = re.search(r'data:image/(?:jpeg|jpg);base64,([^\"\)]+)', css)
+          match = re.search(r'data:image/(?:jpeg|jpg);base64,([A-Za-z0-9+/=]+)', css)
           if not match:
               raise SystemExit('supplied character image source not found')
-          Path('/tmp/sheet.jpg').write_bytes(base64.b64decode(match.group(1)))
+          encoded = match.group(1)
+          encoded += '=' * (-len(encoded) % 4)
+          Path('/tmp/sheet.jpg').write_bytes(base64.b64decode(encoded))
           PY
 
           identify /tmp/sheet.jpg
