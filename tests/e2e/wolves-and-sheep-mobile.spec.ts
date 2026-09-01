@@ -1,15 +1,16 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const accounts = [
   { role: 'member', email: process.env.E2E_MEMBER_EMAIL, password: process.env.E2E_MEMBER_PASSWORD },
   { role: 'mission', email: process.env.E2E_MISSION_EMAIL, password: process.env.E2E_MISSION_PASSWORD },
   { role: 'teacher', email: process.env.E2E_TEACHER_EMAIL, password: process.env.E2E_TEACHER_PASSWORD },
+  { role: 'chief', email: process.env.E2E_CHIEF_EMAIL, password: process.env.E2E_CHIEF_PASSWORD },
 ];
 
 const configured = accounts.every((account) => Boolean(account.email && account.password));
 
 test.describe('wolves and sheep mobile gameplay', () => {
-  test.skip(!configured, 'Requires E2E_MEMBER_*, E2E_MISSION_*, and E2E_TEACHER_* secrets.');
+  test.skip(!configured, 'Requires E2E_MEMBER_*, E2E_MISSION_*, E2E_TEACHER_*, and E2E_CHIEF_* secrets.');
 
   async function signIn(page: Page, email: string, password: string) {
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
@@ -34,8 +35,9 @@ test.describe('wolves and sheep mobile gameplay', () => {
     expect(overflow, 'game page has horizontal overflow').toBe(false);
   }
 
-  test('three authenticated players can enter a room and host can start on mobile', async ({ browser }) => {
+  test('four authenticated players can enter a room and host can start on mobile', async ({ browser }) => {
     const contexts = await Promise.all([
+      browser.newContext(),
       browser.newContext(),
       browser.newContext(),
       browser.newContext(),
@@ -51,12 +53,12 @@ test.describe('wolves and sheep mobile gameplay', () => {
       await Promise.all([
         pages[1].goto(`/wolves-and-sheep?room=${roomCode}`, { waitUntil: 'domcontentloaded' }),
         pages[2].goto(`/wolves-and-sheep?room=${roomCode}`, { waitUntil: 'domcontentloaded' }),
+        pages[3].goto(`/wolves-and-sheep?room=${roomCode}`, { waitUntil: 'domcontentloaded' }),
       ]);
 
-      const participantText = pages[0].locator('text=/참가자 \\(3명/');
-      await expect(participantText).toBeVisible({ timeout: 15_000 });
-      await expect(pages[1].locator('text=/참가자 \\(3명/')).toBeVisible({ timeout: 15_000 });
-      await expect(pages[2].locator('text=/참가자 \\(3명/')).toBeVisible({ timeout: 15_000 });
+      for (const page of pages) {
+        await expect(page.getByText(/참가자 \(4명/)).toBeVisible({ timeout: 15_000 });
+      }
 
       const start = pages[0].getByRole('button', { name: '게임 시작', exact: true });
       await expect(start).toBeEnabled({ timeout: 10_000 });
