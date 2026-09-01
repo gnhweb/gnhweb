@@ -1,0 +1,30 @@
+/* Bible MBTI: render the supplied 20-person reference art in the existing result slots. */
+svg[aria-label$="성경인물 프로필"] {
+  background-color: transparent;
+  background-image: url("/bible-mbti/characters.svg");
+  background-repeat: no-repeat;
+  background-size: 500% 400%;
+}
+svg[aria-label$="성경인물 프로필"] > * {
+  visibility: hidden;
+}
+svg[aria-label*="모세 성경인물 프로필"] { background-position: 0% 0%; }
+svg[aria-label*="아브라함 성경인물 프로필"] { background-position: 25% 0%; }
+svg[aria-label*="여호수아 성경인물 프로필"] { background-position: 50% 0%; }
+svg[aria-label*="다윗 성경인물 프로필"] { background-position: 75% 0%; }
+svg[aria-label*="요셉 성경인물 프로필"] { background-position: 100% 0%; }
+svg[aria-label*="룻 성경인물 프로필"] { background-position: 0% 33.333333%; }
+svg[aria-label*="에스더 성경인물 프로필"] { background-position: 25% 33.333333%; }
+svg[aria-label*="다니엘 성경인물 프로필"] { background-position: 50% 33.333333%; }
+svg[aria-label*="바울 성경인물 프로필"] { background-position: 75% 33.333333%; }
+svg[aria-label*="베드로 성경인물 프로필"] { background-position: 100% 33.333333%; }
+svg[aria-label*="느헤미야 성경인물 프로필"] { background-position: 0% 66.666666%; }
+svg[aria-label*="디모데 성경인물 프로필"] { background-position: 25% 66.666666%; }
+svg[aria-label*="바나바 성경인물 프로필"] { background-position: 50% 66.666666%; }
+svg[aria-label*="마리아 성경인물 프로필"] { background-position: 75% 66.666666%; }
+svg[aria-label*="엘리야 성경인물 프로필"] { background-position: 100% 66.666666%; }
+svg[aria-label*="이사야 성경인물 프로필"] { background-position: 0% 100%; }
+svg[aria-label*="예레미야 성경인물 프로필"] { background-position: 25% 100%; }
+svg[aria-label*="사무엘 성경인물 프로필"] { background-position: 50% 100%; }
+svg[aria-label*="마르다 성경인물 프로필"] { background-position: 75% 100%; }
+svg[aria-label*="요한 성경인물 프로필"] { background-position: 100% 100%; }
