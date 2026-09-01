@@ -1,5 +1,4 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -111,8 +110,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get('NVIDIA_KEY_MBTI');
-    if (!apiKey) {
+    const gatewayAuth = req.headers.get("Authorization") || `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`;
+    if (!gatewayAuth) {
       return new Response(JSON.stringify(getRandomFallback()), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
@@ -151,10 +150,11 @@ ${suggestedChars}
 
     const answersText = answers.map((a: string, i: number) => `${i+1}번: ${a}`).join('\n');
 
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': gatewayAuth },
       body: JSON.stringify({
+        task: "bible-mbti",
         model: 'google/gemma-4-31b-it',
         messages: [
           { role: 'system', content: systemPrompt },
@@ -165,7 +165,6 @@ ${suggestedChars}
         max_tokens: 1200,
       }),
     });
-    logNvidiaUsage("nim-mbti", "KEY_MBTI", response).catch(() => {});
 
     if (!response.ok) {
       return new Response(JSON.stringify(getRandomFallback()), {

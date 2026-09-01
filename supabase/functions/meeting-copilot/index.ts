@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +11,6 @@ const CORS_HEADERS = {
 // google/gemma-4-31b-it는 사이트 내 다른 AI 기능(리더십 코칭, 말씀뽑기 등)에서도
 // 검증된 모델로, 한국어 처리와 지시 이해도가 안정적임.
 // 필요 시 Supabase 프로젝트의 NVIDIA_NIM_MODEL 환경변수로 언제든 다른 모델로 교체 가능
-const NIM_MODEL = Deno.env.get("NVIDIA_NIM_MODEL") || "google/gemma-4-31b-it";
 
 interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -114,8 +112,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("NVIDIA_KEY_MEETING");
-    if (!apiKey) {
+    const gatewayAuth = req.headers.get("Authorization") || `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`;
+    if (!gatewayAuth) {
       return new Response(
         JSON.stringify({ error: "AI API 키가 설정되지 않았습니다." }),
         { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
@@ -240,83 +238,53 @@ Deno.serve(async (req) => {
       })),
     ];
 
-    console.log(`[meeting-copilot] Model: ${NIM_MODEL}, messages: ${apiMessages.length}, dataRich: ${dataRichness.rich}, missing: [${dataRichness.missingFields.join(", ")}]`);
+    console.log(`[meeting-copilot] Gateway request: messages=${apiMessages.length}, dataRich=${dataRichness.rich}, missing=[${dataRichness.missingFields.join(", ")}]`);
 
-    // ── NIM API 스트리밍 호출 ──
-    const nimResponse = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    // ── AI Gateway 호출 ──
+    const nimResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        "Authorization": gatewayAuth,
       },
       body: JSON.stringify({
-        model: NIM_MODEL,
+        task: "student-council",
         messages: apiMessages,
         temperature: 0.7,
         max_tokens: 1100,
-        top_p: 0.9,
-        stream: true,
       }),
     });
-    logNvidiaUsage("meeting-copilot", "KEY_MEETING", nimResponse).catch(() => {});
 
     if (!nimResponse.ok) {
       const errText = await nimResponse.text();
-      console.error("NIM API error:", nimResponse.status, errText, "model:", NIM_MODEL);
-      // 404/410은 대부분 모델 ID가 카탈로그에서 제거(단종)되었다는 뜻 — 바로 알아챌 수 있도록 안내
-      const errMsg =
-        nimResponse.status === 404 || nimResponse.status === 410
-          ? `현재 설정된 AI 모델(${NIM_MODEL})을 더 이상 사용할 수 없어요. NVIDIA_NIM_MODEL 환경변수를 다른 모델로 바꿔주세요.`
-          : `AI 서비스 호출에 실패했습니다. (${nimResponse.status})`;
+      console.error("AI Gateway error:", nimResponse.status, errText);
       return new Response(
-        JSON.stringify({ error: errMsg }),
+        JSON.stringify({ error: `AI 서비스 호출에 실패했습니다. (${nimResponse.status})` }),
         { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
 
-    // ── SSE 스트리밍 응답 반환 ──
-    const stream = new ReadableStream({
-      async start(controller) {
-        const encoder = new TextEncoder();
-        const reader = nimResponse.body?.getReader();
-        if (!reader) {
-          controller.close();
-          return;
-        }
+    const gatewayData = await nimResponse.json();
+    const content = gatewayData?.choices?.[0]?.message?.content;
+    if (typeof content !== "string" || !content.trim()) {
+      return new Response(
+        JSON.stringify({ error: "AI 응답을 받지 못했습니다." }),
+        { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
 
-        const decoder = new TextDecoder();
-        let buffer = "";
+    const encoder = new TextEncoder();
+    const ssePayload = `data: ${JSON.stringify({ content })}\n\ndata: [DONE]\n\n`;
+    return new Response(encoder.encode(ssePayload), {
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+    });
 
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || !trimmed.startsWith("data: ")) continue;
-              const data = trimmed.slice(6);
-              if (data === "[DONE]") {
-                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-                continue;
-              }
-
-              try {
-                const parsed = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-                }
-              } catch {
-                // 파싱 실패 무시
-              }
-            }
-          }
-        } catch (err) {
+  } catch (err) {
           console.error("Stream error:", err);
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "스트리밍 중 오류가 발생했습니다." })}\n\n`));
         } finally {

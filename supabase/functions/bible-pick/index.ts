@@ -1,5 +1,4 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 interface VerseRef {
   emotion: string;
@@ -236,7 +235,7 @@ Deno.serve(async (req) => {
     const isCrisis = sensitive.isCrisis;
     const isDepression = sensitive.isDepression;
 
-    const apiKey = Deno.env.get('NVIDIA_KEY_BIBLEPICK');
+    const gatewayAuth = req.headers.get("Authorization") || `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`;
 
     // 감정 분류는 짧은 키워드 룰로 먼저 처리해 매칭 대상 감정 범위를 좁힙니다.
     const keywordMap: Record<string, string> = {
@@ -281,7 +280,7 @@ Deno.serve(async (req) => {
     let prayers: string[] = [];
     let chosenIndex = -1;
 
-    if (apiKey) {
+    if (gatewayAuth) {
       const candidateList = candidates
         .map((c, i) => `${i}. [${c.ref.reference}] ${c.text}`)
         .join('\n');
@@ -312,10 +311,11 @@ ${candidateList}
 위 후보 중 이 학생의 상황에 가장 잘 맞는 구절을 하나 골라 chosenIndex로 알려주고, 왜 그 구절인지, 오늘의 실천, 기도문을 작성해주세요.`;
 
       try {
-        const aiRes = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+        const aiRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          headers: { 'Content-Type': 'application/json', 'Authorization': gatewayAuth },
           body: JSON.stringify({
+        task: "bible-pick",
             model: 'google/gemma-4-31b-it',
             messages: [
               { role: 'system', content: systemPrompt },
@@ -325,7 +325,6 @@ ${candidateList}
             max_tokens: 1200,
           }),
         });
-        logNvidiaUsage("bible-pick", "KEY_BIBLEPICK", aiRes).catch(() => {});
 
         if (aiRes.ok) {
           const aiData = await aiRes.json();
