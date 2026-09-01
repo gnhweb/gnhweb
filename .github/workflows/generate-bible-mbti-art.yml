@@ -24,17 +24,22 @@ jobs:
           set -euo pipefail
           python3 -m pip install --quiet pillow
           python3 <<'PY'
-          import base64, html, pathlib, re
-          from PIL import Image, ImageChops
+          import base64, pathlib, re, subprocess
+          from PIL import Image
 
-          svg = pathlib.Path('public/bible-mbti/characters.svg').read_text(encoding='utf-8')
+          svg = subprocess.check_output(['git', 'show', 'da2402ea47a9e7ea3434d297ffdd9f4baf9d3252:public/bible-mbti/characters.svg'], text=True)
           match = re.search(r'data:image/webp;base64,([^\" ]+)', svg)
           if not match:
-              raise SystemExit('characters.svg does not contain an embedded WebP image')
-          raw = base64.b64decode(match.group(1))
+              raise SystemExit('reference characters.svg does not contain an embedded WebP image')
+          encoded = match.group(1)
+          if len(encoded) % 4:
+              raise SystemExit(f'reference characters.svg has invalid base64 length: {len(encoded)}')
+          raw = base64.b64decode(encoded, validate=True)
           pathlib.Path('/tmp/sheet.webp').write_bytes(raw)
           sheet = Image.open('/tmp/sheet.webp').convert('RGBA')
-          print('source sheet:', sheet.size)
+          print('reference source sheet:', sheet.size)
+          if sheet.size[0] < 5 or sheet.size[1] < 4:
+              raise SystemExit('reference source sheet is too small for the 5x4 figure grid')
 
           names = ['moses','abraham','joshua','david','joseph','ruth','esther','daniel','paul','peter','nehemiah','timothy','barnabas','mary','elijah','isaiah','jeremiah','samuel','martha','john']
           out_dir = pathlib.Path('public/bible-mbti/figures')
@@ -45,16 +50,7 @@ jobs:
               row, col = divmod(i, 5)
               left, top = round(col * cell_w), round(row * cell_h)
               right, bottom = round((col + 1) * cell_w), round((row + 1) * cell_h)
-              crop = sheet.crop((left, top, right, bottom))
-              # Keep only the supplied illustration area; remove the near-white sheet background.
-              px = crop.load()
-              for y in range(crop.height):
-                  for x in range(crop.width):
-                      r,g,b,a = px[x,y]
-                      if r > 246 and g > 246 and b > 246:
-                          px[x,y] = (r,g,b,0)
-              # Preserve a stable square canvas for the existing aspect-square result slots.
-              crop = crop.resize((160,160), Image.Resampling.LANCZOS)
+              crop = sheet.crop((left, top, right, bottom)).resize((160,160), Image.Resampling.LANCZOS)
               png = pathlib.Path('/tmp') / f'{name}.png'
               crop.save(png, 'PNG', optimize=True)
               data = base64.b64encode(png.read_bytes()).decode('ascii')
