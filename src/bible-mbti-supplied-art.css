@@ -1,13 +1,12 @@
-/* Bible MBTI: render the supplied 20-person reference art in the existing result slots. */
+/* Bible MBTI supplied-art asset source is being regenerated from the known-good supplied-art commit. */
+/* The existing sprite rules remain temporarily until the independent assets are generated. */
 svg[aria-label$="성경인물 프로필"] {
   background-color: transparent;
   background-image: url("/bible-mbti/characters.svg");
   background-repeat: no-repeat;
   background-size: 500% 400%;
 }
-svg[aria-label$="성경인물 프로필"] > * {
-  visibility: hidden;
-}
+svg[aria-label$="성경인물 프로필"] > * { visibility: hidden; }
 svg[aria-label*="모세 성경인물 프로필"] { background-position: 0% 0%; }
 svg[aria-label*="아브라함 성경인물 프로필"] { background-position: 25% 0%; }
 svg[aria-label*="여호수아 성경인물 프로필"] { background-position: 50% 0%; }
