@@ -1,10 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+const GATEWAY = `${Deno.env.get('SUPABASE_URL')}/functions/v1/ai-gateway`;
 
 const FALLBACK_IDEAS = {
   title: "행사 아이디어",
@@ -19,32 +19,15 @@ const FALLBACK_IDEAS = {
   ],
   bibleRef: "베드로전서 4:10"
 };
-
 function safeParse(raw: string): Record<string, unknown> {
-  try {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(cleaned) as Record<string, unknown>;
-  } catch {
-    return { ...FALLBACK_IDEAS };
-  }
+  try { return JSON.parse(raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()) as Record<string, unknown>; } catch { return { ...FALLBACK_IDEAS }; }
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
-
   try {
     const { topic, audience, budget } = await req.json();
-
-    if (!topic || !audience || !budget) {
-      throw new Error("주제, 대상, 예산을 모두 입력해주세요.");
-    }
-
-    const apiKey = Deno.env.get("NVIDIA_KEY_EVENTS");
-    if (!apiKey) {
-      return new Response(JSON.stringify(FALLBACK_IDEAS), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
-      });
-    }
+    if (!topic || !audience || !budget) throw new Error("주제, 대상, 예산을 모두 입력해주세요.");
 
     const isLeaderAudience = audience === '사명자';
     const systemPrompt = `너는 교회 학생회 행사 기획 전문가야. 평범한 아이디어 대신, 요즘 10-20대 학생들이 진짜 재미있어할 **참신하고 트렌디한 행사**를 기획하는 것이 너의 임무야.
@@ -60,75 +43,33 @@ ${isLeaderAudience ? '- **대상이 사명자이므로**, 리더십 훈련, 팀�
 
 [필수 출력 형식]
 반드시 아래 JSON 형식으로만 응답해 (다른 텍스트 없이):
-
 {
   "title": "행사 제목 (20자 이내, 캐치하고 트렌디하게)",
-  "ideas": [
-    "아이디어1 (구체적 실행 방식 + 난이도 + 준비물 포함, 80자 내외)",
-    "아이디어2",
-    "아이디어3",
-    "아이디어4",
-    "아이디어5",
-    "아이디어6",
-    "아이디어7"
-  ],
+  "ideas": ["아이디어1 (구체적 실행 방식 + 난이도 + 준비물 포함, 80자 내외)","아이디어2","아이디어3","아이디어4","아이디어5","아이디어6","아이디어7"],
   "bibleRef": "관련 성경 구절 하나 (형식: 책이름 장:절)"
 }
-
 아이디어는 정확히 7개를 제시해야 해. 각 아이디어는 제목만 나열하는 게 아니라, 어떻게 진행할지 구체적인 실행 방식과 난이도, 핵심 준비물을 포함해야 해.`;
 
-    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    const auth = req.headers.get('Authorization') || '';
+    const response = await fetch(GATEWAY, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemma-4-31b-it",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `행사 주제: ${topic}\n대상: ${audience}\n예산: ${budget}\n\n위 조건에 맞는 참신하고 트렌디한 행사 아이디어 7개를 제안해줘. 각 아이디어마다 실행 난이도(상/중/하)와 핵심 준비물을 포함해줘. ${isLeaderAudience ? '사명자 대상이니 리더십+재미를 결합한 프로그램을 제안해줘.' : '학생회가 이미 해봤을 법한 흔한 아이디어는 빼고, 진짜 새로운 각도에서 접근해줘.'}` },
-        ],
-        temperature: 1.0,
-        max_tokens: 2500,
-      }),
+      headers: { "Content-Type": "application/json", ...(auth ? { Authorization: auth } : {}) },
+      body: JSON.stringify({ task: 'event-ideas', messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `행사 주제: ${topic}\n대상: ${audience}\n예산: ${budget}\n\n위 조건에 맞는 참신하고 트렌디한 행사 아이디어 7개를 제안해줘. 각 아이디어마다 실행 난이도(상/중/하)와 핵심 준비물을 포함해줘. ${isLeaderAudience ? '사명자 대상이니 리더십+재미를 결합한 프로그램을 제안해줘.' : '학생회가 이미 해봤을 법한 흔한 아이디어는 빼고, 진짜 새로운 각도에서 접근해줘.'}` },
+      ], temperature: 1.0, max_tokens: 2500 }),
     });
-    logNvidiaUsage("nim-event-ideas", "KEY_EVENTS", response).catch(() => {});
-
-    if (!response.ok) {
-      return new Response(JSON.stringify(FALLBACK_IDEAS), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
-      });
-    }
-
+    if (!response.ok) return new Response(JSON.stringify(FALLBACK_IDEAS), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
     const result = await response.json();
-    const rawContent = result?.choices?.[0]?.message?.content || "";
-
-    const parsed = safeParse(rawContent);
-
+    const parsed = safeParse(result?.choices?.[0]?.message?.content || "");
     if (Array.isArray(parsed.ideas)) {
-      if (parsed.ideas.length < 7) {
-        const padIdeas = FALLBACK_IDEAS.ideas.slice(0, 7 - parsed.ideas.length);
-        parsed.ideas = [...parsed.ideas, ...padIdeas];
-      } else if (parsed.ideas.length > 7) {
-        parsed.ideas = parsed.ideas.slice(0, 7);
-      }
-    } else {
-      parsed.ideas = FALLBACK_IDEAS.ideas;
-    }
-
-    return new Response(JSON.stringify(parsed), {
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-    });
+      if (parsed.ideas.length < 7) parsed.ideas = [...parsed.ideas, ...FALLBACK_IDEAS.ideas.slice(0, 7 - parsed.ideas.length)];
+      else if (parsed.ideas.length > 7) parsed.ideas = parsed.ideas.slice(0, 7);
+    } else parsed.ideas = FALLBACK_IDEAS.ideas;
+    return new Response(JSON.stringify(parsed), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "알 수 없는 오류";
     console.error("Edge function error:", message);
-    return new Response(
-      JSON.stringify({ error: message }),
-      {
-        status: 500,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify({ error: message }), { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
   }
 });
