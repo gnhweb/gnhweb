@@ -26,6 +26,15 @@ jobs:
         run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
+      - name: Wait for Vercel preview
+        run: |
+          for attempt in {1..30}; do
+            status=$(curl -L -s -o /dev/null -w '%{http_code}' "$E2E_BASE_URL")
+            if [ "$status" -ge 200 ] && [ "$status" -lt 500 ]; then exit 0; fi
+            sleep 10
+          done
+          echo "Vercel preview did not become reachable: $E2E_BASE_URL"
+          exit 1
       - name: Run mobile E2E
         run: npm run test:e2e
       - name: Upload Playwright report
