@@ -1,0 +1,59 @@
+name: Repair Bible MBTI supplied art
+
+on:
+  push:
+    paths:
+      - '.github/workflows/repair-bible-mbti-art.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild character sprite from the existing supplied-art source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, re, subprocess
+          from pathlib import Path
+
+          css = Path('src/bible-mbti-figure-images.css').read_text(encoding='utf-8')
+          match = re.search(r'data:image/(?:jpeg|jpg);base64,([^\"\)]+)', css)
+          if not match:
+              raise SystemExit('supplied character image source not found')
+          Path('/tmp/sheet.jpg').write_bytes(base64.b64decode(match.group(1)))
+          PY
+
+          identify /tmp/sheet.jpg
+          mkdir -p /tmp/mbti-crops
+          convert /tmp/sheet.jpg -crop 5x4@ +repage -strip -quality 90 /tmp/mbti-crops/tile-%02d.webp
+
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+
+          tiles = sorted(Path('/tmp/mbti-crops').glob('tile-*.webp'))
+          if len(tiles) != 20:
+              raise SystemExit(f'expected 20 character tiles, got {len(tiles)}')
+
+          parts = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 680">']
+          for i, tile in enumerate(tiles):
+              data = base64.b64encode(tile.read_bytes()).decode('ascii')
+              x = (i % 5) * 170
+              y = (i // 5) * 170
+              parts.append(f'<image href="data:image/webp;base64,{data}" x="{x}" y="{y}" width="170" height="170" preserveAspectRatio="none"/>')
+          parts.append('</svg>')
+          Path('public/bible-mbti/characters.svg').write_text(''.join(parts), encoding='utf-8')
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/bible-mbti/characters.svg
+          git commit -m 'fix: rebuild bible mbti character sprite' || exit 0
+          git push
