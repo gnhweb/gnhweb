@@ -65,7 +65,6 @@ async function shareResultImage() {
 
 function bindShareButton() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
-  if (window.location.pathname !== '/bible-mbti') return;
 
   const shareWindow = window as ShareAwareWindow;
   if (shareWindow[SHARE_FLAG]) return;
