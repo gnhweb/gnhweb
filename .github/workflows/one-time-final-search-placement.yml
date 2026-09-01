@@ -1,4 +1,4 @@
-name: One-time final search placement fix
+name: One-time AI gateway migration
 
 on:
   workflow_dispatch:
@@ -10,73 +10,130 @@ permissions:
   contents: write
 
 jobs:
-  fix:
+  migrate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Patch search placement
+      - name: Route AI Edge Functions through gateway
         shell: python
         run: |
           from pathlib import Path
+          import re
 
-          p = Path('src/components/feature/Navbar.tsx')
+          base = Path('supabase/functions')
+          tasks = {
+              'nim-welcome': 'student-council',
+              'nim-qt': 'bible-pick',
+              'nim-letter': 'pastoral-letter',
+              'nim-pds': 'event-plan',
+              'nim-action-items': 'student-council',
+              'nim-event-ideas': 'event-ideas',
+              'nim-counseling': 'counseling',
+              'meeting-ideas-ai': 'meeting-ideas',
+              'nim-mbti': 'bible-mbti',
+              'bible-pick': 'bible-pick',
+              'nim-coaching': 'coaching',
+          }
+
+          for name, task in tasks.items():
+              p = base / name / 'index.ts'
+              s = p.read_text()
+              if 'integrate.api.nvidia.com' not in s:
+                  continue
+              s = re.sub(r'import \{ logNvidiaUsage \} from "\.\./_shared/logNvidiaUsage\.ts";\n?', '', s)
+              s = s.replace('https://integrate.api.nvidia.com/v1/chat/completions', '${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway')
+              s = re.sub(r'const apiKey = Deno\.env\.get\([^)]+\);', 'const gatewayAuth = req.headers.get("Authorization") || `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`;', s)
+              s = s.replace('if (!apiKey)', 'if (!gatewayAuth)')
+              s = s.replace('if (apiKey)', 'if (gatewayAuth)')
+              s = s.replace('`Bearer ${apiKey}`', 'gatewayAuth')
+              s = s.replace('"Authorization": `Bearer ${apiKey}`', '"Authorization": gatewayAuth')
+              s = re.sub(r'\n\s*logNvidiaUsage\([^\n]*\)\.catch\(\(\) => \{\}\);', '', s)
+              marker = '${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway'
+              at = s.find(marker)
+              if at >= 0 and 'task:' not in s[at:at+500]:
+                  bi = s.find('body: JSON.stringify({', at)
+                  if bi >= 0:
+                      ins = bi + len('body: JSON.stringify({')
+                      s = s[:ins] + f'\n        task: "{task}",' + s[ins:]
+              s = s.replace("fetch('${Deno.env.get(\"SUPABASE_URL\")}/functions/v1/ai-gateway'", 'fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway`')
+              s = s.replace('fetch("${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway"', 'fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway`')
+              p.write_text(s)
+
+          p = base / 'meeting-copilot' / 'index.ts'
           s = p.read_text()
+          if 'integrate.api.nvidia.com' in s:
+              s = re.sub(r'import \{ logNvidiaUsage \} from "\.\./_shared/logNvidiaUsage\.ts";\n?', '', s)
+              s = re.sub(r'const apiKey = Deno\.env\.get\("NVIDIA_KEY_MEETING"\);', 'const gatewayAuth = req.headers.get("Authorization") || `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`;', s)
+              s = s.replace('if (!apiKey)', 'if (!gatewayAuth)')
+              s = s.replace('https://integrate.api.nvidia.com/v1/chat/completions', '${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway')
+              s = s.replace('"Authorization": `Bearer ${apiKey}`', '"Authorization": gatewayAuth')
+              s = s.replace('fetch("${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway"', 'fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway`')
+              at = s.find('${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-gateway')
+              bi = s.find('body: JSON.stringify({', at)
+              if bi >= 0 and 'task:' not in s[bi:bi+120]:
+                  ins = bi + len('body: JSON.stringify({')
+                  s = s[:ins] + '\n        task: "student-council",' + s[ins:]
+              s = re.sub(r'\n\s*logNvidiaUsage\([^\n]*\)\.catch\(\(\) => \{\}\);', '', s)
+              s = s.replace('const NIM_MODEL = Deno.env.get("NVIDIA_NIM_MODEL") || "google/gemma-4-31b-it";\n', '')
+              s = s.replace('    console.log(`[meeting-copilot] Model: ${NIM_MODEL}, messages: ${apiMessages.length}, dataRich: ${dataRichness.rich}, missing: [${dataRichness.missingFields.join(", ")}]`);', '    console.log(`[meeting-copilot] Gateway request: messages=${apiMessages.length}, dataRich=${dataRichness.rich}, missing=[${dataRichness.missingFields.join(", ")}]`);')
+              s = s.replace('        model: NIM_MODEL,\n', '')
+              s = s.replace('        top_p: 0.9,\n        stream: true,\n', '')
+              s = s.replace('// ── NIM API 스트리밍 호출 ──', '// ── AI Gateway 호출 ──')
+              start = s.find('    if (!nimResponse.ok) {')
+              outer = s.find('  } catch (err) {', start)
+              if start >= 0 and outer >= 0:
+                  replacement = '''    if (!nimResponse.ok) {
+      const errText = await nimResponse.text();
+      console.error("AI Gateway error:", nimResponse.status, errText);
+      return new Response(
+        JSON.stringify({ error: `AI 서비스 호출에 실패했습니다. (${nimResponse.status})` }),
+        { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
 
-          old_theme = '<ThemeToggleButton className="absolute right-0 top-1/2 -translate-y-1/2" />'
-          new_theme = '''<div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              <button type="button" onClick={() => { setNotificationsOpen(false); setMobileOpen(false); navigate('/search'); }} aria-label="검색" title="검색" className="md:hidden flex w-9 h-9 items-center justify-center rounded-full hover:bg-background-200 active:bg-background-200 transition-colors cursor-pointer">
-                <i className="ri-search-line text-[19px] text-foreground-700"></i>
-              </button>
-              <ThemeToggleButton />
-            </div>'''
-          if old_theme not in s:
-              raise SystemExit('theme toggle anchor not found')
-          s = s.replace(old_theme, new_theme, 1)
+    const gatewayData = await nimResponse.json();
+    const content = gatewayData?.choices?.[0]?.message?.content;
+    if (typeof content !== "string" || !content.trim()) {
+      return new Response(
+        JSON.stringify({ error: "AI 응답을 받지 못했습니다." }),
+        { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
 
-          mobile_search = '''              <form onSubmit={(e) => { e.preventDefault(); const q = globalSearch.trim(); navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search'); setMobileOpen(false); }} className="relative mb-4">
-                <i className="ri-search-line pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-foreground-400"></i>
-                <input value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="사이트 검색" enterKeyHint="search" autoComplete="off" className="w-full rounded-2xl border border-background-200 bg-background-100 py-3.5 pl-11 pr-4 text-[16px] outline-none focus:border-primary-300 focus:ring-4 focus:ring-primary-50" />
-              </form>
+    const encoder = new TextEncoder();
+    const ssePayload = `data: ${JSON.stringify({ content })}\\n\\ndata: [DONE]\\n\\n`;
+    return new Response(encoder.encode(ssePayload), {
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+    });
+
 '''
-          if mobile_search in s:
-              s = s.replace(mobile_search, '', 1)
-          s = s.replace('placeholder="사이트 검색"', 'placeholder="검색"')
-          p.write_text(s)
+                  s = s[:start] + replacement + s[outer:]
+              p.write_text(s)
 
-          h = Path('index.html')
-          hs = h.read_text()
-          start = hs.find('    <script>\n      (function () {\n        var mounted = false;')
-          if start != -1:
-              end_marker = '    </script>\n    <script src="https://readdy.ai/api/public/assistant/widget?'
-              end = hs.find(end_marker, start)
-              if end == -1:
-                  raise SystemExit('bootstrap script end not found')
-              hs = hs[:start] + hs[end:]
-          h.write_text(hs)
-
-          sp = Path('src/pages/search/page.tsx')
-          ss = sp.read_text().replace('>사이트 검색</h1>', '>검색</h1>').replace('aria-label="사이트 검색"', 'aria-label="검색"')
-          sp.write_text(ss)
-
-      - name: Validate
+      - name: Validate migration
         run: |
-          grep -n "navigate('/search')" src/components/feature/Navbar.tsx
-          if grep -q 'placeholder="사이트 검색"' src/components/feature/Navbar.tsx; then exit 1; fi
-          if grep -q 'var mounted = false' index.html; then exit 1; fi
+          if grep -RIn 'integrate.api.nvidia.com' supabase/functions --include='index.ts' | grep -v 'ai-gateway/index.ts'; then
+            echo 'Direct NVIDIA calls remain.'
+            exit 1
+          fi
+          if grep -RInE 'NVIDIA_KEY_|NVIDIA_NIM_MODEL|logNvidiaUsage' supabase/functions --include='index.ts' | grep -v 'ai-gateway/index.ts'; then
+            echo 'Provider-specific NVIDIA wiring remains outside the gateway.'
+            exit 1
+          fi
 
-      - name: Commit
+      - name: Commit migration and remove temporary workflows
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/feature/Navbar.tsx src/pages/search/page.tsx index.html
-          git commit -m "fix: place mobile search beside theme toggle"
-          git push
-
-      - name: Remove one-time workflow
-        run: |
-          git rm .github/workflows/one-time-final-search-placement.yml
-          git commit -m "chore: remove one-time final search placement workflow"
+          git add supabase/functions
+          git rm -f .github/workflows/migrate-ai-gateway.yml .github/workflows/one-time-final-search-placement.yml MIGRATION_TRIGGER.md 2>/dev/null || true
+          git commit -m "refactor: route all AI edge functions through gateway"
           git push
