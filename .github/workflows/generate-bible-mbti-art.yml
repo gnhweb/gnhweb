@@ -25,18 +25,31 @@ jobs:
           python3 -m pip install --quiet pillow
           python3 <<'PY'
           import base64, pathlib, re, subprocess
-          from PIL import Image
 
           svg = subprocess.check_output(['git', 'show', 'da2402ea47a9e7ea3434d297ffdd9f4baf9d3252:public/bible-mbti/characters.svg'], text=True)
           match = re.search(r'data:image/webp;base64,([^\" ]+)', svg)
           if not match:
               raise SystemExit('reference characters.svg does not contain an embedded WebP image')
           encoded = match.group(1)
-          if len(encoded) % 4:
-              raise SystemExit(f'reference characters.svg has invalid base64 length: {len(encoded)}')
-          raw = base64.b64decode(encoded, validate=True)
+          # The historical blob contains one truncated base64 character; recover the decodable payload
+          # instead of silently substituting another image.
+          encoded = encoded[:len(encoded) - (len(encoded) % 4)]
+          raw = base64.b64decode(encoded)
           pathlib.Path('/tmp/sheet.webp').write_bytes(raw)
-          sheet = Image.open('/tmp/sheet.webp').convert('RGBA')
+          print('reference payload bytes:', len(raw))
+          PY
+
+          # Pillow may reject the historical truncated WebP decoder payload; ImageMagick's WebP decoder
+          # can recover the raster when the encoded payload remains partially decodable.
+          if ! convert /tmp/sheet.webp /tmp/sheet.png; then
+            magick /tmp/sheet.webp /tmp/sheet.png
+          fi
+
+          python3 <<'PY'
+          import base64, pathlib
+          from PIL import Image
+
+          sheet = Image.open('/tmp/sheet.png').convert('RGBA')
           print('reference source sheet:', sheet.size)
           if sheet.size[0] < 5 or sheet.size[1] < 4:
               raise SystemExit('reference source sheet is too small for the 5x4 figure grid')
