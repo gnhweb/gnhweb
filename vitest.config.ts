@@ -7,8 +7,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    // Playwright E2E specs are executed by the Playwright runner, not Vitest.
-    // Keep the exclusion in the config so every CI/local Vitest invocation is safe.
-    exclude: ['tests/e2e/**'],
+    // Playwright E2E specs and dependency-package test files are not project tests.
+    // Keep them excluded so every Vitest invocation only runs repository tests.
+    exclude: ['tests/e2e/**', 'node_modules/**'],
   },
 });
