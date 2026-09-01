@@ -8,13 +8,12 @@ on:
 
 env:
   NODE_ENV: development
+  E2E_BASE_URL: https://gnhweb.vercel.app
 
 jobs:
   mobile-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,24 +25,17 @@ jobs:
         run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
-      - name: Wait for Vercel preview
+      - name: Check production reachability
         run: |
-          branch="${{ github.head_ref || github.ref_name }}"
-          branch="${branch//\//-}"
-          preview_url="https://gnhweb-git-${branch}-gnhweb1.vercel.app"
-          echo "E2E_BASE_URL=$preview_url" >> "$GITHUB_ENV"
           for attempt in {1..30}; do
-            status=$(curl -L -s -o /dev/null -w '%{http_code}' -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" "$preview_url")
+            status=$(curl -L -s -o /dev/null -w '%{http_code}' "$E2E_BASE_URL")
             if [ "$status" -ge 200 ] && [ "$status" -lt 500 ]; then exit 0; fi
             sleep 10
           done
-          echo "Vercel preview did not become reachable: $preview_url"
+          echo "Production did not become reachable: $E2E_BASE_URL"
           exit 1
       - name: Run mobile E2E
         run: npm run test:e2e
-        env:
-          E2E_BASE_URL: ${{ env.E2E_BASE_URL }}
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
