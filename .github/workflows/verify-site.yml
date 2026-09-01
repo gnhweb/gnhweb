@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: 20
       - name: Install dependencies
-        run: npm install
+        run: npm install --include=dev
       - name: Verify site
         run: npm run verify
       - name: Unit tests
