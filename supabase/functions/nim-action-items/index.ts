@@ -1,23 +1,19 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { logNvidiaUsage } from "../_shared/logNvidiaUsage.ts";
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+const GATEWAY = `${Deno.env.get('SUPABASE_URL')}/functions/v1/ai-gateway`;
 
 const FALLBACK = {
-  summary: [
-    "다음 주 금요일까지 동아리별 예산안 제출",
-    "찬양팀 악기 점검 및 새 멤버 오디션 일정 확정",
-    "전체 연합 모임 장소 최종 확정",
-  ],
+  summary: ["다음 주 금요일까지 동아리별 예산안 제출", "찬양팀 악기 점검 및 새 멤버 오디션 일정 확정", "전체 연합 모임 장소 최종 확정"],
   actionItems: [
     { role: "회장", task: "교사 면담 후 전체 계획서 제출", deadline: "D-7" },
     { role: "서기", task: "전체 회의록 정리 및 공지", deadline: "D-1" },
     { role: "회계", task: "동아리별 예산 취합 및 정산표 작성", deadline: "D-5" },
     { role: "새울림", task: "찬양팀 악기 점검", deadline: "D-3" },
-    { role: "천지풍", task: "레크레이션 프로그램 초안 기획", deadline: "D-10" },
+    { role: "천지풍", task: "레크리에이션 프로그램 초안 기획", deadline: "D-10" },
     { role: "천지후", task: "2주 연속 결석자 명단 정리 및 연락", deadline: "D-2" },
     { role: "문화부", task: "홍보 포스터 초안 제작", deadline: "D-10" },
   ],
@@ -27,37 +23,17 @@ const FALLBACK = {
 function extractJson(content: string): Record<string, unknown> | null {
   try { return JSON.parse(content); } catch { /* noop */ }
   const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlock) {
-    try { return JSON.parse(codeBlock[1].trim()); } catch { /* noop */ }
-  }
+  if (codeBlock) { try { return JSON.parse(codeBlock[1].trim()); } catch { /* noop */ } }
   const objMatch = content.match(/\{[\s\S]*\}/);
-  if (objMatch) {
-    try { return JSON.parse(objMatch[0]); } catch { /* noop */ }
-  }
+  if (objMatch) { try { return JSON.parse(objMatch[0]); } catch { /* noop */ } }
   return null;
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" },
-    });
-  }
-
+  if (req.method === "OPTIONS") return new Response(null, { headers: { ...CORS_HEADERS, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
   try {
     const { notes } = await req.json();
-    if (!notes?.trim()) {
-      return new Response(JSON.stringify(FALLBACK), {
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
-    }
-
-    const apiKey = Deno.env.get("NVIDIA_KEY_EVENTS");
-    if (!apiKey) {
-      return new Response(JSON.stringify(FALLBACK), {
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
-    }
+    if (!notes?.trim()) return new Response(JSON.stringify(FALLBACK), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
 
     const systemPrompt = `당신은 학생회 회의록을 분석하는 전문 운영 비서입니다. 입력된 회의 내용을 분석하여 결정 사항과 실행 항목을 체계적으로 정리하세요.
 
@@ -76,53 +52,25 @@ Deno.serve(async (req: Request) => {
   "actionItems": [{"role":"역할","task":"구체적 할일","deadline":"기한"}],
   "bibleVerse": "📖 구절 (출처)"
 }`;
-
-    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    const auth = req.headers.get('Authorization') || '';
+    const response = await fetch(GATEWAY, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'google/gemma-4-31b-it',
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `회의록:\n${notes.trim()}\n\n회의에서 실제 결정된 사항만 요약하고, 실제로 배정된 업무만 actionItems로 정리하세요.` },
-        ],
-        temperature: 0.3,
-        max_tokens: 1700,
-      }),
+      headers: { "Content-Type": "application/json", ...(auth ? { Authorization: auth } : {}) },
+      body: JSON.stringify({ task: 'meeting-insight', messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `회의록:\n${notes.trim()}\n\n회의에서 실제 결정된 사항만 요약하고, 실제로 배정된 업무만 actionItems로 정리하세요.` },
+      ], temperature: 0.3, max_tokens: 1700 }),
     });
-    logNvidiaUsage("nim-action-items", "KEY_EVENTS", response).catch(() => {});
-
-    if (!response.ok) {
-      return new Response(JSON.stringify(FALLBACK), {
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
-    }
-
+    if (!response.ok) return new Response(JSON.stringify(FALLBACK), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      return new Response(JSON.stringify(FALLBACK), {
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
-    }
-
+    if (!content) return new Response(JSON.stringify(FALLBACK), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     const parsed = extractJson(content);
     if (parsed && Array.isArray(parsed.summary) && Array.isArray(parsed.actionItems)) {
-      return new Response(JSON.stringify({
-        summary: parsed.summary.slice(0, 5),
-        actionItems: parsed.actionItems,
-        bibleVerse: parsed.bibleVerse || FALLBACK.bibleVerse,
-      }), {
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
+      return new Response(JSON.stringify({ summary: parsed.summary.slice(0, 5), actionItems: parsed.actionItems, bibleVerse: parsed.bibleVerse || FALLBACK.bibleVerse }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     }
-
-    return new Response(JSON.stringify(FALLBACK), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-    });
-  } catch (_err) {
-    return new Response(JSON.stringify(FALLBACK), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-    });
+    return new Response(JSON.stringify(FALLBACK), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+  } catch {
+    return new Response(JSON.stringify(FALLBACK), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
   }
 });
