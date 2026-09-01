@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import subprocess
 
 BASE = Path('supabase/functions')
 
