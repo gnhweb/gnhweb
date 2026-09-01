@@ -16,7 +16,13 @@ test.describe('wolves and sheep mobile gameplay', () => {
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
     await page.locator('input[name="email"]').first().fill(email);
     await page.locator('input[name="password"]').first().fill(password);
+    const authResponsePromise = page.waitForResponse(
+      (response) => response.url().includes('/auth/v1/token') && response.request().method() === 'POST',
+      { timeout: 15_000 },
+    ).catch(() => null);
     await page.locator('button[type="submit"]').first().click();
+    const authResponse = await authResponsePromise;
+    expect(authResponse?.status(), 'Supabase auth response missing/failed').toBe(200);
     const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
     if (await skipPin.isVisible({ timeout: 3000 }).catch(() => false)) await skipPin.click();
     await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 15_000 });
