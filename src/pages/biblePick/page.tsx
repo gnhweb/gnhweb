@@ -46,8 +46,6 @@ async function savePick(verseData: BibleVerseData, userText: string, userId?: st
     });
     if (error) {
       console.error('Failed to save bible pick:', error);
-      // DB 저장이 실패해도 기록 자체가 사라지지 않도록 로컬에라도 남겨둡니다.
-      saveToLocalHistory(record);
       return false;
     }
     return true;
@@ -97,12 +95,12 @@ export default function BiblePick() {
 
     try {
       const verse = await fetchVerseFromAI(userText.trim());
-      setVerseData(verse);
-      setIsSubmitted(true);
       const saved = await savePick(verse, userText.trim(), user?.id);
       if (!saved) {
-        setError('말씀은 준비됐지만 히스토리 저장에는 실패했어요. 나의 히스토리에서 보이지 않는다면 다시 시도해주세요.');
+        throw new Error('말씀은 준비됐지만 히스토리 저장에 실패했어요. 잠시 후 다시 시도해주세요.');
       }
+      setVerseData(verse);
+      setIsSubmitted(true);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : '알 수 없는 오류';
       setError(errMsg);

@@ -403,7 +403,7 @@ export default function SuggestionsPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-foreground-500 flex-wrap">
-                            <span>{item.is_anonymous && !isMySuggestion ? '익명' : item.author_name}</span>
+                            <span>{item.is_anonymous ? '익명' : (item.author_name || '작성자')}</span>
                             {clubInfo && (
                               <>
                                 <span className="text-gray-200">|</span>

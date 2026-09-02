@@ -746,7 +746,6 @@ export default function ProfilePage() {
                   className="px-3 py-2 rounded-xl border border-background-200 bg-background-100 text-sm focus:outline-none focus:border-primary-400 cursor-pointer appearance-none"
                 >
                   <option value={1}>1분</option>
-                  <option value={1}>1분</option>
                   <option value={5}>5분</option>
                   <option value={30}>30분</option>
                   <option value={60}>1시간</option>

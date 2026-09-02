@@ -155,7 +155,7 @@ const CATEGORY_KEYWORDS: Record<Category, string[]> = {
 const CATEGORY_PRIORITY: Record<Category, ProviderName[]> = {
   신앙: ["gemini", "deepseek", "xai", "groq", "mistral", "nvidia", "openrouter", "sambanova", "cohere", "modelscope"],
   상담: ["gemini", "mistral", "deepseek", "groq", "nvidia", "xai", "openrouter", "sambanova", "cohere", "modelscope"],
-  학생회: ["deepseek", "groq", "mistral", "openrouter", "nvidia", "gemini", "xai", "sambanova", "cohere", "modelscope"],
+  학생회: ["nvidia", "deepseek", "groq", "mistral", "openrouter", "gemini", "xai", "sambanova", "cohere", "modelscope"],
   기획: ["deepseek", "groq", "mistral", "xai", "nvidia", "gemini", "openrouter", "sambanova", "cohere", "modelscope"],
   정보: ["groq", "mistral", "deepseek", "openrouter", "cohere", "gemini", "xai", "nvidia", "sambanova", "modelscope"],
   일반: ["groq", "mistral", "deepseek", "nvidia", "openrouter", "gemini", "xai", "sambanova", "cohere", "modelscope"],
