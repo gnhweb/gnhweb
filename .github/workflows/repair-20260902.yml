@@ -1,0 +1,201 @@
+name: one-time bug repair 20260902
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, '[skip repair 20260902]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Apply targeted repairs
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def edit(path, transform):
+              p = Path(path)
+              s = p.read_text()
+              n = transform(s)
+              if n == s:
+                  raise SystemExit(f'No change made to {path}; refusing silent no-op')
+              p.write_text(n)
+
+          # 1) Suggestions: never expose other students' rows through RLS;
+          # anonymous submissions do not retain a display name.
+          edit('src/pages/suggestions/page.tsx', lambda s: s.replace(
+              "          author_name: profile.name,\n",
+              "          author_name: isAnonymous ? null : profile.name,\n"
+          ))
+          edit('src/pages/suggestions/page.tsx', lambda s: s.replace(
+              "  author_name: string;",
+              "  author_name: string | null;"
+          ))
+
+          # 2) Bible Pick result: use the requested exact CTA text.
+          edit('src/pages/biblePick/components/VerseResult.tsx', lambda s: s.replace(
+              "            나의 히스토리\n",
+              "            히스토리 바로가기\n"
+          ))
+
+          # 3) Memory board: delete UI is available only for the current user's own photo.
+          edit('src/pages/memoryBoard/page.tsx', lambda s: s.replace(
+              "      const path = `memories/${safeName}`;",
+              "      const path = `memories/${user!.id}/${safeName}`;"
+          ))
+          edit('src/pages/memoryBoard/page.tsx', lambda s: s.replace(
+              "          onDelete={isEditor ? handleDeleteAtIndex : undefined}\n",
+              "          onDelete={isEditor ? handleDeleteAtIndex : undefined}\n          canDelete={isEditor ? (index) => filteredPhotos[index]?.author_id === user?.id : undefined}\n"
+          ))
+
+          # PhotoLightbox: the delete control is conditional per image.
+          edit('src/components/feature/PhotoLightbox.tsx', lambda s: s.replace(
+              "  onDelete?: (index: number) => void;\n  deletingIndex?: number | null;",
+              "  onDelete?: (index: number) => void;\n  canDelete?: (index: number) => boolean;\n  deletingIndex?: number | null;"
+          ))
+          edit('src/components/feature/PhotoLightbox.tsx', lambda s: s.replace(
+              "export default function PhotoLightbox({ photos, initialIndex, onClose, captions, onDelete, deletingIndex }: PhotoLightboxProps) {",
+              "export default function PhotoLightbox({ photos, initialIndex, onClose, captions, onDelete, canDelete, deletingIndex }: PhotoLightboxProps) {"
+          ))
+          edit('src/components/feature/PhotoLightbox.tsx', lambda s: s.replace(
+              "            {onDelete && (",
+              "            {onDelete && (!canDelete || canDelete(index)) && ("
+          ))
+
+          # 4) Lock persistence: store an expiry timestamp instead of a permanent unlocked flag.
+          edit('src/lib/simplePin.ts', lambda s: s.replace(
+              "function lockedFlagKey(userId: string): string {\n  return `simple_pin_locked_${userId}`;\n}\n",
+              "function lockedFlagKey(userId: string): string {\n  return `simple_pin_locked_${userId}`;\n}\n\nfunction unlockExpiresKey(userId: string): string {\n  return `simple_pin_unlock_expires_${userId}`;\n}\n"
+          ))
+          edit('src/lib/simplePin.ts', lambda s: s.replace(
+              "    localStorage.removeItem(lockedFlagKey(userId));\n",
+              "    localStorage.removeItem(lockedFlagKey(userId));\n    localStorage.removeItem(unlockExpiresKey(userId));\n"
+          ))
+          marker = "export function setPinExplicitLock(userId: string, locked: boolean): void {"
+          insert = "export function setPinUnlockExpiration(userId: string, expiresAt: number): void {\n  try {\n    localStorage.setItem(unlockExpiresKey(userId), String(expiresAt));\n  } catch {\n    /* ignore */\n  }\n}\n\nexport function clearPinUnlockSession(userId: string): void {\n  try {\n    localStorage.removeItem(unlockExpiresKey(userId));\n    localStorage.removeItem(lockedFlagKey(userId));\n  } catch {\n    /* ignore */\n  }\n}\n\nexport function getPinUnlockExpiration(userId: string): number {\n  try {\n    const value = Number(localStorage.getItem(unlockExpiresKey(userId)) || 0);\n    return Number.isFinite(value) ? value : 0;\n  } catch {\n    return 0;\n  }\n}\n\nexport function isPinUnlockValid(userId: string): boolean {\n  return getPinUnlockExpiration(userId) > Date.now();\n}\n\n"
+          if marker not in s:
+              raise SystemExit('simplePin insertion marker missing')
+          edit('src/lib/simplePin.ts', lambda s: s.replace(marker, insert + marker, 1))
+
+          # 5) Auth: restore an unexpired PIN session after reload; explicit lock clears it.
+          edit('src/hooks/useAuth.tsx', lambda s: s.replace(
+              "  markPinActivity, setPinExplicitLock,\n",
+              "  markPinActivity, setPinExplicitLock, isPinUnlockValid, setPinUnlockExpiration, clearPinUnlockSession, getAutoLogoutMinutes,\n"
+          ))
+          edit('src/hooks/useAuth.tsx', lambda s: s.replace(
+              "          if (deviceHasPin) {\n            setPinLocked(true);\n            setPinExplicitLock(currentUser.id, true);\n            setPinSetupNeeded(false);\n          } else {",
+              "          if (deviceHasPin) {\n            const unlockValid = isPinUnlockValid(currentUser.id);\n            setPinLocked(!unlockValid);\n            setPinExplicitLock(currentUser.id, !unlockValid);\n            setPinSetupNeeded(false);\n          } else {"
+          ))
+          edit('src/hooks/useAuth.tsx', lambda s: s.replace(
+              "    setPinExplicitLock(user.id, false);\n    setPinSetupNeeded(false);\n    markPinActivity(user.id);\n    return { error: null };",
+              "    setPinExplicitLock(user.id, false);\n    setPinSetupNeeded(false);\n    setPinUnlockExpiration(user.id, Date.now() + getAutoLogoutMinutes(user.id) * 60 * 1000);\n    markPinActivity(user.id);\n    return { error: null };",
+              1
+          ))
+          edit('src/hooks/useAuth.tsx', lambda s: s.replace(
+              "    if (ok) {\n      setPinLocked(false);\n      setPinExplicitLock(user.id, false);\n      markPinActivity(user.id);\n    }",
+              "    if (ok) {\n      setPinLocked(false);\n      setPinExplicitLock(user.id, false);\n      setPinUnlockExpiration(user.id, Date.now() + getAutoLogoutMinutes(user.id) * 60 * 1000);\n      markPinActivity(user.id);\n    }",
+              1
+          ))
+          edit('src/hooks/useAuth.tsx', lambda s: s.replace(
+              "    if (!result.error) {\n      setPinLocked(false);\n      setPinExplicitLock(user.id, false);\n      markPinActivity(user.id);\n      return true;",
+              "    if (!result.error) {\n      setPinLocked(false);\n      setPinExplicitLock(user.id, false);\n      setPinUnlockExpiration(user.id, Date.now() + getAutoLogoutMinutes(user.id) * 60 * 1000);\n      markPinActivity(user.id);\n      return true;",
+              1
+          ))
+          edit('src/hooks/useAuth.tsx', lambda s: s.replace(
+              "  const lockApp = useCallback(() => {\n    if (user && hasSimplePin(user.id)) {\n      setPinLocked(true);\n      setPinExplicitLock(user.id, true);\n    }\n  }, [user]);",
+              "  const lockApp = useCallback(() => {\n    if (user && hasSimplePin(user.id)) {\n      setPinLocked(true);\n      clearPinUnlockSession(user.id);\n      setPinExplicitLock(user.id, true);\n    }\n  }, [user]);"
+          ))
+          edit('src/hooks/useAuth.tsx', lambda s: s.replace(
+              "    setPinSetupNeeded(false);\n    clearAllAuthStorage();\n    await supabase.auth.signOut({ scope: 'local' })",
+              "    setPinSetupNeeded(false);\n    if (user) clearPinUnlockSession(user.id);\n    clearAllAuthStorage();\n    await supabase.auth.signOut({ scope: 'local' })"
+          ))
+
+          # 6) Layout: remove the sessionStorage-only gate and background lock.
+          edit('src/components/feature/Layout.tsx', lambda s: re.sub(
+              r"\n useEffect\(\(\)=>\{\n   if\(typeof window==='undefined'\) return;\n   const key='gnh_pin_session_unlocked';[\s\S]*?\n \},\[user\?\.id\]\);\n",
+              "\n",
+              s,
+              count=1
+          ))
+          edit('src/components/feature/Layout.tsx', lambda s: re.sub(
+              r"\n // Mobile/PWA background lock:[\s\S]*?\n \},\[user\?\.id,hasPin,lockApp\]\);\n",
+              "\n",
+              s,
+              count=1
+          ))
+          edit('src/components/feature/Layout.tsx', lambda s: s.replace(
+              "import { listPasskeys } from '@/lib/passkey';\n",
+              "import { listPasskeys } from '@/lib/passkey';\nimport { isPinUnlockValid } from '@/lib/simplePin';\n"
+          ))
+          edit('src/components/feature/Layout.tsx', lambda s: s.replace(
+              " if(pinLocked)return <AppLockScreen/>; if(pinSetupNeeded)return <PinSetupPrompt/>;",
+              " const persistedPinUnlocked = !!user && hasPin && isPinUnlockValid(user.id);\n if(pinLocked && !persistedPinUnlocked)return <AppLockScreen/>; if(pinSetupNeeded)return <PinSetupPrompt/>;"
+          ))
+          edit('src/components/feature/Layout.tsx', lambda s: s.replace(
+              " if(loading||!user||!hasPin||pinLocked||passkeyAttemptedRef.current===user.id)return;",
+              " if(loading||!user||!hasPin||(!pinLocked && isPinUnlockValid(user.id))||passkeyAttemptedRef.current===user.id)return;"
+          ))
+
+          # 7) Lock timeout: for PIN users, timer follows the persisted expiry rather than
+          # extending it on every click. Users without PIN keep the existing inactivity logout.
+          edit('src/hooks/useAutoLogout.ts', lambda s: s.replace(
+              "import { markPinActivity, AUTO_LOGOUT_STORAGE_KEY, DEFAULT_AUTO_LOGOUT_MINUTES, AUTO_LOGOUT_CHANGE_EVENT } from '@/lib/simplePin';",
+              "import { markPinActivity, AUTO_LOGOUT_STORAGE_KEY, DEFAULT_AUTO_LOGOUT_MINUTES, AUTO_LOGOUT_CHANGE_EVENT, getPinUnlockExpiration, setPinUnlockExpiration } from '@/lib/simplePin';"
+          ))
+          edit('src/hooks/useAutoLogout.ts', lambda s: s.replace(
+              "    if (user && hasPin) {\n      const now = Date.now();\n      if (now - lastPersistRef.current > ACTIVITY_PERSIST_INTERVAL_MS) {\n        lastPersistRef.current = now;\n        markPinActivity(user.id);\n      }\n    }\n\n    const mins = timeoutMinutesRef.current;\n    if (mins <= 0 || !user) return;\n    timerRef.current = setTimeout(timeoutAction, mins * 60 * 1000);",
+              "    const mins = timeoutMinutesRef.current;\n    if (mins <= 0 || !user) return;\n\n    if (hasPin) {\n      const expiresAt = getPinUnlockExpiration(user.id);\n      const delay = expiresAt > Date.now() ? expiresAt - Date.now() : 0;\n      timerRef.current = setTimeout(timeoutAction, delay);\n      return;\n    }\n\n    const now = Date.now();\n    if (now - lastPersistRef.current > ACTIVITY_PERSIST_INTERVAL_MS) {\n      lastPersistRef.current = now;\n      markPinActivity(user.id);\n    }\n    timerRef.current = setTimeout(timeoutAction, mins * 60 * 1000);"
+          ))
+          edit('src/hooks/useAutoLogout.ts', lambda s: s.replace(
+              "    if (timerRef.current) clearTimeout(timerRef.current);\n    if (minutes > 0 && user) timerRef.current = setTimeout(timeoutAction, minutes * 60 * 1000);",
+              "    if (timerRef.current) clearTimeout(timerRef.current);\n    if (minutes > 0 && user) {\n      if (hasPin) {\n        setPinUnlockExpiration(user.id, Date.now() + minutes * 60 * 1000);\n        timerRef.current = setTimeout(timeoutAction, minutes * 60 * 1000);\n      } else {\n        timerRef.current = setTimeout(timeoutAction, minutes * 60 * 1000);\n      }\n    }"
+          ))
+
+          # 8) Profile setting: exact requested choices.
+          edit('src/pages/profile/page.tsx', lambda s: re.sub(
+              r"<option value=\{5\}>5분</option>[\s\S]*?<option value=\{300\}>5시간</option>\n                  <option value=\{0\}>안 함</option>",
+              "<option value={1}>1분</option>\n                  <option value={5}>5분</option>\n                  <option value={30}>30분</option>\n                  <option value={60}>1시간</option>\n                  <option value={300}>5시간</option>",
+              s,
+              count=1
+          ))
+
+          # 9) Meeting copilot source drift: remove the orphaned old streaming tail
+          # left after the gateway migration. The deployed function already has the clean
+          # contract; this keeps GitHub source identical to the deployed behavior.
+          edit('supabase/functions/meeting-copilot/index.ts', lambda s: re.sub(
+              r"\n    const encoder = new TextEncoder\(\);\n    const ssePayload = `data: \$\{JSON\.stringify\(\{ content \}\)\}.*?\n    return new Response\(stream, \{[\s\S]*?\n  \} catch \(err\) \{",
+              "\n    const encoder = new TextEncoder();\n    const ssePayload = `data: ${JSON.stringify({ content })}\\n\\ndata: [DONE]\\n\\n`;\n    return new Response(encoder.encode(ssePayload), {\n      headers: {\n        ...CORS_HEADERS,\n        \"Content-Type\": \"text/event-stream\",\n        \"Cache-Control\": \"no-cache\",\n        \"Connection\": \"keep-alive\",\n      },\n    });\n  } catch (err) {",
+              s,
+              count=1
+          ))
+
+          # 10) Source migrations documenting the production security/schema fixes already applied.
+          mig = Path('supabase/migrations/20260902000000_harden_suggestions_memory.sql')
+          mig.write_text('''-- Security/schema repairs applied for the 2026-09-02 bugfix set.\n-- Suggestions: members can only read their own rows; elevated staff can review all.\n-- Anonymous rows do not retain a display name.\n-- Memory photos: database deletion is owner-only; storage deletion is owner-path-only.\n\nalter table public.suggestions enable row level security;\ndrop policy if exists "누구나 건의사항 조회 가능" on public.suggestions;\ndrop policy if exists "suggestions_select_own" on public.suggestions;\ncreate policy "suggestions_select_own" on public.suggestions for select using (auth.uid() = author_id);\ndrop policy if exists "suggestions_select_elevated" on public.suggestions;\ncreate policy "suggestions_select_elevated" on public.suggestions for select using (get_user_role() = any(array['teacher'::text,'chief'::text]));\n\ndrop policy if exists "Non-member can delete photos" on storage.objects;\ndrop policy if exists "memory_photos_delete_own" on public.memory_photos;\ncreate policy "memory_photos_delete_own" on public.memory_photos for delete using (auth.uid() = author_id);\ndrop policy if exists "memory_objects_delete_own" on storage.objects;\ncreate policy "memory_objects_delete_own" on storage.objects for delete to authenticated using (bucket_id = 'Public' and name like 'memories/' || auth.uid()::text || '/%');\n''')
+
+          # One-time self-removal happens in the same commit.
+          Path('.github/workflows/repair-20260902.yml').unlink()
+
+      - name: Commit repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src supabase/migrations/20260902000000_harden_suggestions_memory.sql
+          if git diff --cached --quiet; then
+            echo 'No changes staged; refusing to claim repair.'
+            exit 1
+          fi
+          git commit -m 'fix: repair privacy history memory lock and AI flows [skip repair 20260902]'
+          git push origin HEAD:main
