@@ -1,7 +1,7 @@
-/* Bible MBTI: supplied 20-person artwork, cropped from one square-cell sprite. */
+/* Bible MBTI: 20개의 자체 제작 밝은 캐릭터 일러스트 스프라이트. */
 svg[aria-label$="성경인물 프로필"] {
   background-color: transparent;
-  background-image: url("/bible-mbti/supplied-characters.webp");
+  background-image: url("/bible-mbti/characters-cute.svg");
   background-repeat: no-repeat;
   background-size: 500% 400%;
 }
