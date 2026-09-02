@@ -3,73 +3,39 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Content-Type': 'application/json',
 };
-const GATEWAY = `${Deno.env.get('SUPABASE_URL')}/functions/v1/ai-gateway`;
 
-const FALLBACK_IDEAS = {
-  title: "행사 아이디어",
-  ideas: [
-    "숏폼 성경 챌린지 — 60초 안에 오늘의 말씀을 가장 창의적으로 표현하는 영상 콘테스트. 각 동아리별 대표 출전 후 전체 투표. 준비물: 스마트폰, SNS 업로드용 해시태그 기획",
-    "랜덤 기도 파트너 — 매주 추첨으로 짝을 바꿔 서로의 기도제목을 나누는 릴레이. 카톡방에서 랜덤 매칭 봇 활용. 난이도: 하",
-    "'믿음의 방탈출' — 성경 퀴즈와 공동체 미션을 결합한 교회판 방탈출 게임. 각 방마다 다른 성경 스토리를 테마로 구성. 준비물: 소품, 문제지, 자물쇠",
-    "야외 무박 예배 — 모닥불과 함께하는 언플러그드 찬양과 간증의 밤. 어쿠스틱 악기만 사용하는 특별한 분위기. 준비물: 장소 섭외, 악기, 방한용품",
-    "나눔 플리마켓 — 각자 사용하지 않는 물건을 기부하고 수익금은 지역사회에 환원. 부스 운영은 동아리별로 담당. 난이도: 중",
-    "사명자 릴레이 인터뷰 — 선배 사명자가 후배에게 조언을 전하는 숏폼 인터뷰 시리즈. 매주 1편씩 공식 SNS에 업로드. 준비물: 촬영 장비, 편집 툴",
-    "감사 편지 쓰기 캠페인 — 한 달간 매주 다른 대상(부모님, 교사, 친구, 하나님)에게 손편지 쓰기. 우체통을 교회에 설치해 수집 후 전달. 난이도: 하",
-  ],
-  bibleRef: "베드로전서 4:10"
-};
-function safeParse(raw: string): Record<string, unknown> {
-  try { return JSON.parse(raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()) as Record<string, unknown>; } catch { return { ...FALLBACK_IDEAS }; }
-}
-
+type StructureType = '경쟁형' | '협동형' | '미션형' | '체험형' | '참여형' | '랜덤매칭형' | '퀘스트형' | '투어형' | '콘텐츠형';
+type Idea = { title: string; concept: string; goal: string; how: string; people: string; cost: string; materials: string; time: string; staff: string; difficulty: string; pros: string; cons: string; caution: string; tip: string; structureType: StructureType };
+function json(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: CORS_HEADERS }); }
+function clean(value: unknown, max: number) { return typeof value === 'string' ? value.trim().slice(0, max) : ''; }
+const FALLBACK_IDEAS: Idea[] = [
+  { title: '팀 대항 미션 리그', structureType: '경쟁형', concept: '팀별로 서로 다른 종목을 순서대로 수행하고 점수를 누적해 마지막에 우승팀을 정합니다.', goal: '학생들의 적극적인 참여와 팀워크를 동시에 높입니다.', how: '4~6명 팀 구성 → 3개 종목 순환 → 점수 집계 → 마지막 결승 미션', people: '20~50명', cost: '소규모', materials: '종목별 소품, 점수판, 타이머', time: '60~90분', staff: '진행 2명 + 종목 담당 3명', difficulty: '중', pros: '경쟁 구조가 분명해 참여 동기가 높음', cons: '점수 집계와 종목 운영 인력이 필요함', caution: '실력 차이가 큰 팀은 종목을 균형 있게 배치', tip: 'D-1에 모든 종목을 실제 시간으로 리허설' },
+  { title: '교회 공간 방탈출', structureType: '퀘스트형', concept: '교회 곳곳에 성경 이야기와 연결된 단서를 숨기고 팀이 순서대로 문제를 해결해 마지막 암호를 찾습니다.', goal: '공간을 새롭게 경험하면서 자연스럽게 성경 이야기를 접하게 합니다.', how: '팀 배정 → 단서 수령 → 공간별 퍼즐 해결 → 최종 암호 해제', people: '15~40명', cost: '소규모~중간', materials: '문제지, 봉투, 자물쇠, 안내 표지', time: '45~70분', staff: '총괄 1명 + 공간 담당 3~4명', difficulty: '중상', pros: '게임과 성경 학습을 자연스럽게 결합할 수 있음', cons: '사전 설치와 동선 관리가 필요함', caution: '예배 공간과 출입 제한 구역을 먼저 구분', tip: '학생이 처음 보는 사람도 이해할 수 있게 단서를 단순하게 설계' },
+  { title: '랜덤 기도 파트너 릴레이', structureType: '랜덤매칭형', concept: '매 라운드 새로운 짝을 추첨해 서로의 기도제목을 듣고 다음 주까지 한 가지를 위해 기도합니다.', goal: '평소 대화가 적은 학생 사이의 관계와 기도 연결을 만듭니다.', how: '랜덤 추첨 → 5분 대화 → 기도제목 한 가지 기록 → 다음 라운드 재추첨', people: '10~60명', cost: '소규모', materials: '추첨 도구, 기도제목 카드', time: '30~40분', staff: '진행 1~2명', difficulty: '하', pros: '준비물이 적고 새친구도 참여하기 쉬움', cons: '낯선 사람과 대화가 어려운 학생이 있을 수 있음', caution: '민감한 개인 정보는 기록하지 않도록 안내', tip: '첫 질문 카드 3개를 제공해 대화 시작 부담을 낮춤' },
+  { title: '성경 속 장면 체험 부스', structureType: '체험형', concept: '성경 이야기의 한 장면을 소품과 역할극으로 짧게 체험하고 마지막에 자신이 배운 점을 한 문장으로 남깁니다.', goal: '말씀을 듣는 데서 끝나지 않고 직접 경험하고 표현하게 합니다.', how: '부스 선택 → 10분 체험 → 역할 바꾸기 → 한 문장 기록', people: '15~50명', cost: '중간', materials: '간단한 의상, 소품, 장면 카드', time: '50~80분', staff: '부스 담당 3~5명', difficulty: '중', pros: '사진과 추억이 남고 학생 참여 방식이 다양함', cons: '부스별 준비 편차가 생길 수 있음', caution: '역할극이 성경 내용을 희화화하지 않도록 기준을 정함', tip: '각 부스는 핵심 메시지 한 문장만 남기도록 단순화' },
+  { title: '학생 제작 콘텐츠 데이', structureType: '콘텐츠형', concept: '팀이 직접 짧은 영상이나 포스터를 제작해 행사 주제를 표현하고 마지막에 서로의 작품을 발표합니다.', goal: '학생이 행사의 소비자가 아니라 직접 만드는 사람으로 참여하게 합니다.', how: '주제 카드 선택 → 팀별 기획 → 촬영·제작 → 상영 → 서로 피드백', people: '15~40명', cost: '소규모', materials: '스마트폰, 삼각대, 편집 도구, 발표 화면', time: '90~120분', staff: '진행 1명 + 기술지원 1~2명', difficulty: '중', pros: '학생 주도성이 높고 결과물이 남음', cons: '촬영·편집 경험 차이가 결과에 영향을 줄 수 있음', caution: '얼굴 공개와 촬영 동의를 사전에 확인', tip: '촬영보다 기획에 시간을 먼저 배정하고 60초 제한을 둠' },
+];
+function normalizeText(value: string): string { return value.toLowerCase().replace(/[^가-힣a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function tokens(value: string): Set<string> { const stop = new Set(['그리고','또는','통해','위해','학생','친구','행사','진행','참여','팀별','팀']); return new Set(normalizeText(value).split(' ').filter((token) => token.length >= 2 && !stop.has(token))); }
+function similarity(a: Idea, b: Idea): number { const aTokens = tokens(`${a.title} ${a.concept} ${a.how} ${a.materials}`); const bTokens = tokens(`${b.title} ${b.concept} ${b.how} ${b.materials}`); const intersection = [...aTokens].filter((token) => bTokens.has(token)).length; const union = new Set([...aTokens, ...bTokens]).size; const lexical = union ? intersection / union : 0; return lexical + (a.structureType === b.structureType ? 0.35 : 0); }
+function selectDiverseIdeas(candidates: Idea[], count: number): Idea[] { const cleaned = candidates.filter((idea) => idea && typeof idea.title === 'string' && typeof idea.concept === 'string' && typeof idea.how === 'string').map((idea) => ({ ...idea, structureType: idea.structureType || '참여형' })); const selected: Idea[] = []; const pool = [...cleaned]; while (selected.length < count && pool.length) { let bestIndex = 0; let bestScore = -Infinity; for (let i = 0; i < pool.length; i += 1) { const candidate = pool[i]; const maxSimilarity = selected.length ? Math.max(...selected.map((existing) => similarity(candidate, existing))) : 0; const unusedStructureBonus = selected.some((item) => item.structureType === candidate.structureType) ? 0 : 1; const score = unusedStructureBonus * 1.5 - maxSimilarity; if (score > bestScore) { bestScore = score; bestIndex = i; } } selected.push(pool.splice(bestIndex, 1)[0]); } return selected; }
+function parseIdeas(raw: string): Idea[] { try { const cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim(); const parsed = JSON.parse(cleaned) as { ideas?: unknown }; if (!Array.isArray(parsed.ideas)) return []; return parsed.ideas.filter((value): value is Idea => !!value && typeof value === 'object').map((value) => { const idea = value as Record<string, unknown>; return { title: clean(idea.title, 100), concept: clean(idea.concept, 500), goal: clean(idea.goal, 300), how: clean(idea.how, 500), people: clean(idea.people, 100), cost: clean(idea.cost, 150), materials: clean(idea.materials, 250), time: clean(idea.time, 100), staff: clean(idea.staff, 150), difficulty: clean(idea.difficulty, 30), pros: clean(idea.pros, 250), cons: clean(idea.cons, 250), caution: clean(idea.caution, 300), tip: clean(idea.tip, 300), structureType: (clean(idea.structureType, 30) || '참여형') as StructureType }; }).filter((idea) => idea.title && idea.concept && idea.how); } catch { return []; } }
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
+  if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   try {
-    const { topic, audience, budget } = await req.json();
-    if (!topic || !audience || !budget) throw new Error("주제, 대상, 예산을 모두 입력해주세요.");
-
-    const isLeaderAudience = audience === '사명자';
-    const systemPrompt = `너는 교회 학생회 행사 기획 전문가야. 평범한 아이디어 대신, 요즘 10-20대 학생들이 진짜 재미있어할 **참신하고 트렌디한 행사**를 기획하는 것이 너의 임무야.
-
-[핵심 원칙]
-- 뻔한 레크리에이션, 전형적인 수련회 포맷은 절대 금지. "누구나 하는" 아이디어는 버려.
-- SNS에서 바이럴 될 만한 요소, 숏폼 콘텐츠와 연계 가능한 요소를 적극 반영할 것
-- 학생들이 "오 이거 진짜 해보고 싶다"라고 느낄 수 있는 신선함이 핵심
-- **레크리에이션, 게임, 즐길 거리, 체험형 활동의 비중을 높이고**, 단순히 즐기는 것을 넘어 신앙적 의미도 자연스럽게 녹아들게 할 것
-- 학생회가 최근에 했을 법한 흔한 행사(MT, 체육대회, 찬양제 등)는 피하고, 기존과 다른 각도에서 접근할 것
-- 각 아이디어에는 실행 난이도(상/중/하)와 핵심 준비물을 간략히 언급할 것
-${isLeaderAudience ? '- **대상이 사명자이므로**, 리더십 훈련, 팀빌딩, 비전 워크숍 성격을 가미하되 재미 요소도 충분히 포함할 것. 사명자들끼리 친목을 다지고 리더로서 성장할 수 있는 체험형 프로그램을 제안할 것.' : ''}
-
-[필수 출력 형식]
-반드시 아래 JSON 형식으로만 응답해 (다른 텍스트 없이):
-{
-  "title": "행사 제목 (20자 이내, 캐치하고 트렌디하게)",
-  "ideas": ["아이디어1 (구체적 실행 방식 + 난이도 + 준비물 포함, 80자 내외)","아이디어2","아이디어3","아이디어4","아이디어5","아이디어6","아이디어7"],
-  "bibleRef": "관련 성경 구절 하나 (형식: 책이름 장:절)"
-}
-아이디어는 정확히 7개를 제시해야 해. 각 아이디어는 제목만 나열하는 게 아니라, 어떻게 진행할지 구체적인 실행 방식과 난이도, 핵심 준비물을 포함해야 해.`;
-
-    const auth = req.headers.get('Authorization') || '';
-    const response = await fetch(GATEWAY, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(auth ? { Authorization: auth } : {}) },
-      body: JSON.stringify({ task: 'event-ideas', messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `행사 주제: ${topic}\n대상: ${audience}\n예산: ${budget}\n\n위 조건에 맞는 참신하고 트렌디한 행사 아이디어 7개를 제안해줘. 각 아이디어마다 실행 난이도(상/중/하)와 핵심 준비물을 포함해줘. ${isLeaderAudience ? '사명자 대상이니 리더십+재미를 결합한 프로그램을 제안해줘.' : '학생회가 이미 해봤을 법한 흔한 아이디어는 빼고, 진짜 새로운 각도에서 접근해줘.'}` },
-      ], temperature: 1.0, max_tokens: 2500 }),
-    });
-    if (!response.ok) return new Response(JSON.stringify(FALLBACK_IDEAS), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
-    const result = await response.json();
-    const parsed = safeParse(result?.choices?.[0]?.message?.content || "");
-    if (Array.isArray(parsed.ideas)) {
-      if (parsed.ideas.length < 7) parsed.ideas = [...parsed.ideas, ...FALLBACK_IDEAS.ideas.slice(0, 7 - parsed.ideas.length)];
-      else if (parsed.ideas.length > 7) parsed.ideas = parsed.ideas.slice(0, 7);
-    } else parsed.ideas = FALLBACK_IDEAS.ideas;
-    return new Response(JSON.stringify(parsed), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "알 수 없는 오류";
-    console.error("Edge function error:", message);
-    return new Response(JSON.stringify({ error: message }), { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
-  }
+    const body = await req.json(); const topic = clean(body?.topic, 700); const audience = clean(body?.audience, 200); const budget = clean(body?.budget, 120); const requestedCount = Math.min(Math.max(Number(body?.count) || 5, 3), 7);
+    if (!topic || !audience || !budget) return json({ error: '주제, 대상, 예산을 모두 입력해주세요.' }, 400);
+    const gatewayAuth = req.headers.get('Authorization') || `Bearer ${Deno.env.get('SUPABASE_ANON_KEY') || ''}`;
+    if (!gatewayAuth) return json({ title: '행사 아이디어', ideas: FALLBACK_IDEAS.slice(0, requestedCount), bibleRef: '베드로전서 4:10' });
+    const systemPrompt = `너는 교회 청소년부·학생회 행사를 실제 운영해 본 행사 기획자다.\n\n[가장 중요한 원칙: 아이디어의 실행 구조를 서로 다르게]\n- ${requestedCount}개의 아이디어를 만든다.\n- 표현, 제목, 단어만 바꾼 비슷한 아이디어를 절대 반복하지 않는다.\n- 각 아이디어는 반드시 서로 다른 핵심 실행 구조를 가져야 한다.\n- 같은 활동을 이름만 바꾸거나 '친구와 게임하기/친구들과 팀 게임하기'처럼 바꾸는 것은 중복으로 간주한다.\n- 가능하면 다음 구조 유형을 서로 겹치지 않게 사용한다: 경쟁형, 협동형, 미션형, 체험형, 참여형, 랜덤매칭형, 퀘스트형, 투어형, 콘텐츠형.\n- 사용자의 목적·대상·예산·조건에 맞지 않는 유형을 억지로 넣지 않는다.\n- 구조가 다르다는 것은 다음 중 여러 요소가 실제로 달라지는 것을 뜻한다: 진행 방식, 참가자 역할, 팀 구성, 활동 방식, 공간 활용, 경쟁/협동 구조, 미션 방식, 결과물 생성 방식.\n- 학생회에서 실제로 운영할 수 있는 수준으로 제안한다.\n\n[출력]\nJSON 객체 하나만 반환한다. ideas는 ${requestedCount}개다. 각 아이디어 필드: title, concept, goal, how, people, cost, materials, time, staff, difficulty, pros, cons, caution, tip, structureType. structureType은 위 구조 유형 중 하나만 사용한다. 각 아이디어의 structureType은 가능하면 모두 다르게 한다.`;
+    const userPrompt = `행사 주제/문제: ${topic}\n대상: ${audience}\n예산/제약: ${budget}\n\n위 조건을 유지하면서 실행 구조가 확실히 다른 아이디어 ${requestedCount}개를 제안해줘.`;
+    try {
+      const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/ai-gateway`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: gatewayAuth }, body: JSON.stringify({ task: 'event-ideas', model: 'google/gemma-4-31b-it', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], temperature: 0.8, top_p: 0.9, max_tokens: 3000 }) });
+      if (response.ok) { const result = await response.json(); const content = String(result?.choices?.[0]?.message?.content || ''); const candidates = parseIdeas(content); const selected = selectDiverseIdeas(candidates, requestedCount); if (selected.length >= requestedCount) return json({ title: '행사 아이디어', ideas: selected, bibleRef: '베드로전서 4:10' }); }
+    } catch { /* deterministic fallback */ }
+    return json({ title: '행사 아이디어', ideas: FALLBACK_IDEAS.slice(0, requestedCount), bibleRef: '베드로전서 4:10' });
+  } catch (error) { console.error('[nim-event-ideas]', error); return json({ error: '행사 AI 처리 중 오류가 발생했습니다.' }, 503); }
 });
