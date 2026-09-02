@@ -24,7 +24,6 @@ export interface EventIdea { title: string; ideas: string[]; bibleRef: string; }
 
 const QUIZ_DIFFICULTY_KR: Record<'easy' | 'normal' | 'hard', string> = { easy: '하', normal: '중', hard: '상' };
 const QUIZ_POINTS: Record<'easy' | 'normal' | 'hard', number> = { easy: 20, normal: 50, hard: 80 };
-
 type QuizRow = Record<string, unknown>;
 
 function normalizeQuizRows(rows: unknown[], requestedDifficulty: 'easy' | 'normal' | 'hard'): QuizQuestion[] {
@@ -41,16 +40,7 @@ function normalizeQuizRows(rows: unknown[], requestedDifficulty: 'easy' | 'norma
       const valid = options.length === 4 && new Set(options.map((value) => value.replace(/\s+/g, ''))).size === 4 && options.some((value) => value.replace(/\s+/g, '') === answer.replace(/\s+/g, ''));
       if (!valid) return null;
       const type: QuizQuestion['type'] = q.type === 'ox' ? 'ox' : 'multiple';
-      return {
-        id: typeof q.id === 'string' ? q.id : undefined,
-        question: question.trim(),
-        options,
-        answer,
-        explanation: typeof q.explanation === 'string' ? q.explanation.trim() : '',
-        type,
-        difficulty: normalizedDifficulty,
-        points: QUIZ_POINTS[normalizedDifficulty],
-      };
+      return { id: typeof q.id === 'string' ? q.id : undefined, question: question.trim(), options, answer, explanation: typeof q.explanation === 'string' ? q.explanation.trim() : '', type, difficulty: normalizedDifficulty, points: QUIZ_POINTS[normalizedDifficulty] };
     })
     .filter((q): q is QuizQuestion => q !== null);
 }
@@ -65,9 +55,7 @@ function filterExcludedQuestions(rows: QuizQuestion[], excludeQuestions: string[
 
 export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', excludeQuestions: string[] = []): Promise<QuizQuestion[]> {
   const requestedDifficulty = difficulty || 'normal';
-  const { data, error } = await supabase.functions.invoke('nim-quiz', {
-    body: { difficulty: requestedDifficulty, excludeQuestions, count: 10, source: 'site' },
-  });
+  const { data, error } = await supabase.functions.invoke('nim-quiz', { body: { difficulty: requestedDifficulty, excludeQuestions, count: 10, source: 'site' } });
 
   if (!error && Array.isArray(data)) {
     const normalized = normalizeQuizRows(data, requestedDifficulty);
@@ -75,22 +63,32 @@ export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', exc
   }
 
   const { data: dbRows, error: dbError } = await supabase
-    .from('quiz_questions_curated')
+    .from('quiz_questions')
     .select('id,question,options,answer,explanation,type,difficulty,points')
     .eq('difficulty', QUIZ_DIFFICULTY_KR[requestedDifficulty]);
 
   if (!dbError && dbRows) {
-    const normalized = filterExcludedQuestions(normalizeQuizRows(dbRows, requestedDifficulty), excludeQuestions);
+    const normalizedAll = normalizeQuizRows(dbRows, requestedDifficulty);
+    const normalized = filterExcludedQuestions(normalizedAll, excludeQuestions);
     const unique = new Map<string, QuizQuestion>();
     for (const question of normalized) {
       const key = question.question.replace(/[\s\p{P}\p{S}]+/gu, '');
       if (!unique.has(key)) unique.set(key, question);
     }
-    const shuffled = [...unique.values()].sort(() => Math.random() - 0.5).slice(0, 10);
-    if (shuffled.length === 10) return shuffled;
+    const preferred = [...unique.values()].sort(() => Math.random() - 0.5).slice(0, 10);
+    if (preferred.length === 10) return preferred;
+
+    const preferredKeys = new Set(preferred.map((question) => question.question.replace(/[\s\p{P}\p{S}]+/gu, '')));
+    const refill = normalizedAll
+      .filter((question) => !preferredKeys.has(question.question.replace(/[\s\p{P}\p{S}]+/gu, '')))
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 10 - preferred.length);
+    const combined = [...preferred, ...refill];
+    if (combined.length === 10) return combined;
   }
 
-  if (error || dbError) throw new Error('퀴즈 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
+  if (error && dbError) throw new Error('퀴즈 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
+  if (dbError) throw new Error('퀴즈 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
   throw new Error('선택한 난이도의 문제가 부족해요. 다른 난이도를 선택해주세요.');
 }
 
