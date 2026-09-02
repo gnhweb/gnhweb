@@ -35,6 +35,10 @@ function lockedFlagKey(userId: string): string {
   return `simple_pin_locked_${userId}`;
 }
 
+function unlockExpiresKey(userId: string): string {
+  return `simple_pin_unlock_expires_${userId}`;
+}
+
 async function hashPin(userId: string, pin: string): Promise<string> {
   return sha256Hex(`${SALT}:${userId}:${pin}`);
 }
@@ -88,6 +92,7 @@ export function clearSimplePin(userId: string): void {
     localStorage.removeItem(pinLenKey(userId));
     localStorage.removeItem(lastActiveKey(userId));
     localStorage.removeItem(lockedFlagKey(userId));
+    localStorage.removeItem(unlockExpiresKey(userId));
   } catch {
     /* ignore */
   }
@@ -119,6 +124,20 @@ export function getPinLastActive(userId: string): number {
     return 0;
   }
 }
+
+export function setPinUnlockExpiration(userId: string, expiresAt: number): void {
+  try { localStorage.setItem(unlockExpiresKey(userId), String(expiresAt)); } catch { /* ignore */ }
+}
+
+export function clearPinUnlockSession(userId: string): void {
+  try { localStorage.removeItem(unlockExpiresKey(userId)); localStorage.removeItem(lockedFlagKey(userId)); } catch { /* ignore */ }
+}
+
+export function getPinUnlockExpiration(userId: string): number {
+  try { const value=Number(localStorage.getItem(unlockExpiresKey(userId))||0); return Number.isFinite(value)?value:0; } catch { return 0; }
+}
+
+export function isPinUnlockValid(userId: string): boolean { return getPinUnlockExpiration(userId) > Date.now(); }
 
 export function setPinExplicitLock(userId: string, locked: boolean): void {
   try {

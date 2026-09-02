@@ -5,7 +5,7 @@ import type { UserProfile, UserRole } from '@/types/auth';
 import { ROLE_HIERARCHY } from '@/types/auth';
 import {
   hasSimplePin, setSimplePin, verifySimplePin, clearSimplePin, isValidPinFormat,
-  markPinActivity, setPinExplicitLock,
+  markPinActivity, setPinExplicitLock, isPinUnlockValid, setPinUnlockExpiration, clearPinUnlockSession, getAutoLogoutMinutes,
 } from '@/lib/simplePin';
 import { authenticateRegisteredPasskey, isPasskeySupported, signInWithPasskey as signInWithPasskeyLib } from '@/lib/passkey';
 
@@ -287,8 +287,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setHasPin(deviceHasPin);
 
           if (deviceHasPin) {
-            setPinLocked(true);
-            setPinExplicitLock(currentUser.id, true);
+            const unlockValid = isPinUnlockValid(currentUser.id);
+            setPinLocked(!unlockValid);
+            setPinExplicitLock(currentUser.id, !unlockValid);
             setPinSetupNeeded(false);
           } else {
             setPinLocked(false);
@@ -519,6 +520,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPinLocked(false);
     setHasPin(false);
     setPinSetupNeeded(false);
+    if (user) clearPinUnlockSession(user.id);
     clearAllAuthStorage();
     await supabase.auth.signOut({ scope: 'local' }).catch(() => { /* already cleaned */ });
 
@@ -631,6 +633,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setHasPin(true);
     setPinExplicitLock(user.id, false);
     setPinSetupNeeded(false);
+    setPinUnlockExpiration(user.id, Date.now() + getAutoLogoutMinutes(user.id) * 60 * 1000);
     markPinActivity(user.id);
     return { error: null };
   }, [user]);
@@ -660,6 +663,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (ok) {
       setPinLocked(false);
       setPinExplicitLock(user.id, false);
+      setPinUnlockExpiration(user.id, Date.now() + getAutoLogoutMinutes(user.id) * 60 * 1000);
       markPinActivity(user.id);
     }
     return ok;
@@ -671,6 +675,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!result.error) {
       setPinLocked(false);
       setPinExplicitLock(user.id, false);
+      setPinUnlockExpiration(user.id, Date.now() + getAutoLogoutMinutes(user.id) * 60 * 1000);
       markPinActivity(user.id);
       return true;
     }
@@ -681,6 +686,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const lockApp = useCallback(() => {
     if (user && hasSimplePin(user.id)) {
       setPinLocked(true);
+      clearPinUnlockSession(user.id);
       setPinExplicitLock(user.id, true);
     }
   }, [user]);

@@ -11,7 +11,7 @@ import type { UserRole } from '@/types/auth';
 interface Suggestion {
   id: string;
   author_id: string;
-  author_name: string;
+  author_name: string | null;
   club: string;
   title: string;
   content: string;
@@ -100,7 +100,7 @@ export default function SuggestionsPage() {
         .from('suggestions')
         .insert({
           author_id: userId,
-          author_name: profile.name,
+          author_name: isAnonymous ? null : profile.name,
           club: profile.club || null,
           title: title.trim(),
           content: content.trim(),

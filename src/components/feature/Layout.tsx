@@ -18,6 +18,7 @@ import EventIdeasEnhanced from '@/pages/eventIdeasEnhanced/page';
 import { useAutoLogout } from '@/hooks/useAutoLogout';
 import { MobileMenuProvider } from '@/hooks/useMobileMenu';
 import { listPasskeys } from '@/lib/passkey';
+import { isPinUnlockValid } from '@/lib/simplePin';
 import { supabase } from '@/lib/supabase';
 
 const LeadershipDiary = lazy(() => import('@/pages/leadershipDiary/page'));
@@ -30,39 +31,7 @@ export default function Layout(){
  const passkeyAttemptedRef=useRef<string|null>(null);
  const pinBootCheckedRef=useRef<string|null>(null);
 
- useEffect(()=>{
-   if(typeof window==='undefined') return;
-   const key='gnh_pin_session_unlocked';
-   const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
-     if(event==='SIGNED_IN'&&session?.user?.id){
-       try{sessionStorage.setItem(`${key}:${session.user.id}`,'1');}catch{}
-     } else if(event==='SIGNED_OUT'&&user?.id){
-       try{sessionStorage.removeItem(`${key}:${user.id}`);}catch{}
-     }
-   });
-   return()=>subscription.unsubscribe();
- },[user?.id]);
 
- // Mobile/PWA background lock: leaving the app (home screen, task switcher,
- // another app/browser tab) locks the current session. Returning to the app
- // therefore always requires PIN, or an immediately attempted platform passkey.
- useEffect(()=>{
-   if(typeof document==='undefined'||!user||!hasPin)return;
-   const key=`gnh_pin_session_unlocked:${user.id}`;
-   const lockOnBackground=()=>{
-     if(document.visibilityState==='hidden'){
-       try{sessionStorage.removeItem(key);}catch{}
-       passkeyAttemptedRef.current=null;
-       lockApp();
-     }
-   };
-   document.addEventListener('visibilitychange',lockOnBackground);
-   window.addEventListener('pagehide',lockOnBackground);
-   return()=>{
-     document.removeEventListener('visibilitychange',lockOnBackground);
-     window.removeEventListener('pagehide',lockOnBackground);
-   };
- },[user?.id,hasPin,lockApp]);
 
  useEffect(()=>{
    if(loading||!user||!hasPin||pinLocked)return;
@@ -79,7 +48,7 @@ export default function Layout(){
  },[loading,user?.id,hasPin,pinLocked,lockApp]);
 
  useEffect(()=>{
-   if(loading||!user||!hasPin||!pinLocked||passkeyAttemptedRef.current===user.id)return;
+   if(loading||!user||!hasPin||(!pinLocked && isPinUnlockValid(user.id))||passkeyAttemptedRef.current===user.id)return;
    passkeyAttemptedRef.current=user.id;
    let cancelled=false;
    const timer=window.setTimeout(async()=>{
@@ -92,7 +61,8 @@ export default function Layout(){
    return()=>{cancelled=true;window.clearTimeout(timer);};
  },[loading,user?.id,hasPin,pinLocked,unlockWithPasskey]);
 
- if(pinLocked)return <AppLockScreen/>; if(pinSetupNeeded)return <PinSetupPrompt/>;
+ const persistedPinUnlocked = !!user && hasPin && isPinUnlockValid(user.id);
+ if(pinLocked && !persistedPinUnlocked)return <AppLockScreen/>; if(pinSetupNeeded)return <PinSetupPrompt/>;
  const isSpecial=['/faith','/telegram-settings','/bible-pick','/bible-mbti','/event-ideas','/leadership-diary'].includes(location.pathname);
  const isFullscreen=FULLSCREEN_GAME_PATHS.some(p=>location.pathname.startsWith(p));
  const showNavbar=!isFullscreen&&!!user&&(!profile||(profile.approval_status==='approved'&&!profile.is_expelled));

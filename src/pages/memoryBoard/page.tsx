@@ -78,7 +78,7 @@ export default function MemoryBoard() {
       // 안전한 파일명 생성 (한글/특수문자 제거)
       const ext = uploadFile.name.split('.').pop() || 'jpg';
       const safeName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-      const path = `memories/${safeName}`;
+      const path = `memories/${user!.id}/${safeName}`;
       
       const { error: uploadErr } = await supabase.storage.from('Public').upload(path, uploadFile, { upsert: true });
       if (uploadErr) {
@@ -262,6 +262,7 @@ export default function MemoryBoard() {
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onDelete={isEditor ? handleDeleteAtIndex : undefined}
+          canDelete={isEditor ? (index) => filteredPhotos[index]?.author_id === user?.id : undefined}
           deletingIndex={deletingIndex}
         />
       )}

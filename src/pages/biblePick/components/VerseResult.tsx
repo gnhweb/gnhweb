@@ -159,7 +159,7 @@ export default function VerseResult({ verseData, userText, onReset }: VerseResul
             className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-background-200 text-foreground-600 font-medium text-sm hover:bg-background-100 transition-all duration-300 cursor-pointer whitespace-nowrap"
           >
             <i className="ri-history-line"></i>
-            나의 히스토리
+            히스토리 바로가기
           </Link>
         </motion.div>
       )}

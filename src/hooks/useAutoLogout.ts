@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { markPinActivity, AUTO_LOGOUT_STORAGE_KEY, DEFAULT_AUTO_LOGOUT_MINUTES, AUTO_LOGOUT_CHANGE_EVENT } from '@/lib/simplePin';
+import { markPinActivity, AUTO_LOGOUT_STORAGE_KEY, DEFAULT_AUTO_LOGOUT_MINUTES, AUTO_LOGOUT_CHANGE_EVENT, getPinUnlockExpiration, setPinUnlockExpiration } from '@/lib/simplePin';
 
 const DEFAULT_TIMEOUT_MINUTES = DEFAULT_AUTO_LOGOUT_MINUTES;
 const STORAGE_KEY = AUTO_LOGOUT_STORAGE_KEY;
@@ -21,16 +21,19 @@ export function useAutoLogout() {
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    if (user && hasPin) {
-      const now = Date.now();
-      if (now - lastPersistRef.current > ACTIVITY_PERSIST_INTERVAL_MS) {
-        lastPersistRef.current = now;
-        markPinActivity(user.id);
-      }
-    }
-
     const mins = timeoutMinutesRef.current;
     if (mins <= 0 || !user) return;
+    if (hasPin) {
+      const expiresAt = getPinUnlockExpiration(user.id);
+      const delay = expiresAt > Date.now() ? expiresAt - Date.now() : 0;
+      timerRef.current = setTimeout(timeoutAction, delay);
+      return;
+    }
+    const now = Date.now();
+    if (now - lastPersistRef.current > ACTIVITY_PERSIST_INTERVAL_MS) {
+      lastPersistRef.current = now;
+      markPinActivity(user.id);
+    }
     timerRef.current = setTimeout(timeoutAction, mins * 60 * 1000);
   }, [user, hasPin, timeoutAction]);
 
@@ -82,7 +85,14 @@ export function useAutoLogout() {
     timeoutMinutesRef.current = minutes;
     if (user) localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(minutes));
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (minutes > 0 && user) timerRef.current = setTimeout(timeoutAction, minutes * 60 * 1000);
+    if (minutes > 0 && user) {
+      if (hasPin) {
+        setPinUnlockExpiration(user.id, Date.now() + minutes * 60 * 1000);
+        timerRef.current = setTimeout(timeoutAction, minutes * 60 * 1000);
+      } else {
+        timerRef.current = setTimeout(timeoutAction, minutes * 60 * 1000);
+      }
+    }
   }, [user, timeoutAction]);
 
   useEffect(() => {

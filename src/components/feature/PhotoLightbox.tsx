@@ -8,6 +8,7 @@ interface PhotoLightboxProps {
   onClose: () => void;
   captions?: (string | null | undefined)[];
   onDelete?: (index: number) => void;
+  canDelete?: (index: number) => boolean;
   deletingIndex?: number | null;
 }
 
@@ -19,7 +20,7 @@ interface PhotoLightboxProps {
  * - 아래로 스와이프하거나 배경/닫기 버튼 탭으로 닫기
  * - 데스크톱: 화살표 키 이동, ESC 닫기, 마우스 휠/드래그도 지원
  */
-export default function PhotoLightbox({ photos, initialIndex, onClose, captions, onDelete, deletingIndex }: PhotoLightboxProps) {
+export default function PhotoLightbox({ photos, initialIndex, onClose, captions, onDelete, canDelete, deletingIndex }: PhotoLightboxProps) {
   const [index, setIndex] = useState(initialIndex);
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
@@ -194,7 +195,7 @@ export default function PhotoLightbox({ photos, initialIndex, onClose, captions,
             {photos.length > 1 ? `${index + 1} / ${photos.length}` : ''}
           </span>
           <div className="flex items-center gap-2">
-            {onDelete && (
+            {onDelete && (!canDelete || canDelete(index)) && (
               <button
                 onClick={() => {
                   if (window.confirm('이 사진을 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) {
