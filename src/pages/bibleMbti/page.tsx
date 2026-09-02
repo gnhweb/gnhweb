@@ -16,6 +16,30 @@ const questions = [
   { id: 8, axis: 'crisis', question: '친구와 의견이 갈릴 때 나는?', icon: 'ri-chat-check-line', options: ['내 의견을 당당하게 주장한다', '상대방의 의견을 먼저 존중하며 듣는다', '중재안을 찾아 모두가 만족하게 해결한다', '시간이 지나면 자연스럽게 해결될 거라 믿는다'] },
 ];
 
+const MBTI_CHARACTER_INDEX: Record<string, number> = {
+  모세: 0, 아브라함: 1, 여호수아: 2, 다윗: 3, 요셉: 4,
+  룻: 5, 에스더: 6, 다니엘: 7, 바울: 8, 베드로: 9,
+  느헤미야: 10, 디모데: 11, 바나바: 12, 마리아: 13, 엘리야: 14,
+  이사야: 15, 예레미야: 16, 사무엘: 17, 마르다: 18, 요한: 19,
+};
+
+function CharacterIllustration({ name, className }: { name: string; className?: string }) {
+  const index = MBTI_CHARACTER_INDEX[name];
+  if (index === undefined) return <div className={className} aria-hidden="true" />;
+  const column = index % 5;
+  const row = Math.floor(index / 5);
+  const x = column * 25;
+  const y = row * (100 / 3);
+  return (
+    <div
+      role="img"
+      aria-label={`${name} 성경인물 일러스트`}
+      className={`bg-no-repeat bg-cover ${className ?? ''}`}
+      style={{ backgroundImage: 'url(/bible-mbti/characters-cute.svg)', backgroundPosition: `${x}% ${y}%` }}
+    />
+  );
+}
+
 const axisLabels: Record<string, { left: string; right: string }> = {
   action: { left: '적극적 행동파', right: '신중한 기도파' },
   mindset: { left: '열정적 도전파', right: '체계적 준비파' },
@@ -23,7 +47,6 @@ const axisLabels: Record<string, { left: string; right: string }> = {
   crisis: { left: '정면 돌파형', right: '협력 극복형' },
 };
 
-/** 숫자 카운트업 훅 */
 function useCountUp(target: number, duration: number = 800, startDelay: number = 0) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -48,574 +71,31 @@ function CountUpBar({ label, value, delay }: { label: string; value: number; del
   return (
     <div className="flex items-center gap-3">
       <span className="text-xs font-medium text-foreground-700 w-14 text-right flex-shrink-0">{label}</span>
-      <div className="flex-1 h-2.5 rounded-full bg-background-200 overflow-hidden">
-        <motion.div
-          className="h-full rounded-full bg-accent-400"
-          initial={{ width: 0 }}
-          animate={{ width: `${value}%` }}
-          transition={{ duration: 0.8, delay: delay / 1000, ease: [0.34, 1.56, 0.64, 1] }}
-        ></motion.div>
-      </div>
+      <div className="flex-1 h-2.5 rounded-full bg-background-200 overflow-hidden"><motion.div className="h-full rounded-full bg-accent-400" initial={{ width: 0 }} animate={{ width: `${value}%` }} transition={{ duration: 0.8, delay: delay / 1000, ease: [0.34, 1.56, 0.64, 1] }} /></div>
       <span className="text-xs font-bold text-accent-600 w-8 text-left flex-shrink-0">{display}</span>
     </div>
   );
 }
 
 export default function BibleMbti() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [answers, setAnswers] = useState<string[]>([]);
-  const [result, setResult] = useState<MbtiResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [direction, setDirection] = useState(1);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'info' | 'error'>('info');
-  const [showSparkles, setShowSparkles] = useState(false);
-  const resultCardRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (result) {
-      setTimeout(() => setShowSparkles(true), 200);
-      setTimeout(() => setShowSparkles(false), 2500);
-    }
-  }, [result]);
-
-  const handleAnswer = async (answer: string) => {
-    if (isLoading) return;
-    if (currentStep >= questions.length - 1 && answers.length >= questions.length) return;
-
-    const newAnswers = [...answers, answer];
-    setAnswers(newAnswers);
-    setDirection(1);
-
-    if (currentStep < questions.length - 1) {
-      setCurrentStep(currentStep + 1);
-      return;
-    }
-
-    setIsLoading(true);
-    setError('');
-    try {
-      const res = await fetchMbtiResult(newAnswers.slice(0, questions.length));
-      setResult(res);
-      setCurrentStep(currentStep + 1);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '잠시 후 다시 시도해주세요');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep > 0 && !result) {
-      setDirection(-1);
-      setCurrentStep(currentStep - 1);
-      setAnswers(answers.slice(0, -1));
-      setError('');
-    }
-  };
-
-  const handleReset = () => {
-    setCurrentStep(0);
-    setAnswers([]);
-    setResult(null);
-    setError('');
-    setDirection(1);
-    setShowSparkles(false);
-  };
-
-  const handleRetry = () => {
-    setError('');
-    const cappedAnswers = answers.slice(0, questions.length);
-    setIsLoading(true);
-    fetchMbtiResult(cappedAnswers).then(res => {
-      setResult(res);
-      setCurrentStep(questions.length);
-    }).catch(err => {
-      setError(err instanceof Error ? err.message : '잠시 후 다시 시도해주세요');
-    }).finally(() => {
-      setIsLoading(false);
-    });
-  };
-
+  const [currentStep, setCurrentStep] = useState(0); const [answers, setAnswers] = useState<string[]>([]); const [result, setResult] = useState<MbtiResult | null>(null); const [isLoading, setIsLoading] = useState(false); const [error, setError] = useState(''); const [direction, setDirection] = useState(1); const [isCapturing, setIsCapturing] = useState(false); const [toastMessage, setToastMessage] = useState(''); const [toastType, setToastType] = useState<'success' | 'info' | 'error'>('info'); const [showSparkles, setShowSparkles] = useState(false); const resultCardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (result) { setTimeout(() => setShowSparkles(true), 200); setTimeout(() => setShowSparkles(false), 2500); } }, [result]);
+  const handleAnswer = async (answer: string) => { if (isLoading) return; if (currentStep >= questions.length - 1 && answers.length >= questions.length) return; const newAnswers = [...answers, answer]; setAnswers(newAnswers); setDirection(1); if (currentStep < questions.length - 1) { setCurrentStep(currentStep + 1); return; } setIsLoading(true); setError(''); try { const res = await fetchMbtiResult(newAnswers.slice(0, questions.length)); setResult(res); setCurrentStep(currentStep + 1); } catch (err) { setError(err instanceof Error ? err.message : '잠시 후 다시 시도해주세요'); } finally { setIsLoading(false); } };
+  const handleBack = () => { if (currentStep > 0 && !result) { setDirection(-1); setCurrentStep(currentStep - 1); setAnswers(answers.slice(0, -1)); setError(''); } };
+  const handleReset = () => { setCurrentStep(0); setAnswers([]); setResult(null); setError(''); setDirection(1); setShowSparkles(false); };
+  const handleRetry = () => { setError(''); const cappedAnswers = answers.slice(0, questions.length); setIsLoading(true); fetchMbtiResult(cappedAnswers).then(res => { setResult(res); setCurrentStep(questions.length); }).catch(err => { setError(err instanceof Error ? err.message : '잠시 후 다시 시도해주세요'); }).finally(() => { setIsLoading(false); }); };
   const progressPct = ((currentStep + (result ? 1 : 0)) / questions.length) * 100;
-
-  const computeAxisScore = (axis: string) => {
-    const axisIndices = questions
-      .map((q, i) => (q.axis === axis ? i : -1))
-      .filter(i => i !== -1);
-    if (axisIndices.length === 0) return 50;
-    // 비대칭 가중치: 0번(+12), 1번(+9), 2번(-8), 3번(-11)
-    // 어떤 조합도 정확히 합이 0이 되지 않아 상쇄 케이스 방지
-    const weights = [12, 9, -8, -11];
-    let score = 50;
-    axisIndices.forEach(qIdx => {
-      if (qIdx < answers.length) {
-        const idx = questions[qIdx].options.indexOf(answers[qIdx]);
-        if (idx >= 0 && idx < weights.length) {
-          score += weights[idx];
-        }
-      }
-    });
-    // 48~52 구간은 "균형"으로 간주하고 최소 시각화 유지
-    return Math.max(8, Math.min(92, score));
-  };
-
-  /** 점수가 균형 영역(48~52)이면 true */
+  const computeAxisScore = (axis: string) => { const axisIndices = questions.map((q, i) => (q.axis === axis ? i : -1)).filter(i => i !== -1); if (axisIndices.length === 0) return 50; const weights = [12, 9, -8, -11]; let score = 50; axisIndices.forEach(qIdx => { if (qIdx < answers.length) { const idx = questions[qIdx].options.indexOf(answers[qIdx]); if (idx >= 0 && idx < weights.length) score += weights[idx]; } }); return Math.max(8, Math.min(92, score)); };
   const isBalancedScore = (score: number) => score >= 48 && score <= 52;
-
-  const handleShareImage = async () => {
-    if (!resultCardRef.current || isCapturing) return;
-    setIsCapturing(true);
-
-    const captureElement = resultCardRef.current;
-    const originalWidth = captureElement.style.width;
-    const originalMaxWidth = captureElement.style.maxWidth;
-
-    try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const rect = captureElement.getBoundingClientRect();
-      captureElement.style.width = `${rect.width}px`;
-      captureElement.style.maxWidth = `${rect.width}px`;
-
-      const dpr = Math.min(window.devicePixelRatio || 2, 3);
-      const scale = Math.max(dpr, 2);
-
-      try {
-        const { default: html2canvas } = await import('html2canvas');
-        const canvas = await html2canvas(captureElement, {
-          scale,
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: '#ffffff',
-          width: rect.width,
-          height: captureElement.scrollHeight,
-        });
-        const dataUrl = canvas.toDataURL('image/png', 0.95);
-        const link = document.createElement('a');
-        link.download = `성경MBTI_${result?.character || '결과'}.png`;
-        link.href = dataUrl;
-        link.click();
-        return;
-      } catch (html2canvasErr) {
-        console.warn('html2canvas failed, trying dom-to-image-more fallback:', html2canvasErr);
-      }
-
-      const fontLinks: HTMLLinkElement[] = [];
-      document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]').forEach((link) => {
-        const href = link.getAttribute('href') || '';
-        if (href.includes('fonts.googleapis.com') || href.includes('cdnjs.cloudflare.com')) {
-          fontLinks.push(link);
-          link.remove();
-        }
-      });
-      try {
-        const { toPng } = await import('dom-to-image-more');
-        const dataUrl = await toPng(captureElement, {
-          quality: 0.95,
-          cacheBust: true,
-          width: rect.width * scale,
-          height: captureElement.scrollHeight * scale,
-          style: {
-            transform: `scale(${scale})`,
-            transformOrigin: 'top left',
-            width: `${rect.width}px`,
-          },
-        });
-        const link = document.createElement('a');
-        link.download = `성경MBTI_${result?.character || '결과'}.png`;
-        link.href = dataUrl;
-        link.click();
-      } catch (domToImageErr) {
-        console.error('dom-to-image-more also failed:', domToImageErr);
-        throw domToImageErr;
-      } finally {
-        fontLinks.forEach((link) => {
-          document.head.appendChild(link);
-        });
-      }
-    } catch (err) {
-      console.error('Image capture failed:', err);
-      notifyUser('이미지 저장에 실패했어요. 다시 시도해주세요.');
-    } finally {
-      if (resultCardRef.current) {
-        resultCardRef.current.style.width = originalWidth || '';
-        resultCardRef.current.style.maxWidth = originalMaxWidth || '';
-      }
-      setIsCapturing(false);
-    }
-  };
-
-  const containerVariants: Variants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
-  };
-
-  const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 24, scale: 0.96 },
-    visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 200, damping: 20 } },
-  };
-
-  return (
-    <div className="min-h-screen bg-background-50">
-      <div className="max-w-2xl mx-auto px-4 md:px-6 py-10 md:py-16">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-10"
-        >
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-accent-100 border border-accent-200 mb-5">
-            <i className="ri-user-heart-line text-3xl text-accent-600"></i>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">성경 인물 MBTI</h1>
-          <p className="text-sm text-foreground-600">
-            {result ? '당신과 닮은 성경 속 인물을 찾았어요!' : '8가지 질문에 답하고 나와 닮은 성경 인물을 찾아보세요'}
-          </p>
-        </motion.div>
-
-        {/* Progress bar */}
-        {!result && (
-          <div className="mb-8">
-            <div className="w-full h-2.5 rounded-full bg-background-200 overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-accent-500"
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPct}%` }}
-                transition={{ duration: 0.4 }}
-              ></motion.div>
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-xs text-foreground-500">{currentStep + 1} / {questions.length}</p>
-              {currentStep > 0 && (
-                <button onClick={handleBack} className="text-xs text-foreground-500 hover:text-accent-600 transition-colors cursor-pointer flex items-center gap-1">
-                  <i className="ri-arrow-left-line"></i> 이전 질문
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Loading */}
-        {isLoading && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="bg-background-100 border border-background-200 rounded-[20px] p-10 md:p-14 text-center max-w-sm w-full mx-4"
-            >
-              <div className="relative w-24 h-24 mx-auto mb-6">
-                <motion.div
-                  animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute inset-0 rounded-full border-4 border-accent-200"
-                ></motion.div>
-                <div className="absolute inset-0 rounded-full border-4 border-accent-400 animate-spin border-t-transparent"></div>
-                <div className="absolute inset-2 rounded-full bg-accent-100 flex items-center justify-center">
-                  <i className="ri-user-search-line text-3xl text-accent-600"></i>
-                </div>
-              </div>
-              <p className="text-lg font-semibold text-foreground-950 mb-2">성경 인물을 찾는 중...</p>
-              <p className="text-sm text-foreground-600">AI가 당신의 8가지 성향을 분석하고 있어요</p>
-              <div className="mt-4 flex items-center justify-center gap-1">
-                {[0, 1, 2].map(i => (
-                  <motion.div
-                    key={i}
-                    animate={{ scale: [0.6, 1, 0.6], opacity: [0.4, 1, 0.4] }}
-                    transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.3 }}
-                    className="w-2 h-2 rounded-full bg-accent-400"
-                  ></motion.div>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {/* Error with retry */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 rounded-xl bg-accent-100 border border-accent-200 text-sm text-accent-700 flex items-start gap-3"
-          >
-            <i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i>
-            <div className="flex-1">
-              <p className="mb-1">{error}</p>
-              <button
-                onClick={handleRetry}
-                className="text-xs font-semibold underline hover:text-accent-800 cursor-pointer"
-              >
-                다시 시도하기
-              </button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Question Cards */}
-        <AnimatePresence mode="wait" custom={direction}>
-          {!result && currentStep < questions.length && (
-            <motion.div
-              key={currentStep}
-              custom={direction}
-              initial={{ opacity: 0, x: direction > 0 ? 60 : -60 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction > 0 ? -60 : 60 }}
-              transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
-            >
-              <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-accent-100 flex items-center justify-center">
-                    <i className={`${questions[currentStep].icon} text-xl text-accent-600`}></i>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-accent-600 uppercase tracking-wider">{questions[currentStep].axis}</span>
-                    <p className="text-lg font-bold text-foreground-950">Q{currentStep + 1}. {questions[currentStep].question}</p>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {questions[currentStep].options.map((option, idx) => (
-                    <motion.button
-                      key={idx}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, delay: idx * 0.06 }}
-                      onClick={() => handleAnswer(option)}
-                      className="w-full text-left p-4 rounded-2xl border-2 border-background-200 bg-background-50 hover:border-accent-300 hover:bg-accent-50/50 transition-all duration-200 cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-background-200 flex items-center justify-center flex-shrink-0 group-hover:bg-accent-200 transition-colors">
-                          <span className="text-xs font-bold text-foreground-600 group-hover:text-accent-700">{idx + 1}</span>
-                        </div>
-                        <span className="text-sm font-medium text-foreground-800 group-hover:text-foreground-950">{option}</span>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Result — with staggered animations */}
-        <AnimatePresence>
-          {result && (
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-            >
-              {/* 공유용 결과 카드 — 정사각형 1:1, 인스타 공유 톤 (이 영역만 캡처됨) */}
-              <div
-                ref={resultCardRef}
-                className="relative aspect-square w-full max-w-md mx-auto rounded-[20px] overflow-hidden mb-4 bg-gradient-to-br from-accent-500 via-primary-500 to-secondary-500 flex flex-col items-center justify-center text-center p-8"
-              >
-                {/* Sparkle overlay */}
-                <AnimatePresence>
-                  {showSparkles && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.4 }}
-                      className="absolute inset-0 pointer-events-none z-0"
-                    >
-                      {Array.from({ length: 12 }).map((_, i) => (
-                        <motion.div
-                          key={i}
-                          initial={{ opacity: 0, scale: 0, x: '50%', y: '50%' }}
-                          animate={{
-                            opacity: [0, 1, 0],
-                            scale: [0, 1.5, 0],
-                            x: `${30 + Math.random() * 40}%`,
-                            y: `${30 + Math.random() * 40}%`,
-                          }}
-                          transition={{
-                            duration: 1.5 + Math.random(),
-                            delay: i * 0.1,
-                            repeat: 1,
-                          }}
-                          className="absolute w-3 h-3 rounded-full bg-background-100/60"
-                        />
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Character reveal */}
-                <motion.div variants={itemVariants} className="relative z-10">
-                  <motion.div
-                    animate={{ scale: [0, 1.2, 1], rotate: [0, -5, 3, 0] }}
-                    transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1], delay: 0.1 }}
-                    className="w-24 h-24 rounded-full bg-background-100/20 backdrop-blur-sm border-4 border-white/40 flex items-center justify-center mx-auto mb-5 relative"
-                  >
-                    <motion.div
-                      animate={{ boxShadow: ['0 0 0 0px rgba(255,255,255,0)', '0 0 0 16px rgba(255,255,255,0)', '0 0 0 0px rgba(255,255,255,0)'] }}
-                      transition={{ duration: 2, repeat: Infinity, delay: 0.8 }}
-                      className="absolute inset-0 rounded-full"
-                    ></motion.div>
-                    <i className="ri-user-star-line text-5xl text-white relative z-10"></i>
-                  </motion.div>
-                </motion.div>
-
-                <motion.div variants={itemVariants} className="relative z-10">
-                  <div className="inline-block px-4 py-1.5 rounded-full bg-background-100/20 backdrop-blur-sm text-white text-sm font-bold mb-4">
-                    {result.matchingPhrase}
-                  </div>
-                </motion.div>
-
-                <motion.h2 variants={itemVariants} className="text-3xl font-black text-white mb-3 relative z-10">
-                  {result.character}
-                </motion.h2>
-
-                <motion.p variants={itemVariants} className="text-sm text-white/85 leading-relaxed max-w-xs mx-auto relative z-10 line-clamp-3">
-                  {result.description}
-                </motion.p>
-
-                {/* 워터마크 */}
-                <div className="absolute bottom-4 inset-x-0 flex items-center justify-center gap-1.5 text-white/70 text-[11px] font-semibold relative z-10">
-                  <i className="ri-book-open-line"></i>
-                  강릉학생회 · 성경인물 MBTI
-                </div>
-              </div>
-
-              {/* 상세 결과 (캡처 영역 밖) */}
-              <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8 text-center mb-4 relative overflow-hidden">
-                {/* Traits with count-up */}
-                {result.traits && (
-                  <motion.div variants={itemVariants} className="relative z-10">
-                    <div className="bg-background-50 rounded-2xl p-5 mb-6 border border-background-200">
-                      <p className="text-xs font-bold text-foreground-600 mb-4 uppercase tracking-wider">성향 프로필</p>
-                      <div className="space-y-3">
-                        {result.traits.map((trait, i) => (
-                          <CountUpBar key={i} label={trait.label} value={trait.value} delay={400 + i * 120} />
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Axis visualization */}
-                <motion.div variants={itemVariants} className="relative z-10">
-                  <div className="bg-background-50 rounded-2xl p-5 mb-6 border border-background-200">
-                    <p className="text-xs font-bold text-foreground-600 mb-4 uppercase tracking-wider">4축 성향 분석</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {Object.entries(axisLabels).map(([axis, labels]) => {
-                        const score = computeAxisScore(axis);
-                        const balanced = isBalancedScore(score);
-                        // 균형 영역이면 최소 6% 너비 보장, 아니면 실제 비율
-                        const barWidth = balanced ? 6 : Math.abs(score - 50) * 2;
-                        return (
-                          <div key={axis} className="bg-background-100 rounded-xl p-3 border border-background-200">
-                            <div className="flex items-center justify-between text-[10px] text-foreground-500 mb-1">
-                              <span>{labels.left}</span>
-                              <span>{labels.right}</span>
-                            </div>
-                            <div className="relative h-2 rounded-full bg-background-200 overflow-hidden">
-                              <motion.div
-                                className={`absolute top-0 h-full rounded-full ${balanced ? 'bg-amber-400' : 'bg-accent-400'}`}
-                                initial={{ left: '50%', width: 0 }}
-                                animate={{ left: `${Math.min(score, 50)}%`, width: `${barWidth}%` }}
-                                transition={{ duration: 0.8, delay: 0.6 }}
-                              ></motion.div>
-                              <div className="absolute top-0 left-1/2 w-0.5 h-full bg-foreground-300"></div>
-                            </div>
-                            {balanced && (
-                              <p className="text-[10px] text-amber-600 font-medium mt-1 text-center">균형형</p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Bible verse */}
-                {result.bibleVerse && (
-                  <motion.div variants={itemVariants} className="relative z-10">
-                    <div className="bg-primary-50 rounded-2xl p-5 mb-5 border border-primary-100">
-                      <p className="text-sm font-medium text-primary-700 italic leading-relaxed">"{result.bibleVerse}"</p>
-                    </div>
-                  </motion.div>
-                )}
-
-                <motion.div variants={itemVariants} className="relative z-10">
-                  <div className="bg-accent-50 rounded-2xl p-5 mb-6 border border-accent-100">
-                    <div className="flex items-center gap-2 mb-2">
-                      <i className="ri-lightbulb-line text-accent-600"></i>
-                      <span className="text-sm font-bold text-accent-700">배울 점</span>
-                    </div>
-                    <p className="text-sm text-accent-700 leading-relaxed">{result.lesson}</p>
-                  </div>
-                </motion.div>
-
-                {result.bestWith && (
-                  <motion.div variants={itemVariants} className="relative z-10">
-                    <div className="mb-6">
-                      <span className="text-xs font-medium text-foreground-500">잘 어울리는 성경 인물</span>
-                      <p className="text-sm font-semibold text-accent-600 mt-1">{result.bestWith}</p>
-                    </div>
-                  </motion.div>
-                )}
-
-                {result.challenge && (
-                  <motion.div variants={itemVariants} className="relative z-10">
-                    <div className="mb-6 bg-background-50 rounded-xl p-4 border border-background-200">
-                      <span className="text-xs font-medium text-foreground-500">성장을 위한 조언</span>
-                      <p className="text-sm text-foreground-700 mt-1">{result.challenge}</p>
-                    </div>
-                  </motion.div>
-                )}
-
-                <motion.div variants={itemVariants} className="relative z-10">
-                  <div className="flex items-center justify-center gap-3 flex-wrap">
-                    <button
-                      onClick={handleShareImage}
-                      disabled={isCapturing}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-accent-200 text-accent-700 font-semibold text-sm hover:bg-accent-50 hover:border-accent-400 transition-all duration-300 cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <i className="ri-download-line"></i>
-                      {isCapturing ? '저장 중...' : '이미지로 저장'}
-                    </button>
-                    <button
-                      onClick={handleReset}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-background-200 text-foreground-700 font-semibold text-sm hover:bg-background-100 hover:border-background-300 transition-all duration-300 cursor-pointer whitespace-nowrap"
-                    >
-                      <i className="ri-refresh-line"></i>
-                      다시 테스트하기
-                    </button>
-                  </div>
-                </motion.div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Toast Notification */}
-        <AnimatePresence>
-          {toastMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 40 }}
-              transition={{ duration: 0.25 }}
-              className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full text-sm font-medium shadow-lg flex items-center gap-2 ${
-                toastType === 'success' ? 'bg-emerald-600 text-white' :
-                toastType === 'error' ? 'bg-rose-600 text-white' :
-                'bg-foreground-900 text-background-50'
-              }`}
-            >
-              <i className={`${
-                toastType === 'success' ? 'ri-check-line' :
-                toastType === 'error' ? 'ri-close-line' :
-                'ri-information-line'
-              }`}></i>
-              {toastMessage}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
+  const handleShareImage = async () => { if (!resultCardRef.current || isCapturing) return; setIsCapturing(true); const captureElement = resultCardRef.current; const originalWidth = captureElement.style.width; const originalMaxWidth = captureElement.style.maxWidth; try { await new Promise(resolve => setTimeout(resolve, 300)); const rect = captureElement.getBoundingClientRect(); captureElement.style.width = `${rect.width}px`; captureElement.style.maxWidth = `${rect.width}px`; const dpr = Math.min(window.devicePixelRatio || 2, 3); const scale = Math.max(dpr, 2); try { const { default: html2canvas } = await import('html2canvas'); const canvas = await html2canvas(captureElement, { scale, useCORS: true, allowTaint: false, backgroundColor: '#ffffff', width: rect.width, height: captureElement.scrollHeight }); const dataUrl = canvas.toDataURL('image/png', 0.95); const link = document.createElement('a'); link.download = `성경MBTI_${result?.character || '결과'}.png`; link.href = dataUrl; link.click(); return; } catch (html2canvasErr) { console.warn('html2canvas failed, trying dom-to-image-more fallback:', html2canvasErr); } const fontLinks: HTMLLinkElement[] = []; document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]').forEach((link) => { const href = link.getAttribute('href') || ''; if (href.includes('fonts.googleapis.com') || href.includes('cdnjs.cloudflare.com')) { fontLinks.push(link); link.remove(); } }); try { const { toPng } = await import('dom-to-image-more'); const dataUrl = await toPng(captureElement, { quality: 0.95, cacheBust: true, width: rect.width * scale, height: captureElement.scrollHeight * scale, style: { transform: `scale(${scale})`, transformOrigin: 'top left', width: `${rect.width}px` } }); const link = document.createElement('a'); link.download = `성경MBTI_${result?.character || '결과'}.png`; link.href = dataUrl; link.click(); } catch (domToImageErr) { console.error('dom-to-image-more also failed:', domToImageErr); throw domToImageErr; } finally { fontLinks.forEach((link) => { document.head.appendChild(link); }); } } catch (err) { console.error('Image capture failed:', err); notifyUser('이미지 저장에 실패했어요. 다시 시도해주세요.'); } finally { if (resultCardRef.current) { resultCardRef.current.style.width = originalWidth || ''; resultCardRef.current.style.maxWidth = originalMaxWidth || ''; } setIsCapturing(false); } };
+  const containerVariants: Variants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } } }; const itemVariants: Variants = { hidden: { opacity: 0, y: 24, scale: 0.96 }, visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 200, damping: 20 } } };
+  return (<div className="min-h-screen bg-background-50"><div className="max-w-2xl mx-auto px-4 md:px-6 py-10 md:py-16"><motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10"><div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-accent-100 border border-accent-200 mb-5"><i className="ri-user-heart-line text-3xl text-accent-600"></i></div><h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">성경 인물 MBTI</h1><p className="text-sm text-foreground-600">{result ? '당신과 닮은 성경 속 인물을 찾았어요!' : '8가지 질문에 답하고 나와 닮은 성경 인물을 찾아보세요'}</p></motion.div>
+  {!result && <div className="mb-8"><div className="w-full h-2.5 rounded-full bg-background-200 overflow-hidden"><motion.div className="h-full rounded-full bg-accent-500" initial={{ width: 0 }} animate={{ width: `${progressPct}%` }} transition={{ duration: 0.4 }} /></div><div className="flex items-center justify-between mt-2"><p className="text-xs text-foreground-500">{currentStep + 1} / {questions.length}</p>{currentStep > 0 && <button onClick={handleBack} className="text-xs text-foreground-500 hover:text-accent-600 transition-colors cursor-pointer flex items-center gap-1"><i className="ri-arrow-left-line"></i> 이전 질문</button>}</div></div>}
+  {isLoading && <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center"><motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-background-100 border border-background-200 rounded-[20px] p-10 md:p-14 text-center max-w-sm w-full mx-4"><div className="relative w-24 h-24 mx-auto mb-6"><motion.div animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }} transition={{ duration: 2, repeat: Infinity }} className="absolute inset-0 rounded-full border-4 border-accent-200"/><div className="absolute inset-0 rounded-full border-4 border-accent-400 animate-spin border-t-transparent"/><div className="absolute inset-2 rounded-full bg-accent-100 flex items-center justify-center"><i className="ri-user-search-line text-3xl text-accent-600"></i></div></div><p className="text-lg font-semibold text-foreground-950 mb-2">성경 인물을 찾는 중...</p><p className="text-sm text-foreground-600">AI가 당신의 8가지 성향을 분석하고 있어요</p><div className="mt-4 flex items-center justify-center gap-1">{[0,1,2].map(i => <motion.div key={i} animate={{ scale: [0.6,1,0.6], opacity: [0.4,1,0.4] }} transition={{ duration: 1.2, repeat: Infinity, delay: i*0.3 }} className="w-2 h-2 rounded-full bg-accent-400" />)}</div></motion.div></div>}
+  {error && <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-4 rounded-xl bg-accent-100 border border-accent-200 text-sm text-accent-700 flex items-start gap-3"><i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i><div className="flex-1"><p className="mb-1">{error}</p><button onClick={handleRetry} className="text-xs font-semibold underline hover:text-accent-800 cursor-pointer">다시 시도하기</button></div></motion.div>}
+  <AnimatePresence mode="wait" custom={direction}>{!result && currentStep < questions.length && <motion.div key={currentStep} custom={direction} initial={{ opacity: 0, x: direction > 0 ? 60 : -60 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: direction > 0 ? -60 : 60 }} transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}><div className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8"><div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-xl bg-accent-100 flex items-center justify-center"><i className={`${questions[currentStep].icon} text-xl text-accent-600`}></i></div><div><span className="text-xs font-semibold text-accent-600 uppercase tracking-wider">{questions[currentStep].axis}</span><p className="text-lg font-bold text-foreground-950">Q{currentStep + 1}. {questions[currentStep].question}</p></div></div><div className="space-y-3">{questions[currentStep].options.map((option, idx) => <motion.button key={idx} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: idx * 0.06 }} onClick={() => handleAnswer(option)} className="w-full text-left p-4 rounded-2xl border-2 border-background-200 bg-background-50 hover:border-accent-300 hover:bg-accent-50/50 transition-all duration-200 cursor-pointer group"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-background-200 flex items-center justify-center flex-shrink-0 group-hover:bg-accent-200 transition-colors"><span className="text-xs font-bold text-foreground-600 group-hover:text-accent-700">{idx + 1}</span></div><span className="text-sm font-medium text-foreground-800 group-hover:text-foreground-950">{option}</span></div></motion.button>)}</div></div></motion.div>}</AnimatePresence>
+  <AnimatePresence>{result && <motion.div variants={containerVariants} initial="hidden" animate="visible"><div ref={resultCardRef} className="relative aspect-square w-full max-w-md mx-auto rounded-[20px] overflow-hidden mb-4 bg-gradient-to-br from-accent-500 via-primary-500 to-secondary-500 flex flex-col items-center justify-center text-center p-8"><AnimatePresence>{showSparkles && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} className="absolute inset-0 pointer-events-none z-0">{Array.from({ length: 12 }).map((_, i) => <motion.div key={i} initial={{ opacity: 0, scale: 0, x: '50%', y: '50%' }} animate={{ opacity: [0,1,0], scale: [0,1.5,0], x: `${30 + Math.random()*40}%`, y: `${30 + Math.random()*40}%` }} transition={{ duration: 1.5 + Math.random(), delay: i*0.1, repeat: 1 }} className="absolute w-3 h-3 rounded-full bg-background-100/60" />)}</motion.div>}</AnimatePresence><motion.div variants={itemVariants} className="relative z-10"><motion.div animate={{ scale: [0,1.2,1], rotate: [0,-5,3,0] }} transition={{ duration: 0.7, ease: [0.34,1.56,0.64,1], delay: 0.1 }} className="w-24 h-24 rounded-full bg-background-100/20 backdrop-blur-sm border-4 border-white/40 flex items-center justify-center mx-auto mb-5 relative"><CharacterIllustration name={result.character} className="h-20 w-20 rounded-full relative z-10 overflow-hidden border-2 border-background-100/70" /></motion.div></motion.div><motion.div variants={itemVariants} className="relative z-10"><div className="inline-block px-4 py-1.5 rounded-full bg-background-100/20 backdrop-blur-sm text-white text-sm font-bold mb-4">{result.matchingPhrase}</div></motion.div><motion.h2 variants={itemVariants} className="text-3xl font-black text-white mb-3 relative z-10">{result.character}</motion.h2><motion.p variants={itemVariants} className="text-sm text-white/85 leading-relaxed max-w-xs mx-auto line-clamp-3 relative z-10">{result.description}</motion.p><div className="absolute bottom-4 inset-x-0 flex items-center justify-center gap-1.5 text-white/70 text-[11px] font-semibold relative z-10"><i className="ri-book-open-line"></i>강릉학생회 · 성경인물 MBTI</div></div>
+  <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8 text-center mb-4 relative overflow-hidden">{result.traits && <motion.div variants={itemVariants} className="relative z-10"><div className="bg-background-50 rounded-2xl p-5 mb-6 border border-background-200"><p className="text-xs font-bold text-foreground-600 mb-4 uppercase tracking-wider">성향 프로필</p><div className="space-y-3">{result.traits.map((trait,i)=><CountUpBar key={i} label={trait.label} value={trait.value} delay={400+i*120}/>)}</div></div></motion.div>}<motion.div variants={itemVariants} className="relative z-10"><div className="bg-background-50 rounded-2xl p-5 mb-6 border border-background-200"><p className="text-xs font-bold text-foreground-600 mb-4 uppercase tracking-wider">4축 성향 분석</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{Object.entries(axisLabels).map(([axis,labels])=>{const score=computeAxisScore(axis);const balanced=isBalancedScore(score);const barWidth=balanced?6:Math.abs(score-50)*2;return <div key={axis} className="bg-background-100 rounded-xl p-3 border border-background-200"><div className="flex items-center justify-between text-[10px] text-foreground-500 mb-1"><span>{labels.left}</span><span>{labels.right}</span></div><div className="relative h-2 rounded-full bg-background-200 overflow-hidden"><motion.div className="absolute top-0 h-full rounded-full bg-accent-400" initial={{ left:'50%',width:0 }} animate={{ left:`${Math.min(score,50)}%`,width:`${barWidth}%` }} transition={{ duration:0.8,delay:0.6 }}/><div className="absolute top-0 left-1/2 w-0.5 h-full bg-foreground-300"/></div>{balanced&&<p className="text-[10px] text-accent-600 font-medium mt-1 text-center">균형형</p>}</div>})}</div></div></motion.div>{result.bibleVerse&&<motion.div variants={itemVariants} className="relative z-10"><div className="bg-primary-50 rounded-2xl p-5 mb-5 border border-primary-100"><p className="text-sm font-medium text-primary-700 italic leading-relaxed">"{result.bibleVerse}"</p></div></motion.div>}<motion.div variants={itemVariants} className="relative z-10"><div className="bg-accent-50 rounded-2xl p-5 mb-6 border border-accent-100"><div className="flex items-center gap-2 mb-2"><i className="ri-lightbulb-line text-accent-600"></i><span className="text-sm font-bold text-accent-700">배울 점</span></div><p className="text-sm text-accent-700 leading-relaxed">{result.lesson}</p></div></motion.div>{result.bestWith&&<motion.div variants={itemVariants} className="relative z-10"><div className="mb-6"><span className="text-xs font-medium text-foreground-500">잘 어울리는 성경 인물</span><p className="text-sm font-semibold text-accent-600 mt-1">{result.bestWith}</p></div></motion.div>}{result.challenge&&<motion.div variants={itemVariants} className="relative z-10"><div className="mb-6 bg-background-50 rounded-xl p-4 border border-background-200"><span className="text-xs font-medium text-foreground-500">성장을 위한 조언</span><p className="text-sm text-foreground-700 mt-1">{result.challenge}</p></div></motion.div>}<motion.div variants={itemVariants} className="relative z-10"><div className="flex items-center justify-center gap-3 flex-wrap"><button onClick={handleShareImage} disabled={isCapturing} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-accent-200 text-accent-700 font-semibold text-sm hover:bg-accent-50 hover:border-accent-400 transition-all duration-300 cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"><i className="ri-download-line"></i>{isCapturing?'저장 중...':'이미지로 저장'}</button><button onClick={handleReset} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-background-200 text-foreground-700 font-semibold text-sm hover:bg-background-100 hover:border-background-300 transition-all duration-300 cursor-pointer whitespace-nowrap"><i className="ri-refresh-line"></i>다시 테스트하기</button></div></motion.div></div></motion.div>}</AnimatePresence>
+  {toastMessage && <AnimatePresence><motion.div initial={{ opacity:0,y:40 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0,y:40 }} transition={{ duration:0.25 }} className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full text-sm font-medium shadow-lg flex items-center gap-2 ${toastType==='success'?'bg-emerald-600 text-white':toastType==='error'?'bg-rose-600 text-white':'bg-foreground-900 text-background-50'}`}><i className={`${toastType==='success'?'ri-check-line':toastType==='error'?'ri-close-line':'ri-information-line'}`}></i>{toastMessage}</motion.div></AnimatePresence>}
+  </div></div>);
 }
