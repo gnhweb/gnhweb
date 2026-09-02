@@ -1,11 +1,11 @@
-/* Bible MBTI historical figure images. Sources: Wikimedia Commons public-domain works. */
+/* Bible MBTI historical figure images. Sources: Wikimedia Commons public-domain/free-use works. */
 svg[aria-label$="성경인물 프로필"] { overflow: hidden; background-position: center; background-size: cover; background-repeat: no-repeat; }
 svg[aria-label$="성경인물 프로필"] > * { visibility: hidden; }
 svg[aria-label="다니엘 성경인물 프로필"] { background-image: url("https://commons.wikimedia.org/wiki/Special:FilePath/Daniel%20in%20the%20lion%27s%20den.jpg"); }
 svg[aria-label="요셉 성경인물 프로필"] { background-image: url("https://commons.wikimedia.org/wiki/Special:FilePath/028.Joseph%20Reveals%20Himself%20to%20His%20Brothers.jpg"); }
 svg[aria-label="룻 성경인물 프로필"] { background-image: url("https://commons.wikimedia.org/wiki/Special:FilePath/069.Ruth%20and%20Boaz.jpg"); }
 svg[aria-label="바나바 성경인물 프로필"] { background-image: url("https://commons.wikimedia.org/wiki/Special:FilePath/Paul%20and%20Barnabas%20at%20Lystra.jpg"); }
-svg[aria-label="베드로 성경인물 프로필"] { background-image: url("https://commons.wikimedia.org/wiki/Special:FilePath/Hamburg%2C%20Kunsthalle%2C%20Philipp%20Otto%20Runge%2C%20Petrus%20auf%20dem%20Meer.jpg"); }
+svg[aria-label="베드로 성경인물 프로필"] { background-image: url("https://commons.wikimedia.org/wiki/Special:FilePath/Peter%20Denies%20Christ.jpg"); }
 svg[aria-label="느헤미야 성경인물 프로필"] { background-image: url("https://commons.wikimedia.org/wiki/Special:FilePath/The%20Bible%20panorama%2C%20or%20The%20Holy%20Scriptures%20in%20picture%20and%20story%20%281891%29%20%2814598285300%29.jpg"); }
 svg[aria-label="에스더 성경인물 프로필"] { background-image: url("https://commons.wikimedia.org/wiki/Special:FilePath/Esther-before-ahasuerus.jpg"); }
 svg[aria-label="디모데 성경인물 프로필"] { background-image: url("https://commons.wikimedia.org/wiki/Special:FilePath/Saint%20Timothy.jpg"); }
