@@ -4,6 +4,7 @@ import type { UserRole, ClubType } from '@/types/auth';
 export interface AdminUserData {
   user_id: string;
   role: UserRole;
+  roles?: UserRole[];
   name: string;
   club?: ClubType;
   zone?: string;
