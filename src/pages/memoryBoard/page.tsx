@@ -6,6 +6,7 @@ import { clubs } from '@/mocks/clubs';
 import PhotoLightbox from '@/components/feature/PhotoLightbox';
 import { CategoryChip, CategoryChipRow } from '@/components/base/CategoryChip';
 import { formatDateKey } from '@/lib/date';
+import { resizeImageFile, thumbFileNameFor } from '@/lib/imageResize';
 
 interface PhotoMemory {
   id: string;
@@ -13,6 +14,7 @@ interface PhotoMemory {
   author_name: string;
   title: string;
   photo_url: string;
+  thumb_url: string | null;
   club: string | null;
   created_at: string;
 }
@@ -85,6 +87,25 @@ export default function MemoryBoard() {
         console.error('Storage upload error:', uploadErr);
         throw new Error(`업로드 실패: ${uploadErr.message}`);
       }
+
+      // 그리드/필름스트립용 작은 썸네일을 별도로 생성해 업로드한다.
+      // 썸네일 생성이 실패해도 원본 업로드는 이미 끝났으므로 게시 자체는 막지 않고,
+      // thumb_url을 null로 두어 화면에서는 원본으로 자연스럽게 폴백된다.
+      let thumbUrl: string | null = null;
+      try {
+        const thumbBlob = await resizeImageFile(uploadFile, { maxDimension: 480, quality: 0.72 });
+        const thumbPath = `memories/${user!.id}/${thumbFileNameFor(safeName)}`;
+        const { error: thumbErr } = await supabase.storage
+          .from('Public')
+          .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg' });
+        if (thumbErr) {
+          console.error('Thumbnail upload error (원본은 정상 업로드됨):', thumbErr);
+        } else {
+          thumbUrl = supabase.storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
+        }
+      } catch (thumbGenErr) {
+        console.error('Thumbnail generation error (원본은 정상 업로드됨):', thumbGenErr);
+      }
       
       const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
 
@@ -95,6 +116,7 @@ export default function MemoryBoard() {
           author_name: profile.name,
           title: uploadTitle.trim(),
           photo_url: urlData.publicUrl,
+          thumb_url: thumbUrl,
           club: profile.club || null,
         });
       if (insertErr) {
@@ -115,15 +137,19 @@ export default function MemoryBoard() {
 
   const handleDeletePhoto = async (photo: PhotoMemory) => {
     try {
-      try {
-        const urlObj = new URL(photo.photo_url);
-        const pathParts = urlObj.pathname.split('/');
-        const bucketIndex = pathParts.findIndex(p => p === 'Public');
-        if (bucketIndex !== -1) {
-          const storagePath = pathParts.slice(bucketIndex + 1).join('/');
-          await supabase.storage.from('Public').remove([storagePath]);
-        }
-      } catch { /* ignore storage cleanup errors */ }
+      const storagePaths: string[] = [];
+      for (const url of [photo.photo_url, photo.thumb_url]) {
+        if (!url) continue;
+        try {
+          const urlObj = new URL(url);
+          const pathParts = urlObj.pathname.split('/');
+          const bucketIndex = pathParts.findIndex(p => p === 'Public');
+          if (bucketIndex !== -1) storagePaths.push(pathParts.slice(bucketIndex + 1).join('/'));
+        } catch { /* ignore malformed url */ }
+      }
+      if (storagePaths.length) {
+        try { await supabase.storage.from('Public').remove(storagePaths); } catch { /* ignore storage cleanup errors */ }
+      }
       const { error: deleteErr } = await supabase.from('memory_photos').delete().eq('id', photo.id);
       if (deleteErr) {
         console.error('DB delete error:', deleteErr);
@@ -206,7 +232,7 @@ export default function MemoryBoard() {
             {filteredPhotos.map((photo, idx) => (
               <motion.div key={photo.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} onClick={() => setLightboxIndex(idx)} className="group cursor-pointer rounded-xl overflow-hidden bg-background-100 shadow-sm hover:shadow-md transition-shadow">
                 <div className="aspect-[4/3] overflow-hidden">
-                  <img src={photo.photo_url} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 </div>
                 <div className="p-3">
                   <p className="text-sm font-semibold text-foreground-800 truncate">{photo.title}</p>
@@ -234,7 +260,7 @@ export default function MemoryBoard() {
                 onClick={() => setLightboxIndex(idx)}
                 className="relative aspect-square cursor-pointer overflow-hidden bg-background-100"
               >
-                <img src={photo.photo_url} alt={photo.title} className="w-full h-full object-cover" />
+                <img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
               </motion.div>
             ))}
           </div>
@@ -258,6 +284,7 @@ export default function MemoryBoard() {
       {lightboxIndex !== null && (
         <PhotoLightbox
           photos={filteredPhotos.map(p => p.photo_url)}
+          thumbUrls={filteredPhotos.map(p => p.thumb_url || p.photo_url)}
           captions={filteredPhotos.map(p => p.title)}
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
