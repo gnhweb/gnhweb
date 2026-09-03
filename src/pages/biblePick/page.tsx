@@ -155,8 +155,13 @@ export default function BiblePick() {
                   className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full opacity-60 pointer-events-none"
                   style={{ background: 'radial-gradient(circle, oklch(var(--primary-200) / 0.55) 0%, transparent 70%)' }}
                 ></div>
-                <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-full bg-background-50 mb-4">
-                  <i className="ri-book-open-line text-2xl text-primary-600"></i>
+                <div
+                  className="relative inline-flex items-center justify-center w-16 h-16 rounded-full p-[2px] mb-4"
+                  style={{ background: 'linear-gradient(135deg, var(--grad-coral), var(--grad-rose) 55%, var(--grad-blue))' }}
+                >
+                  <div className="w-full h-full rounded-full bg-background-50 flex items-center justify-center">
+                    <i className="ri-book-open-line text-2xl text-primary-600"></i>
+                  </div>
                 </div>
                 <h1 className="relative text-2xl md:text-3xl font-bold text-foreground-950 mb-2.5">말씀 뽑기</h1>
                 <p className="relative text-foreground-600 text-sm md:text-base leading-relaxed">
@@ -208,7 +213,8 @@ export default function BiblePick() {
                   <button
                     type="submit"
                     disabled={userText.trim().length === 0}
-                    className="mt-5 w-full py-3.5 rounded-[20px] bg-primary-500 text-background-50 font-semibold text-base hover:bg-primary-600 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
+                    className="mt-5 w-full py-3.5 rounded-[20px] text-white font-semibold text-base transition-all duration-300 hover:brightness-105 hover:-translate-y-0.5 disabled:opacity-40 disabled:hover:translate-y-0 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer shadow-sm"
+                    style={{ background: 'linear-gradient(135deg, var(--grad-coral), var(--grad-rose) 55%, var(--grad-blue))' }}
                   >
                     <i className="ri-book-open-line text-lg"></i>
                     나를 위한 말씀 뽑기
@@ -236,11 +242,14 @@ export default function BiblePick() {
             <div className="bg-background-50 rounded-[24px] p-10 md:p-14 text-center max-w-sm w-full shadow-card-lg">
               <motion.div
                 className="relative w-16 h-16 mx-auto mb-6"
-                animate={{ scale: [1, 1.08, 1] }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                animate={{ scale: [1, 1.08, 1], rotate: [0, 6, 0] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <div className="absolute inset-0 rounded-full bg-primary-100"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div
+                  className="absolute inset-0 rounded-full opacity-90"
+                  style={{ background: 'linear-gradient(135deg, var(--grad-coral), var(--grad-rose) 55%, var(--grad-blue))' }}
+                ></div>
+                <div className="absolute inset-[3px] rounded-full bg-background-50 flex items-center justify-center">
                   <i className="ri-book-open-line text-2xl text-primary-600"></i>
                 </div>
               </motion.div>
