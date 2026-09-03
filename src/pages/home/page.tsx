@@ -314,6 +314,106 @@ export default function Home() {
     fetchAndCacheQuoteOfTheDay().then(setDailyQuote);
   }, []);
 
+  // ── 이달의 동아리 챔피언(성경퀴즈 · 성경완독) 실시간 로드 ──
+  // 캐시는 초기 페인트를 빠르게 하기 위한 용도일 뿐, 마운트 시 항상 최신 데이터를 다시 가져오고
+  // 이후에는 Supabase Realtime 구독으로 데이터가 바뀔 때마다 즉시 갱신한다.
+  const loadQuizChampion = useCallback(() => {
+    supabase.functions.invoke('quiz-leaderboard', {
+      method: 'GET',
+      body: { monthly: 'true' },
+    }).then(({ data }) => {
+      if (data?.topClub && data?.topPlayer) {
+        const result = { topClub: data.topClub, topPlayer: data.topPlayer } as MonthlyChampion;
+        setMonthlyChampion(result);
+        writeQuizLeaderboardCache(result);
+      } else {
+        // 이번 달 데이터가 아직 없으면(=달이 막 바뀐 직후) 지난 달 챔피언을 계속 보여주지 않도록 비움
+        setMonthlyChampion(null);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const loadMarathonChampion = useCallback(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+    supabase
+      .from('bible_marathon_entries')
+      .select('student_club, book, chapter_start, chapter_end, status, confirmed_at')
+      .eq('status', 'confirmed')
+      .gte('confirmed_at', monthStart)
+      .lt('confirmed_at', monthEnd)
+      .then(({ data }) => {
+        if (!data || data.length === 0) {
+          setMarathonChampion(null);
+          return;
+        }
+        const clubChapterSets = new Map<string, Set<string>>();
+        (data as { student_club: string | null; book: string; chapter_start: number | null; chapter_end: number | null }[]).forEach((e) => {
+          if (!e.student_club) return;
+          const start = e.chapter_start ?? 1;
+          const end = e.chapter_end ?? start;
+          if (!clubChapterSets.has(e.student_club)) clubChapterSets.set(e.student_club, new Set());
+          const set = clubChapterSets.get(e.student_club)!;
+          for (let c = start; c <= end; c++) set.add(`${e.book}:${c}`);
+        });
+        const ranked = Array.from(clubChapterSets.entries())
+          .map(([club, set]) => ({ club, chapters: set.size, label: CLUB_LABELS[club as ClubType] || club }))
+          .sort((a, b) => b.chapters - a.chapters);
+        if (ranked.length > 0) {
+          setMarathonChampion(ranked[0]);
+          writeMarathonChampionCache(ranked[0]);
+        } else {
+          setMarathonChampion(null);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // 캐시가 있으면 즉시 화면에 먼저 보여주고, 뒤이어 최신 데이터로 덮어쓴다
+    const cachedLeaderboard = readQuizLeaderboardCache();
+    if (cachedLeaderboard) setMonthlyChampion(cachedLeaderboard);
+    const cachedMarathon = readMarathonChampionCache();
+    if (cachedMarathon) setMarathonChampion(cachedMarathon);
+
+    loadQuizChampion();
+    loadMarathonChampion();
+
+    // 실시간 반영: 퀴즈 점수나 완독 등록/확정이 생기면 곧바로 동아리 랭킹을 다시 계산
+    const quizChannel = supabase
+      .channel('home-quiz-champion-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_scores' }, () => loadQuizChampion())
+      .subscribe();
+    const marathonChannel = supabase
+      .channel('home-marathon-champion-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bible_marathon_entries' }, () => loadMarathonChampion())
+      .subscribe();
+
+    // 매달 자정에 정확히 새 달로 결산되도록, 다음 자정에 맞춰 강제로 다시 계산 (그 이후엔 24시간마다 반복)
+    let midnightInterval: ReturnType<typeof setInterval> | null = null;
+    const msUntilNextMidnight = (() => {
+      const now = new Date();
+      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+      return nextMidnight.getTime() - now.getTime();
+    })();
+    const midnightTimeout = setTimeout(() => {
+      loadQuizChampion();
+      loadMarathonChampion();
+      midnightInterval = setInterval(() => {
+        loadQuizChampion();
+        loadMarathonChampion();
+      }, 24 * 60 * 60 * 1000);
+    }, msUntilNextMidnight);
+
+    return () => {
+      supabase.removeChannel(quizChannel);
+      supabase.removeChannel(marathonChannel);
+      clearTimeout(midnightTimeout);
+      if (midnightInterval) clearInterval(midnightInterval);
+    };
+  }, [loadQuizChampion, loadMarathonChampion]);
+
   // ── 데이터 패치 ──
   useEffect(() => {
     // 공지사항
@@ -347,59 +447,6 @@ export default function Home() {
       .catch(() => setSchedulesError(true))
       .finally(() => setSchedulesLoading(false));
 
-    // 퀴즈 챔피언 — 동일한 결과를 짧게 캐시해 홈페이지 진입마다 Edge Function을 호출하지 않음
-    const cachedLeaderboard = readQuizLeaderboardCache();
-    if (cachedLeaderboard) {
-      setMonthlyChampion(cachedLeaderboard);
-    } else {
-      supabase.functions.invoke('quiz-leaderboard', {
-        method: 'GET',
-        body: { monthly: 'true' },
-      }).then(({ data }) => {
-        if (data?.topClub && data?.topPlayer) {
-          const result = { topClub: data.topClub, topPlayer: data.topPlayer } as MonthlyChampion;
-          setMonthlyChampion(result);
-          writeQuizLeaderboardCache(result);
-        }
-      }).catch(() => {});
-    }
-
-    // 성경완독 1위 동아리 — 이번 달 확정된 묵상 기준, 동일하게 캐시
-    const cachedMarathon = readMarathonChampionCache();
-    if (cachedMarathon) {
-      setMarathonChampion(cachedMarathon);
-    } else {
-      const nowForMarathon = new Date();
-      const monthStart = new Date(nowForMarathon.getFullYear(), nowForMarathon.getMonth(), 1).toISOString();
-      const monthEnd = new Date(nowForMarathon.getFullYear(), nowForMarathon.getMonth() + 1, 1).toISOString();
-      supabase
-        .from('bible_marathon_entries')
-        .select('student_club, book, chapter_start, chapter_end, status, confirmed_at')
-        .eq('status', 'confirmed')
-        .gte('confirmed_at', monthStart)
-        .lt('confirmed_at', monthEnd)
-        .then(({ data }) => {
-          if (!data || data.length === 0) return;
-          const clubChapterSets = new Map<string, Set<string>>();
-          (data as { student_club: string | null; book: string; chapter_start: number | null; chapter_end: number | null }[]).forEach((e) => {
-            if (!e.student_club) return;
-            const start = e.chapter_start ?? 1;
-            const end = e.chapter_end ?? start;
-            if (!clubChapterSets.has(e.student_club)) clubChapterSets.set(e.student_club, new Set());
-            const set = clubChapterSets.get(e.student_club)!;
-            for (let c = start; c <= end; c++) set.add(`${e.book}:${c}`);
-          });
-          const ranked = Array.from(clubChapterSets.entries())
-            .map(([club, set]) => ({ club, chapters: set.size, label: CLUB_LABELS[club as ClubType] || club }))
-            .sort((a, b) => b.chapters - a.chapters);
-          if (ranked.length > 0) {
-            setMarathonChampion(ranked[0]);
-            writeMarathonChampionCache(ranked[0]);
-          }
-        })
-        .catch(() => {});
-    }
-
     // 강학뉴스
     Promise.resolve(
       supabase
@@ -432,7 +479,8 @@ export default function Home() {
   }, []);
 
   // ── 히어로 슬라이드 구성 ──
-  // 홈페이지에 실제로 제공되는 주요 기능을 한눈에 보여주는 히어로 캐러셀입니다.
+  // 산만하지 않도록 핵심 슬라이드만 남김: 인트로, 이달의 챔피언(있을 때), 말씀뽑기, 성경퀴즈, 동아리 소개.
+  // 공지·일정·게시판·신앙일지·출결 등은 바로 아래 섹션과 하단 메뉴에서 이미 확인할 수 있어 배너에서는 제외.
   const heroSlides: HeroSlide[] = [
     {
       id: 'main', type: 'main',
@@ -442,30 +490,26 @@ export default function Home() {
       subtitle: '말씀과 찬양, 동아리 활동을 통해\n전국 1등 학생회로 함께 성장합니다',
       cta: { label: '동아리 둘러보기', path: '/clubs' },
     },
-    {
-      id: 'notice', type: 'notice',
-      image: '/hero/notice.svg',
-      badge: '공지사항', badgeColor: 'bg-rose-500',
-      title: '새로운 소식과\n중요한 공지를 한눈에',
-      subtitle: '학생회와 동아리의 최신 소식을\n놓치지 않고 확인해보세요',
-      cta: { label: '공지사항 보기', path: '/notices' },
-    },
-    {
-      id: 'schedule', type: 'feature',
-      image: '/hero/schedule.svg',
-      badge: '일정', badgeColor: 'bg-secondary-500',
-      title: '예배부터 행사까지\n이번 달 일정을 한눈에',
-      subtitle: '학생회 일정과 주요 행사를\n미리 확인하고 함께 준비해요',
-      cta: { label: '일정 보기', path: '/schedule' },
-    },
-    {
-      id: 'clubs', type: 'feature',
-      image: '/hero/clubs.svg',
-      badge: '동아리', badgeColor: 'bg-emerald-500',
-      title: '다섯 동아리,\n각자의 사명으로 함께 성장해요',
-      subtitle: '동아리 소개와 명단, 활동 사진까지\n우리 동아리의 이야기를 만나보세요',
-      cta: { label: '동아리 둘러보기', path: '/clubs' },
-    },
+    ...(monthlyChampion
+      ? [{
+          id: 'champion-quiz', type: 'champion' as const,
+          image: '/hero/champion.svg',
+          badge: `${new Date().getMonth() + 1}월 성경퀴즈 1위`, badgeColor: 'bg-amber-500',
+          title: `이달의 성경퀴즈 1위 동아리\n${monthlyChampion.topClub.club_name}`,
+          subtitle: monthlyChampion.topPlayer ? `개인 MVP: ${monthlyChampion.topPlayer.nickname} (${monthlyChampion.topPlayer.club_name}) · ${monthlyChampion.topClub.total_score.toLocaleString()}점` : `누적 ${monthlyChampion.topClub.total_score.toLocaleString()}점 · 실시간 랭킹 진행 중`,
+          cta: { label: '성경퀴즈 도전하기', path: '/bible-quiz' },
+        }]
+      : []),
+    ...(marathonChampion
+      ? [{
+          id: 'champion-marathon', type: 'champion' as const,
+          image: '/hero/champion.svg',
+          badge: `${new Date().getMonth() + 1}월 성경완독 1위`, badgeColor: 'bg-emerald-500',
+          title: `이달의 성경완독 1위 동아리\n${marathonChampion.label}`,
+          subtitle: `${marathonChampion.chapters.toLocaleString()}장 완독 · 실시간 랭킹 진행 중`,
+          cta: { label: '성경완독 도전하기', path: '/bible-marathon' },
+        }]
+      : []),
     {
       id: 'bible-pick', type: 'quiz',
       image: '/hero/bible-pick.svg',
@@ -474,16 +518,6 @@ export default function Home() {
       subtitle: 'AI가 감정과 상황에 맞는\n성경 구절을 선물해드립니다',
       cta: { label: '말씀 받기', path: '/bible-pick' },
     },
-    ...(monthlyChampion
-      ? [{
-          id: 'champion', type: 'champion' as const,
-          image: '/hero/champion.svg',
-          badge: `${new Date().getMonth() + 1}월 챔피언`, badgeColor: 'bg-amber-500',
-          title: monthlyChampion.topClub ? `이달의 1위 동아리\n${monthlyChampion.topClub.club_name}` : '이달의 성경퀴즈 챔피언',
-          subtitle: monthlyChampion.topPlayer ? `개인 MVP: ${monthlyChampion.topPlayer.nickname} (${monthlyChampion.topPlayer.club_name})` : '도전해서 챔피언이 되어보세요!',
-          cta: { label: '성경퀴즈 도전하기', path: '/bible-quiz' },
-        }]
-      : []),
     {
       id: 'quiz', type: 'quiz',
       image: '/hero/quiz.svg',
@@ -493,28 +527,12 @@ export default function Home() {
       cta: { label: '퀴즈 시작하기', path: '/bible-quiz' },
     },
     {
-      id: 'qna', type: 'feature',
-      image: '/hero/qna.svg',
-      badge: '질문 있어요', badgeColor: 'bg-sky-500',
-      title: '궁금한 건 편하게 물어보고\n함께 답을 찾아가요',
-      subtitle: '신앙과 학생회 생활에 대한 질문을\n함께 나누는 공간이 있어요',
-      cta: { label: '질문하러 가기', path: '/qna-board' },
-    },
-    {
-      id: 'faith-journal', type: 'feature',
-      image: '/hero/faith-journal.svg',
-      badge: '신앙 일지', badgeColor: 'bg-violet-500',
-      title: '오늘의 믿음을 기록하고\n나의 성장을 돌아봐요',
-      subtitle: '신앙 일지와 말씀 스트릭으로\n매일의 작은 변화를 쌓아보세요',
-      cta: { label: '신앙 일지 보기', path: '/faith-journal' },
-    },
-    {
-      id: 'attendance', type: 'feature',
-      image: '/hero/attendance.svg',
-      badge: '출결', badgeColor: 'bg-pink-500',
-      title: '오늘 출석도 간편하게\n내 동아리 현황을 바로 확인해요',
-      subtitle: '실시간 출석 현황과 동아리별 명단을\n한눈에 확인할 수 있어요',
-      cta: { label: '출결 현황 보기', path: '/dashboard/attendance' },
+      id: 'clubs', type: 'feature',
+      image: '/hero/clubs.svg',
+      badge: '동아리', badgeColor: 'bg-emerald-500',
+      title: '다섯 동아리,\n각자의 사명으로 함께 성장해요',
+      subtitle: '동아리 소개와 명단, 활동 사진까지\n우리 동아리의 이야기를 만나보세요',
+      cta: { label: '동아리 둘러보기', path: '/clubs' },
     },
   ];
 
@@ -534,6 +552,8 @@ export default function Home() {
     main: 'from-amber-700 via-amber-600 to-orange-800',
     'bible-pick': 'from-emerald-700 via-teal-600 to-emerald-900',
     champion: 'from-amber-600 via-yellow-500 to-amber-800',
+    'champion-quiz': 'from-amber-600 via-yellow-500 to-amber-800',
+    'champion-marathon': 'from-emerald-600 via-teal-500 to-emerald-800',
     quiz: 'from-rose-600 via-pink-500 to-rose-800',
     notice: 'from-rose-700 via-fuchsia-600 to-violet-800',
     schedule: 'from-sky-700 via-indigo-600 to-violet-800',
@@ -667,6 +687,8 @@ export default function Home() {
                       clubs: 'ri-group-line',
                       'bible-pick': 'ri-book-open-line',
                       champion: 'ri-trophy-line',
+                      'champion-quiz': 'ri-trophy-line',
+                      'champion-marathon': 'ri-book-open-line',
                       quiz: 'ri-question-answer-line',
                       qna: 'ri-question-answer-line',
                       'faith-journal': 'ri-edit-line',
