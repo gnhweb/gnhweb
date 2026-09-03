@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { getCachedQuoteOfTheDay, fetchAndCacheQuoteOfTheDay } from '@/lib/dailyQuote';
 import { todayKey, formatKoreanDate } from '@/lib/date';
+import { CLUB_LABELS } from '@/types/auth';
+import type { ClubType } from '@/types/auth';
 
 // ──────────────────────────────────────────────
 // 타입
@@ -39,6 +41,12 @@ interface Schedule {
 interface MonthlyChampion {
   topClub: { club_name: string; total_score: number };
   topPlayer: { nickname: string; club_name: string; total_score: number };
+}
+
+interface MarathonClubChampion {
+  club: string;
+  label: string;
+  chapters: number;
 }
 
 interface NewsItem {
@@ -86,6 +94,39 @@ function writeQuizLeaderboardCache(data: MonthlyChampion) {
     localStorage.setItem(
       QUIZ_LEADERBOARD_CACHE_KEY,
       JSON.stringify({ expiresAt: Date.now() + QUIZ_LEADERBOARD_CACHE_TTL_MS, data }),
+    );
+  } catch {
+    // ignore cache errors
+  }
+}
+
+const MARATHON_CHAMPION_CACHE_KEY = 'home_marathon_champion_v1';
+const MARATHON_CHAMPION_CACHE_TTL_MS = 10 * 60 * 1000;
+
+interface MarathonChampionCache {
+  expiresAt: number;
+  data: MarathonClubChampion;
+}
+
+function readMarathonChampionCache(): MarathonClubChampion | null {
+  try {
+    const raw = localStorage.getItem(MARATHON_CHAMPION_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MarathonChampionCache;
+    if (parsed?.expiresAt > Date.now() && parsed.data?.club) {
+      return parsed.data;
+    }
+  } catch {
+    // ignore cache errors
+  }
+  return null;
+}
+
+function writeMarathonChampionCache(data: MarathonClubChampion) {
+  try {
+    localStorage.setItem(
+      MARATHON_CHAMPION_CACHE_KEY,
+      JSON.stringify({ expiresAt: Date.now() + MARATHON_CHAMPION_CACHE_TTL_MS, data }),
     );
   } catch {
     // ignore cache errors
@@ -234,6 +275,7 @@ export default function Home() {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [monthlyChampion, setMonthlyChampion] = useState<MonthlyChampion | null>(null);
+  const [marathonChampion, setMarathonChampion] = useState<MarathonClubChampion | null>(null);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [noticesError, setNoticesError] = useState(false);
@@ -320,6 +362,42 @@ export default function Home() {
           writeQuizLeaderboardCache(result);
         }
       }).catch(() => {});
+    }
+
+    // 성경완독 1위 동아리 — 이번 달 확정된 묵상 기준, 동일하게 캐시
+    const cachedMarathon = readMarathonChampionCache();
+    if (cachedMarathon) {
+      setMarathonChampion(cachedMarathon);
+    } else {
+      const nowForMarathon = new Date();
+      const monthStart = new Date(nowForMarathon.getFullYear(), nowForMarathon.getMonth(), 1).toISOString();
+      const monthEnd = new Date(nowForMarathon.getFullYear(), nowForMarathon.getMonth() + 1, 1).toISOString();
+      supabase
+        .from('bible_marathon_entries')
+        .select('student_club, book, chapter_start, chapter_end, status, confirmed_at')
+        .eq('status', 'confirmed')
+        .gte('confirmed_at', monthStart)
+        .lt('confirmed_at', monthEnd)
+        .then(({ data }) => {
+          if (!data || data.length === 0) return;
+          const clubChapterSets = new Map<string, Set<string>>();
+          (data as { student_club: string | null; book: string; chapter_start: number | null; chapter_end: number | null }[]).forEach((e) => {
+            if (!e.student_club) return;
+            const start = e.chapter_start ?? 1;
+            const end = e.chapter_end ?? start;
+            if (!clubChapterSets.has(e.student_club)) clubChapterSets.set(e.student_club, new Set());
+            const set = clubChapterSets.get(e.student_club)!;
+            for (let c = start; c <= end; c++) set.add(`${e.book}:${c}`);
+          });
+          const ranked = Array.from(clubChapterSets.entries())
+            .map(([club, set]) => ({ club, chapters: set.size, label: CLUB_LABELS[club as ClubType] || club }))
+            .sort((a, b) => b.chapters - a.chapters);
+          if (ranked.length > 0) {
+            setMarathonChampion(ranked[0]);
+            writeMarathonChampionCache(ranked[0]);
+          }
+        })
+        .catch(() => {});
     }
 
     // 강학뉴스
@@ -654,65 +732,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ═══ 1.6 빠른 메뉴 — 스크롤 없이 핵심 기능 바로가기 ═══ */}
-      <section className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 mt-5">
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-x-2 gap-y-4 md:gap-3">
-          {[
-            { label: '공지사항', icon: 'ri-megaphone-line', path: '/notices', bg: 'from-rose-400 to-rose-500' },
-            { label: '일정', icon: 'ri-calendar-event-line', path: '/schedule', bg: 'from-secondary-400 to-secondary-500' },
-            { label: '동아리', icon: 'ri-group-line', path: '/clubs', bg: 'from-emerald-400 to-emerald-500' },
-            { label: '강학뉴스', icon: 'ri-newspaper-line', path: '/ganghak-news', bg: 'from-sky-400 to-sky-500' },
-            { label: '말씀뽑기', icon: 'ri-book-open-line', path: '/bible-pick', bg: 'from-amber-400 to-amber-500' },
-            { label: '성경퀴즈', icon: 'ri-question-answer-line', path: '/bible-quiz', bg: 'from-violet-400 to-violet-500' },
-            { label: '게시판', icon: 'ri-chat-3-line', path: '/qna-board', bg: 'from-primary-400 to-primary-500' },
-            { label: '신앙일지', icon: 'ri-edit-line', path: '/faith-journal', bg: 'from-orange-400 to-orange-500' },
-          ].map((m) => (
-            <Link
-              key={m.path}
-              to={m.path}
-              className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
-            >
-              <span className={`w-12 h-12 md:w-13 md:h-13 rounded-2xl bg-gradient-to-br ${m.bg} flex items-center justify-center shadow-sm`}>
-                <i className={`${m.icon} text-white text-lg`}></i>
-              </span>
-              <span className="text-[10.5px] font-semibold text-foreground-700 whitespace-nowrap">{m.label}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ═══ 1.7 개인 바로가기 — 빠른 메뉴 바로 아래에서 로그인 사용자 전용 기능도 즉시 노출 ═══ */}
-      {user && profile && (
-        <section className="max-w-6xl mx-auto px-4 md:px-6 mt-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-foreground-700 flex items-center gap-1.5">
-              <i className="ri-user-line text-foreground-500"></i>
-              {profile.name}님의 바로가기
-            </h2>
-          </div>
-          <div className="grid grid-cols-4 md:grid-cols-6 gap-x-2 gap-y-4">
-            {[
-              { label: '말씀 스트릭', icon: 'ri-fire-line', path: '/bible-streak', bg: 'from-orange-400 to-amber-500' },
-              { label: '버킷리스트', icon: 'ri-todo-line', path: '/bucket-list', bg: 'from-emerald-400 to-teal-500' },
-              { label: '회개 저널', icon: 'ri-hand-heart-line', path: '/repentance-journal', bg: 'from-rose-400 to-pink-500' },
-              { label: '개인 일정', icon: 'ri-calendar-check-line', path: '/personal-schedule', bg: 'from-secondary-400 to-violet-500' },
-              { label: '스토리북', icon: 'ri-bookmark-line', path: '/faith-storybook', bg: 'from-amber-400 to-yellow-500' },
-            ].map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
-              >
-                <span className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${item.bg} flex items-center justify-center shadow-sm`}>
-                  <i className={`${item.icon} text-white text-lg`}></i>
-                </span>
-                <span className="text-[10.5px] font-semibold text-foreground-700 whitespace-nowrap">{item.label}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* ═══ 2. 공지사항 + 달력 그리드 ═══ */}
       <section className="max-w-6xl mx-auto px-4 md:px-6 mt-8 mb-8">
         {/* 모바일 전용: 공지 · 일정 · 강학뉴스 탭 — 세로로 다 펼치지 않고 하나씩 전환 */}
@@ -1018,48 +1037,52 @@ export default function Home() {
       </section>
 
 
-      {/* ═══ 5. 이달의 성경퀴즈 챔피언 ═══ */}
-      {monthlyChampion && (
+      {/* ═══ 5. 이달의 동아리 챔피언 (성경퀴즈 · 성경완독) ═══ */}
+      {(monthlyChampion || marathonChampion) && (
         <section className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
               <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-amber-100"><i className="ri-trophy-line text-amber-600 text-sm"></i></span>
-              {new Date().getMonth() + 1}월 성경퀴즈 챔피언
+              {new Date().getMonth() + 1}월 동아리 챔피언
             </h2>
-            <Link to="/bible-quiz" className="text-xs text-amber-600 hover:text-amber-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">퀴즈 도전 <i className="ri-arrow-right-s-line text-sm"></i></Link>
-          </div>
-          {/* 모바일: 트로피 하이라이트 카드 하나로 압축 */}
-          <div className="md:hidden relative rounded-[20px] overflow-hidden bg-gradient-to-br from-amber-400 via-amber-500 to-accent-500 p-4 shadow-card-lg">
-            <div className="absolute -right-5 -top-5 w-28 h-28 rounded-full bg-background-100/10"></div>
-            <div className="relative flex items-center gap-3 mb-3">
-              <div className="w-11 h-11 rounded-full bg-background-100/25 backdrop-blur flex items-center justify-center flex-shrink-0">
-                <i className="ri-trophy-fill text-2xl text-white"></i>
-              </div>
-              <div className="min-w-0">
-                <p className="text-white/90 text-[11px] font-semibold">{new Date().getMonth() + 1}월 1위 동아리</p>
-                <p className="text-white font-black text-lg truncate">{monthlyChampion.topClub.club_name}</p>
-              </div>
-            </div>
-            <div className="relative flex items-center justify-between bg-background-100/15 backdrop-blur rounded-2xl px-3.5 py-2.5">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <i className="ri-vip-crown-fill text-white text-sm flex-shrink-0"></i>
-                <span className="text-white text-sm font-bold truncate">{monthlyChampion.topPlayer.nickname}</span>
-                <span className="text-white/70 text-xs truncate">{monthlyChampion.topPlayer.club_name}</span>
-              </div>
-              <span className="text-white text-xs font-bold flex-shrink-0 ml-2">{monthlyChampion.topPlayer.total_score.toLocaleString()}점</span>
-            </div>
           </div>
 
-          <div className="hidden md:grid md:grid-cols-2 gap-3">
-            <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0"><i className="ri-shield-star-line text-2xl text-amber-600"></i></div>
-              <div><p className="text-xs font-semibold text-amber-700 mb-0.5">이달의 1위 동아리</p><p className="text-lg font-black text-foreground-950">{monthlyChampion.topClub.club_name}</p><p className="text-xs text-foreground-500">{monthlyChampion.topClub.total_score.toLocaleString()}점</p></div>
-            </div>
-            <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200 rounded-2xl">
-              <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0"><i className="ri-vip-crown-line text-2xl text-rose-500"></i></div>
-              <div><p className="text-xs font-semibold text-rose-700 mb-0.5">이달의 MVP</p><p className="text-lg font-black text-foreground-950">{monthlyChampion.topPlayer.nickname}</p><p className="text-xs text-foreground-500">{monthlyChampion.topPlayer.club_name} · {monthlyChampion.topPlayer.total_score.toLocaleString()}점</p></div>
-            </div>
+          {/* 성경퀴즈 1위 동아리 · 성경완독 1위 동아리 — 나란히 표시 */}
+          <div className="grid grid-cols-2 gap-2.5 md:gap-3">
+            {monthlyChampion && (
+              <Link to="/bible-quiz" className="relative rounded-2xl md:rounded-[20px] overflow-hidden bg-gradient-to-br from-amber-400 via-amber-500 to-accent-500 p-3.5 md:p-4 shadow-card-lg cursor-pointer">
+                <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-background-100/10"></div>
+                <div className="relative flex items-center gap-2 mb-2.5">
+                  <div className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/25 backdrop-blur flex items-center justify-center flex-shrink-0">
+                    <i className="ri-trophy-fill text-lg md:text-2xl text-white"></i>
+                  </div>
+                  <p className="text-white/90 text-[10px] md:text-[11px] font-semibold leading-tight">{new Date().getMonth() + 1}월<br className="md:hidden" /> 성경퀴즈 1위</p>
+                </div>
+                <p className="relative text-white font-black text-base md:text-lg truncate">{monthlyChampion.topClub.club_name}</p>
+                <p className="relative text-white/80 text-[11px] md:text-xs font-semibold mt-0.5">{monthlyChampion.topClub.total_score.toLocaleString()}점</p>
+              </Link>
+            )}
+            {marathonChampion && (
+              <Link to="/bible-marathon" className="relative rounded-2xl md:rounded-[20px] overflow-hidden bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-500 p-3.5 md:p-4 shadow-card-lg cursor-pointer">
+                <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-background-100/10"></div>
+                <div className="relative flex items-center gap-2 mb-2.5">
+                  <div className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/25 backdrop-blur flex items-center justify-center flex-shrink-0">
+                    <i className="ri-book-open-fill text-lg md:text-2xl text-white"></i>
+                  </div>
+                  <p className="text-white/90 text-[10px] md:text-[11px] font-semibold leading-tight">{new Date().getMonth() + 1}월<br className="md:hidden" /> 성경완독 1위</p>
+                </div>
+                <p className="relative text-white font-black text-base md:text-lg truncate">{marathonChampion.label}</p>
+                <p className="relative text-white/80 text-[11px] md:text-xs font-semibold mt-0.5">{marathonChampion.chapters.toLocaleString()}장 완독</p>
+              </Link>
+            )}
           </div>
+
+          {monthlyChampion?.topPlayer && (
+            <div className="mt-2.5 md:mt-3 flex items-center gap-4 p-3.5 md:p-4 bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200 rounded-2xl">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0"><i className="ri-vip-crown-line text-xl md:text-2xl text-rose-500"></i></div>
+              <div className="min-w-0"><p className="text-xs font-semibold text-rose-700 mb-0.5">이달의 퀴즈 MVP</p><p className="text-base md:text-lg font-black text-foreground-950 truncate">{monthlyChampion.topPlayer.nickname}</p><p className="text-xs text-foreground-500 truncate">{monthlyChampion.topPlayer.club_name} · {monthlyChampion.topPlayer.total_score.toLocaleString()}점</p></div>
+            </div>
+          )}
         </section>
       )}
 
