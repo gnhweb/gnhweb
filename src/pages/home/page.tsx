@@ -245,6 +245,9 @@ export default function Home() {
   const [allMembersTotal, setAllMembersTotal] = useState(0);
   const attendanceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);;
 
+  // 모바일: 공지·일정·강학뉴스를 세로로 다 펼치지 않고 탭으로 전환해서 봄
+  const [homeTab, setHomeTab] = useState<'notice' | 'schedule' | 'news'>('notice');
+
   // 달력
   const today = new Date();
   const [calYear, setCalYear] = useState(today.getFullYear());
@@ -651,12 +654,89 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ═══ 1.6 빠른 메뉴 — 스크롤 없이 핵심 기능 바로가기 ═══ */}
+      <section className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 mt-5">
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-x-2 gap-y-4 md:gap-3">
+          {[
+            { label: '공지사항', icon: 'ri-megaphone-line', path: '/notices', bg: 'from-rose-400 to-rose-500' },
+            { label: '일정', icon: 'ri-calendar-event-line', path: '/schedule', bg: 'from-secondary-400 to-secondary-500' },
+            { label: '동아리', icon: 'ri-group-line', path: '/clubs', bg: 'from-emerald-400 to-emerald-500' },
+            { label: '강학뉴스', icon: 'ri-newspaper-line', path: '/ganghak-news', bg: 'from-sky-400 to-sky-500' },
+            { label: '말씀뽑기', icon: 'ri-book-open-line', path: '/bible-pick', bg: 'from-amber-400 to-amber-500' },
+            { label: '성경퀴즈', icon: 'ri-question-answer-line', path: '/bible-quiz', bg: 'from-violet-400 to-violet-500' },
+            { label: '게시판', icon: 'ri-chat-3-line', path: '/qna-board', bg: 'from-primary-400 to-primary-500' },
+            { label: '신앙일지', icon: 'ri-edit-line', path: '/faith-journal', bg: 'from-orange-400 to-orange-500' },
+          ].map((m) => (
+            <Link
+              key={m.path}
+              to={m.path}
+              className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
+            >
+              <span className={`w-12 h-12 md:w-13 md:h-13 rounded-2xl bg-gradient-to-br ${m.bg} flex items-center justify-center shadow-sm`}>
+                <i className={`${m.icon} text-white text-lg`}></i>
+              </span>
+              <span className="text-[10.5px] font-semibold text-foreground-700 whitespace-nowrap">{m.label}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══ 1.7 개인 바로가기 — 빠른 메뉴 바로 아래에서 로그인 사용자 전용 기능도 즉시 노출 ═══ */}
+      {user && profile && (
+        <section className="max-w-6xl mx-auto px-4 md:px-6 mt-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-foreground-700 flex items-center gap-1.5">
+              <i className="ri-user-line text-foreground-500"></i>
+              {profile.name}님의 바로가기
+            </h2>
+          </div>
+          <div className="grid grid-cols-4 md:grid-cols-6 gap-x-2 gap-y-4">
+            {[
+              { label: '말씀 스트릭', icon: 'ri-fire-line', path: '/bible-streak', bg: 'from-orange-400 to-amber-500' },
+              { label: '버킷리스트', icon: 'ri-todo-line', path: '/bucket-list', bg: 'from-emerald-400 to-teal-500' },
+              { label: '회개 저널', icon: 'ri-hand-heart-line', path: '/repentance-journal', bg: 'from-rose-400 to-pink-500' },
+              { label: '개인 일정', icon: 'ri-calendar-check-line', path: '/personal-schedule', bg: 'from-secondary-400 to-violet-500' },
+              { label: '스토리북', icon: 'ri-bookmark-line', path: '/faith-storybook', bg: 'from-amber-400 to-yellow-500' },
+            ].map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className="flex flex-col items-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
+              >
+                <span className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${item.bg} flex items-center justify-center shadow-sm`}>
+                  <i className={`${item.icon} text-white text-lg`}></i>
+                </span>
+                <span className="text-[10.5px] font-semibold text-foreground-700 whitespace-nowrap">{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ═══ 2. 공지사항 + 달력 그리드 ═══ */}
       <section className="max-w-6xl mx-auto px-4 md:px-6 mt-8 mb-8">
+        {/* 모바일 전용: 공지 · 일정 · 강학뉴스 탭 — 세로로 다 펼치지 않고 하나씩 전환 */}
+        <div className="lg:hidden flex items-center gap-1 mb-4 bg-background-100 border border-background-200 rounded-full p-1">
+          {[
+            { key: 'notice' as const, label: '공지', icon: 'ri-megaphone-line' },
+            { key: 'schedule' as const, label: '일정', icon: 'ri-calendar-event-line' },
+            { key: 'news' as const, label: '강학뉴스', icon: 'ri-newspaper-line' },
+          ].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setHomeTab(t.key)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                homeTab === t.key ? 'bg-background-50 text-primary-700 shadow-sm' : 'text-foreground-500'
+              }`}
+            >
+              <i className={t.icon}></i>{t.label}
+            </button>
+          ))}
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
           {/* ── 공지사항 ── */}
-          <div className="lg:col-span-3">
+          <div className={`lg:col-span-3 ${homeTab === 'notice' ? 'block' : 'hidden'} lg:block`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
                 <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary-100"><i className="ri-megaphone-line text-primary-600 text-sm"></i></span>
@@ -744,7 +824,7 @@ export default function Home() {
           </div>
 
           {/* ── 달력 ── */}
-          <div className="lg:col-span-2">
+          <div className={`lg:col-span-2 ${homeTab === 'schedule' ? 'block' : 'hidden'} lg:block`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
                 <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-secondary-100"><i className="ri-calendar-event-line text-secondary-600 text-sm"></i></span>
@@ -818,6 +898,42 @@ export default function Home() {
               )}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ═══ 2.5 강학뉴스 — 모바일에서는 위 탭의 '강학뉴스'가 선택됐을 때만, 데스크톱에서는 항상 노출 ═══ */}
+      <section className={`max-w-6xl mx-auto px-4 md:px-6 mb-8 ${homeTab === 'news' ? 'block' : 'hidden'} lg:block`}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
+            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-sky-100"><i className="ri-newspaper-line text-sky-600 text-sm"></i></span>
+            강학뉴스
+          </h2>
+          <Link to="/ganghak-news" className="text-xs text-sky-600 hover:text-sky-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">전체보기 <i className="ri-arrow-right-s-line text-sm"></i></Link>
+        </div>
+
+        <div className="bg-background-100 border border-background-200 rounded-2xl">
+          {newsItems.length === 0 ? (
+            <div className="p-8 text-center text-foreground-400 text-sm">
+              <i className="ri-newspaper-line text-3xl text-foreground-300 block mb-3"></i>
+              아직 등록된 뉴스가 없어요
+            </div>
+          ) : (
+            newsItems.map((item, i) => (
+              <Link key={item.id} to={`/ganghak-news/${item.id}`} className={`flex items-start gap-3 px-4 py-3.5 hover:bg-background-50 transition-colors cursor-pointer group ${i < newsItems.length - 1 ? 'border-b border-background-100' : ''}`}>
+                <div className="flex-shrink-0 mt-0.5">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-sky-100 text-sky-600 text-[9px] font-bold">{i + 1}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[10px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">{item.category}</span>
+                    <p className="text-sm font-medium text-foreground-800 truncate group-hover:text-sky-700 transition-colors">{item.title}</p>
+                  </div>
+                  <p className="text-xs text-foreground-400">{item.author_name} · {timeAgo(item.created_at)}</p>
+                </div>
+                <i className="ri-arrow-right-s-line text-foreground-300 group-hover:text-sky-400 flex-shrink-0 mt-0.5 transition-colors"></i>
+              </Link>
+            ))
+          )}
         </div>
       </section>
 
@@ -901,41 +1017,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ═══ 4. 강학뉴스 (이전: 우리의 비전) ═══ */}
-      <section className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
-            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-sky-100"><i className="ri-newspaper-line text-sky-600 text-sm"></i></span>
-            강학뉴스
-          </h2>
-          <Link to="/ganghak-news" className="text-xs text-sky-600 hover:text-sky-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">전체보기 <i className="ri-arrow-right-s-line text-sm"></i></Link>
-        </div>
-
-        <div className="bg-background-100 border border-background-200 rounded-2xl">
-          {newsItems.length === 0 ? (
-            <div className="p-8 text-center text-foreground-400 text-sm">
-              <i className="ri-newspaper-line text-3xl text-foreground-300 block mb-3"></i>
-              아직 등록된 뉴스가 없어요
-            </div>
-          ) : (
-            newsItems.map((item, i) => (
-              <Link key={item.id} to={`/ganghak-news/${item.id}`} className={`flex items-start gap-3 px-4 py-3.5 hover:bg-background-50 transition-colors cursor-pointer group ${i < newsItems.length - 1 ? 'border-b border-background-100' : ''}`}>
-                <div className="flex-shrink-0 mt-0.5">
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-sky-100 text-sky-600 text-[9px] font-bold">{i + 1}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[10px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">{item.category}</span>
-                    <p className="text-sm font-medium text-foreground-800 truncate group-hover:text-sky-700 transition-colors">{item.title}</p>
-                  </div>
-                  <p className="text-xs text-foreground-400">{item.author_name} · {timeAgo(item.created_at)}</p>
-                </div>
-                <i className="ri-arrow-right-s-line text-foreground-300 group-hover:text-sky-400 flex-shrink-0 mt-0.5 transition-colors"></i>
-              </Link>
-            ))
-          )}
-        </div>
-      </section>
 
       {/* ═══ 5. 이달의 성경퀴즈 챔피언 ═══ */}
       {monthlyChampion && (
@@ -982,38 +1063,6 @@ export default function Home() {
         </section>
       )}
 
-      {/* ═══ 6. 개인 바로가기 ═══ */}
-      {user && profile && (
-        <section className="max-w-6xl mx-auto px-4 md:px-6 mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
-              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-background-200"><i className="ri-user-line text-foreground-600 text-sm"></i></span>
-              {profile.name}님의 바로가기
-            </h2>
-          </div>
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5">
-            {[
-              { label: '신앙 일지', icon: 'ri-edit-line', path: '/faith-journal', color: 'text-primary-600 bg-primary-50', gradient: 'max-md:from-primary-400 max-md:to-primary-600' },
-              { label: '말씀 스트릭', icon: 'ri-fire-line', path: '/bible-streak', color: 'text-orange-600 bg-orange-50', gradient: 'max-md:from-orange-400 max-md:to-amber-500' },
-              { label: '버킷리스트', icon: 'ri-todo-line', path: '/bucket-list', color: 'text-emerald-600 bg-emerald-50', gradient: 'max-md:from-emerald-400 max-md:to-teal-500' },
-              { label: '회개 저널', icon: 'ri-hand-heart-line', path: '/repentance-journal', color: 'text-rose-600 bg-rose-50', gradient: 'max-md:from-rose-400 max-md:to-pink-500' },
-              { label: '개인 일정', icon: 'ri-calendar-check-line', path: '/personal-schedule', color: 'text-secondary-600 bg-secondary-50', gradient: 'max-md:from-secondary-400 max-md:to-violet-500' },
-              { label: '스토리북', icon: 'ri-bookmark-line', path: '/faith-storybook', color: 'text-amber-600 bg-amber-50', gradient: 'max-md:from-amber-400 max-md:to-yellow-500' },
-            ].map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex flex-col items-center gap-1.5 p-3 max-md:p-0 rounded-xl cursor-pointer transition-all hover:scale-105 active:scale-95 ${item.color} max-md:bg-transparent`}
-              >
-                <span className={`w-11 h-11 rounded-full flex items-center justify-center max-md:bg-gradient-to-br ${item.gradient} max-md:shadow-card`}>
-                  <i className={`${item.icon} text-xl max-md:text-white`}></i>
-                </span>
-                <span className="text-[11px] font-semibold whitespace-nowrap max-md:text-foreground-700">{item.label}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* ═══ 7. 오늘의 출석 현황 요약 ═══ */}
       <section className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
