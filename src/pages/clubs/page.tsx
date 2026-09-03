@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { clubs, clubIcons } from '@/mocks/clubs';
 import { supabase } from '@/lib/supabase';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface ClubDetailContent {
   description?: string;
@@ -13,6 +14,7 @@ interface ClubDetailContent {
 export default function Clubs() {
   const [clubBannerMap, setClubBannerMap] = useState<Record<string, { card_image_url: string | null }>>({});
   const [clubDetailMap, setClubDetailMap] = useState<Record<string, ClubDetailContent>>({});
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     Promise.resolve(
@@ -77,7 +79,11 @@ export default function Clubs() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8 hidden md:grid">
+        {/* 모바일/데스크톱 카드를 CSS(md:hidden)로만 나누면 둘 다 DOM에 렌더링되어 각자의
+            <img>가 뷰포트와 무관하게 항상 다운로드된다 (동아리 카드 이미지가 방문마다 2배로
+            받아졌던 원인 중 하나). isMobile로 실제 필요한 카드 레이아웃 하나만 렌더링한다. */}
+        {!isMobile && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8">
           {clubs.map((club, index) => {
             const clubBanner = clubBannerMap[club.id];
             const clubDetail = clubDetailMap[club.id];
@@ -139,9 +145,11 @@ export default function Clubs() {
             );
           })}
         </div>
+        )}
 
         {/* ── 모바일 전용: 인스타 프로필 카드 느낌의 세로 카드 리스트 ── */}
-        <div className="md:hidden space-y-4">
+        {isMobile && (
+        <div className="space-y-4">
           {clubs.map((club, index) => {
             const clubBanner = clubBannerMap[club.id];
             const clubDetail = clubDetailMap[club.id];
@@ -199,6 +207,7 @@ export default function Clubs() {
             );
           })}
         </div>
+        )}
 
         <motion.div
           initial={{ opacity: 0 }}
