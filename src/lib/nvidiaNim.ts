@@ -1,24 +1,135 @@
 import { supabase } from '@/lib/supabase';
 
-export interface QuizQuestion { id?: string; question: string; options: string[]; answer: string; explanation: string; type: 'ox' | 'initial' | 'multiple'; difficulty: 'easy' | 'normal' | 'hard'; points: number; }
+// ============================================================
+// NVIDIA NIM API → Supabase Edge Functions (서버사이드 호출)
+// API 키 노출 방지 + CORS 문제 해결
+// ============================================================
+
+export interface QuizQuestion {
+  id?: string;
+  question: string;
+  options: string[];
+  answer: string;
+  explanation: string;
+  type: 'ox' | 'initial' | 'multiple';
+  difficulty: 'easy' | 'normal' | 'hard';
+  points: number;
+}
+
 export interface PDSChecklist { plan: PDSItem[]; do: PDSItem[]; see: PDSItem[]; }
 export interface PDSItem { text: string; priority: 'high' | 'medium' | 'low'; assignee?: string; deadline?: string; }
 export interface SimbangLetter { message: string; tone: string; verseRef: string; followUpQuestions: string[]; }
 export interface MbtiResult { character: string; description: string; lesson: string; matchingPhrase: string; bibleVerse: string; traits: { label: string; value: number }[]; bestWith: string; challenge: string; }
 export interface EventIdea { title: string; ideas: string[]; bibleRef: string; }
+
+const QUIZ_DIFFICULTY_KR: Record<'easy' | 'normal' | 'hard', string> = { easy: '하', normal: '중', hard: '상' };
 const QUIZ_POINTS: Record<'easy' | 'normal' | 'hard', number> = { easy: 20, normal: 50, hard: 80 };
-const QUIZ_DIFFICULTY_KR: Record<'easy' | 'normal' | 'hard', '하' | '중' | '상'> = { easy: '하', normal: '중', hard: '상' };
+
 type QuizRow = Record<string, unknown>;
-function normalizeQuizRows(rows: unknown[], requestedDifficulty: 'easy' | 'normal' | 'hard'): QuizQuestion[] { return rows.filter((q): q is QuizRow => !!q && typeof q === 'object').filter((q) => typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4 && typeof q.answer === 'string').map((q): QuizQuestion | null => { const difficultyByRow: Record<string, 'easy' | 'normal' | 'hard'> = { '하': 'easy', '중': 'normal', '상': 'hard', easy: 'easy', normal: 'normal', hard: 'hard' }; const normalizedDifficulty = difficultyByRow[String(q.difficulty)] || requestedDifficulty; const question = q.question as string; const options = (q.options as unknown[]).filter((value): value is string => typeof value === 'string').map((value) => value.trim()); const answer = (q.answer as string).trim(); const valid = options.length === 4 && new Set(options.map((value) => value.replace(/\s+/g, ''))).size === 4 && options.some((value) => value.replace(/\s+/g, '') === answer.replace(/\s+/g, '')); if (!valid) return null; const type: QuizQuestion['type'] = q.type === 'ox' ? 'ox' : 'multiple'; return { id: typeof q.id === 'string' ? q.id : undefined, question: question.trim(), options, answer, explanation: typeof q.explanation === 'string' ? q.explanation.trim() : '', type, difficulty: normalizedDifficulty, points: QUIZ_POINTS[normalizedDifficulty] }; }).filter((q): q is QuizQuestion => q !== null); }
-function filterExcludedQuestions(rows: QuizQuestion[], excludeQuestions: string[]): QuizQuestion[] { const excluded = excludeQuestions.map((value) => value.trim().replace(/[\s\p{P}\p{S}]+/gu, '')).filter((value) => value.length >= 8); return rows.filter((q) => { const key = q.question.replace(/[\s\p{P}\p{S}]+/gu, ''); return !excluded.some((prefix) => key === prefix || key.startsWith(prefix) || prefix.startsWith(key)); }); }
-export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', excludeQuestions: string[] = []): Promise<QuizQuestion[]> { const requestedDifficulty = difficulty || 'normal'; const { data, error } = await supabase.from('quiz_questions').select('id,question,options,answer,explanation,type,difficulty,points').eq('difficulty', QUIZ_DIFFICULTY_KR[requestedDifficulty]); if (error) throw new Error('퀴즈 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.'); const normalized = filterExcludedQuestions(normalizeQuizRows(data || [], requestedDifficulty), excludeQuestions); const unique = new Map<string, QuizQuestion>(); for (const question of normalized) { const key = question.question.replace(/[\s\p{P}\p{S}]+/gu, ''); if (!unique.has(key)) unique.set(key, question); } const shuffled = [...unique.values()].sort(() => Math.random() - 0.5).slice(0, 10); if (shuffled.length < 10) throw new Error('선택한 난이도의 문제가 부족해요. 다른 난이도를 선택해주세요.'); return shuffled; }
-function eventTokens(text: string): Set<string> { const stop = new Set(['행사','학생','참여','진행','팀','친구','활동','프로그램','준비','교회','아이디어']); return new Set(text.toLowerCase().replace(/[^가-힣a-z0-9\s]/g, ' ').split(/\s+/).filter((token) => token.length >= 2 && !stop.has(token))); }
-function eventSimilarity(a: string, b: string): number { const left = eventTokens(a); const right = eventTokens(b); if (!left.size || !right.size) return 0; const intersection = [...left].filter((token) => right.has(token)).length; return intersection / new Set([...left, ...right]).size; }
-function eventStructure(text: string): string { const value = text.toLowerCase(); if (/점수|우승|대항|경쟁/.test(value)) return '경쟁형'; if (/협동|함께.*해결|공동/.test(value)) return '협동형'; if (/체험|역할극|장면/.test(value)) return '체험형'; if (/추첨|랜덤|짝/.test(value)) return '랜덤매칭형'; if (/투어|공간|스탬프/.test(value)) return '투어형'; if (/영상|포스터|콘텐츠|제작/.test(value)) return '제작형'; if (/나눔|봉사|섬김|기부/.test(value)) return '봉사형'; if (/단서|암호|미션|퀘스트/.test(value)) return '퀘스트형'; return '참여형'; }
-function hasEventDuplicates(ideas: string[]): boolean { const structures = new Map<string, number>(); for (let i = 0; i < ideas.length; i += 1) { const structure = eventStructure(ideas[i]); structures.set(structure, (structures.get(structure) || 0) + 1); if ((structures.get(structure) || 0) > 2) return true; for (let j = 0; j < i; j += 1) if (eventSimilarity(ideas[i], ideas[j]) >= 0.48) return true; } return false; }
-async function repairEventIdeasWithAi(topic: string, audience: string, budget: string, current: EventIdea): Promise<EventIdea> { if (!hasEventDuplicates(current.ideas)) return current; const system = `너는 교회 청소년부 행사 기획 전문가다. 기존 아이디어의 표현만 바꾸지 말고 실행 구조 자체를 바꿔라.\n\n반드시 지킬 것:\n- 12개 후보를 만든 뒤 최종 7개를 고른다.\n- 같은 핵심 활동을 제목만 바꿔 반복하지 않는다.\n- 경쟁형, 협동형, 미션형, 체험형, 랜덤매칭형, 퀘스트형, 투어형, 콘텐츠형, 제작형, 봉사형 중 서로 다른 구조를 최대한 사용한다.\n- 서로 다른 아이디어는 참가자의 행동, 진행 순서, 공간 사용, 경쟁/협동 방식, 결과물, 역할 중 최소 3가지가 달라야 한다.\n- 주제·대상·예산/제약을 그대로 유지하고 실제 학생회가 운영할 수 있어야 한다.\n\nJSON만 반환: {"ideas":["후보1",...,"후보12"]}`; const { data, error } = await supabase.functions.invoke('ai-gateway', { body: { task: 'event-ideas', messages: [{ role: 'system', content: system }, { role: 'user', content: `행사 주제: ${topic}\n대상: ${audience}\n예산/제약: ${budget}\n\n현재 결과가 서로 비슷하다. 실행 구조가 확실히 다른 후보 12개를 다시 만들고, 그중 좋은 7개를 반환할 수 있게 후보를 작성해라.` }], temperature: 0.95, max_tokens: 5000 } }); if (error || !data?.choices?.[0]?.message?.content) return current; try { const parsed = JSON.parse(String(data.choices[0].message.content).replace(/```json\s*/gi, '').replace(/```/g, '').trim()) as { ideas?: unknown[] }; const candidates = Array.isArray(parsed.ideas) ? parsed.ideas.filter((value): value is string => typeof value === 'string').map((value) => value.trim()).filter(Boolean) : []; const selected: string[] = []; const structures = new Set<string>(); for (const candidate of candidates) { const structure = eventStructure(candidate); const maxSimilarity = selected.length ? Math.max(...selected.map((idea) => eventSimilarity(candidate, idea))) : 0; if ((!structures.has(structure) || selected.length >= 6) && maxSimilarity < 0.48) { selected.push(candidate); structures.add(structure); } if (selected.length === 7) break; } if (selected.length === 7 && !hasEventDuplicates(selected)) return { ...current, ideas: selected }; } catch { /* keep the first result when repair output is malformed */ } return current; }
-export async function generatePlan(eventPurpose: string): Promise<PDSChecklist> { const { data, error } = await supabase.functions.invoke('nim-pds', { body: { eventPurpose } }); if (error || !data) throw new Error('행사 기획 체크리스트를 생성하지 못했어요.'); const result = data as PDSChecklist; if (result && result.plan && result.do && result.see) return result; throw new Error('체크리스트 형식이 올바르지 않아요.'); }
-export async function generateLeadershipCoaching(concern: string, tone?: 'direct' | 'empathetic'): Promise<string> { const { data, error } = await supabase.functions.invoke('nim-coaching', { body: { concern, tone: tone || 'direct' } }); if (error || !data) throw new Error('리더십 코칭을 생성하지 못했어요.'); const result = data as { advice?: string }; if (result && typeof result.advice === 'string' && result.advice.length > 5) return result.advice; throw new Error('코칭 내용을 불러오지 못했어요.'); }
-export async function writeSimbangLetter(studentName: string, situation: string, tone: string = '따뜻함'): Promise<SimbangLetter> { const { data, error } = await supabase.functions.invoke('nim-letter', { body: { studentName, situation, tone } }); if (error || !data) throw new Error('심방 편지를 생성하지 못했어요.'); const result = data as SimbangLetter; if (result && result.message) return { message: result.message, tone: result.tone || tone, verseRef: result.verseRef || '예레미야 33:3', followUpQuestions: result.followUpQuestions || [] }; throw new Error('편지 내용을 불러오지 못했어요.'); }
-export async function fetchMbtiResult(answers: string[]): Promise<MbtiResult> { const { data, error } = await supabase.functions.invoke('nim-mbti', { body: { answers } }); if (error || !data) throw new Error('MBTI 결과를 불러오지 못했어요.'); const result = data as MbtiResult; if (result && result.character) return { character: result.character, description: result.description || '', lesson: result.lesson || '', matchingPhrase: result.matchingPhrase || '', bibleVerse: result.bibleVerse || '', traits: Array.isArray(result.traits) ? result.traits : [], bestWith: result.bestWith || '', challenge: result.challenge || '' }; throw new Error('MBTI 결과 형식이 올바르지 않아요.'); }
-export async function generateEventIdeas(topic: string, audience: string, budget: string): Promise<EventIdea> { const { data, error } = await supabase.functions.invoke('nim-event-ideas', { body: { topic, audience, budget } }); if (error || !data) throw new Error('행사 아이디어를 생성하지 못했어요.'); const result = data as EventIdea; if (result && result.title && result.ideas) return repairEventIdeasWithAi(topic, audience, budget, result); throw new Error('아이디어 형식이 올바르지 않아요.'); }
+
+function normalizeQuizRows(rows: unknown[], requestedDifficulty: 'easy' | 'normal' | 'hard'): QuizQuestion[] {
+  return rows
+    .filter((q): q is QuizRow => !!q && typeof q === 'object')
+    .filter((q) => typeof q.question === 'string' && Array.isArray(q.options) && q.options.length === 4 && typeof q.answer === 'string')
+    .map((q): QuizQuestion | null => {
+      const difficultyByRow: Record<string, 'easy' | 'normal' | 'hard'> = { '하': 'easy', '중': 'normal', '상': 'hard', easy: 'easy', normal: 'normal', hard: 'hard' };
+      const normalizedDifficulty = difficultyByRow[String(q.difficulty)] || requestedDifficulty;
+      const question = q.question as string;
+      const rawOptions = q.options as unknown[];
+      const options = rawOptions.filter((value): value is string => typeof value === 'string').map((value) => value.trim());
+      const answer = (q.answer as string).trim();
+      const valid = options.length === 4 && new Set(options.map((value) => value.replace(/\s+/g, ''))).size === 4 && options.some((value) => value.replace(/\s+/g, '') === answer.replace(/\s+/g, ''));
+      if (!valid) return null;
+      const type: QuizQuestion['type'] = q.type === 'ox' ? 'ox' : 'multiple';
+      return {
+        id: typeof q.id === 'string' ? q.id : undefined,
+        question: question.trim(),
+        options,
+        answer,
+        explanation: typeof q.explanation === 'string' ? q.explanation.trim() : '',
+        type,
+        difficulty: normalizedDifficulty,
+        points: QUIZ_POINTS[normalizedDifficulty],
+      };
+    })
+    .filter((q): q is QuizQuestion => q !== null);
+}
+
+function filterExcludedQuestions(rows: QuizQuestion[], excludeQuestions: string[]): QuizQuestion[] {
+  const excluded = excludeQuestions.map((value) => value.trim().replace(/[\s\p{P}\p{S}]+/gu, '')).filter((value) => value.length >= 8);
+  return rows.filter((q) => {
+    const key = q.question.replace(/[\s\p{P}\p{S}]+/gu, '');
+    return !excluded.some((prefix) => key === prefix || key.startsWith(prefix) || prefix.startsWith(key));
+  });
+}
+
+export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', excludeQuestions: string[] = []): Promise<QuizQuestion[]> {
+  const requestedDifficulty = difficulty || 'normal';
+  const { data, error } = await supabase.functions.invoke('nim-quiz', {
+    body: { difficulty: requestedDifficulty, excludeQuestions, count: 10, source: 'site' },
+  });
+
+  if (!error && Array.isArray(data)) {
+    const normalized = normalizeQuizRows(data, requestedDifficulty);
+    if (normalized.length === 10 && normalized.every((question) => question.difficulty === requestedDifficulty && question.points === QUIZ_POINTS[requestedDifficulty])) return normalized;
+  }
+
+  const { data: dbRows, error: dbError } = await supabase
+    .from('quiz_questions_curated')
+    .select('id,question,options,answer,explanation,type,difficulty,points')
+    .eq('difficulty', QUIZ_DIFFICULTY_KR[requestedDifficulty]);
+
+  if (!dbError && dbRows) {
+    const normalized = filterExcludedQuestions(normalizeQuizRows(dbRows, requestedDifficulty), excludeQuestions);
+    const unique = new Map<string, QuizQuestion>();
+    for (const question of normalized) {
+      const key = question.question.replace(/[\s\p{P}\p{S}]+/gu, '');
+      if (!unique.has(key)) unique.set(key, question);
+    }
+    const shuffled = [...unique.values()].sort(() => Math.random() - 0.5).slice(0, 10);
+    if (shuffled.length === 10) return shuffled;
+  }
+
+  if (error || dbError) throw new Error('퀴즈 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
+  throw new Error('선택한 난이도의 문제가 부족해요. 다른 난이도를 선택해주세요.');
+}
+
+export async function generatePlan(eventPurpose: string): Promise<PDSChecklist> {
+  const { data, error } = await supabase.functions.invoke('nim-pds', { body: { eventPurpose } });
+  if (error || !data) throw new Error('행사 기획 체크리스트를 생성하지 못했어요.');
+  const result = data as PDSChecklist;
+  if (result && result.plan && result.do && result.see) return result;
+  throw new Error('체크리스트 형식이 올바르지 않아요.');
+}
+
+export async function generateLeadershipCoaching(concern: string, tone?: 'direct' | 'empathetic'): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('nim-coaching', { body: { concern, tone: tone || 'direct' } });
+  if (error || !data) throw new Error('리더십 코칭을 생성하지 못했어요.');
+  const result = data as { advice?: string };
+  if (result && typeof result.advice === 'string' && result.advice.length > 5) return result.advice;
+  throw new Error('코칭 내용을 불러오지 못했어요.');
+}
+
+export async function writeSimbangLetter(studentName: string, situation: string, tone: string = '따뜻함'): Promise<SimbangLetter> {
+  const { data, error } = await supabase.functions.invoke('nim-letter', { body: { studentName, situation, tone } });
+  if (error || !data) throw new Error('심방 편지를 생성하지 못했어요.');
+  const result = data as SimbangLetter;
+  if (result && result.message) return { message: result.message, tone: result.tone || tone, verseRef: result.verseRef || '예레미야 33:3', followUpQuestions: result.followUpQuestions || [] };
+  throw new Error('편지 내용을 불러오지 못했어요.');
+}
+
+export async function fetchMbtiResult(answers: string[]): Promise<MbtiResult> {
+  const { data, error } = await supabase.functions.invoke('nim-mbti', { body: { answers } });
+  if (error || !data) throw new Error('MBTI 결과를 불러오지 못했어요.');
+  const result = data as MbtiResult;
+  if (result && result.character) return { character: result.character, description: result.description || '', lesson: result.lesson || '', matchingPhrase: result.matchingPhrase || '', bibleVerse: result.bibleVerse || '', traits: Array.isArray(result.traits) ? result.traits : [], bestWith: result.bestWith || '', challenge: result.challenge || '' };
+  throw new Error('MBTI 결과 형식이 올바르지 않아요.');
+}
+
+export async function generateEventIdeas(topic: string, audience: string, budget: string): Promise<EventIdea> {
+  const { data, error } = await supabase.functions.invoke('nim-event-ideas', { body: { topic, audience, budget } });
+  if (error || !data) throw new Error('행사 아이디어를 생성하지 못했어요.');
+  const result = data as EventIdea;
+  if (result && result.title && result.ideas) return result;
+  throw new Error('아이디어 형식이 올바르지 않아요.');
+}
