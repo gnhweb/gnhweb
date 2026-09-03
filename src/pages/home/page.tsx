@@ -331,7 +331,11 @@ export default function Home() {
   // ── 이달의 동아리 챔피언(성경퀴즈 · 성경완독) 실시간 로드 ──
   // 캐시는 초기 페인트를 빠르게 하기 위한 용도일 뿐, 마운트 시 항상 최신 데이터를 다시 가져오고
   // 이후에는 Supabase Realtime 구독으로 데이터가 바뀔 때마다 즉시 갱신한다.
-  const loadQuizChampion = useCallback(() => {
+  // force=false면 캐시가 아직 유효한 동안은 네트워크 호출을 건너뛴다.
+  // (Realtime 구독이 실제 데이터 변경 시점에 loadQuizChampion(true)로 강제 갱신을 트리거하므로
+  // 컴포넌트가 재마운트될 때마다 매번 quiz-leaderboard 함수를 다시 호출할 필요가 없다.)
+  const loadQuizChampion = useCallback((force = false) => {
+    if (!force && readQuizLeaderboardCache()) return;
     supabase.functions.invoke('quiz-leaderboard?monthly=true', {
       method: 'GET',
     }).then(({ data }) => {
@@ -405,11 +409,27 @@ export default function Home() {
     }).catch(() => {});
   }, []);
 
+  // Cached/Edge Function Egress 절감: finalize는 서버에서 무거운 집계(퀴즈+완독 전체 스캔)를
+  // 수행하므로, 이미 이번 브라우저에서 "이번 달 기준 지난달"을 확정 완료했다면 재호출하지 않는다.
+  // ignoreDuplicates 덕분에 어차피 값은 안 바뀌지만, 계산 자체(=DB read + 함수 실행)는 매번
+  // 비용이 들기 때문에 홈 화면을 왔다갔다 할 때마다(=컴포넌트 재마운트마다) 불필요하게
+  // 다시 호출되는 것을 막는다.
+  const FINALIZED_MONTH_KEY = 'home_finalized_month_v1';
+
   // 지난달을 "확정"으로 박제한다. unique(year, month, category) + ignoreDuplicates 라서
   // 이미 확정된 달이면 몇 번을 호출해도 안전하게 아무 변화가 없다(=값이 절대 바뀌지 않음).
   // 달이 바뀐 뒤 홈에 처음 들어오는 사용자가 자연스럽게 이 확정을 트리거하게 된다.
   const finalizePreviousMonth = useCallback(() => {
     const { year, month, start, end } = getPrevMonthRange();
+    const monthKey = `${year}-${month}`;
+
+    // 이 브라우저에서 이미 같은 달을 확정 요청했다면 건너뛴다 (서버 재계산 방지)
+    try {
+      if (localStorage.getItem(FINALIZED_MONTH_KEY) === monthKey) return;
+    } catch {
+      // localStorage 접근 실패 시에는 안전하게 계속 진행
+    }
+
     const qs = new URLSearchParams({
       mode: 'finalize',
       year: String(year),
@@ -420,6 +440,11 @@ export default function Home() {
     supabase.functions.invoke(`monthly-champion-snapshot?${qs}`, {
       method: 'GET',
     }).then(() => {
+      try {
+        localStorage.setItem(FINALIZED_MONTH_KEY, monthKey);
+      } catch {
+        // ignore storage errors
+      }
       loadConfirmedChampions();
     }).catch(() => {});
   }, [getPrevMonthRange, loadConfirmedChampions]);
@@ -440,7 +465,7 @@ export default function Home() {
     // 실시간 반영: 퀴즈 점수나 완독 등록/확정이 생기면 곧바로 동아리 랭킹을 다시 계산
     const quizChannel = supabase
       .channel('home-quiz-champion-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_scores' }, () => loadQuizChampion())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_scores' }, () => loadQuizChampion(true))
       .subscribe();
     const marathonChannel = supabase
       .channel('home-marathon-champion-rt')
@@ -455,11 +480,11 @@ export default function Home() {
       return nextMidnight.getTime() - now.getTime();
     })();
     const midnightTimeout = setTimeout(() => {
-      loadQuizChampion();
+      loadQuizChampion(true); // 달이 바뀌는 시점이므로 캐시 여부와 상관없이 강제 갱신
       loadMarathonChampion();
       finalizePreviousMonth(); // 자정을 넘겼으니 방금 끝난 달을 확정 스냅샷으로 박제
       midnightInterval = setInterval(() => {
-        loadQuizChampion();
+        loadQuizChampion(true);
         loadMarathonChampion();
         finalizePreviousMonth();
       }, 24 * 60 * 60 * 1000);
