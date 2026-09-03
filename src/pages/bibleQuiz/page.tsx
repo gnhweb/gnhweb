@@ -234,8 +234,8 @@ export default function BibleQuiz() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-secondary-100 border border-secondary-200 mb-5">
             <i className="ri-question-answer-line text-3xl text-secondary-600"></i>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">AI 성경 퀴즈</h1>
-          <p className="text-sm text-foreground-600">난이도를 골라 AI가 출제하는 성경 퀴즈에 도전하세요!</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground-950 mb-2">성경 퀴즈</h1>
+          <p className="text-sm text-foreground-600">난이도에 맞는 성경 문제를 골라 도전하세요!</p>
           {autoClubInfo && (
             <div className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-accent-200 bg-accent-50">
               <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ backgroundColor: `${autoClubInfo.color}20` }}>
@@ -273,7 +273,7 @@ export default function BibleQuiz() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8 mb-6">
             <div className="text-center mb-6">
               <p className="text-lg font-bold text-foreground-950 mb-1">난이도 선택</p>
-              <p className="text-sm text-foreground-500">AI가 난이도에 맞춰 문제를 출제합니다</p>
+              <p className="text-sm text-foreground-500">난이도에 맞는 문제를 준비했습니다</p>
             </div>
             <div className="mb-6">
               <label className="block text-xs font-medium text-foreground-600 mb-3 text-center">난이도를 선택하세요</label>
@@ -281,99 +281,76 @@ export default function BibleQuiz() {
                 {DIFFICULTIES.map(d => {
                   const active = difficulty === d.key;
                   return (
-                    <motion.button key={d.key} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }} onClick={() => setDifficulty(d.key)} className={`relative flex flex-col items-center gap-1.5 py-4 px-2 rounded-[20px] transition-all cursor-pointer overflow-hidden ${active ? `bg-gradient-to-br ${d.gradient} shadow-card-lg` : 'bg-background-50 border border-background-200'}`}>
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center ${active ? 'bg-background-100/25' : d.bg}`}><i className={`${d.icon} text-lg ${active ? 'text-white' : d.color}`}></i></div>
-                      <div className={`text-sm font-bold ${active ? 'text-white' : 'text-foreground-800'}`}>{d.label}</div>
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: 3 }).map((_, i) => <i key={i} className={`ri-star-fill text-[10px] ${i < d.stars ? (active ? 'text-white' : 'text-amber-400') : (active ? 'text-white/30' : 'text-background-300')}`}></i>)}
-                      </div>
-                      <div className={`text-[10px] font-medium ${active ? 'text-white/85' : 'text-foreground-400'}`}>문제당 {d.scorePerQ}점</div>
+                    <motion.button key={d.key} whileTap={{ scale: 0.97 }} onClick={() => setDifficulty(d.key)} className={`p-4 rounded-[16px] border-2 transition-all ${active ? `${d.border} ${d.bg}` : 'border-background-200 bg-background-50'} cursor-pointer`}>
+                      <i className={`${d.icon} text-2xl ${active ? d.color : 'text-foreground-400'}`}></i>
+                      <p className={`mt-2 text-sm font-bold ${active ? d.color : 'text-foreground-600'}`}>{d.label}</p>
+                      <div className="flex justify-center gap-0.5 mt-1">{Array.from({ length: d.stars }).map((_, i) => <i key={i} className="ri-star-fill text-xs text-amber-400"></i>)}</div>
                     </motion.button>
                   );
                 })}
               </div>
-              <p className="text-xs text-foreground-400 text-center mt-3">
-                {difficulty === 'easy' ? '입문: 문제당 20점 — 기본 성경 상식 문제' : difficulty === 'hard' ? '도전: 문제당 80점 — 높은 점수와 함께 심화 문제' : '보통: 문제당 50점 — 중급 성경 지식 문제'}
-              </p>
             </div>
-            <button onClick={() => startQuiz()} disabled={isLoading} className="w-full py-3.5 rounded-[20px] bg-secondary-500 text-background-50 font-semibold text-base hover:bg-secondary-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap">
-              <i className="ri-play-circle-line text-lg"></i>{isLoading ? '문제 불러오는 중...' : '퀴즈 시작하기'}
+            <button onClick={startQuiz} disabled={isLoading} className="w-full py-4 rounded-[16px] bg-primary-600 text-white font-bold text-base hover:bg-primary-700 transition-colors disabled:opacity-50 cursor-pointer">
+              {isLoading ? '문제를 불러오는 중...' : '퀴즈 시작하기'}
             </button>
-            {error && <div className="mt-4 p-3 rounded-xl bg-accent-100 border border-accent-200 text-sm text-accent-700 flex items-start gap-2"><i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i><span>{error}</span></div>}
+            {error && <p className="mt-4 text-sm text-rose-600 text-center">{error}</p>}
           </motion.div>
         )}
-
-        {isLoading && questions.length === 0 && <div className="flex items-center justify-center py-8"><div className="w-6 h-6 rounded-full border-2 border-secondary-400 border-t-transparent animate-spin mr-3"></div><span className="text-sm text-foreground-500">문제 준비 중...</span></div>}
 
         {questions.length > 0 && !showResult && (
-          <motion.div key={currentQ} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35 }} className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <button onClick={handleBackToDifficulty} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-background-200 text-xs font-medium text-foreground-600 hover:bg-background-300 transition-colors cursor-pointer"><i className="ri-arrow-left-line text-sm"></i><span>뒤로가기</span></button>
-              <div className="flex items-center gap-2">
-                {streak >= 2 && <span className="text-xs font-bold text-amber-600 flex items-center gap-1"><i className="ri-fire-line"></i> x{streak}</span>}
-                <div className={`text-xs font-bold px-2 py-1 rounded-full ${timer <= 5 ? 'bg-rose-100 text-rose-600' : 'bg-background-200 text-foreground-600'}`}>{timer}s</div>
+          <AnimatePresence mode="wait">
+            <motion.div key={currentQ} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-semibold text-foreground-600">문제 {currentQ + 1} / {questions.length}</span>
+                <div className="flex items-center gap-2"><i className="ri-time-line text-primary-600"></i><span className="font-bold text-primary-600">{timer}초</span></div>
               </div>
-            </div>
-            <div className="mb-3">
-              <div className="flex items-center justify-between mb-1.5"><span className="text-xs font-bold text-foreground-600">{currentQ + 1} / {questions.length}</span><span className={`text-xs px-2.5 py-1 rounded-full font-bold ${questions[currentQ]?.type === 'ox' ? 'bg-primary-100 text-primary-700' : 'bg-secondary-100 text-secondary-700'}`}>{questions[currentQ]?.type === 'ox' ? 'O/X' : '객관식'}</span></div>
-              <div className="h-2.5 rounded-full bg-background-200 overflow-hidden"><motion.div initial={{ width: 0 }} animate={{ width: `${((currentQ + (selectedAnswer !== null ? 1 : 0)) / questions.length) * 100}%` }} transition={{ duration: 0.4, ease: 'easeOut' }} className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500"></motion.div></div>
-            </div>
-            <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8">
-              <p className="text-xl font-bold text-foreground-950 mb-6 text-center leading-snug">{questions[currentQ]?.question}</p>
-              <div className="space-y-3">
-                {questions[currentQ]?.options.map((option, idx) => {
-                  const isSelected = selectedAnswer === option;
-                  const isCorrectAnswer = option === questions[currentQ]?.answer;
-                  const isTimeout = selectedAnswer === 'TIMEOUT';
-                  const isWrongPick = isSelected && !isCorrect;
-                  const isHighlightedCorrect = (isSelected && isCorrect) || (!isSelected && (isCorrect !== null || isTimeout) && isCorrectAnswer);
-                  let cardStyle = 'border-2 border-background-200 bg-background-50';
-                  let textStyle = 'text-foreground-800';
-                  if (isHighlightedCorrect) { cardStyle = 'border-2 border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-500'; textStyle = 'text-emerald-900 dark:text-emerald-100'; }
-                  else if (isWrongPick) { cardStyle = 'border-2 border-rose-400 bg-rose-50 dark:bg-rose-950/40 dark:border-rose-500'; textStyle = 'text-rose-900 dark:text-rose-100'; }
-                  return (
-                    <motion.button key={idx} initial={{ opacity: 0, y: 8 }} animate={isWrongPick ? { opacity: 1, y: 0, x: [0, -6, 6, -4, 4, 0] } : { opacity: 1, y: 0 }} whileTap={selectedAnswer === null ? { scale: 0.97 } : undefined} transition={{ duration: isWrongPick ? 0.4 : 0.25, delay: isWrongPick ? 0 : idx * 0.06 }} onClick={() => handleAnswer(option)} disabled={selectedAnswer !== null} className={`w-full min-h-[56px] text-left px-4 py-4 rounded-2xl transition-colors duration-150 cursor-pointer group ${cardStyle}`}>
-                      <div className="flex items-center gap-3"><div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${isSelected && isCorrect ? 'bg-emerald-500' : isWrongPick ? 'bg-rose-500' : 'bg-background-200'}`}><span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-foreground-600'}`}>{idx + 1}</span></div><span className={`text-base font-semibold flex-1 ${textStyle}`}>{option}</span>{isSelected && isCorrect && <i className="ri-check-line text-emerald-500 text-xl"></i>}{isWrongPick && <i className="ri-close-line text-rose-500 text-xl"></i>}{!isSelected && (isCorrect !== null || isTimeout) && isCorrectAnswer && <i className="ri-check-line text-emerald-500 text-xl"></i>}</div>
-                    </motion.button>
-                  );
-                })}
+              <div className="h-1.5 rounded-full bg-background-200 overflow-hidden mb-6"><div className="h-full bg-primary-500 transition-all" style={{ width: `${((currentQ + 1) / questions.length) * 100}%` }} /></div>
+              <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8">
+                <div className="flex items-center gap-2 mb-5"><span className="px-3 py-1 rounded-full bg-secondary-100 text-secondary-700 text-xs font-bold">{diffInfo?.label}</span><span className="text-xs text-foreground-400">{scorePerQ}점</span></div>
+                <h2 className="text-lg md:text-xl font-bold text-foreground-950 leading-relaxed mb-6">{questions[currentQ].question}</h2>
+                <div className="space-y-3">
+                  {questions[currentQ].options.map((option, index) => {
+                    const selected = selectedAnswer === option;
+                    const correctOption = option === questions[currentQ].answer;
+                    let classes = 'border-background-200 bg-background-50 hover:border-primary-300 hover:bg-primary-50';
+                    if (selected && isCorrect) classes = 'border-emerald-400 bg-emerald-50';
+                    else if (selected && !isCorrect) classes = 'border-rose-400 bg-rose-50';
+                    else if (selectedAnswer !== null && correctOption) classes = 'border-emerald-400 bg-emerald-50';
+                    return <button key={`${option}-${index}`} onClick={() => handleAnswer(option)} disabled={selectedAnswer !== null} className={`w-full text-left p-4 rounded-[14px] border-2 transition-all flex items-center gap-3 ${classes} disabled:cursor-default cursor-pointer`}><span className="w-8 h-8 rounded-full bg-background-200 flex items-center justify-center text-sm font-bold text-foreground-600 shrink-0">{String.fromCharCode(65 + index)}</span><span className="text-sm md:text-base font-medium text-foreground-800">{option}</span>{selected && <i className={`${isCorrect ? 'ri-check-line text-emerald-600' : 'ri-close-line text-rose-600'} ml-auto text-xl`}></i>}</button>;
+                  })}
+                </div>
+                {selectedAnswer !== null && (
+                  <div className={`mt-5 p-4 rounded-[14px] ${isCorrect ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}>
+                    <p className={`text-sm font-bold ${isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>{isCorrect ? '정답이에요!' : `아쉬워요. 정답은 ${questions[currentQ].answer}이에요.`}</p>
+                    {questions[currentQ].explanation && <p className="mt-1.5 text-sm text-foreground-700 leading-relaxed">{questions[currentQ].explanation}</p>}
+                  </div>
+                )}
+                <div className="mt-5 flex justify-between items-center">
+                  <button onClick={() => setShowReportModal(true)} className="text-xs text-foreground-400 hover:text-foreground-600 cursor-pointer"><i className="ri-error-warning-line mr-1"></i>문제 신고</button>
+                  {selectedAnswer !== null && <button onClick={nextQuestion} className="px-5 py-3 rounded-[13px] bg-primary-600 text-white font-bold text-sm cursor-pointer">{currentQ < questions.length - 1 ? '다음 문제' : '결과 보기'}</button>}
+                </div>
               </div>
-              {selectedAnswer === 'TIMEOUT' && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto'}} className="mt-5 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700"><div className="flex items-center gap-2 mb-1"><i className="ri-time-line text-amber-600 dark:text-amber-300"></i><span className="text-xs font-bold text-amber-700 dark:text-amber-200">시간 초과!</span></div><p className="text-sm text-foreground-900 dark:text-amber-50 leading-relaxed">정답은 <strong>{questions[currentQ]?.answer}</strong>였어요. {questions[currentQ]?.explanation}</p></motion.div>}
-              {isCorrect !== null && selectedAnswer !== 'TIMEOUT' && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className={`mt-5 p-4 rounded-xl ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-700' : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-700'}`}><div className="flex items-center gap-2 mb-1"><i className={`text-sm ${isCorrect ? 'ri-check-line text-emerald-600 dark:text-emerald-300' : 'ri-information-line text-rose-600 dark:text-rose-300'}`}></i><span className={`text-xs font-bold ${isCorrect ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'}`}>{isCorrect ? `정답! (+${questions[currentQ]?.points || scorePerQ}점)` : '틀렸어요'}</span></div><p className={`text-sm leading-relaxed ${isCorrect ? 'text-emerald-950 dark:text-emerald-50' : 'text-rose-950 dark:text-rose-50'}`}>{questions[currentQ]?.explanation}</p></motion.div>}
-              {selectedAnswer !== null && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-5 text-center"><button onClick={nextQuestion} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-secondary-500 text-background-50 font-semibold text-sm hover:bg-secondary-600 transition-all duration-300 cursor-pointer whitespace-nowrap">{currentQ < questions.length - 1 ? '다음 문제' : '결과 보기'}<i className="ri-arrow-right-line"></i></button></motion.div>}
-              <div className="mt-5 text-center"><button onClick={() => setShowReportModal(true)} className="inline-flex items-center gap-1.5 text-xs text-foreground-400 hover:text-rose-500 transition-colors cursor-pointer whitespace-nowrap"><i className="ri-flag-2-line"></i>문제가 이상해요! (제보하기)</button></div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </AnimatePresence>
         )}
 
-        <AnimatePresence>
-          {showResult && (
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-background-100 border border-background-200 rounded-[20px] p-6 md:p-8 text-center">
-              <div className="w-20 h-20 rounded-full bg-secondary-100 border-4 border-secondary-200 flex items-center justify-center mx-auto mb-5"><i className="ri-trophy-line text-4xl text-secondary-600"></i></div>
-              <h2 className="text-xl font-bold text-foreground-950 mb-2">퀴즈 완료!</h2>
-              <p className="text-xs text-foreground-500 mb-4">{autoClubInfo && <span>{autoClubInfo.name} · </span>}난이도: {difficulty === 'easy' ? '입문' : difficulty === 'hard' ? '도전' : '보통'} · 문제당 {scorePerQ}점</p>
-              <div className="flex items-center justify-center gap-4 mb-4"><div className="text-center"><p className="text-3xl font-black text-secondary-600">{score}</p><p className="text-xs text-foreground-500">이번 점수</p></div><div className="w-px h-10 bg-background-300"></div><div className="text-center"><p className="text-3xl font-black text-foreground-800">{correctCount}/{questions.length}</p><p className="text-xs text-foreground-500">정답</p></div><div className="w-px h-10 bg-background-300"></div><div className="text-center"><p className="text-3xl font-black text-amber-500">{maxStreak}</p><p className="text-xs text-foreground-500">최대 연속</p></div></div>
-              {cumulativeStats && cumulativeStats.games_played > 0 && <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200"><div className="flex items-center justify-center gap-1 mb-2"><i className="ri-stack-line text-amber-600 text-sm"></i><span className="text-xs font-bold text-amber-700">누적 기록</span></div><div className="flex items-center justify-center gap-4"><div className="text-center"><p className="text-xl font-black text-amber-700">{cumulativeStats.total_score.toLocaleString()}</p><p className="text-xs text-amber-600">총 점수</p></div><div className="w-px h-8 bg-amber-200"></div><div className="text-center"><p className="text-xl font-black text-amber-700">{cumulativeStats.games_played}</p><p className="text-xs text-amber-600">게임 수</p></div><div className="w-px h-8 bg-amber-200"></div><div className="text-center"><p className="text-xl font-black text-amber-700">{cumulativeStats.accuracy}%</p><p className="text-xs text-amber-600">정답률</p></div></div>{savingScore && <p className="text-xs text-amber-500 mt-2">점수 저장 중...</p>}</motion.div>}
-              {(() => { const rank = getRankComment(); return <div className="flex items-center justify-center gap-2 mb-6"><i className={`${rank.icon} ${rank.color} text-xl`}></i><p className={`text-sm font-bold ${rank.color}`}>{rank.text}</p></div>; })()}
-              <div className="flex items-center justify-center gap-3 mt-6 flex-wrap"><button onClick={handleBackToDifficulty} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-secondary-500 text-background-50 font-semibold text-sm hover:bg-secondary-600 transition-all cursor-pointer whitespace-nowrap"><i className="ri-refresh-line"></i>다시 퀴즈 풀기</button><button onClick={() => setShowLeaderboard(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-50 border-2 border-amber-200 text-amber-700 font-semibold text-sm hover:bg-amber-100 transition-all cursor-pointer whitespace-nowrap"><i className="ri-trophy-line"></i>리더보드</button></div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>{showConfetti && <ConfettiOverlay />}</AnimatePresence>
-        <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />
-        <ReportQuestionModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} question={questions[currentQ] || null} />
+        {showResult && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-background-100 border border-background-200 rounded-[20px] p-8 text-center">
+            <i className={`${getRankComment().icon} text-5xl ${getRankComment().color}`}></i>
+            <h2 className="mt-4 text-2xl font-bold text-foreground-950">퀴즈 완료!</h2>
+            <p className={`mt-2 font-semibold ${getRankComment().color}`}>{getRankComment().text}</p>
+            <div className="grid grid-cols-2 gap-3 mt-6">
+              <div className="p-4 rounded-[14px] bg-background-50 border border-background-200"><p className="text-xs text-foreground-500">점수</p><p className="mt-1 text-2xl font-bold text-primary-600">{score}</p></div>
+              <div className="p-4 rounded-[14px] bg-background-50 border border-background-200"><p className="text-xs text-foreground-500">정답</p><p className="mt-1 text-2xl font-bold text-emerald-600">{correctCount} / {questions.length}</p></div>
+            </div>
+            {savingScore && <p className="mt-4 text-xs text-foreground-400">점수를 저장하고 있어요...</p>}
+            <button onClick={handleBackToDifficulty} className="mt-6 w-full py-4 rounded-[14px] bg-primary-600 text-white font-bold cursor-pointer">다시 도전하기</button>
+          </motion.div>
+        )}
       </div>
+      <LeaderboardModal open={showLeaderboard} onClose={() => setShowLeaderboard(false)} />
+      <ReportQuestionModal open={showReportModal} onClose={() => setShowReportModal(false)} question={questions[currentQ]?.question || ''} questionId={questions[currentQ]?.id} />
+      {showConfetti && <div className="fixed inset-0 pointer-events-none flex items-center justify-center"><i className="ri-star-smile-line text-6xl text-amber-400 animate-ping"></i></div>}
     </div>
-  );
-}
-
-function ConfettiOverlay() {
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
-      {Array.from({ length: 40 }).map((_, i) => (
-        <motion.div key={i} initial={{ x: 0, y: 0, opacity: 1, scale: 0 }} animate={{ x: (Math.random() - 0.5) * 500, y: (Math.random() - 0.5) * 500 - 100, opacity: 0, scale: 1, rotate: Math.random() * 720 }} transition={{ duration: 1.2 + Math.random() * 0.8, ease: 'easeOut' }} className="absolute w-3 h-3 rounded-sm" style={{ backgroundColor: ['#f59e0b', '#10b981', '#0ea5e9', '#f43f5e', '#8b5cf6', '#ec4899'][i % 6], left: '50%', top: '50%' }}></motion.div>
-      ))}
-    </motion.div>
   );
 }
