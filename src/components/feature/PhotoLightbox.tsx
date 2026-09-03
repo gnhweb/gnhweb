@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 interface PhotoLightboxProps {
   photos: string[];
+  /** 하단 필름스트립 전용 작은 이미지 URL. 없으면 photos(원본)로 폴백. */
+  thumbUrls?: string[];
   initialIndex: number;
   onClose: () => void;
   captions?: (string | null | undefined)[];
@@ -20,7 +22,7 @@ interface PhotoLightboxProps {
  * - 아래로 스와이프하거나 배경/닫기 버튼 탭으로 닫기
  * - 데스크톱: 화살표 키 이동, ESC 닫기, 마우스 휠/드래그도 지원
  */
-export default function PhotoLightbox({ photos, initialIndex, onClose, captions, onDelete, canDelete, deletingIndex }: PhotoLightboxProps) {
+export default function PhotoLightbox({ photos, thumbUrls, initialIndex, onClose, captions, onDelete, canDelete, deletingIndex }: PhotoLightboxProps) {
   const [index, setIndex] = useState(initialIndex);
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
@@ -284,7 +286,7 @@ export default function PhotoLightbox({ photos, initialIndex, onClose, captions,
                   onClick={() => goTo(i)}
                   className={`shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-colors cursor-pointer ${i === index ? 'border-white' : 'border-transparent opacity-50'}`}
                 >
-                  <img src={p} alt="" className="w-full h-full object-cover" />
+                  <img src={thumbUrls?.[i] || p} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
