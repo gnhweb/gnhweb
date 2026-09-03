@@ -27,7 +27,6 @@ export default function MemoryBoard() {
   const [photos, setPhotos] = useState<PhotoMemory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
   const [showUpload, setShowUpload] = useState(false);
@@ -37,23 +36,18 @@ export default function MemoryBoard() {
 
   useEffect(() => { loadPhotos(); }, []);
 
-  // Realtime subscription for INSERT and DELETE
   useEffect(() => {
     const channel = supabase
       .channel('memory_photos_changes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'memory_photos' }, (payload) => {
         const newPhoto = payload.new as PhotoMemory;
-        // 이미 목록에 있으면(업로드 직후 loadPhotos()로 먼저 반영된 경우) 중복 추가하지 않음
         setPhotos(prev => prev.some(p => p.id === newPhoto.id) ? prev : [newPhoto, ...prev]);
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'memory_photos' }, (payload) => {
         setPhotos(prev => prev.filter(p => p.id !== (payload.old as { id: string }).id));
       })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const loadPhotos = async () => {
@@ -76,38 +70,31 @@ export default function MemoryBoard() {
     if (!uploadFile || !uploadTitle.trim() || !profile || uploading) return;
     setUploading(true);
     setError(null);
+    let displayPath: string | null = null;
+    let thumbPath: string | null = null;
     try {
-      // 안전한 파일명 생성 (한글/특수문자 제거)
-      const ext = uploadFile.name.split('.').pop() || 'jpg';
-      const safeName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-      const path = `memories/${user!.id}/${safeName}`;
-      
-      const { error: uploadErr } = await supabase.storage.from('Public').upload(path, uploadFile, { upsert: true });
-      if (uploadErr) {
-        console.error('Storage upload error:', uploadErr);
-        throw new Error(`업로드 실패: ${uploadErr.message}`);
-      }
+      // 원본 사진은 저장하지 않고, 실제 화면 표시용 1280px JPEG와 480px 썸네일만 저장한다.
+      const safeName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`;
+      displayPath = `memories/${user!.id}/${safeName}`;
+      thumbPath = `memories/${user!.id}/${thumbFileNameFor(safeName)}`;
 
-      // 그리드/필름스트립용 작은 썸네일을 별도로 생성해 업로드한다.
-      // 썸네일 생성이 실패해도 원본 업로드는 이미 끝났으므로 게시 자체는 막지 않고,
-      // thumb_url을 null로 두어 화면에서는 원본으로 자연스럽게 폴백된다.
-      let thumbUrl: string | null = null;
-      try {
-        const thumbBlob = await resizeImageFile(uploadFile, { maxDimension: 480, quality: 0.72 });
-        const thumbPath = `memories/${user!.id}/${thumbFileNameFor(safeName)}`;
-        const { error: thumbErr } = await supabase.storage
-          .from('Public')
-          .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg' });
-        if (thumbErr) {
-          console.error('Thumbnail upload error (원본은 정상 업로드됨):', thumbErr);
-        } else {
-          thumbUrl = supabase.storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
-        }
-      } catch (thumbGenErr) {
-        console.error('Thumbnail generation error (원본은 정상 업로드됨):', thumbGenErr);
-      }
-      
-      const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
+      const [displayBlob, thumbBlob] = await Promise.all([
+        resizeImageFile(uploadFile, { maxDimension: 1280, quality: 0.78, mimeType: 'image/jpeg' }),
+        resizeImageFile(uploadFile, { maxDimension: 480, quality: 0.68, mimeType: 'image/jpeg' }),
+      ]);
+
+      const { error: displayErr } = await supabase.storage
+        .from('Public')
+        .upload(displayPath, displayBlob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
+      if (displayErr) throw new Error(`사진 업로드 실패: ${displayErr.message}`);
+
+      const { error: thumbErr } = await supabase.storage
+        .from('Public')
+        .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
+      if (thumbErr) throw new Error(`썸네일 업로드 실패: ${thumbErr.message}`);
+
+      const displayUrl = supabase.storage.from('Public').getPublicUrl(displayPath).data.publicUrl;
+      const thumbUrl = supabase.storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
 
       const { error: insertErr } = await supabase
         .from('memory_photos')
@@ -115,24 +102,27 @@ export default function MemoryBoard() {
           author_id: user!.id,
           author_name: profile.name,
           title: uploadTitle.trim(),
-          photo_url: urlData.publicUrl,
+          photo_url: displayUrl,
           thumb_url: thumbUrl,
           club: profile.club || null,
         });
-      if (insertErr) {
-        console.error('DB insert error:', insertErr);
-        throw new Error(`DB 저장 실패: ${insertErr.message}`);
-      }
-      
+      if (insertErr) throw new Error(`DB 저장 실패: ${insertErr.message}`);
+
       setUploadTitle('');
       setUploadFile(null);
       setShowUpload(false);
       await loadPhotos();
     } catch (e) {
+      // Storage 일부만 성공한 경우 즉시 정리해 고아 파일과 불필요한 저장/트래픽을 남기지 않는다.
+      const paths = [displayPath, thumbPath].filter((path): path is string => Boolean(path));
+      if (paths.length) {
+        try { await supabase.storage.from('Public').remove(paths); } catch { /* best-effort cleanup */ }
+      }
       console.error('Upload error:', e);
       setError(e instanceof Error ? e.message : '업로드 중 오류가 발생했습니다.');
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   const handleDeletePhoto = async (photo: PhotoMemory) => {
@@ -151,10 +141,7 @@ export default function MemoryBoard() {
         try { await supabase.storage.from('Public').remove(storagePaths); } catch { /* ignore storage cleanup errors */ }
       }
       const { error: deleteErr } = await supabase.from('memory_photos').delete().eq('id', photo.id);
-      if (deleteErr) {
-        console.error('DB delete error:', deleteErr);
-        throw new Error(`삭제 실패: ${deleteErr.message}`);
-      }
+      if (deleteErr) throw new Error(`삭제 실패: ${deleteErr.message}`);
       setPhotos(prev => prev.filter(p => p.id !== photo.id));
     } catch (e) {
       console.error('Delete error:', e);
@@ -205,94 +192,48 @@ export default function MemoryBoard() {
             </div>
           )}
 
-          {/* Filter — PC: 기존 유지 */}
           <div className="hidden md:flex items-center gap-2 mb-8 flex-wrap justify-center">
             <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${filter === 'all' ? 'bg-rose-500 text-white' : 'bg-background-100 text-foreground-600 hover:bg-background-200'}`}>전체 추억</button>
             {clubs.map(c => (
-              <button key={c.id} onClick={() => setFilter(filter === c.id ? 'all' : c.id)} className={`px-4 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${filter === c.id ? 'bg-rose-500 text-white' : 'bg-background-100 text-foreground-600 hover:bg-background-200'}`}>
-                {c.name}
-              </button>
+              <button key={c.id} onClick={() => setFilter(filter === c.id ? 'all' : c.id)} className={`px-4 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${filter === c.id ? 'bg-rose-500 text-white' : 'bg-background-100 text-foreground-600 hover:bg-background-200'}`}>{c.name}</button>
             ))}
           </div>
 
-          {/* Filter — 모바일: 공용 가로 스크롤 칩 */}
           <div className="md:hidden mb-6">
             <CategoryChipRow>
               <CategoryChip active={filter === 'all'} onClick={() => setFilter('all')}>전체 추억</CategoryChip>
-              {clubs.map(c => (
-                <CategoryChip key={c.id} active={filter === c.id} onClick={() => setFilter(filter === c.id ? 'all' : c.id)}>
-                  {c.name}
-                </CategoryChip>
-              ))}
+              {clubs.map(c => <CategoryChip key={c.id} active={filter === c.id} onClick={() => setFilter(filter === c.id ? 'all' : c.id)}>{c.name}</CategoryChip>)}
             </CategoryChipRow>
           </div>
 
-          {/* 그리드 — PC: 기존 2/3열 + 캡션 유지 */}
           <div className="hidden md:grid grid-cols-2 md:grid-cols-3 gap-4">
             {filteredPhotos.map((photo, idx) => (
               <motion.div key={photo.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} onClick={() => setLightboxIndex(idx)} className="group cursor-pointer rounded-xl overflow-hidden bg-background-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="aspect-[4/3] overflow-hidden">
-                  <img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                </div>
+                <div className="aspect-[4/3] overflow-hidden"><img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div>
                 <div className="p-3">
                   <p className="text-sm font-semibold text-foreground-800 truncate">{photo.title}</p>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-foreground-600">{photo.author_name}</span>
-                    <span className="text-xs text-foreground-500">{formatDateKey(photo.created_at)}</span>
-                  </div>
-                  {photo.club && (
-                    <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600">{clubs.find(c => c.id === photo.club)?.name}</span>
-                  )}
+                  <div className="flex items-center justify-between mt-1"><span className="text-xs text-foreground-600">{photo.author_name}</span><span className="text-xs text-foreground-500">{formatDateKey(photo.created_at)}</span></div>
+                  {photo.club && <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600">{clubs.find(c => c.id === photo.club)?.name}</span>}
                 </div>
               </motion.div>
             ))}
           </div>
 
-          {/* 그리드 — 모바일: 인스타그램식 3열 정사각형 갤러리 */}
           <div className="md:hidden grid grid-cols-3 gap-0.5">
             {filteredPhotos.map((photo, idx) => (
-              <motion.div
-                key={`m-${photo.id}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: Math.min(idx * 0.03, 0.3) }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setLightboxIndex(idx)}
-                className="relative aspect-square cursor-pointer overflow-hidden bg-background-100"
-              >
+              <motion.div key={`m-${photo.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(idx * 0.03, 0.3) }} whileTap={{ scale: 0.97 }} onClick={() => setLightboxIndex(idx)} className="relative aspect-square cursor-pointer overflow-hidden bg-background-100">
                 <img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
               </motion.div>
             ))}
           </div>
 
-          {filteredPhotos.length === 0 && (
-            <div className="text-center py-16">
-              <p className="text-sm text-foreground-600">아직 추억이 없어요</p>
-            </div>
-          )}
+          {filteredPhotos.length === 0 && <div className="text-center py-16"><p className="text-sm text-foreground-600">아직 추억이 없어요</p></div>}
 
-          {isEditor && (
-            <div className="text-center mt-8">
-              <button onClick={() => setShowUpload(true)} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 transition-all cursor-pointer">
-                <i className="ri-upload-line"></i> 사진 올리기
-              </button>
-            </div>
-          )}
+          {isEditor && <div className="text-center mt-8"><button onClick={() => setShowUpload(true)} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 transition-all cursor-pointer"><i className="ri-upload-line"></i> 사진 올리기</button></div>}
         </motion.div>
       </div>
 
-      {lightboxIndex !== null && (
-        <PhotoLightbox
-          photos={filteredPhotos.map(p => p.photo_url)}
-          thumbUrls={filteredPhotos.map(p => p.thumb_url || p.photo_url)}
-          captions={filteredPhotos.map(p => p.title)}
-          initialIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-          onDelete={isEditor ? handleDeleteAtIndex : undefined}
-          canDelete={isEditor ? (index) => filteredPhotos[index]?.author_id === user?.id : undefined}
-          deletingIndex={deletingIndex}
-        />
-      )}
+      {lightboxIndex !== null && <PhotoLightbox photos={filteredPhotos.map(p => p.photo_url)} thumbUrls={filteredPhotos.map(p => p.thumb_url || p.photo_url)} captions={filteredPhotos.map(p => p.title)} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onDelete={isEditor ? handleDeleteAtIndex : undefined} canDelete={isEditor ? (index) => filteredPhotos[index]?.author_id === user?.id : undefined} deletingIndex={deletingIndex} />}
 
       {showUpload && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
@@ -302,9 +243,7 @@ export default function MemoryBoard() {
             <input type="file" accept="image/*" onChange={e => setUploadFile(e.target.files?.[0] || null)} className="w-full text-sm mb-4" />
             <div className="flex gap-2">
               <button onClick={() => setShowUpload(false)} className="flex-1 py-2.5 rounded-full border border-gray-200 text-sm cursor-pointer">취소</button>
-              <button onClick={handleUpload} disabled={!uploadFile || !uploadTitle.trim() || uploading} className="flex-1 py-2.5 rounded-full bg-rose-500 text-white text-sm font-semibold disabled:opacity-40 cursor-pointer">
-                {uploading ? '업로드 중...' : '올리기'}
-              </button>
+              <button onClick={handleUpload} disabled={!uploadFile || !uploadTitle.trim() || uploading} className="flex-1 py-2.5 rounded-full bg-rose-500 text-white text-sm font-semibold disabled:opacity-40 cursor-pointer">{uploading ? '업로드 중...' : '올리기'}</button>
             </div>
           </div>
         </div>
