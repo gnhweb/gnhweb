@@ -49,6 +49,17 @@ interface MarathonClubChampion {
   chapters: number;
 }
 
+// 확정(스냅샷)된 지난달 수상 동아리 — club_monthly_champions 테이블 1행
+interface ConfirmedChampion {
+  year: number;
+  month: number;
+  category: 'quiz' | 'marathon';
+  club_key: string;
+  club_label: string;
+  value: number;
+  extra: { topPlayerNickname?: string; topPlayerClub?: string; topPlayerScore?: number } | null;
+}
+
 interface NewsItem {
   id: string;
   title: string;
@@ -276,6 +287,9 @@ export default function Home() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [monthlyChampion, setMonthlyChampion] = useState<MonthlyChampion | null>(null);
   const [marathonChampion, setMarathonChampion] = useState<MarathonClubChampion | null>(null);
+  // 확정(스냅샷)된 "지난달" 수상 동아리 — 달이 끝나면 한 번 박제되어 이후 절대 바뀌지 않음
+  const [confirmedQuiz, setConfirmedQuiz] = useState<ConfirmedChampion | null>(null);
+  const [confirmedMarathon, setConfirmedMarathon] = useState<ConfirmedChampion | null>(null);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [noticesError, setNoticesError] = useState(false);
@@ -318,9 +332,8 @@ export default function Home() {
   // 캐시는 초기 페인트를 빠르게 하기 위한 용도일 뿐, 마운트 시 항상 최신 데이터를 다시 가져오고
   // 이후에는 Supabase Realtime 구독으로 데이터가 바뀔 때마다 즉시 갱신한다.
   const loadQuizChampion = useCallback(() => {
-    supabase.functions.invoke('quiz-leaderboard', {
+    supabase.functions.invoke('quiz-leaderboard?monthly=true', {
       method: 'GET',
-      body: { monthly: 'true' },
     }).then(({ data }) => {
       if (data?.topClub && data?.topPlayer) {
         const result = { topClub: data.topClub, topPlayer: data.topPlayer } as MonthlyChampion;
@@ -370,6 +383,47 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
+  // 브라우저 로컬 시각(=한국 사용자 기준 KST) 기준으로 "지난달"의 [start, end) 자정 경계를 구한다.
+  // 서버(엣지 함수)는 시간대를 추측하지 않고 이 값을 그대로 필터 기준으로 쓴다.
+  const getPrevMonthRange = useCallback(() => {
+    const now = new Date();
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const year = prevMonthDate.getFullYear();
+    const month = prevMonthDate.getMonth() + 1; // 1-indexed
+    const start = new Date(year, month - 1, 1).toISOString();
+    const end = new Date(year, month, 1).toISOString();
+    return { year, month, start, end };
+  }, []);
+
+  // 지난달 확정 수상 동아리를 서버에서 불러온다 (홈 배너용)
+  const loadConfirmedChampions = useCallback(() => {
+    supabase.functions.invoke('monthly-champion-snapshot?mode=latest', {
+      method: 'GET',
+    }).then(({ data }) => {
+      setConfirmedQuiz((data?.quiz as ConfirmedChampion) || null);
+      setConfirmedMarathon((data?.marathon as ConfirmedChampion) || null);
+    }).catch(() => {});
+  }, []);
+
+  // 지난달을 "확정"으로 박제한다. unique(year, month, category) + ignoreDuplicates 라서
+  // 이미 확정된 달이면 몇 번을 호출해도 안전하게 아무 변화가 없다(=값이 절대 바뀌지 않음).
+  // 달이 바뀐 뒤 홈에 처음 들어오는 사용자가 자연스럽게 이 확정을 트리거하게 된다.
+  const finalizePreviousMonth = useCallback(() => {
+    const { year, month, start, end } = getPrevMonthRange();
+    const qs = new URLSearchParams({
+      mode: 'finalize',
+      year: String(year),
+      month: String(month),
+      start,
+      end,
+    }).toString();
+    supabase.functions.invoke(`monthly-champion-snapshot?${qs}`, {
+      method: 'GET',
+    }).then(() => {
+      loadConfirmedChampions();
+    }).catch(() => {});
+  }, [getPrevMonthRange, loadConfirmedChampions]);
+
   useEffect(() => {
     // 캐시가 있으면 즉시 화면에 먼저 보여주고, 뒤이어 최신 데이터로 덮어쓴다
     const cachedLeaderboard = readQuizLeaderboardCache();
@@ -379,6 +433,9 @@ export default function Home() {
 
     loadQuizChampion();
     loadMarathonChampion();
+    loadConfirmedChampions();
+    // 혹시 지난달이 아직 확정 안 됐다면(=달이 바뀐 뒤 처음 방문) 지금 확정해둔다
+    finalizePreviousMonth();
 
     // 실시간 반영: 퀴즈 점수나 완독 등록/확정이 생기면 곧바로 동아리 랭킹을 다시 계산
     const quizChannel = supabase
@@ -400,9 +457,11 @@ export default function Home() {
     const midnightTimeout = setTimeout(() => {
       loadQuizChampion();
       loadMarathonChampion();
+      finalizePreviousMonth(); // 자정을 넘겼으니 방금 끝난 달을 확정 스냅샷으로 박제
       midnightInterval = setInterval(() => {
         loadQuizChampion();
         loadMarathonChampion();
+        finalizePreviousMonth();
       }, 24 * 60 * 60 * 1000);
     }, msUntilNextMidnight);
 
@@ -412,7 +471,7 @@ export default function Home() {
       clearTimeout(midnightTimeout);
       if (midnightInterval) clearInterval(midnightInterval);
     };
-  }, [loadQuizChampion, loadMarathonChampion]);
+  }, [loadQuizChampion, loadMarathonChampion, loadConfirmedChampions, finalizePreviousMonth]);
 
   // ── 데이터 패치 ──
   useEffect(() => {
@@ -1059,15 +1118,54 @@ export default function Home() {
       </section>
 
 
-      {/* ═══ 5. 이달의 동아리 챔피언 (성경퀴즈 · 성경완독) ═══ */}
+      {/* ═══ 5-0. 확정된 지난달 수상 동아리 (외부에서 실제로 상을 주는 대상) ═══ */}
+      {(confirmedQuiz || confirmedMarathon) && (
+        <section className="max-w-6xl mx-auto px-4 md:px-6 mb-6">
+          <div className="relative overflow-hidden rounded-2xl md:rounded-[20px] border border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-4 md:p-5">
+            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-amber-200/30"></div>
+            <div className="relative flex items-center justify-between mb-3">
+              <h2 className="text-sm md:text-base font-bold text-amber-900 flex items-center gap-2">
+                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-amber-400/90"><i className="ri-award-fill text-white text-sm"></i></span>
+                {confirmedQuiz?.month ?? confirmedMarathon?.month}월 확정 수상 동아리
+              </h2>
+              <Link to="/hall-of-fame" className="text-[11px] md:text-xs font-semibold text-amber-700 hover:text-amber-800 flex items-center gap-0.5 whitespace-nowrap cursor-pointer">
+                명예의 전당 <i className="ri-arrow-right-s-line"></i>
+              </Link>
+            </div>
+            <div className="relative grid grid-cols-2 gap-2.5 md:gap-3">
+              {confirmedQuiz && (
+                <div className="rounded-xl md:rounded-2xl bg-white/70 backdrop-blur border border-amber-200 p-3 md:p-3.5">
+                  <p className="text-[10px] md:text-[11px] font-semibold text-amber-700 mb-1 flex items-center gap-1"><i className="ri-trophy-fill"></i> 성경퀴즈 1위</p>
+                  <p className="font-black text-sm md:text-base text-foreground-950 truncate">{confirmedQuiz.club_label}</p>
+                  <p className="text-[11px] text-foreground-500 mt-0.5">{confirmedQuiz.value.toLocaleString()}점</p>
+                </div>
+              )}
+              {confirmedMarathon && (
+                <div className="rounded-xl md:rounded-2xl bg-white/70 backdrop-blur border border-amber-200 p-3 md:p-3.5">
+                  <p className="text-[10px] md:text-[11px] font-semibold text-amber-700 mb-1 flex items-center gap-1"><i className="ri-book-open-fill"></i> 성경완독 1위</p>
+                  <p className="font-black text-sm md:text-base text-foreground-950 truncate">{confirmedMarathon.club_label}</p>
+                  <p className="text-[11px] text-foreground-500 mt-0.5">{confirmedMarathon.value.toLocaleString()}장 완독</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ═══ 5. 이달의 동아리 챔피언 (성경퀴즈 · 성경완독) — 실시간 진행 중 랭킹 ═══ */}
       {(monthlyChampion || marathonChampion) && (
         <section className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
               <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-amber-100"><i className="ri-trophy-line text-amber-600 text-sm"></i></span>
               {new Date().getMonth() + 1}월 동아리 챔피언
+              <span className="inline-flex items-center gap-1 ml-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                진행 중
+              </span>
             </h2>
           </div>
+          <p className="text-[11px] md:text-xs text-foreground-400 -mt-2.5 mb-3">아직 확정 전인 실시간 랭킹이에요. 이번 달이 끝나면 자동으로 확정돼요.</p>
 
           {/* 성경퀴즈 1위 동아리 · 성경완독 1위 동아리 — 나란히 표시 */}
           <div className="grid grid-cols-2 gap-2.5 md:gap-3">
