@@ -75,9 +75,8 @@ export default function BibleQuiz() {
   const fetchCumulativeStats = useCallback(async () => {
     if (!user) return;
     try {
-      const { data } = await supabase.functions.invoke('quiz-leaderboard', {
+      const { data } = await supabase.functions.invoke(`quiz-leaderboard?user_id=${encodeURIComponent(user.id)}`, {
         method: 'GET',
-        body: { user_id: user.id },
       });
       if (data) {
         setCumulativeStats(data as CumulativeStats);
