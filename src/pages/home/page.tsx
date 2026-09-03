@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { clubs } from '@/mocks/clubs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { getCachedQuoteOfTheDay, fetchAndCacheQuoteOfTheDay } from '@/lib/dailyQuote';
 import { todayKey, formatKoreanDate } from '@/lib/date';
 import { CLUB_LABELS } from '@/types/auth';
@@ -296,6 +297,7 @@ export default function Home() {
   const [schedulesLoading, setSchedulesLoading] = useState(true);
   const [schedulesError, setSchedulesError] = useState(false);
   const [clubBannerMap, setClubBannerMap] = useState<Record<string, { card_image_url: string | null }>>({}); 
+  const isMobile = useIsMobile();
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [attendanceError, setAttendanceError] = useState(false);
   const [allMembersTotal, setAllMembersTotal] = useState(0);
@@ -1072,10 +1074,14 @@ export default function Home() {
           <Link to="/clubs" className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">전체보기 <i className="ri-arrow-right-s-line text-sm"></i></Link>
         </div>
 
-        {/* 모바일: 한눈에 스와이프해서 훑어볼 수 있는 가로 캐러셀.
+        {/* 모바일/데스크톱 레이아웃을 CSS(md:hidden)로만 나누면 둘 다 DOM에 렌더링되어
+            <img> 태그가 뷰포트와 무관하게 항상 다운로드되는 문제가 있었다 (동아리 카드
+            이미지가 방문마다 2배로 받아졌던 원인). isMobile로 실제 필요한 쪽 하나만 렌더링한다. */}
+        {isMobile ? (
+        /* 모바일: 한눈에 스와이프해서 훑어볼 수 있는 가로 캐러셀.
             (기존 2열 그리드는 5개 항목이 2+2+1로 어중간하게 끊기고,
-            좁은 카드 폭 때문에 동아리 이름이 중간에 줄바꿈되는 문제가 있었음) */}
-        <div className="md:hidden -mx-4 px-4 flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1">
+            좁은 카드 폭 때문에 동아리 이름이 중간에 줄바꿈되는 문제가 있었음) */
+        <div className="-mx-4 px-4 flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1">
           {clubs.map((club) => {
             const cb = clubBannerMap[club.id];
             return (
@@ -1113,9 +1119,9 @@ export default function Home() {
             <span className="text-[11px] font-semibold text-emerald-700 text-center leading-tight">전체 동아리<br />보기</span>
           </Link>
         </div>
-
-        {/* 데스크톱: 기존 5열 그리드 유지 */}
-        <div className="hidden md:grid md:grid-cols-5 gap-4">
+        ) : (
+        /* 데스크톱: 기존 5열 그리드 유지 */
+        <div className="grid md:grid-cols-5 gap-4">
           {clubs.map((club) => {
             const cb = clubBannerMap[club.id];
             return (
@@ -1140,6 +1146,7 @@ export default function Home() {
             );
           })}
         </div>
+        )}
       </section>
 
 
