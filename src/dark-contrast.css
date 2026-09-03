@@ -1,0 +1,105 @@
+/* Global dark-mode contrast layer. The site is intentionally dark-mode only. */
+:root, html, body {
+  color-scheme: dark !important;
+}
+
+:root {
+  --background-50: 0.16 0.012 260;
+  --background-100: 0.19 0.014 260;
+  --background-200: 0.24 0.016 260;
+  --background-300: 0.29 0.018 260;
+  --background-400: 0.36 0.02 260;
+  --background-500: 0.45 0.022 260;
+  --background-600: 0.55 0.02 260;
+  --background-700: 0.66 0.018 260;
+  --background-800: 0.78 0.014 260;
+  --background-900: 0.88 0.01 260;
+  --background-950: 0.95 0.006 260;
+}
+
+html {
+  background: #0b0e1a !important;
+}
+
+body {
+  background: #0b0e1a !important;
+  color: #f8fafc !important;
+}
+
+/* Semantic foreground tokens: every shade remains readable on dark surfaces. */
+.dark {
+  --foreground-50: 0.98 0.003 260;
+  --foreground-100: 0.97 0.005 260;
+  --foreground-200: 0.95 0.008 260;
+  --foreground-300: 0.92 0.012 260;
+  --foreground-400: 0.88 0.015 260;
+  --foreground-500: 0.84 0.018 260;
+  --foreground-600: 0.80 0.02 260;
+  --foreground-700: 0.88 0.015 260;
+  --foreground-800: 0.94 0.01 260;
+  --foreground-900: 0.97 0.006 260;
+  --foreground-950: 0.99 0.003 260;
+}
+
+/* Direct Tailwind neutral text utilities are frequently used outside the semantic token system. */
+.dark [class*="text-gray-"],
+.dark [class*="text-slate-"],
+.dark [class*="text-zinc-"],
+.dark [class*="text-neutral-"],
+.dark [class*="text-stone-"] {
+  color: #e5e7eb !important;
+}
+
+.dark [class*="text-gray-50"], .dark [class*="text-gray-100"],
+.dark [class*="text-slate-50"], .dark [class*="text-slate-100"],
+.dark [class*="text-zinc-50"], .dark [class*="text-zinc-100"],
+.dark [class*="text-neutral-50"], .dark [class*="text-neutral-100"],
+.dark [class*="text-stone-50"], .dark [class*="text-stone-100"] {
+  color: #f8fafc !important;
+}
+
+/* Status/accent text must use light shades rather than dark 600/700 shades. */
+.dark [class*="text-amber-"], .dark [class*="text-yellow-"] { color: #fde68a !important; }
+.dark [class*="text-orange-"] { color: #fdba74 !important; }
+.dark [class*="text-red-"] { color: #fca5a5 !important; }
+.dark [class*="text-rose-"] { color: #fda4af !important; }
+.dark [class*="text-pink-"] { color: #f9a8d4 !important; }
+.dark [class*="text-fuchsia-"] { color: #f5d0fe !important; }
+.dark [class*="text-purple-"] { color: #e9d5ff !important; }
+.dark [class*="text-violet-"] { color: #ddd6fe !important; }
+.dark [class*="text-indigo-"] { color: #c7d2fe !important; }
+.dark [class*="text-blue-"] { color: #bfdbfe !important; }
+.dark [class*="text-sky-"] { color: #bae6fd !important; }
+.dark [class*="text-cyan-"] { color: #a5f3fc !important; }
+.dark [class*="text-teal-"] { color: #99f6e4 !important; }
+.dark [class*="text-emerald-"] { color: #a7f3d0 !important; }
+.dark [class*="text-green-"] { color: #bbf7d0 !important; }
+.dark [class*="text-lime-"] { color: #d9f99d !important; }
+
+/* Black text is not readable on the site's dark surfaces. */
+.dark .text-black { color: #f8fafc !important; }
+
+.dark input, .dark textarea, .dark select {
+  color: #f8fafc !important;
+}
+
+.dark input::placeholder, .dark textarea::placeholder {
+  color: #cbd5e1 !important;
+  opacity: 1 !important;
+}
+
+.dark input:disabled, .dark textarea:disabled, .dark select:disabled {
+  color: #cbd5e1 !important;
+  opacity: 1;
+}
+
+/* Theme controls remain inert through useTheme; hide the old controls so the UI does not imply a light mode exists. */
+.dark button[aria-label="테마 전환"],
+.dark [class*="absolute right-0"][class*="top-1/2"] {
+  display: none !important;
+}
+
+/* The legacy mobile theme button is the penultimate action in the mobile menu. */
+.dark aside .space-y-2 > button:nth-last-child(2) {
+  display: none !important;
+}
