@@ -30,14 +30,6 @@ export default function AppLockScreen() {
   const submitInFlightRef = useRef(false);
 
   useEffect(() => {
-    // Do not autofocus on touch devices: mobile browsers may open the keyboard
-    // and change viewport state while the lock screen is rendering.
-    const isTouchDevice = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
-    const input = document.querySelector<HTMLInputElement>('[data-gnh-pin-input="true"]');
-    if (!isTouchDevice) input?.focus({ preventScroll: true });
-  }, []);
-
-  useEffect(() => {
     let mounted = true;
     const detectBiometric = async () => {
       if (!user || !isPasskeySupported()) return;
@@ -132,18 +124,11 @@ export default function AppLockScreen() {
           ))}
         </motion.div>
 
-        <input
-          type="password"
-          inputMode="none"
-          autoComplete="off"
-          aria-label="PIN 입력"
-          data-gnh-pin-input="true"
-          value={pin}
-          readOnly
-          className="absolute opacity-0 pointer-events-none w-px h-px"
-          tabIndex={-1}
-        />
-
+        {/*
+          iOS Safari/PWA에서는 화면 키패드와 함께 숨겨진 input을 두면
+          포커스/키보드 상태가 잠금 화면의 입력 이벤트를 가로채는 경우가 있어
+          PIN 입력은 화면 키패드 상태를 단일 React state로만 관리한다.
+        */}
         <div className="min-h-5 mb-4 text-center">
           {error && <p className="text-xs text-rose-600">{error}</p>}
           {checking && <p className="text-xs text-foreground-400">확인 중...</p>}
@@ -152,13 +137,13 @@ export default function AppLockScreen() {
 
         <div className="grid grid-cols-3 gap-3 mb-4">
           {['1','2','3','4','5','6','7','8','9'].map(d => (
-            <button key={d} type="button" onClick={() => handleDigit(d)} disabled={checking || passkeyChecking} className="h-14 rounded-2xl bg-background-100 hover:bg-background-200 text-lg font-semibold text-foreground-800 transition-colors cursor-pointer disabled:opacity-50">
+            <button key={d} type="button" onPointerUp={(e) => { e.preventDefault(); handleDigit(d); }} disabled={checking || passkeyChecking} className="h-14 rounded-2xl bg-background-100 hover:bg-background-200 text-lg font-semibold text-foreground-800 transition-colors cursor-pointer disabled:opacity-50">
               {d}
             </button>
           ))}
           <div />
-          <button type="button" onClick={() => handleDigit('0')} disabled={checking || passkeyChecking} className="h-14 rounded-2xl bg-background-100 hover:bg-background-200 text-lg font-semibold text-foreground-800 transition-colors cursor-pointer disabled:opacity-50">0</button>
-          <button type="button" onClick={handleBackspace} disabled={checking || passkeyChecking} className="h-14 rounded-2xl flex items-center justify-center text-foreground-500 hover:text-foreground-800 transition-colors cursor-pointer disabled:opacity-50" aria-label="PIN 지우기">
+          <button type="button" onPointerUp={(e) => { e.preventDefault(); handleDigit('0'); }} disabled={checking || passkeyChecking} className="h-14 rounded-2xl bg-background-100 hover:bg-background-200 text-lg font-semibold text-foreground-800 transition-colors cursor-pointer disabled:opacity-50">0</button>
+          <button type="button" onPointerUp={(e) => { e.preventDefault(); handleBackspace(); }} disabled={checking || passkeyChecking} className="h-14 rounded-2xl flex items-center justify-center text-foreground-500 hover:text-foreground-800 transition-colors cursor-pointer disabled:opacity-50" aria-label="PIN 지우기">
             <i className="ri-arrow-left-line text-xl" />
           </button>
         </div>
