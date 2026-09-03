@@ -7,6 +7,7 @@ import { clubs, clubIcons, type ClubData } from '@/mocks/clubs';
 import ClubBannerManager, { useClubBanner } from '@/components/feature/ClubBannerManager';
 import PhotoLightbox from '@/components/feature/PhotoLightbox';
 import { CategoryChipRow, CategoryChip } from '@/components/base/CategoryChip';
+import { resizeImageFile, thumbFileNameFor } from '@/lib/imageResize';
 
 interface ClubMember {
   name: string;
@@ -16,6 +17,12 @@ interface ClubMember {
   avatarColor: string;
   profileImage?: string;
   isBirthdayThisMonth?: boolean;
+}
+
+interface ClubPhoto {
+  url: string;
+  /** 그리드용 축소 썸네일. 기존에 올라온 사진은 없을 수 있어 optional — 없으면 원본(url)로 폴백 */
+  thumbUrl?: string | null;
 }
 
 interface ClubDetailData {
@@ -28,7 +35,7 @@ interface ClubDetailData {
   monthlyVerseReference: string;
   monthlyVerseDescription: string;
   activities: string[];
-  photos: string[];
+  photos: ClubPhoto[];
 }
 
 interface ClubQnA {
@@ -46,6 +53,23 @@ const DEFAULT_GOAL = '예배와 경연에서 하나님의 영광을 나타내며
 const DEFAULT_VERSE = '마음을 다하고 목숨을 다하고 힘을 다하여 네 하나님 여호와를 사랑하라';
 const DEFAULT_REFERENCE = '신명기 6:5';
 const DEFAULT_VERSE_DESC = '모든 것을 다해 하나님을 사랑하는 마음으로 이번 달도 예배와 연습에 임합시다!';
+
+/**
+ * content.photos를 ClubPhoto[]로 정규화한다.
+ * 이 필드는 예전엔 원본 URL 문자열 배열이었다가 썸네일 지원을 위해 { url, thumbUrl } 객체
+ * 배열로 바뀌었다 — 이미 저장된 예전 데이터(문자열)도 그대로 읽을 수 있도록 둘 다 지원한다.
+ */
+function normalizeClubPhotos(raw: unknown): ClubPhoto[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item): ClubPhoto | null => {
+    if (typeof item === 'string') return { url: item, thumbUrl: null };
+    if (item && typeof item === 'object' && typeof (item as { url?: unknown }).url === 'string') {
+      const obj = item as { url: string; thumbUrl?: unknown };
+      return { url: obj.url, thumbUrl: typeof obj.thumbUrl === 'string' ? obj.thumbUrl : null };
+    }
+    return null;
+  }).filter((p): p is ClubPhoto => p !== null);
+}
 
 // 소개 탭의 각 항목을 인스타그램 프로필처럼 "한눈에" 볼 수 있는 카드로 보여준다.
 // 예전에는 항목마다 접혀 있어 하나씩 펼쳐봐야 했지만, 지금은 기본적으로 모두 펼쳐진 채
@@ -216,7 +240,7 @@ export default function ClubDetail() {
           monthlyVerseReference: (content.monthlyVerseReference as string) || DEFAULT_REFERENCE,
           monthlyVerseDescription: (content.monthlyVerseDescription as string) || DEFAULT_VERSE_DESC,
           activities: Array.isArray(content.activities) ? content.activities as string[] : [],
-          photos: Array.isArray(content.photos) ? content.photos as string[] : [],
+          photos: normalizeClubPhotos(content.photos),
         });
       } else {
         setClubDetail(prev => ({
@@ -421,15 +445,31 @@ export default function ClubDetail() {
     setUploading(true);
     setError(null);
     try {
-      const uploadPromises = Array.from(files).map(async (file) => {
+      const uploadPromises = Array.from(files).map(async (file): Promise<ClubPhoto> => {
         const ext = file.name.split('.').pop();
-        const path = `club-photos/${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const safeName = `${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const path = `club-photos/${safeName}`;
         await supabase.storage.from('Public').upload(path, file, { upsert: true });
         const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
-        return urlData.publicUrl;
+
+        // 그리드용 축소 썸네일을 별도로 만들어 함께 올린다. 실패해도 원본 업로드는
+        // 이미 끝났으니 게시 자체는 막지 않고, thumbUrl 없이 원본으로 폴백한다.
+        let thumbUrl: string | null = null;
+        try {
+          const thumbBlob = await resizeImageFile(file, { maxDimension: 480, quality: 0.72 });
+          const thumbPath = `club-photos/${thumbFileNameFor(safeName)}`;
+          const { error: thumbErr } = await supabase.storage
+            .from('Public')
+            .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg' });
+          if (!thumbErr) {
+            thumbUrl = supabase.storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
+          }
+        } catch { /* 썸네일 생성 실패는 무시하고 원본으로 폴백 */ }
+
+        return { url: urlData.publicUrl, thumbUrl };
       });
-      const newUrls = await Promise.all(uploadPromises);
-      const updatedPhotos = [...clubDetail.photos, ...newUrls];
+      const newPhotos = await Promise.all(uploadPromises);
+      const updatedPhotos = [...clubDetail.photos, ...newPhotos];
       await saveClubDetail({ photos: updatedPhotos });
     } catch {
       setError('사진 업로드 중 오류가 발생했습니다.');
@@ -440,13 +480,25 @@ export default function ClubDetail() {
     }
   };
 
-  const handleDeletePhoto = async (photoUrl: string) => {
-    const updatedPhotos = clubDetail.photos.filter(p => p !== photoUrl);
+  /** Public 버킷 공개 URL에서 스토리지 내부 경로만 뽑아낸다 */
+  const storagePathFromUrl = (url: string): string | null => {
     try {
-      const urlObj = new URL(photoUrl);
+      const urlObj = new URL(url);
       const pathParts = urlObj.pathname.split('/');
-      const storagePath = pathParts.slice(pathParts.indexOf('public') + 1).join('/');
-      await supabase.storage.from('Public').remove([storagePath]);
+      const idx = pathParts.indexOf('public');
+      if (idx === -1) return null;
+      return pathParts.slice(idx + 1).join('/');
+    } catch {
+      return null;
+    }
+  };
+
+  const handleDeletePhoto = async (photoUrl: string) => {
+    const target = clubDetail.photos.find(p => p.url === photoUrl);
+    const updatedPhotos = clubDetail.photos.filter(p => p.url !== photoUrl);
+    try {
+      const paths = [photoUrl, target?.thumbUrl].filter((u): u is string => !!u).map(storagePathFromUrl).filter((p): p is string => !!p);
+      if (paths.length) await supabase.storage.from('Public').remove(paths);
     } catch { /* ignore */ }
     setSelectedPhotos(prev => { const next = new Set(prev); next.delete(photoUrl); return next; });
     await saveClubDetail({ photos: updatedPhotos });
@@ -454,14 +506,13 @@ export default function ClubDetail() {
 
   const handleBatchDeletePhotos = async () => {
     if (selectedPhotos.size === 0) return;
-    const urlsToDelete = Array.from(selectedPhotos);
-    const updatedPhotos = clubDetail.photos.filter(p => !selectedPhotos.has(p));
+    const targets = clubDetail.photos.filter(p => selectedPhotos.has(p.url));
+    const updatedPhotos = clubDetail.photos.filter(p => !selectedPhotos.has(p.url));
     try {
-      const pathsToRemove = urlsToDelete.map(url => {
-        const urlObj = new URL(url);
-        const pathParts = urlObj.pathname.split('/');
-        return pathParts.slice(pathParts.indexOf('public') + 1).join('/');
-      }).filter(Boolean);
+      const pathsToRemove = targets
+        .flatMap(p => [p.url, p.thumbUrl].filter((u): u is string => !!u))
+        .map(storagePathFromUrl)
+        .filter((p): p is string => !!p);
       if (pathsToRemove.length > 0) {
         await supabase.storage.from('Public').remove(pathsToRemove);
       }
@@ -1143,28 +1194,28 @@ export default function ClubDetail() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {clubDetail.photos.map((url, i) => (
+                    {clubDetail.photos.map((photo, i) => (
                       <div
                         key={i}
                         onClick={() => {
-                          if (isClubLeader && selectedPhotos.size > 0) togglePhotoSelect(url);
+                          if (isClubLeader && selectedPhotos.size > 0) togglePhotoSelect(photo.url);
                           else setLightboxIndex(i);
                         }}
-                        className={`group relative overflow-hidden rounded-xl bg-background-200 aspect-[4/3] cursor-pointer active:scale-[0.98] transition-transform ${selectedPhotos.has(url) ? 'ring-2 ring-rose-500 ring-offset-2 ring-offset-background-100' : ''}`}
+                        className={`group relative overflow-hidden rounded-xl bg-background-200 aspect-[4/3] cursor-pointer active:scale-[0.98] transition-transform ${selectedPhotos.has(photo.url) ? 'ring-2 ring-rose-500 ring-offset-2 ring-offset-background-100' : ''}`}
                       >
-                        <img src={url} alt={`동아리 사진 ${i + 1}`} className="w-full h-full object-cover" />
+                        <img src={photo.thumbUrl || photo.url} alt={`동아리 사진 ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         {isClubLeader && (
                           <>
-                            <div className={`absolute inset-0 transition-colors ${selectedPhotos.has(url) ? 'bg-rose-500/20' : 'bg-transparent group-hover:bg-black/10'}`}></div>
+                            <div className={`absolute inset-0 transition-colors ${selectedPhotos.has(photo.url) ? 'bg-rose-500/20' : 'bg-transparent group-hover:bg-black/10'}`}></div>
                             <button
-                              onClick={(e) => { e.stopPropagation(); togglePhotoSelect(url); }}
+                              onClick={(e) => { e.stopPropagation(); togglePhotoSelect(photo.url); }}
                               aria-label="선택"
-                              className={`absolute top-2 left-2 w-10 h-10 md:w-7 md:h-7 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${selectedPhotos.has(url) ? 'bg-rose-500 border-rose-500' : 'border-white bg-black/30 md:opacity-0 md:group-hover:opacity-100'}`}
+                              className={`absolute top-2 left-2 w-10 h-10 md:w-7 md:h-7 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${selectedPhotos.has(photo.url) ? 'bg-rose-500 border-rose-500' : 'border-white bg-black/30 md:opacity-0 md:group-hover:opacity-100'}`}
                             >
-                              {selectedPhotos.has(url) && <i className="ri-check-line text-white text-[10px]"></i>}
+                              {selectedPhotos.has(photo.url) && <i className="ri-check-line text-white text-[10px]"></i>}
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleDeletePhoto(url); }}
+                              onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.url); }}
                               aria-label="삭제"
                               className="absolute top-2 right-2 w-10 h-10 md:w-7 md:h-7 rounded-full bg-black/50 text-white flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-rose-500"
                             >
@@ -1303,7 +1354,8 @@ export default function ClubDetail() {
 
       {lightboxIndex !== null && (
         <PhotoLightbox
-          photos={clubDetail.photos}
+          photos={clubDetail.photos.map(p => p.url)}
+          thumbUrls={clubDetail.photos.map(p => p.thumbUrl || p.url)}
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
         />
