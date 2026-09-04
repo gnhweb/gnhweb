@@ -276,3 +276,32 @@ input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible
   form button[type="submit"] { min-height: 48px; }
   form input[type="email"], form input[type="password"], form input[type="text"] { min-height: 48px; font-size: 16px; }
 }
+
+/* 홈 동아리 챔피언: 다크 배경에서도 밝은 카드 위 텍스트가 선명하게 보이도록 보정 */
+.dark .min-h-screen.bg-background-50 > section:has([class*="bg-white/70"]) [class*="text-foreground-950"] {
+  color: oklch(var(--foreground-50)) !important;
+}
+.dark .min-h-screen.bg-background-50 > section:has([class*="bg-white/70"]) [class*="text-foreground-500"] {
+  color: oklch(var(--foreground-100)) !important;
+}
+.dark .min-h-screen.bg-background-50 > section:has([class*="bg-white/70"]) [class*="text-amber-700"] {
+  color: oklch(var(--foreground-50)) !important;
+}
+.dark .min-h-screen.bg-background-50 > section:has([class*="from-rose-50"]) [class*="text-foreground-950"] {
+  color: oklch(var(--foreground-50)) !important;
+}
+.dark .min-h-screen.bg-background-50 > section:has([class*="from-rose-50"]) [class*="text-foreground-500"] {
+  color: oklch(var(--foreground-100)) !important;
+}
+.min-h-screen.bg-background-50 > section:has(a[href="/bible-marathon"]) > div > div.grid-cols-2 {
+  display: block !important;
+}
+.min-h-screen.bg-background-50 > section:has(a[href="/bible-marathon"]) > div > div.grid-cols-2 > a[href="/bible-marathon"] {
+  display: none !important;
+}
+.min-h-screen.bg-background-50 > section:has([class*="bg-white/70"]) > div > div.grid-cols-2 {
+  display: block !important;
+}
+.min-h-screen.bg-background-50 > section:has([class*="bg-white/70"]) > div > div.grid-cols-2 > div:nth-child(2) {
+  display: none !important;
+}
