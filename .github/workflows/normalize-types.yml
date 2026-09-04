@@ -27,7 +27,6 @@ jobs:
         run: |
           node scripts/normalize-legacy-types.mjs
           node scripts/dedupe-passkey-auth.mjs
-          node scripts/apply-club-photo-optimization.mjs
 
       - name: Commit normalized source when changed
         run: |
@@ -37,6 +36,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src scripts .github/workflows/normalize-types.yml
-          git commit -m "perf: optimize club photo uploads"
+          git add src scripts
+          git commit -m "fix: normalize legacy type errors"
           git push origin HEAD:${GITHUB_REF_NAME}
