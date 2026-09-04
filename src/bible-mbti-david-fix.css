@@ -1,0 +1,7 @@
+/* 다윗 MBTI 카드의 외부 이미지 로딩 실패를 방지하고 저장소 내부 SVG를 사용한다. */
+div[aria-label="다윗 성경인물 일러스트"] {
+  background-image: url('/bible-mbti/david-cute.svg') !important;
+  background-position: center !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+}
