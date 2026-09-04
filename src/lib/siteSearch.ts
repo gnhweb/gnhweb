@@ -32,7 +32,7 @@ export const SITE_SEARCH_ITEMS: SiteSearchItem[] = [
   { path: '/event-ideas', label: '행사 기획 아이디어', description: 'AI로 행사 아이디어 만들기', icon: 'ri-lightbulb-flash-line', group: '사명 도구', keywords: ['행사', '아이디어', '기획', 'ai'] },
   { path: '/leadership-diary', label: '리더십 코칭', description: '리더십 고민을 AI와 함께 정리', icon: 'ri-book-read-line', group: '사명 도구', keywords: ['리더십', '코칭', '사명자', 'ai', '고민'] },
   { path: '/meetings', label: '회의록', description: '회의 기록과 관리', icon: 'ri-chat-check-line', group: '회의', keywords: ['회의', '회의록', '기록'] },
-  { path: '/meeting-copilot', label: '회의 코파일럿 AI', description: '회의 상황을 AI로 분석하고 정리', icon: 'ri-lightbulb-flash-line', group: '회의', keywords: ['회의', 'ai', '코파일럿', '회의도우미'] },
+  { path: '/notebook', label: '학생회 노트북', description: '회의록/공지/보고서/파일을 소스로 골라 AI에게 근거 기반으로 질문', icon: 'ri-book-open-line', group: '회의', keywords: ['노트북', 'notebooklm', 'ai', '코파일럿', '학생회 노트북'] },
   { path: '/reports/weekly', label: '주간 보고서', description: '주간 활동과 연습 기록', icon: 'ri-file-list-3-line', group: '보고서', keywords: ['주간', '보고서', '연습', '출석'] },
   { path: '/reports/growth', label: '성장 기록', description: '학생 성장과 활동 기록', icon: 'ri-plant-line', group: '보고서', keywords: ['성장', '기록', '학생'] },
   { path: '/reports/events', label: '행사 보고서', description: '행사 결과와 회고 기록', icon: 'ri-calendar-event-line', group: '보고서', keywords: ['행사', '보고서', '회고'] },
