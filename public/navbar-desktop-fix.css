@@ -27,3 +27,9 @@
     min-width: max-content;
   }
 }
+
+/* Removed mission tools: keep the deprecated event-planning links out of all navigation/search surfaces. */
+a[href="/pds-planner"],
+a[href="/event-ideas"] {
+  display: none !important;
+} 
