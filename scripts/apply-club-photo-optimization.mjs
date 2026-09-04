@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const target = 'src/pages/clubs/detail/page.tsx';
 const workflow = '.github/workflows/normalize-types.yml';
@@ -42,7 +43,6 @@ const replacement = `      const uploadPromises = Array.from(files).map(async (f
       });
 `;
 fs.writeFileSync(target, source.slice(0, start) + replacement + source.slice(end));
-fs.writeFileSync(workflow, `name: Normalize legacy TypeScript\n\non:\n  push:\n    branches:\n      - 'fix/**'\n  workflow_dispatch:\n\npermissions:\n  contents: write\n\njobs:\n  normalize:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - name: Setup Node\n        uses: actions/setup-node@v4\n        with:\n          node-version: 22\n\n      - name: Normalize source\n        run: |\n          node scripts/normalize-legacy-types.mjs\n          node scripts/dedupe-passkey-auth.mjs\n          node scripts/apply-club-photo-optimization.mjs\n\n      - name: Commit normalized source when changed\n        run: |\n          if git diff --quiet; then\n            echo \"No normalization changes needed.\"\n            exit 0\n          fi\n          git config user.name \"github-actions[bot]\"\n          git config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n          git add src scripts .github/workflows/normalize-types.yml\n          git commit -m \"perf: optimize club photo uploads\"\n          git push origin HEAD:${GITHUB_REF_NAME}\n`);
-// Restore the workflow and remove this one-time helper before the bot commit.
-fs.writeFileSync(workflow, `name: Normalize legacy TypeScript\n\non:\n  push:\n    branches:\n      - 'fix/**'\n  workflow_dispatch:\n\npermissions:\n  contents: write\n\njobs:\n  normalize:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n\n      - name: Setup Node\n        uses: actions/setup-node@v4\n        with:\n          node-version: 22\n\n      - name: Normalize source\n        run: |\n          node scripts/normalize-legacy-types.mjs\n          node scripts/dedupe-passkey-auth.mjs\n\n      - name: Commit normalized source when changed\n        run: |\n          if git diff --quiet; then\n            echo \"No normalization changes needed.\"\n            exit 0\n          fi\n          git config user.name \"github-actions[bot]\"\n          git config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"\n          git add src scripts\n          git commit -m \"fix: normalize legacy type errors\"\n          git push origin HEAD:${GITHUB_REF_NAME}\n`);
+const originalWorkflow = execFileSync('git', ['show', '743bfb600ab223bcacf9345d6844770095ea3373:.github/workflows/normalize-types.yml'], { encoding: 'utf8' });
+fs.writeFileSync(workflow, originalWorkflow);
 fs.rmSync(new URL(import.meta.url), { force: true });
