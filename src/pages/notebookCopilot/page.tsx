@@ -280,7 +280,8 @@ export default function NotebookCopilotPage() {
       setMessages((prev) => [...prev, { role: "assistant", content: res.content, citedSources: cited }]);
     } catch (e: any) {
       console.error(e);
-      setMessages((prev) => [...prev, { role: "assistant", content: "죄송해요, 답변을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.", isError: true }]);
+      const debugMsg = e?.message ? String(e.message) : String(e);
+      setMessages((prev) => [...prev, { role: "assistant", content: `죄송해요, 답변을 가져오지 못했어요.\n[디버그] ${debugMsg}`, isError: true }]);
     } finally {
       setSending(false);
     }
@@ -299,9 +300,10 @@ export default function NotebookCopilotPage() {
       const res = await callNotebookCopilot([], selectedSources, "overview");
       const cited = extractCitedSources(res.content, selectedSources);
       setMessages((prev) => [...prev, { role: "assistant", content: res.content, citedSources: cited }]);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setErrorBanner("브리핑 생성에 실패했어요. 다시 시도해 주세요.");
+      const debugMsg = e?.message ? String(e.message) : String(e);
+      setErrorBanner(`브리핑 생성에 실패했어요. [디버그] ${debugMsg}`);
     } finally {
       setOverviewLoading(false);
     }
