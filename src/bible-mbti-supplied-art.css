@@ -1,28 +1,70 @@
-/* Bible MBTI: 20개의 자체 제작 밝은 캐릭터 일러스트 스프라이트. */
+/* 말씀 MBTI: 인터넷에서 찾은 어린이용 성경 인물 일러스트 20종. */
 svg[aria-label$="성경인물 프로필"] {
   background-color: transparent;
-  background-image: url("/bible-mbti/characters-cute.svg");
   background-repeat: no-repeat;
-  background-size: 500% 400%;
+  background-position: center;
+  background-size: cover;
+  border-radius: 18px;
 }
 svg[aria-label$="성경인물 프로필"] > * { visibility: hidden; }
-svg[aria-label*="모세 성경인물 프로필"] { background-position: 0% 0%; }
-svg[aria-label*="아브라함 성경인물 프로필"] { background-position: 25% 0%; }
-svg[aria-label*="여호수아 성경인물 프로필"] { background-position: 50% 0%; }
-svg[aria-label*="다윗 성경인물 프로필"] { background-position: 75% 0%; }
-svg[aria-label*="요셉 성경인물 프로필"] { background-position: 100% 0%; }
-svg[aria-label*="룻 성경인물 프로필"] { background-position: 0% 33.333333%; }
-svg[aria-label*="에스더 성경인물 프로필"] { background-position: 25% 33.333333%; }
-svg[aria-label*="다니엘 성경인물 프로필"] { background-position: 50% 33.333333%; }
-svg[aria-label*="바울 성경인물 프로필"] { background-position: 75% 33.333333%; }
-svg[aria-label*="베드로 성경인물 프로필"] { background-position: 100% 33.333333%; }
-svg[aria-label*="느헤미야 성경인물 프로필"] { background-position: 0% 66.666666%; }
-svg[aria-label*="디모데 성경인물 프로필"] { background-position: 25% 66.666666%; }
-svg[aria-label*="바나바 성경인물 프로필"] { background-position: 50% 66.666666%; }
-svg[aria-label*="마리아 성경인물 프로필"] { background-position: 75% 66.666666%; }
-svg[aria-label*="엘리야 성경인물 프로필"] { background-position: 100% 66.666666%; }
-svg[aria-label*="이사야 성경인물 프로필"] { background-position: 0% 100%; }
-svg[aria-label*="예레미야 성경인물 프로필"] { background-position: 25% 100%; }
-svg[aria-label*="사무엘 성경인물 프로필"] { background-position: 50% 100%; }
-svg[aria-label*="마르다 성경인물 프로필"] { background-position: 75% 100%; }
-svg[aria-label*="요한 성경인물 프로필"] { background-position: 100% 100%; }
+
+svg[aria-label*="모세 성경인물 프로필"] {
+  background-image: url("https://webstockreview.net/images/moses-clipart-bible-hero-3.jpg");
+}
+svg[aria-label*="아브라함 성경인물 프로필"] {
+  background-image: url("https://static.vecteezy.com/system/resources/previews/022/278/412/non_2x/cartoon-bible-character-abraham-free-png.png");
+}
+svg[aria-label*="여호수아 성경인물 프로필"] {
+  background-image: url("https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1589011247i/48662327.jpg");
+}
+svg[aria-label*="다윗 성경인물 프로필"] {
+  background-image: url("https://d2v80xjmx68n4w4w.cloudfront.net/members/portfolios/mPbXY1698827197.png?w=500");
+}
+svg[aria-label*="요셉 성경인물 프로필"] {
+  background-image: url("https://cdn.vectorstock.com/i/500p/51/02/josephs-coat-of-many-colors-cartoon-vector-49385102.jpg");
+}
+svg[aria-label*="룻 성경인물 프로필"] {
+  background-image: url("https://christian-witness.org/wp-content/uploads/2024/12/ruth_illustration_graphic_design.jpg");
+}
+svg[aria-label*="에스더 성경인물 프로필"] {
+  background-image: url("https://i.pinimg.com/originals/b1/1d/5e/b11d5e14e6814e99633eea5d22e144de.jpg");
+}
+svg[aria-label*="다니엘 성경인물 프로필"] {
+  background-image: url("https://hoyquesecelebra.com/img/saint/03-20-san-daniel-profeta.webp");
+}
+svg[aria-label*="바울 성경인물 프로필"] {
+  background-image: url("https://assets.lifeway.com/image/upload/d_noimage.jpg/c_limit%2Cw_3840/f_auto/q_auto/v1/9781433643606?_a=BAVMn6DW0");
+}
+svg[aria-label*="베드로 성경인물 프로필"] {
+  background-image: url("https://assets.lifeway.com/image/upload/d_noimage.jpg/c_limit%2Cw_3840/f_auto/q_auto/v1/9781433643590?_a=BAVMn6DW0");
+}
+svg[aria-label*="느헤미야 성경인물 프로필"] {
+  background-image: url("https://i.pinimg.com/736x/b4/a6/ad/b4a6ad3d51460d9cdf4762aac51cd018.jpg");
+}
+svg[aria-label*="디모데 성경인물 프로필"] {
+  background-image: url("https://2.bp.blogspot.com/-JkT3-P97Mas/WGZ5Hq0ZRWI/AAAAAAAABoQ/AHo4IVIA1tor_nl1n0A681yU0ev6Vh3qACLcB/s1600/01.gif");
+}
+svg[aria-label*="바나바 성경인물 프로필"] {
+  background-image: url("https://2.bp.blogspot.com/-CsdxZnr1PRM/V3-4Ip-yjgI/AAAAAAAAEII/QS1_7x_tKN85SzRHQKTgeKpHY1IB0vfpgCLcB/s1600/paulo%2Be%2Bbarnabe.jpg");
+}
+svg[aria-label*="마리아 성경인물 프로필"] {
+  background-image: url("https://icon2.cleanpng.com/ci2/jhb/bdi/vxyudoxzo.webp");
+}
+svg[aria-label*="엘리야 성경인물 프로필"] {
+  background-image: url("https://files.logoscdn.com/v1/assets/13162256/optimized");
+}
+svg[aria-label*="이사야 성경인물 프로필"] {
+  background-image: url("https://hoyquesecelebra.com/img/saint/05-09-san-isaias-profeta.webp");
+}
+svg[aria-label*="예레미야 성경인물 프로필"] {
+  background-image: url("https://www.bibleheroz.com/data/editor/2508/e79f83c5601bb421f6f6c5189e4eb3d0_1754794397_929.jpg");
+}
+svg[aria-label*="사무엘 성경인물 프로필"] {
+  background-image: url("https://i.pinimg.com/originals/a2/fb/09/a2fb09795062c1181a56932f5d111f86.png");
+}
+svg[aria-label*="마르다 성경인물 프로필"] {
+  background-image: url("https://static.clccolombia.com/_CLCColombia/images/products/original/10104.jpg");
+}
+svg[aria-label*="요한 성경인물 프로필"] {
+  background-image: url("https://static.vecteezy.com/system/resources/previews/022/961/007/non_2x/cartoon-bible-character-apostle-john-free-png.png");
+}
