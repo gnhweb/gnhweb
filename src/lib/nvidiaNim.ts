@@ -63,51 +63,34 @@ function filterExcludedQuestions(rows: QuizQuestion[], excludeQuestions: string[
   });
 }
 
-// 정답만 유난히 길거나 짧은 문제는 화면에서 길이 자체가 힌트가 될 수 있으므로 제외합니다.
-// 실제 문제/선지는 DB에 저장된 값을 그대로 사용하고, 내용을 AI로 생성하거나 수정하지 않습니다.
-function hasBalancedOptions(question: QuizQuestion): boolean {
-  const lengths = question.options.map((option) => option.replace(/\s+/g, '').length);
-  if (lengths.some((length) => length < 2)) return false;
-  const minLength = Math.min(...lengths);
-  const maxLength = Math.max(...lengths);
-  return maxLength <= minLength * 2 && maxLength - minLength <= 25;
-}
-
-function shuffle<T>(items: T[]): T[] {
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
-}
-
-function shuffleOptions(question: QuizQuestion): QuizQuestion {
-  return { ...question, options: shuffle(question.options) };
-}
-
 export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', excludeQuestions: string[] = []): Promise<QuizQuestion[]> {
   const requestedDifficulty = difficulty || 'normal';
+  const { data, error } = await supabase.functions.invoke('nim-quiz', {
+    body: { difficulty: requestedDifficulty, excludeQuestions, count: 10, source: 'site' },
+  });
+
+  if (!error && Array.isArray(data)) {
+    const normalized = normalizeQuizRows(data, requestedDifficulty);
+    if (normalized.length === 10 && normalized.every((question) => question.difficulty === requestedDifficulty && question.points === QUIZ_POINTS[requestedDifficulty])) return normalized;
+  }
 
   const { data: dbRows, error: dbError } = await supabase
     .from('quiz_questions_curated')
     .select('id,question,options,answer,explanation,type,difficulty,points')
     .eq('difficulty', QUIZ_DIFFICULTY_KR[requestedDifficulty]);
 
-  if (dbError) throw new Error('퀴즈 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
-
-  const normalized = filterExcludedQuestions(normalizeQuizRows(dbRows || [], requestedDifficulty), excludeQuestions)
-    .filter(hasBalancedOptions);
-  const unique = new Map<string, QuizQuestion>();
-
-  for (const question of normalized) {
-    const key = question.question.replace(/[\s\p{P}\p{S}]+/gu, '');
-    if (!unique.has(key)) unique.set(key, question);
+  if (!dbError && dbRows) {
+    const normalized = filterExcludedQuestions(normalizeQuizRows(dbRows, requestedDifficulty), excludeQuestions);
+    const unique = new Map<string, QuizQuestion>();
+    for (const question of normalized) {
+      const key = question.question.replace(/[\s\p{P}\p{S}]+/gu, '');
+      if (!unique.has(key)) unique.set(key, question);
+    }
+    const shuffled = [...unique.values()].sort(() => Math.random() - 0.5).slice(0, 10);
+    if (shuffled.length === 10) return shuffled;
   }
 
-  const shuffled = shuffle([...unique.values()]).slice(0, 10).map(shuffleOptions);
-  if (shuffled.length === 10) return shuffled;
-
+  if (error || dbError) throw new Error('퀴즈 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
   throw new Error('선택한 난이도의 문제가 부족해요. 다른 난이도를 선택해주세요.');
 }
 
