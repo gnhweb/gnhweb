@@ -54,6 +54,12 @@ function isBadQuestion(question: QuizQuestion): boolean {
   if (new Set(options.map(normalize)).size !== 4) return true;
   if (!options.some((option) => normalize(option) === normalize(question.answer))) return true;
 
+  const lengths = options.map((option) => option.length);
+  const minLength = Math.min(...lengths);
+  const maxLength = Math.max(...lengths);
+  // 선지 하나만 지나치게 길어서 정답을 추측할 수 있는 문제는 제외합니다.
+  if (minLength > 0 && maxLength > minLength * 2.2 + 4) return true;
+
   const text = `${question.question} ${question.explanation}`;
   if (/\\\"한 성경|\\\"한 사람|\\\"한 장소|에 해당하는 것은 무엇인가요\?\\\"한/.test(text)) return true;
   if (/성경의? .+에서 \\\".+\\\"에 해당하는/.test(question.question)) return true;
@@ -101,7 +107,7 @@ Deno.serve(async (req) => {
     );
 
     const { data, error } = await supabase
-      .from('quiz_questions')
+      .from('quiz_questions_curated')
       .select('id,question,options,answer,explanation,type,difficulty,points')
       .eq('difficulty', requestedDifficulty);
 
