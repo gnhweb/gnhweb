@@ -446,27 +446,38 @@ export default function ClubDetail() {
     setError(null);
     try {
       const uploadPromises = Array.from(files).map(async (file): Promise<ClubPhoto> => {
-        const ext = file.name.split('.').pop();
-        const safeName = `${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const safeName = `${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
         const path = `club-photos/${safeName}`;
-        await supabase.storage.from('Public').upload(path, file, { upsert: true });
-        const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
+        const thumbPath = `club-photos/${thumbFileNameFor(safeName)}`;
+        const [displayBlob, thumbBlob] = await Promise.all([
+          resizeImageFile(file, { maxDimension: 1280, quality: 0.78, mimeType: 'image/jpeg' }),
+          resizeImageFile(file, { maxDimension: 480, quality: 0.68, mimeType: 'image/jpeg' }),
+        ]);
 
-        // 그리드용 축소 썸네일을 별도로 만들어 함께 올린다. 실패해도 원본 업로드는
-        // 이미 끝났으니 게시 자체는 막지 않고, thumbUrl 없이 원본으로 폴백한다.
-        let thumbUrl: string | null = null;
-        try {
-          const thumbBlob = await resizeImageFile(file, { maxDimension: 480, quality: 0.72 });
-          const thumbPath = `club-photos/${thumbFileNameFor(safeName)}`;
-          const { error: thumbErr } = await supabase.storage
-            .from('Public')
-            .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg' });
-          if (!thumbErr) {
-            thumbUrl = supabase.storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
-          }
-        } catch { /* 썸네일 생성 실패는 무시하고 원본으로 폴백 */ }
+        const { error: displayErr } = await supabase.storage
+          .from('Public')
+          .upload(path, displayBlob, {
+            upsert: true,
+            contentType: 'image/jpeg',
+            cacheControl: '31536000',
+          });
+        if (displayErr) throw displayErr;
 
-        return { url: urlData.publicUrl, thumbUrl };
+        const { error: thumbErr } = await supabase.storage
+          .from('Public')
+          .upload(thumbPath, thumbBlob, {
+            upsert: true,
+            contentType: 'image/jpeg',
+            cacheControl: '31536000',
+          });
+        if (thumbErr) {
+          await supabase.storage.from('Public').remove([path]);
+          throw thumbErr;
+        }
+
+        const url = supabase.storage.from('Public').getPublicUrl(path).data.publicUrl;
+        const thumbUrl = supabase.storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
+        return { url, thumbUrl };
       });
       const newPhotos = await Promise.all(uploadPromises);
       const updatedPhotos = [...clubDetail.photos, ...newPhotos];
