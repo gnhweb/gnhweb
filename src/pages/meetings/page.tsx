@@ -126,7 +126,7 @@ export default function MeetingsPage() {
         </div>
 
         <Link
-          to="/meeting-copilot"
+          to="/notebook"
           className="group flex items-center gap-4 mb-6 p-4 md:p-5 rounded-2xl bg-gradient-to-br from-primary-600 via-primary-500 to-violet-600 hover:brightness-105 transition-all cursor-pointer relative overflow-hidden"
         >
           <div className="absolute inset-0 opacity-10 [background-image:radial-gradient(circle_at_15%_30%,white,transparent_35%)]"></div>
