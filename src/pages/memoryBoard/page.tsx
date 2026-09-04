@@ -19,12 +19,15 @@ interface PhotoMemory {
   created_at: string;
 }
 
+const PAGE_SIZE = 24;
+
 export default function MemoryBoard() {
   const { user, profile, hasRole } = useAuth();
   const isEditor = user && (hasRole('assistant_zone_leader') || hasRole('teacher') || hasRole('chief'));
 
   const [filter, setFilter] = useState<'all' | string>('all');
   const [photos, setPhotos] = useState<PhotoMemory[]>([]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -35,6 +38,7 @@ export default function MemoryBoard() {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => { loadPhotos(); }, []);
+  useEffect(() => { setVisibleCount(PAGE_SIZE); setLightboxIndex(null); }, [filter]);
 
   useEffect(() => {
     const channel = supabase
@@ -73,7 +77,6 @@ export default function MemoryBoard() {
     let displayPath: string | null = null;
     let thumbPath: string | null = null;
     try {
-      // 원본 사진은 저장하지 않고, 실제 화면 표시용 1280px JPEG와 480px 썸네일만 저장한다.
       const safeName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`;
       displayPath = `memories/${user!.id}/${safeName}`;
       thumbPath = `memories/${user!.id}/${thumbFileNameFor(safeName)}`;
@@ -113,7 +116,6 @@ export default function MemoryBoard() {
       setShowUpload(false);
       await loadPhotos();
     } catch (e) {
-      // Storage 일부만 성공한 경우 즉시 정리해 고아 파일과 불필요한 저장/트래픽을 남기지 않는다.
       const paths = [displayPath, thumbPath].filter((path): path is string => Boolean(path));
       if (paths.length) {
         try { await supabase.storage.from('Public').remove(paths); } catch { /* best-effort cleanup */ }
@@ -150,20 +152,21 @@ export default function MemoryBoard() {
   };
 
   const handleDeleteAtIndex = async (index: number) => {
-    const photo = filteredPhotos[index];
+    const photo = visiblePhotos[index];
     if (!photo) return;
     setDeletingIndex(index);
     await handleDeletePhoto(photo);
     setDeletingIndex(null);
     setLightboxIndex(prev => {
       if (prev === null) return prev;
-      const remaining = filteredPhotos.length - 1;
+      const remaining = visiblePhotos.length - 1;
       if (remaining <= 0) return null;
       return Math.min(prev, remaining - 1);
     });
   };
 
   const filteredPhotos = filter === 'all' ? photos : photos.filter(p => p.club === filter);
+  const visiblePhotos = filteredPhotos.slice(0, visibleCount);
 
   if (loading) {
     return (
@@ -207,7 +210,7 @@ export default function MemoryBoard() {
           </div>
 
           <div className="hidden md:grid grid-cols-2 md:grid-cols-3 gap-4">
-            {filteredPhotos.map((photo, idx) => (
+            {visiblePhotos.map((photo, idx) => (
               <motion.div key={photo.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} onClick={() => setLightboxIndex(idx)} className="group cursor-pointer rounded-xl overflow-hidden bg-background-100 shadow-sm hover:shadow-md transition-shadow">
                 <div className="aspect-[4/3] overflow-hidden"><img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div>
                 <div className="p-3">
@@ -220,12 +223,20 @@ export default function MemoryBoard() {
           </div>
 
           <div className="md:hidden grid grid-cols-3 gap-0.5">
-            {filteredPhotos.map((photo, idx) => (
+            {visiblePhotos.map((photo, idx) => (
               <motion.div key={`m-${photo.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(idx * 0.03, 0.3) }} whileTap={{ scale: 0.97 }} onClick={() => setLightboxIndex(idx)} className="relative aspect-square cursor-pointer overflow-hidden bg-background-100">
                 <img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
               </motion.div>
             ))}
           </div>
+
+          {visiblePhotos.length < filteredPhotos.length && (
+            <div className="flex justify-center mt-6">
+              <button onClick={() => setVisibleCount(count => Math.min(count + PAGE_SIZE, filteredPhotos.length))} className="px-5 py-2.5 rounded-full bg-background-100 border border-background-200 text-sm font-semibold text-foreground-700 hover:bg-background-200 transition-colors cursor-pointer">
+                사진 더 보기 ({filteredPhotos.length - visiblePhotos.length}장)
+              </button>
+            </div>
+          )}
 
           {filteredPhotos.length === 0 && <div className="text-center py-16"><p className="text-sm text-foreground-600">아직 추억이 없어요</p></div>}
 
@@ -233,7 +244,7 @@ export default function MemoryBoard() {
         </motion.div>
       </div>
 
-      {lightboxIndex !== null && <PhotoLightbox photos={filteredPhotos.map(p => p.photo_url)} thumbUrls={filteredPhotos.map(p => p.thumb_url || p.photo_url)} captions={filteredPhotos.map(p => p.title)} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onDelete={isEditor ? handleDeleteAtIndex : undefined} canDelete={isEditor ? (index) => filteredPhotos[index]?.author_id === user?.id : undefined} deletingIndex={deletingIndex} />}
+      {lightboxIndex !== null && <PhotoLightbox photos={visiblePhotos.map(p => p.photo_url)} thumbUrls={visiblePhotos.map(p => p.thumb_url || p.photo_url)} captions={visiblePhotos.map(p => p.title)} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onDelete={isEditor ? handleDeleteAtIndex : undefined} canDelete={isEditor ? (index) => visiblePhotos[index]?.author_id === user?.id : undefined} deletingIndex={deletingIndex} />}
 
       {showUpload && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
