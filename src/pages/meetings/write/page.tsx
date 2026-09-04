@@ -81,7 +81,15 @@ export default function MeetingWritePage() {
       navigate('/meetings');
     } catch (err) {
       console.error('회의록 저장 실패:', err);
-      setError('회의록 저장에 실패했습니다. 다시 시도해주세요.');
+      const detail =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message?: unknown }).message)
+          : String(err);
+      const code =
+        err && typeof err === 'object' && 'code' in err
+          ? String((err as { code?: unknown }).code)
+          : '';
+      setError(`회의록 저장에 실패했습니다.${code ? ` [${code}]` : ''} ${detail}`);
     } finally {
       setSubmitting(false);
     }
