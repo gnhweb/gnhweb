@@ -36,7 +36,7 @@ const TYPE_ICON: Record<SourceType, string> = {
   file: "ri-file-text-line",
 };
 
-const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notebook-copilot`;
+const FUNCTIONS_URL = `${import.meta.env.VITE_PUBLIC_SUPABASE_URL}/functions/v1/notebook-copilot`;
 const STORAGE_KEY = "gnh-notebook-session-v1";
 
 export default function NotebookCopilotPage() {
@@ -564,7 +564,7 @@ async function callNotebookCopilot(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      Authorization: `Bearer ${token || import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY}`,
     },
     body: JSON.stringify({
       mode,
