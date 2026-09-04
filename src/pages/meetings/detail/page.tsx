@@ -218,7 +218,7 @@ export default function MeetingDetailPage() {
             </span>
           )}
           <Link
-            to={`/meeting-copilot?meetingId=${meeting.id}`}
+            to={`/notebook`}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-br from-primary-500 to-violet-500 text-white hover:brightness-105 transition-all cursor-pointer whitespace-nowrap"
           >
             <i className="ri-robot-2-fill"></i>
