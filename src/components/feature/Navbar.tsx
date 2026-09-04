@@ -39,7 +39,6 @@ const COMMUNITY_CATEGORY: CategoryGroup = {
   items: [
     { path: '/memory-board', label: '추억창', icon: 'ri-image-line' },
     { path: '/song-vote', label: '찬양투표', icon: 'ri-music-line' },
-    { path: '/prayer-partner', label: '신앙 짝꿍', icon: 'ri-heart-pulse-line' },
     { path: '/prayer-relay', label: '기도 릴레이', icon: 'ri-hand-heart-line' },
     { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },
   ],
@@ -62,7 +61,7 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
   ]},
   { label: '회의록', items: [
     { path: '/meetings', label: '회의록', icon: 'ri-chat-check-line' },
-    { path: '/meeting-copilot', label: '회의 코파일럿 AI', icon: 'ri-lightbulb-flash-line' },
+    { path: '/notebook', label: '학생회 노트북', icon: 'ri-book-open-line' },
   ]},
   { label: '보고서', items: [
     { path: '/reports/weekly', label: '주간 보고서', icon: 'ri-file-list-3-line' },
