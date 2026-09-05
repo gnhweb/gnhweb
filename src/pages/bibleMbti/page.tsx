@@ -30,16 +30,16 @@ function CharacterIllustration({ name, className }: { name: string; className?: 
   const row = Math.floor(index / 5);
   const x = column * 25;
   const y = row * (100 / 3);
+
   return (
     <div
       role="img"
       aria-label={`${name} 성경인물 일러스트`}
-      className={`bg-no-repeat bg-cover ${className ?? ''}`}
+      className={`bg-no-repeat ${className ?? ''}`}
       style={{
-        backgroundImage: name === '다윗'
-          ? 'url(https://christian-witness.org/wp-content/uploads/2024/12/david_clipart_illustration_available.jpg)'
-          : 'url(/bible-mbti/characters-cute.svg)',
-        backgroundPosition: name === '다윗' ? 'center' : `${x}% ${y}%`,
+        backgroundImage: 'url(/bible-mbti/characters-cute.svg)',
+        backgroundPosition: `${x}% ${y}%`,
+        backgroundSize: '500% 400%',
       }}
     />
   );

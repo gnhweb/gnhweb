@@ -51,8 +51,10 @@ const illustration:Record<Figure,{hair:string;robe:string;prop:string;mark:strin
 };
 
 function FigureIllustration({name,className}:{name:Figure;className:string}){
- const c=illustration[name];
- return <svg aria-label={`${name} 성경인물 프로필`} viewBox="0 0 240 240" className={className} role="img"><rect width="240" height="240" rx="44" fill={c.bg}/><ellipse cx="120" cy="222" rx="72" ry="12" fill="#d7dbe3"/><path d="M66 220c4-49 28-72 54-72s50 23 54 72" fill={c.robe}/><path d="M84 164c-10 18-19 31-25 51M156 164c10 18 19 31 25 51" fill="none" stroke={c.robe} strokeWidth="26" strokeLinecap="round"/><circle cx="120" cy="96" r="51" fill="#d6a77a"/><path d="M70 91c2-44 25-68 51-68 29 0 51 25 49 70-13-16-29-26-50-27-20 0-36 9-50 25z" fill={c.hair}/><path d="M82 119c9 21 23 31 38 31s29-10 38-31c-9 8-23 13-38 13s-29-5-38-13z" fill={c.hair} opacity=".92"/><circle cx="101" cy="96" r="4" fill="#26313d"/><circle cx="139" cy="96" r="4" fill="#26313d"/><path d="M105 120c9 6 21 6 30 0" fill="none" stroke="#7c4a32" strokeWidth="4" strokeLinecap="round"/><circle cx="177" cy="55" r="28" fill="white" opacity=".82"/><text x="177" y="63" textAnchor="middle" fontSize="25" fontFamily="sans-serif">{c.prop}</text><text x="120" y="206" textAnchor="middle" fontSize="13" fontFamily="sans-serif" fontWeight="700" fill="white">{c.mark}</text></svg>;
+  const index=figureOrder.indexOf(name);
+  const column=index%5;
+  const row=Math.floor(index/5);
+  return <div aria-label={`${name} 성경인물 프로필`} role="img" className={`bg-no-repeat ${className}`} style={{backgroundImage:"url('/bible-mbti/characters-cute.svg')",backgroundPosition:`${column*25}% ${row*(100/3)}%`,backgroundSize:'500% 400%'}}/>;
 }
 
 function calculate(answers:string[]){const axis:Record<Axis,number>={EI:0,SN:0,TF:0,JP:0};const figures:Record<Figure,number>=Object.fromEntries(figureOrder.map(f=>[f,0])) as Record<Figure,number>;answers.forEach((answer,i)=>{const q=questions[i];const o=q?.options.find(x=>x.text===answer);if(!o)return;axis[q.axis]+=o.side===0?1:-1;figures[o.figure]+=3;});const type=`${axis.EI>=0?'E':'I'}${axis.SN>=0?'N':'S'}${axis.TF>=0?'F':'T'}${axis.JP>=0?'J':'P'}`;const ranked=[...figureOrder].sort((a,b)=>figures[b]-figures[a]);return{type,ranked,profile:profiles[ranked[0]]};}
