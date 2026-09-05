@@ -1,0 +1,111 @@
+name: Remove event planning tools v3
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove deprecated features
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def remove_regex(path, pattern):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              new, count = re.subn(pattern, '', text, flags=re.M)
+              p.write_text(new, encoding='utf-8')
+              return count
+
+          # Navigation/search references
+          remove_regex('src/components/feature/Navbar.tsx', r"^\s*\{ path: '/pds-planner', label: '행사 기획 마법사'.*?\},\s*$")
+          remove_regex('src/components/feature/Navbar.tsx', r"^\s*\{ path: '/event-ideas', label: '행사 기획 아이디어'.*?\},\s*$")
+          remove_regex('src/components/feature/UnifiedNavbar.tsx', r"\['/pds-planner','행사 기획'\],")
+          remove_regex('src/components/feature/UnifiedNavbar.tsx', r"\['/event-ideas','행사 아이디어'\],")
+          remove_regex('src/lib/siteSearch.ts', r"^\s*\{ path: '/pds-planner', label: '행사 기획 마법사'.*?\},\s*$")
+          remove_regex('src/lib/siteSearch.ts', r"^\s*\{ path: '/event-ideas', label: '행사 기획 아이디어'.*?\},\s*$")
+
+          # Layout special-page handling
+          p = Path('src/components/feature/Layout.tsx')
+          text = p.read_text(encoding='utf-8')
+          text = re.sub(r"^import EventIdeasEnhanced from '@/pages/eventIdeasEnhanced/page';\n", '', text, flags=re.M)
+          text = text.replace("'/event-ideas',", '')
+          text = re.sub(r":location\.pathname===['\"]?/event-ideas['\"]?\s*\?\s*<EventIdeasEnhanced\s*/>\s*:", ':', text)
+          p.write_text(text, encoding='utf-8')
+
+          # Router: remove imports and any event-planning route entries without touching other routes.
+          p = Path('src/router/config.tsx')
+          text = p.read_text(encoding='utf-8')
+          text = re.sub(r"^const (EventIdeas|PdsPlanner) = lazy\(\(\) => import\(\"@/pages/(eventIdeas|pdsPlanner)/page\"\)\);\n", '', text, flags=re.M)
+          text = re.sub(r'\{path:"/event-ideas",element:withSuspense\(<EventIdeas/>\)\},', '', text)
+          text = re.sub(r'\{path:"/pds-planner",.*?\},', '', text)
+          p.write_text(text, encoding='utf-8')
+
+          # Remove event-planning helpers from the shared NIM client.
+          p = Path('src/lib/nvidiaNim.ts')
+          text = p.read_text(encoding='utf-8')
+          text = re.sub(r"export interface PDSChecklist[\s\S]*?(?=export async function generateLeadershipCoaching)", '', text, count=1)
+          p.write_text(text, encoding='utf-8')
+
+          # Remove deprecated verification/search CSS references if still present.
+          p = Path('scripts/verify-site.mjs')
+          text = p.read_text(encoding='utf-8')
+          text = re.sub(r"^\s*'/event-ideas',\n", '', text, flags=re.M)
+          p.write_text(text, encoding='utf-8')
+
+          p = Path('public/navbar-desktop-fix.css')
+          text = p.read_text(encoding='utf-8')
+          text = re.sub(r"\n/\* Removed mission tools:.*?a\[href=\"/event-ideas\"\] \{\n\s*display: none !important;\n\}\s*", '\n', text, flags=re.S)
+          p.write_text(text, encoding='utf-8')
+
+          # Delete the two feature implementations and their Edge Functions.
+          for path in [
+              'src/pages/pdsPlanner/page.tsx',
+              'src/pages/eventIdeas/page.tsx',
+              'src/pages/eventIdeasEnhanced/page.tsx',
+              'supabase/functions/nim-pds/index.ts',
+              'supabase/functions/nim-event-ideas/index.ts',
+          ]:
+              Path(path).unlink(missing_ok=True)
+
+          # No active source/reference may remain anywhere outside .git/node_modules.
+          needles = ['/pds-planner', '/event-ideas', '행사 기획 마법서', '행사 기획 아이디어', 'nim-pds', 'nim-event-ideas', 'PDSChecklist', 'EventIdea']
+          leftovers = []
+          for p in Path('.').rglob('*'):
+              if not p.is_file() or '.git' in p.parts or 'node_modules' in p.parts:
+                  continue
+              try:
+                  t = p.read_text(encoding='utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+              if any(n in t for n in needles):
+                  leftovers.append(str(p))
+          if leftovers:
+              raise SystemExit('deprecated references remain: ' + ', '.join(leftovers))
+
+          # Remove all temporary cleanup workflows before committing.
+          for path in [
+              '.github/workflows/remove-event-planning-tools.yml',
+              '.github/workflows/remove-event-planning-tools-v2.yml',
+              '.github/workflows/remove-event-planning-tools-v3.yml',
+          ]:
+              Path(path).unlink(missing_ok=True)
+
+      - name: Commit removal
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "remove: delete event planning mission tools"
+          git push origin main
