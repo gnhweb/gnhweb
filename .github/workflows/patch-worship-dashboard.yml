@@ -1,7 +1,8 @@
 name: Wire worship attendance insights
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   patch:
