@@ -260,8 +260,8 @@ export default function Schedule() {
             </CategoryChipRow>
           </div>
 
-          {/* 모바일: 미니 캘린더 — 홈 화면과 톤 통일 */}
-          <div className="md:hidden bg-background-100 border border-background-200 rounded-[20px] p-4 mb-6">
+          {/* 월간 캘린더 — 모바일/PC 공통 */}
+          <div className="bg-background-100 border border-background-200 rounded-[20px] p-4 md:p-5 mb-6">
             <div className="flex items-center justify-between mb-3">
               <button onClick={goPrevMonth} className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-full hover:bg-background-200 cursor-pointer">
                 <i className="ri-arrow-left-s-line text-foreground-600"></i>
@@ -299,9 +299,9 @@ export default function Schedule() {
             </div>
           </div>
 
-          {/* 모바일: 선택한 날짜의 일정 카드 */}
+          {/* 선택한 날짜의 일정 카드 */}
           {selectedDate && (
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="md:hidden mb-6">
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
               <div className="flex items-center justify-between mb-2 px-1">
                 <p className="text-sm font-bold text-foreground-900">{dateLabel(selectedDate)} 일정</p>
                 <button onClick={() => setSelectedDate(null)} className="text-xs text-foreground-500 cursor-pointer">전체 보기</button>
@@ -450,7 +450,7 @@ export default function Schedule() {
               </div>
               {selectedEvent.description && (
                 <div className="bg-background-100 border border-background-200 rounded-xl p-4 mb-5">
-                  <p className="text-sm text-foreground-700 leading-relaxed">{selectedEvent.description}</p>
+                  <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap break-words">{selectedEvent.description}</p>
                 </div>
               )}
 
