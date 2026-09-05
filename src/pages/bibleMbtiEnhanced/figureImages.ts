@@ -1,3 +1,5 @@
+// Bible MBTI portraits use the supplied warm storybook illustration language: scenic backgrounds, soft painted colors, expressive faces, and figure-specific props.
+
 type FigureStyle = { bg: string; hill1: string; hill2: string; robe: string; hair: string; prop: string; female?: boolean };
 
 const styles: Record<string, FigureStyle> = {
@@ -47,19 +49,8 @@ function makePortrait({ bg, hill1, hill2, robe, hair, prop, female }: FigureStyl
   const hairShape = female
     ? `<path d="M70 101Q65 62 110 48Q155 62 150 103Q143 83 110 79Q77 83 70 101Z" fill="${hair}"/><path d="M73 91Q64 108 71 132" fill="none" stroke="${hair}" stroke-width="10" stroke-linecap="round"/><path d="M147 91Q156 108 149 132" fill="none" stroke="${hair}" stroke-width="10" stroke-linecap="round"/>`
     : `<path d="M70 100Q72 54 110 49Q148 54 150 101Q137 78 110 78Q83 78 70 100Z" fill="${hair}"/>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220">
-<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${bg}"/><stop offset="1" stop-color="#f8efd7"/></linearGradient><linearGradient id="robe" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${robe}"/><stop offset="1" stop-color="#8b684f"/></linearGradient></defs>
-<rect x="5" y="5" width="210" height="210" rx="34" fill="url(#sky)"/><circle cx="34" cy="34" r="15" fill="#fff0b5" opacity=".92"/>
-<path d="M5 123Q42 88 80 112T148 109T215 98V215H5Z" fill="${hill1}"/><path d="M5 151Q54 120 96 143T215 132V215H5Z" fill="${hill2}"/>
-<path d="M16 153Q48 139 76 151T132 150T202 143" fill="none" stroke="#d7c790" stroke-width="5" opacity=".75"/>
-<ellipse cx="110" cy="191" rx="49" ry="10" fill="#53634a" opacity=".2"/>
-<path d="M70 191Q74 133 110 128Q146 133 150 191Z" fill="url(#robe)"/><path d="M80 151Q61 170 57 190M140 151Q159 170 163 190" fill="none" stroke="${robe}" stroke-width="18" stroke-linecap="round"/>
-<circle cx="110" cy="101" r="40" fill="#e1ad7f"/>${hairShape}<path d="M76 111Q84 132 110 136Q136 132 144 111Q131 124 110 124Q89 124 76 111Z" fill="${hair}" opacity=".88"/>
-<ellipse cx="94" cy="100" rx="6" ry="8" fill="#4b3428"/><ellipse cx="126" cy="100" rx="6" ry="8" fill="#4b3428"/><circle cx="92" cy="98" r="2.2" fill="white"/><circle cx="124" cy="98" r="2.2" fill="white"/><path d="M99 118Q110 125 121 118" fill="none" stroke="#8a5138" stroke-width="3" stroke-linecap="round"/><circle cx="82" cy="111" r="5" fill="#e99d91" opacity=".35"/><circle cx="138" cy="111" r="5" fill="#e99d91" opacity=".35"/>
-<g transform="translate(137 63)" fill="none" stroke="#8c5b35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${propSvg[prop]}</g></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220"><defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${bg}"/><stop offset="1" stop-color="#f8efd7"/></linearGradient><linearGradient id="robe" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${robe}"/><stop offset="1" stop-color="#8b684f"/></linearGradient></defs><rect x="5" y="5" width="210" height="210" rx="34" fill="url(#sky)"/><circle cx="34" cy="34" r="15" fill="#fff0b5" opacity=".92"/><path d="M5 123Q42 88 80 112T148 109T215 98V215H5Z" fill="${hill1}"/><path d="M5 151Q54 120 96 143T215 132V215H5Z" fill="${hill2}"/><path d="M16 153Q48 139 76 151T132 150T202 143" fill="none" stroke="#d7c790" stroke-width="5" opacity=".75"/><ellipse cx="110" cy="191" rx="49" ry="10" fill="#53634a" opacity=".2"/><path d="M70 191Q74 133 110 128Q146 133 150 191Z" fill="url(#robe)"/><path d="M80 151Q61 170 57 190M140 151Q159 170 163 190" fill="none" stroke="${robe}" stroke-width="18" stroke-linecap="round"/><circle cx="110" cy="101" r="40" fill="#e1ad7f"/>${hairShape}<path d="M76 111Q84 132 110 136Q136 132 144 111Q131 124 110 124Q89 124 76 111Z" fill="${hair}" opacity=".88"/><ellipse cx="94" cy="100" rx="6" ry="8" fill="#4b3428"/><ellipse cx="126" cy="100" rx="6" ry="8" fill="#4b3428"/><circle cx="92" cy="98" r="2.2" fill="white"/><circle cx="124" cy="98" r="2.2" fill="white"/><path d="M99 118Q110 125 121 118" fill="none" stroke="#8a5138" stroke-width="3" stroke-linecap="round"/><circle cx="82" cy="111" r="5" fill="#e99d91" opacity=".35"/><circle cx="138" cy="111" r="5" fill="#e99d91" opacity=".35"/><g transform="translate(137 63)" fill="none" stroke="#8c5b35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${propSvg[prop]}</g></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-export const figureImagePaths: Record<string, string> = Object.fromEntries(
-  Object.entries(styles).map(([name, style]) => [name, makePortrait(style)]),
-);
+export const figureImagePaths: Record<string, string> = Object.fromEntries(Object.entries(styles).map(([name, style]) => [name, makePortrait(style)]));
