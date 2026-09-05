@@ -66,7 +66,7 @@ async function savePick(result: Result, userText: string, userId?: string) {
 }
 
 function ResultView({ result, onReset }: { result: Result; onReset: () => void }) {
-  const prayer = result.prayers?.[0] || fallbackPrayer;
+  const prayer = (result.prayers?.[0] || fallbackPrayer).replace(/^하나님,\s*/, '아버지, ');
   const share = async () => {
     const text = `오늘의 말씀 · ${result.reference}\n${result.answer}\n\n${result.verse}\n\n오늘의 기도\n${prayer}`;
     try {
