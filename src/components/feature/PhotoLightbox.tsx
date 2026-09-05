@@ -21,7 +21,7 @@ export default function PhotoLightbox({ photos, thumbUrls, initialIndex, onClose
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [loadedOriginals, setLoadedOriginals] = useState<Set<number>>(() => new Set([initialIndex]));
+  const [loadedOriginals, setLoadedOriginals] = useState<Set<number>>(() => new Set());
 
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTapRef = useRef(0);
