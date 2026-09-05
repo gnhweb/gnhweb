@@ -17,9 +17,7 @@ const sections = [
     items: [
       ['/bible-pick/history', '말씀 히스토리', '받았던 말씀을 다시 보고 마음을 이어가세요.'],
       ['/bible-streak', '말씀 스트릭', '매일 말씀을 가까이하는 습관을 만들어보세요.'],
-      ['/faith-storybook', '신앙 스토리북', '나의 신앙 이야기를 한 장씩 쌓아보세요.'],
-      ['/faith-journal', '신앙 일지', '오늘의 묵상과 마음을 기록해 보세요.'],
-      ['/repentance-journal', '회개 저널', '돌아보고 다시 시작할 수 있도록 기록하세요.'],
+      ['/faith-journal', '신앙일기', '묵상·신앙의 순간·회개와 회복을 한 곳에 기록해요.'],
       ['/year-end-summary', '월별 결산', '한 달의 신앙 여정을 천천히 돌아보세요.'],
     ],
   },
@@ -43,9 +41,9 @@ export default function FaithHubPage() {
           </div>
           <p className="text-xs font-bold tracking-[0.16em] text-primary-600">GNH · 신앙</p>
           <h1 className="mt-2 text-2xl font-black tracking-tight text-foreground-950 md:text-3xl">말씀을 만나고, 마음을 돌보고, 다시 걸어가는 곳</h1>
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-foreground-600">복잡하게 나누지 않았어요. 가장 먼저 말씀뽑기에서 지금의 마음을 하나님께 맡기고, 필요한 만큼 다른 신앙 기능으로 이어가세요.</p>
-          <Link to="/bible-pick" className="mt-5 inline-flex min-h-12 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 text-sm font-bold text-white shadow-sm transition active:scale-[0.99]">
-            <i className="ri-book-open-line" /> 지금 말씀뽑기 시작하기
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-foreground-600">신앙 기록은 하나로 모았어요. 말씀을 붙잡고, 마음을 돌아보고, 중요한 은혜의 순간을 남기며 나의 신앙이 어떻게 자라고 있는지 천천히 돌아보세요.</p>
+          <Link to="/faith-journal" className="mt-5 inline-flex min-h-12 w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-primary-500 px-5 text-sm font-bold text-background-50 shadow-sm transition active:scale-[0.99]">
+            <i className="ri-quill-pen-line" /> 신앙일기 시작하기
           </Link>
         </header>
 
@@ -59,10 +57,7 @@ export default function FaithHubPage() {
               <div className="space-y-1">
                 {section.items.map(([path, label, desc]) => (
                   <Link key={path} to={path} className="flex min-h-14 items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition hover:bg-primary-50">
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-foreground-800">{label}</span>
-                      <span className="mt-0.5 block text-xs leading-5 text-foreground-500">{desc}</span>
-                    </span>
+                    <span className="min-w-0"><span className="block text-sm font-semibold text-foreground-800">{label}</span><span className="mt-0.5 block text-xs leading-5 text-foreground-500">{desc}</span></span>
                     <i className="ri-arrow-right-s-line shrink-0 text-foreground-400" />
                   </Link>
                 ))}
@@ -71,9 +66,7 @@ export default function FaithHubPage() {
           ))}
         </div>
 
-        <div className="mt-5 rounded-2xl border border-primary-100 bg-primary-50/70 p-4 text-sm leading-6 text-primary-900">
-          <b>한 가지 원칙</b><span className="ml-2">좋은 날에도, 힘든 날에도 먼저 마음을 솔직하게 적고 말씀 앞에 서세요. 기존 기능과 주소는 그대로 유지됩니다.</span>
-        </div>
+        <div className="mt-5 rounded-2xl border border-primary-100 bg-primary-50/70 p-4 text-sm leading-6 text-primary-900"><b>신앙일기의 방향</b><span className="ml-2">매일 완벽하게 쓰는 것이 목표가 아니에요. 말씀 앞에서 솔직해지고, 돌아볼 것은 돌아보고, 오늘의 작은 순종을 하나씩 쌓아가는 것이 목표예요.</span></div>
       </div>
     </div>
   );
