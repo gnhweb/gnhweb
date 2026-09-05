@@ -12,6 +12,7 @@ interface Question {
   question: string;
   answer?: string;
   answer_author?: string;
+  answer_author_id?: string;
   answered_at?: string;
   created_at: string;
 }
@@ -29,7 +30,10 @@ export default function QandABoard() {
   const [newQuestion, setNewQuestion] = useState('');
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answerText, setAnswerText] = useState('');
+  const [editingAnswerId, setEditingAnswerId] = useState<string | null>(null);
+  const [editAnswerText, setEditAnswerText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [savingAnswer, setSavingAnswer] = useState(false);
   // Edit/Delete for own question
   const [editingQId, setEditingQId] = useState<string | null>(null);
   const [editQText, setEditQText] = useState('');
@@ -131,6 +135,89 @@ export default function QandABoard() {
       await loadQuestions();
     } catch {
       setError('답변 등록 중 오류가 발생했습니다.');
+    }
+  };
+
+  const canEditAnswer = (answerAuthorId?: string) => {
+    return !!user && !!answerAuthorId && answerAuthorId === user.id;
+  };
+
+  const notifyQuestionAuthor = async (question: Question | undefined, title: string, message: string) => {
+    if (!question?.author_id) return;
+    try {
+      await supabase.from('notifications').insert({
+        user_id: question.author_id,
+        type: 'qna_answer',
+        title,
+        message,
+        is_read: false,
+        link_url: '/qna-board',
+      });
+    } catch { /* notification non-critical */ }
+  };
+
+  const handleEditAnswer = async (qId: string) => {
+    if (!editAnswerText.trim() || !user || savingAnswer) return;
+    const question = questions.find(q => q.id === qId);
+    if (!question || !canEditAnswer(question.answer_author_id)) return;
+    setSavingAnswer(true);
+    try {
+      const { data: updatedRows, error: updateErr } = await supabase
+        .from('qna_questions')
+        .update({
+          answer: editAnswerText.trim(),
+          answered_at: new Date().toISOString(),
+        })
+        .eq('id', qId)
+        .eq('answer_author_id', user.id)
+        .select('id');
+      if (updateErr) throw updateErr;
+      if (!updatedRows?.length) throw new Error('답변을 수정할 수 없습니다.');
+
+      await notifyQuestionAuthor(
+        question,
+        '답변이 수정되었어요',
+        `${question.answer_author || profile?.name || '답변 작성자'} 님이 내 질문의 답변을 수정했습니다.`,
+      );
+
+      setEditingAnswerId(null);
+      setEditAnswerText('');
+      await loadQuestions();
+    } catch {
+      setError('답변 수정 중 오류가 발생했습니다.');
+    } finally {
+      setSavingAnswer(false);
+    }
+  };
+
+  const handleDeleteAnswer = async (qId: string) => {
+    if (!user || savingAnswer) return;
+    const question = questions.find(q => q.id === qId);
+    if (!question || !canEditAnswer(question.answer_author_id)) return;
+    if (!confirm('정말 이 답변을 삭제할까요?')) return;
+    setSavingAnswer(true);
+    try {
+      const { data: updatedRows, error: updateErr } = await supabase
+        .from('qna_questions')
+        .update({
+          answer: null,
+          answer_author: null,
+          answer_author_id: null,
+          answered_at: null,
+        })
+        .eq('id', qId)
+        .eq('answer_author_id', user.id)
+        .select('id');
+      if (updateErr) throw updateErr;
+      if (!updatedRows?.length) throw new Error('답변을 삭제할 수 없습니다.');
+
+      setEditingAnswerId(null);
+      setEditAnswerText('');
+      await loadQuestions();
+    } catch {
+      setError('답변 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setSavingAnswer(false);
     }
   };
 
@@ -345,7 +432,59 @@ export default function QandABoard() {
                           <span className="text-xs font-bold text-emerald-700">{q.answer_author}</span>
                           {q.answered_at && <span className="text-xs text-emerald-600">{formatDateKey(q.answered_at)}</span>}
                         </div>
-                        <p className="text-sm text-emerald-800 leading-relaxed">{q.answer}</p>
+                        {editingAnswerId === q.id ? (
+                          <div>
+                            <textarea
+                              value={editAnswerText}
+                              onChange={e => setEditAnswerText(e.target.value)}
+                              rows={4}
+                              maxLength={500}
+                              className="w-full px-3 py-3 text-sm rounded-input border border-emerald-200 bg-background-50 focus:border-emerald-400 outline-none resize-none"
+                              autoFocus={!(typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)")?.matches)}
+                            />
+                            <div className="flex items-center justify-end gap-2 mt-3">
+                              <button
+                                type="button"
+                                onClick={() => { setEditingAnswerId(null); setEditAnswerText(''); }}
+                                className="px-3.5 py-2 rounded-chip border border-background-200 bg-background-50 text-xs font-medium text-foreground-600 hover:bg-background-100 cursor-pointer"
+                              >
+                                취소
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleEditAnswer(q.id)}
+                                disabled={!editAnswerText.trim() || savingAnswer}
+                                className="px-4 py-2 rounded-chip bg-emerald-500 text-background-50 text-xs font-semibold hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                              >
+                                저장
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm text-emerald-800 leading-relaxed">{q.answer}</p>
+                            {canEditAnswer(q.answer_author_id) && (
+                              <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-emerald-200/70">
+                                <button
+                                  type="button"
+                                  onClick={() => { setEditingAnswerId(q.id); setEditAnswerText(q.answer || ''); }}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-chip border border-background-200 bg-background-50 text-xs font-medium text-foreground-600 hover:bg-background-100 cursor-pointer"
+                                >
+                                  <i className="ri-edit-line text-sm"></i>
+                                  수정
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAnswer(q.id)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-chip border border-accent-200 bg-background-50 text-xs font-medium text-accent-700 hover:bg-accent-50 cursor-pointer"
+                                >
+                                  <i className="ri-delete-bin-line text-sm"></i>
+                                  삭제
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                   </motion.div>
