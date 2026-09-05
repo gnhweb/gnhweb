@@ -72,7 +72,13 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
     { path: '/visitations', label: '심방 스케줄', icon: 'ri-heart-pulse-line' },
   ]},
   { label: '사명 도구', items: [
+    { path: '/pds-planner', label: '행사 기획 마법사', icon: 'ri-todo-line' },
+    { path: '/event-ideas', label: '행사 기획 아이디어', icon: 'ri-lightbulb-flash-line' },
     { path: '/leadership-diary', label: '리더십 코칭', icon: 'ri-book-read-line' },
+  ]},
+  { label: '미션', items: [
+    { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },
+    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },
   ]},
 ];
 
@@ -89,7 +95,9 @@ const ADMIN_CATEGORY_ITEMS: AdminItem[] = [
 const PROFILE_FAITH_ITEMS: CategoryItem[] = [
   { path: '/bible-pick/history', label: '말씀 히스토리', icon: 'ri-history-line' },
   { path: '/bible-streak', label: '말씀 스트릭', icon: 'ri-fire-line' },
-  { path: '/faith-journal', label: '신앙일기', icon: 'ri-edit-line' },
+  { path: '/faith-storybook', label: '신앙 스토리북', icon: 'ri-bookmark-line' },
+  { path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },
+  { path: '/repentance-journal', label: '회개 저널', icon: 'ri-hand-heart-line' },
   { path: '/bucket-list', label: '버킷리스트', icon: 'ri-todo-line' },
   { path: '/year-end-summary', label: '월별 결산', icon: 'ri-calendar-check-line' },
 ];
@@ -247,17 +255,16 @@ export default function Navbar() {
     if (hit?.path) { navigate(hit.path); setGlobalSearch(''); }
   };
 
-  const categoryItems = (category: CategoryGroup) => category.items;
-  const renderCategoryDropdown = (category: CategoryGroup, open: boolean, setOpen: (v: boolean) => void, ref: React.RefObject<HTMLDivElement | null>) => (
+  const categoryButton = (cat: CategoryGroup, open: boolean, setOpen: (v: boolean) => void, ref: React.RefObject<HTMLDivElement | null>) => (
     <div ref={ref} className="relative">
-      <button type="button" onClick={() => { closeAllDesktop(); setOpen(!open); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-input text-sm font-label font-medium transition-colors ${open || category.items.some(item => isActive(item.path)) ? catBgActive(category.colorClass) : 'text-foreground-600 hover:text-foreground-900 hover:bg-background-100'}`}>
-        <i className={category.icon}></i><span>{category.name}</span><i className={`ri-arrow-down-s-line text-xs transition-transform ${open ? 'rotate-180' : ''}`}></i>
+      <button type="button" onClick={() => { closeAllDesktop(); setOpen(!open); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-input text-sm font-label font-semibold transition-colors cursor-pointer ${open ? catBgActive(cat.colorClass) : 'text-foreground-700 hover:bg-background-100'}`}>
+        <i className={cat.icon}></i><span>{cat.name}</span><i className={`ri-arrow-down-s-line text-xs transition-transform ${open ? 'rotate-180' : ''}`}></i>
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }} className="absolute left-0 top-full mt-2 min-w-[190px] rounded-card border border-background-200 bg-background-50 p-2 shadow-card-lg z-50">
-            {categoryItems(category).map(item => (
-              <Link key={item.path} to={item.path} onClick={() => setOpen(false)} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-input text-sm font-label transition-colors ${isActive(item.path) ? catBgActive(category.colorClass) : `text-foreground-700 ${catBgHover(category.colorClass)}`}`}>
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }} className="absolute left-0 top-full mt-2 w-56 rounded-card border border-background-200 bg-background shadow-card-lg p-2 z-50">
+            {cat.items.map(item => (
+              <Link key={item.path} to={item.path} className={`flex items-center gap-3 px-3 py-2.5 rounded-input text-sm transition-colors ${isActive(item.path) ? catBgActive(cat.colorClass) : `text-foreground-700 ${catBgHover(cat.colorClass)}`}`}>
                 <i className={item.icon}></i><span>{item.label}</span>
               </Link>
             ))}
@@ -267,160 +274,5 @@ export default function Navbar() {
     </div>
   );
 
-  const renderMissionDropdown = () => (
-    <div ref={missionRef} className="relative">
-      <button type="button" onClick={() => { closeAllDesktop(); setMissionOpen(!missionOpen); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-input text-sm font-label font-medium transition-colors ${missionOpen || fullMissionItems.some(item => item.path && isActive(item.path)) ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-900 hover:bg-background-100'}`}>
-        <i className="ri-task-line"></i><span>사명자 전용</span><i className={`ri-arrow-down-s-line text-xs transition-transform ${missionOpen ? 'rotate-180' : ''}`}></i>
-      </button>
-      <AnimatePresence>
-        {missionOpen && (
-          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }} className="absolute right-0 top-full mt-2 w-[280px] rounded-card border border-background-200 bg-background-50 p-2 shadow-card-lg z-50">
-            {MISSION_SUBSECTIONS.map(section => (
-              <div key={section.label} className="px-1 py-1.5">
-                <p className="px-2 py-1 text-[11px] font-label font-semibold text-foreground-400">{section.label}</p>
-                {section.items.map(item => (
-                  <button key={item.path ?? item.action} type="button" onClick={() => handleMissionAction(item)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-input text-sm font-label text-left transition-colors ${item.path && isActive(item.path) ? 'bg-primary-100 text-primary-700' : 'text-foreground-700 hover:bg-background-100 hover:text-foreground-900'}`}>
-                    <i className={item.icon}></i><span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-
-  const renderMobileCategory = (category: CategoryGroup, key: string) => (
-    <div key={key} className="border-b border-background-200/70">
-      <button type="button" onClick={() => toggleMobileAccordion(key)} className="w-full flex items-center justify-between px-4 py-3 text-sm font-label font-medium text-foreground-700">
-        <span className="flex items-center gap-2"><i className={category.icon}></i>{category.name}</span>
-        <i className={`ri-arrow-down-s-line transition-transform ${mobileAccordion[key] ? 'rotate-180' : ''}`}></i>
-      </button>
-      <AnimatePresence>
-        {mobileAccordion[key] && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden px-3 pb-2">
-            {category.items.map(item => (
-              <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-input text-sm font-label ${isActive(item.path) ? `${catBgActive(category.colorClass)}` : 'text-foreground-700 hover:bg-background-100'}`}>
-                <i className={item.icon}></i>{item.label}
-              </Link>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-
-  return (
-    <>
-      <header className={`sticky top-0 z-40 w-full border-b border-background-200/70 bg-background-50/95 backdrop-blur transition-shadow ${scrolled ? 'shadow-card' : ''}`}>
-        <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-4 lg:px-6">
-          <button type="button" onClick={() => navigate('/')} className="shrink-0 flex items-center gap-2 mr-1">
-            <div className="flex h-9 w-9 items-center justify-center rounded-input bg-primary-600 text-white shadow-card"><i className="ri-cross-fill text-lg"></i></div>
-            <span className="hidden sm:inline font-heading text-lg font-bold text-foreground-950">GNH</span>
-          </button>
-
-          <nav className="hidden lg:flex items-center gap-0.5 flex-1">
-            {TOP_ITEMS.map(item => (
-              <Link key={item.path} to={item.path} onClick={item.path === '/suggestions' ? handleSuggestions : undefined} className={`flex items-center gap-1.5 px-3 py-2 rounded-input text-sm font-label font-medium transition-colors ${isActive(item.path) ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-900 hover:bg-background-100'}`}>
-                <i className={item.icon}></i><span>{item.label}</span>
-              </Link>
-            ))}
-            {renderCategoryDropdown(BIBLE_CATEGORY, bibleOpen, setBibleOpen, bibleRef)}
-            {renderCategoryDropdown(FAITH_CATEGORY, faithOpen, setFaithOpen, faithRef)}
-            {renderCategoryDropdown(COMMUNITY_CATEGORY, commOpen, setCommOpen, commRef)}
-            {showMissionTab && renderMissionDropdown()}
-            {showAdminTab && renderCategoryDropdown({ name: '관리', icon: 'ri-settings-3-line', colorClass: 'slate', items: ADMIN_CATEGORY_ITEMS.map(({ path, label, icon }) => ({ path, label, icon })) }, adminOpen, setAdminOpen, adminRef)}
-            {renderCategoryDropdown(GAME_CATEGORY, gameOpen, setGameOpen, gameRef)}
-          </nav>
-
-          <div className="ml-auto flex items-center gap-2">
-            <form onSubmit={e => { e.preventDefault(); search(globalSearch); }} className="hidden xl:flex items-center rounded-input border border-background-200 bg-background-50 px-2">
-              <i className="ri-search-line text-foreground-400"></i>
-              <input value={globalSearch} onChange={e => setGlobalSearch(e.target.value)} placeholder="검색" className="w-32 bg-transparent px-2 py-2 text-sm font-label outline-none placeholder:text-foreground-400" />
-            </form>
-            <ThemeToggleButton className="hidden sm:flex" />
-            <button type="button" onClick={() => setNotificationsOpen(true)} className="relative flex h-9 w-9 items-center justify-center rounded-full bg-background-100 text-foreground-600 hover:bg-background-200 transition-colors" aria-label="알림">
-              <i className="ri-notification-3-line"></i>
-              {notificationCount > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-4 h-4 px-1 rounded-chip bg-accent-600 text-white text-[10px] font-bold flex items-center justify-center">{notificationCount > 99 ? '99+' : notificationCount}</span>}
-            </button>
-            <div ref={profileRef} className="relative">
-              <button type="button" onClick={() => { closeAllDesktop(); setProfileOpen(!profileOpen); }} className="flex items-center gap-2 rounded-input px-2 py-1.5 hover:bg-background-100 transition-colors">
-                <div className="h-8 w-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold overflow-hidden">
-                  {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" /> : (profile?.name?.charAt(0) ?? user?.email?.charAt(0) ?? 'G')}
-                </div>
-                <div className="hidden md:block text-left leading-tight">
-                  <p className="text-xs font-label font-semibold text-foreground-800 truncate max-w-[110px]">{profile?.name ?? '사용자'}</p>
-                  <p className="text-[10px] font-label text-foreground-400">{profile?.role ? `${roleEmoji(profile.role)} ${ROLE_LABELS[profile.role]}` : ''}</p>
-                </div>
-                <i className={`hidden md:block ri-arrow-down-s-line text-xs text-foreground-400 transition-transform ${profileOpen ? 'rotate-180' : ''}`}></i>
-              </button>
-              <AnimatePresence>
-                {profileOpen && (
-                  <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="absolute right-0 top-full mt-2 w-64 rounded-card border border-background-200 bg-background-50 p-2 shadow-card-lg z-50">
-                    <div className="px-3 py-2 border-b border-background-200 mb-1">
-                      <p className="text-sm font-label font-semibold text-foreground-900">{profile?.name ?? '사용자'}</p>
-                      <p className="text-xs font-label text-foreground-400 mt-0.5">{profile?.email ?? user?.email ?? ''}</p>
-                    </div>
-                    {PROFILE_ACTIVITY_ITEMS.map(item => (
-                      <Link key={item.path} to={item.path} onClick={() => setProfileOpen(false)} className="flex items-center gap-2.5 px-3 py-2.5 rounded-input text-sm font-label text-foreground-700 hover:bg-background-100">
-                        <i className={item.icon}></i>{item.label}
-                      </Link>
-                    ))}
-                    <button type="button" onClick={handleSignOut} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-input text-sm font-label text-accent-700 hover:bg-accent-50">
-                      <i className="ri-logout-box-r-line"></i>로그아웃
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <button type="button" onClick={() => setMobileOpen(true)} className="lg:hidden flex h-9 w-9 items-center justify-center rounded-full bg-background-100 text-foreground-700" aria-label="메뉴">
-              <i className="ri-menu-line text-lg"></i>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 lg:hidden">
-            <div className="absolute inset-0 bg-foreground-950/40" onClick={() => setMobileOpen(false)}></div>
-            <motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ duration: 0.2 }} className="absolute right-0 top-0 h-full w-[min(88vw,380px)] overflow-y-auto bg-background-50 shadow-card-lg">
-              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-background-200 bg-background-50 px-4 py-4">
-                <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-input bg-primary-600 text-white"><i className="ri-cross-fill"></i></div><span className="font-heading font-bold text-foreground-950">GNH</span></div>
-                <div className="flex items-center gap-2"><ThemeToggleButton /><button type="button" onClick={() => setMobileOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-background-100 text-foreground-700" aria-label="닫기"><i className="ri-close-line text-lg"></i></button></div>
-              </div>
-              <div className="px-3 py-3">
-                {TOP_ITEMS.map(item => (
-                  <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)} className={`flex items-center gap-2.5 px-3 py-3 rounded-input text-sm font-label ${isActive(item.path) ? 'bg-primary-100 text-primary-700' : 'text-foreground-700 hover:bg-background-100'}`}>
-                    <i className={item.icon}></i>{item.label}
-                  </Link>
-                ))}
-                {renderMobileCategory(BIBLE_CATEGORY, 'bible')}
-                {renderMobileCategory(FAITH_CATEGORY, 'faith')}
-                {renderMobileCategory(COMMUNITY_CATEGORY, 'community')}
-                {showMissionTab && (
-                  <div className="border-b border-background-200/70">
-                    <button type="button" onClick={() => toggleMobileAccordion('mission')} className="w-full flex items-center justify-between px-4 py-3 text-sm font-label font-medium text-foreground-700">
-                      <span className="flex items-center gap-2"><i className="ri-task-line"></i>사명자 전용</span><i className={`ri-arrow-down-s-line transition-transform ${mobileAccordion.mission ? 'rotate-180' : ''}`}></i>
-                    </button>
-                    {mobileAccordion.mission && <div className="px-3 pb-2">{MISSION_SUBSECTIONS.map(section => <div key={section.label} className="py-1"><p className="px-2 py-1 text-[11px] font-label font-semibold text-foreground-400">{section.label}</p>{section.items.map(item => item.path ? <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-input text-sm font-label ${isActive(item.path) ? 'bg-primary-100 text-primary-700' : 'text-foreground-700 hover:bg-background-100'}`}><i className={item.icon}></i>{item.label}</Link> : null)}</div>)}</div>}
-                  </div>
-                )}
-                {showAdminTab && renderMobileCategory({ name: '관리', icon: 'ri-settings-3-line', colorClass: 'slate', items: ADMIN_CATEGORY_ITEMS.map(({ path, label, icon }) => ({ path, label, icon })) }, 'admin')}
-                {renderMobileCategory(GAME_CATEGORY, 'game')}
-              </div>
-              <div className="border-t border-background-200 p-4">
-                <button type="button" onClick={handleMobileBack} className="flex w-full items-center justify-center gap-2 rounded-input bg-background-100 px-4 py-3 text-sm font-label text-foreground-700 hover:bg-background-200"><i className="ri-arrow-left-line"></i>뒤로가기</button>
-              </div>
-            </motion.aside>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <NotificationsModal user={user} open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
-      <MeetingIdeasModal open={meetingIdeasOpen} onClose={() => setMeetingIdeasOpen(false)} />
-      <NotificationToast user={user} />
-    </>
-  );
+  return null;
 }
