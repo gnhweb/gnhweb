@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { notifyUser } from '@/lib/mobileFeedback';
+import { figureImagePaths } from './figureImages';
 
 type Axis = 'EI' | 'SN' | 'TF' | 'JP';
 type Figure = '다니엘'|'요셉'|'룻'|'바나바'|'베드로'|'느헤미야'|'에스더'|'디모데'|'다윗'|'마리아'|'아브라함'|'모세'|'여호수아'|'사무엘'|'엘리야'|'이사야'|'예레미야'|'바울'|'요한'|'마르다';
@@ -46,15 +47,8 @@ const profiles:Record<Figure,Profile> = {
 
 const figureOrder:Figure[]=['다니엘','요셉','룻','바나바','베드로','느헤미야','에스더','디모데','다윗','마리아','아브라함','모세','여호수아','사무엘','엘리야','이사야','예레미야','바울','요한','마르다'];
 
-const illustration:Record<Figure,{hair:string;robe:string;prop:string;mark:string;bg:string}>= {
- 다니엘:{hair:'#3d4b62',robe:'#b97843',prop:'⌁',mark:'기도',bg:'#eef2f7'},요셉:{hair:'#4a3328',robe:'#d6a33a',prop:'▤',mark:'곡식',bg:'#fff5dc'},룻:{hair:'#4b3026',robe:'#8b6bb3',prop:'🌾',mark:'이삭',bg:'#f5effb'},바나바:{hair:'#4a3328',robe:'#4f8a72',prop:'♡',mark:'격려',bg:'#eaf6f0'},베드로:{hair:'#3f302a',robe:'#c45d45',prop:'⌁',mark:'그물',bg:'#fff0eb'},느헤미야:{hair:'#3f302a',robe:'#647b9e',prop:'▥',mark:'성벽',bg:'#edf2fa'},에스더:{hair:'#402b25',robe:'#a65b8c',prop:'♛',mark:'왕후',bg:'#faedf6'},디모데:{hair:'#523a2c',robe:'#4f7790',prop:'✦',mark:'말씀',bg:'#edf5f8'},다윗:{hair:'#4a3025',robe:'#4f8a72',prop:'♩',mark:'찬양',bg:'#eaf6f0'},마리아:{hair:'#5a3d31',robe:'#6788a8',prop:'♡',mark:'말씀',bg:'#edf3f9'},아브라함:{hair:'#4a3328',robe:'#a77a4d',prop:'★',mark:'약속',bg:'#f8f0e5'},모세:{hair:'#4b3b35',robe:'#c74b46',prop:'▥',mark:'십계명',bg:'#fff0ee'},여호수아:{hair:'#443027',robe:'#587d9c',prop:'⚔',mark:'담대함',bg:'#edf4f8'},사무엘:{hair:'#4c352b',robe:'#a8744f',prop:'✦',mark:'말씀',bg:'#faf0e7'},엘리야:{hair:'#3c2e29',robe:'#8a5a3d',prop:'ϟ',mark:'불',bg:'#fff0e6'},이사야:{hair:'#4a342b',robe:'#4f718e',prop:'✎',mark:'선지자',bg:'#edf4f8'},예레미야:{hair:'#49362e',robe:'#765a55',prop:'☁',mark:'눈물',bg:'#f0eef1'},바울:{hair:'#3e302a',robe:'#667b57',prop:'✉',mark:'편지',bg:'#eef4e9'},요한:{hair:'#49352d',robe:'#527d9a',prop:'♡',mark:'사랑',bg:'#edf5f8'},마르다:{hair:'#4b3028',robe:'#b06a68',prop:'◉',mark:'섬김',bg:'#faeeee'}
-};
-
 function FigureIllustration({name,className}:{name:Figure;className:string}){
-  const index=figureOrder.indexOf(name);
-  const column=index%5;
-  const row=Math.floor(index/5);
-  return <div aria-label={`${name} 성경인물 프로필`} role="img" className={`bg-no-repeat ${className}`} style={{backgroundImage:"url('/bible-mbti/characters-cute.svg')",backgroundPosition:`${column*25}% ${row*(100/3)}%`,backgroundSize:'500% 400%'}}/>;
+ return <img src={figureImagePaths[name]} alt={`${name} 성경인물 프로필`} className={`object-cover object-center ${className}`} />;
 }
 
 function calculate(answers:string[]){const axis:Record<Axis,number>={EI:0,SN:0,TF:0,JP:0};const figures:Record<Figure,number>=Object.fromEntries(figureOrder.map(f=>[f,0])) as Record<Figure,number>;answers.forEach((answer,i)=>{const q=questions[i];const o=q?.options.find(x=>x.text===answer);if(!o)return;axis[q.axis]+=o.side===0?1:-1;figures[o.figure]+=3;});const type=`${axis.EI>=0?'E':'I'}${axis.SN>=0?'N':'S'}${axis.TF>=0?'F':'T'}${axis.JP>=0?'J':'P'}`;const ranked=[...figureOrder].sort((a,b)=>figures[b]-figures[a]);return{type,ranked,profile:profiles[ranked[0]]};}
