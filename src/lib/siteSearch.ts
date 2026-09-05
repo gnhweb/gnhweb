@@ -28,8 +28,6 @@ export const SITE_SEARCH_ITEMS: SiteSearchItem[] = [
   { path: '/pharisee', label: '바리새인을 찾아라', description: '성경 테마 멀티플레이 게임', icon: 'ri-book-open-line', group: '갓겜', keywords: ['게임', '바리새인', '성경'] },
   { path: '/wolves-and-sheep', label: '양과 늑대', description: '추리와 협동 게임', icon: 'ri-user-3-line', group: '갓겜', keywords: ['게임', '양', '늑대', '추리'] },
   { path: '/galilee-phone', label: '갈릴리폰', description: '메시지 릴레이 게임', icon: 'ri-chat-smile-3-line', group: '갓겜', keywords: ['게임', '갈릴리폰', '릴레이'] },
-  { path: '/pds-planner', label: '행사 기획 마법사', description: '행사 Plan-Do-See 체크리스트 생성', icon: 'ri-todo-line', group: '사명 도구', keywords: ['행사', '기획', '체크리스트', 'pds', 'ai'] },
-  { path: '/event-ideas', label: '행사 기획 아이디어', description: 'AI로 행사 아이디어 만들기', icon: 'ri-lightbulb-flash-line', group: '사명 도구', keywords: ['행사', '아이디어', '기획', 'ai'] },
   { path: '/leadership-diary', label: '리더십 코칭', description: '리더십 고민을 AI와 함께 정리', icon: 'ri-book-read-line', group: '사명 도구', keywords: ['리더십', '코칭', '사명자', 'ai', '고민'] },
   { path: '/meetings', label: '회의록', description: '회의 기록과 관리', icon: 'ri-chat-check-line', group: '회의', keywords: ['회의', '회의록', '기록'] },
   { path: '/notebook', label: '학생회 노트북', description: '회의록/공지/보고서/파일을 소스로 골라 AI에게 근거 기반으로 질문', icon: 'ri-book-open-line', group: '회의', keywords: ['노트북', 'notebooklm', 'ai', '코파일럿', '학생회 노트북'] },
