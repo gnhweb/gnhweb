@@ -25,7 +25,6 @@ interface AttendanceRecord {
   status: string;
   attendance_date: string;
   absence_reason: string | null;
-  late_reason: string | null;
 }
 
 interface ServicePoint {
@@ -143,7 +142,7 @@ export default function WorshipAttendanceInsights({ profile, compact = false }: 
       const worshipDates = getWorshipDates();
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
-        .select('user_id, status, attendance_date, absence_reason, late_reason')
+        .select('user_id, status, attendance_date, absence_reason')
         .gte('attendance_date', worshipDates[0])
         .lte('attendance_date', worshipDates[worshipDates.length - 1]);
       if (attendanceError) throw attendanceError;
@@ -167,7 +166,7 @@ export default function WorshipAttendanceInsights({ profile, compact = false }: 
           date,
           label: displayDate(date),
           day: dayLabel(date),
-          rate: total > 0 ? Math.round(((attended + late) / total) * 100) : null,
+          rate: total > 0 && dateRecords.length > 0 ? Math.round(((attended + late) / total) * 100) : null,
           attended,
           late,
           absent,
@@ -210,9 +209,10 @@ export default function WorshipAttendanceInsights({ profile, compact = false }: 
   }, [services]);
 
   const currentMonthRate = useMemo(() => {
-    if (members.length === 0 || currentMonthServices.length === 0) return null;
-    const attendedSlots = currentMonthServices.reduce((sum, service) => sum + service.attended + service.late, 0);
-    return Math.round((attendedSlots / (members.length * currentMonthServices.length)) * 100);
+    const measuredServices = currentMonthServices.filter((service) => service.rate !== null);
+    if (members.length === 0 || measuredServices.length === 0) return null;
+    const attendedSlots = measuredServices.reduce((sum, service) => sum + service.attended + service.late, 0);
+    return Math.round((attendedSlots / (members.length * measuredServices.length)) * 100);
   }, [currentMonthServices, members.length]);
 
   const wednesdayRate = useMemo(() => {
