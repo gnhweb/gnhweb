@@ -1,0 +1,45 @@
+name: Wire worship attendance insights
+
+on:
+  workflow_dispatch:
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Patch dashboard
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'src/pages/dashboard/page.tsx';
+          let source = fs.readFileSync(path, 'utf8');
+          const importNeedle = "import { dateKey, formatKoreanDate } from '@/lib/date';";
+          const importLine = "import WorshipAttendanceInsights from '@/components/feature/WorshipAttendanceInsights';";
+          if (!source.includes(importLine)) {
+            if (!source.includes(importNeedle)) throw new Error('dashboard import marker not found');
+            source = source.replace(importNeedle, `${importNeedle}\n${importLine}`);
+          }
+          const marker = `        <motion.div\n          initial={{ opacity: 0, y: 10 }}\n          animate={{ opacity: 1, y: 0 }}\n          transition={{ duration: 0.3, delay: 0.4 }}\n          className="bg-background-100 rounded-2xl p-6 shadow-card mb-6"\n        >`;
+          const block = `        {(role === 'teacher' || role === 'zone_leader' || role === 'assistant_zone_leader') && (\n          <WorshipAttendanceInsights\n            profile={{ user_id: profile.user_id, role, club: profile.club }}\n            compact\n          />\n        )}\n\n`;
+          if (!source.includes('WorshipAttendanceInsights')) throw new Error('component import failed');
+          if (!source.includes(block)) {
+            if (!source.includes(marker)) throw new Error('quick menu marker not found');
+            source = source.replace(marker, `${block}${marker}`);
+          }
+          fs.writeFileSync(path, source);
+          NODE
+      - name: Commit and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/dashboard/page.tsx
+          git commit -m "feat: show worship attendance care on dashboards" || true
+          git rm .github/workflows/patch-worship-dashboard.yml
+          git commit -m "chore: remove temporary dashboard patch workflow"
+          git push origin main
