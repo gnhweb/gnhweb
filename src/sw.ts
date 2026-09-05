@@ -14,6 +14,7 @@ self.skipWaiting();
 const SUPABASE_STORAGE_HOST = 'ceearwcfvcbjhmkuuqzv.supabase.co';
 const SUPABASE_PUBLIC_OBJECT_PATH = '/storage/v1/object/public/';
 const IMAGE_PROXY_HOST = 'https://wsrv.nl/';
+const OPTIMIZED_IMAGE_CACHE = 'gnh-optimized-storage-images-v1';
 
 function toOptimizedStorageImage(request: Request): Request | null {
   if (request.method !== 'GET') return null;
@@ -45,13 +46,31 @@ function toOptimizedStorageImage(request: Request): Request | null {
   });
 }
 
+async function getOptimizedStorageResponse(request: Request, optimizedRequest: Request): Promise<Response> {
+  const cache = await caches.open(OPTIMIZED_IMAGE_CACHE);
+  const cached = await cache.match(optimizedRequest);
+  if (cached) return cached;
+
+  try {
+    const response = await fetch(optimizedRequest);
+    if (response.ok) {
+      try {
+        await cache.put(optimizedRequest, response.clone());
+      } catch {
+        // Browser cache quota or private-mode restrictions must not break images.
+      }
+    }
+    return response;
+  } catch {
+    return fetch(request);
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const optimizedRequest = toOptimizedStorageImage(event.request);
   if (!optimizedRequest) return;
 
-  event.respondWith(
-    fetch(optimizedRequest).catch(() => fetch(event.request)),
-  );
+  event.respondWith(getOptimizedStorageResponse(event.request, optimizedRequest));
 });
 
 self.addEventListener('push', (event) => {
