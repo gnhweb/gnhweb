@@ -10,7 +10,7 @@ import { STATUS_LABELS, STATUS_COLORS } from '@/mocks/growthRecords';
 import type { GrowthRecord } from '@/mocks/growthRecords';
 import { CategoryChip, CategoryChipRow } from '@/components/base/CategoryChip';
 
-const ALL_CLUBS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu'];
+const ALL_CLUBS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu', 'cheonhwarae_cheongmyeong'];
 
 const STATUS_BAR: Record<GrowthRecord['status'], string> = {
   draft: 'bg-gray-300',
@@ -22,18 +22,11 @@ const STATUS_BAR: Record<GrowthRecord['status'], string> = {
 };
 
 export default function GrowthReports() {
-  const { profile, hasRole, assignedTeacherClub } = useAuth();
-  const isChief = hasRole('chief');
-  const isTeacher = hasRole('teacher');
+  const { profile, hasRole } = useAuth();
+  const canViewReports = hasRole('assistant_zone_leader');
   const [clubFilter, setClubFilter] = useState<ClubType | 'all'>('all');
 
-  const getEffectiveClubFilter = (): ClubType | 'all' => {
-    if (isChief) return clubFilter;
-    if (isTeacher && assignedTeacherClub) return assignedTeacherClub as ClubType;
-    return 'all';
-  };
-
-  const effectiveClub = getEffectiveClubFilter();
+  const effectiveClub: ClubType | 'all' = canViewReports ? clubFilter : 'all';
 
   const {
     filteredItems: records,
@@ -101,27 +94,20 @@ export default function GrowthReports() {
             ))}
           </div>
 
-          {(assignedTeacherClub || isChief) && (
+          {canViewReports && (
             <div className="flex items-center gap-1 bg-background-100 border border-background-200 rounded-full p-1 flex-shrink-0">
               <button onClick={() => setClubFilter('all')} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === 'all' ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-950'}`}>
                 전체 동아리
               </button>
-              {isChief ? (
-                ALL_CLUBS.map(c => (
-                  <button key={c} onClick={() => setClubFilter(c)} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === c ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-950'}`}>
-                    {CLUB_LABELS[c].split(' ')[0]}
-                  </button>
-                ))
-              ) : assignedTeacherClub ? (
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-700">
-                  {CLUB_LABELS[assignedTeacherClub as ClubType]?.split(' ')[0]} (담당)
-                </span>
-              ) : null}
+              {ALL_CLUBS.map(c => (
+                <button key={c} onClick={() => setClubFilter(c)} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === c ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-950'}`}>
+                  {CLUB_LABELS[c].split(' ')[0]}
+                </button>
+              ))}
             </div>
           )}
         </div>
 
-        {/* 필터 — 모바일: 공용 가로 스크롤 칩 */}
         <div className="md:hidden space-y-2 mb-6">
           <CategoryChipRow>
             {REPORT_STATUS_FILTERS.map(f => (
@@ -130,21 +116,15 @@ export default function GrowthReports() {
               </CategoryChip>
             ))}
           </CategoryChipRow>
-          {(assignedTeacherClub || isChief) && (
-            isChief ? (
-              <CategoryChipRow>
-                <CategoryChip active={clubFilter === 'all'} onClick={() => setClubFilter('all')}>전체 동아리</CategoryChip>
-                {ALL_CLUBS.map(c => (
-                  <CategoryChip key={c} active={clubFilter === c} onClick={() => setClubFilter(c)}>
-                    {CLUB_LABELS[c].split(' ')[0]}
-                  </CategoryChip>
-                ))}
-              </CategoryChipRow>
-            ) : assignedTeacherClub ? (
-              <span className="inline-flex px-3.5 py-2 rounded-chip text-sm font-semibold bg-gradient-to-r from-primary-500 to-accent-500 text-white">
-                {CLUB_LABELS[assignedTeacherClub as ClubType]?.split(' ')[0]} (담당)
-              </span>
-            ) : null
+          {canViewReports && (
+            <CategoryChipRow>
+              <CategoryChip active={clubFilter === 'all'} onClick={() => setClubFilter('all')}>전체 동아리</CategoryChip>
+              {ALL_CLUBS.map(c => (
+                <CategoryChip key={c} active={clubFilter === c} onClick={() => setClubFilter(c)}>
+                  {CLUB_LABELS[c].split(' ')[0]}
+                </CategoryChip>
+              ))}
+            </CategoryChipRow>
           )}
         </div>
 
@@ -178,9 +158,7 @@ export default function GrowthReports() {
                             <span className="text-xs font-bold text-secondary-600">{record.student_name.charAt(0)}</span>
                           </div>
                           <span className="text-sm font-semibold text-foreground-950">{record.student_name}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[record.status]}`}>
-                            {STATUS_LABELS[record.status]}
-                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[record.status]}`}>{STATUS_LABELS[record.status]}</span>
                         </div>
                         <p className="text-sm text-foreground-700 line-clamp-2 mb-2">{record.spiritual_growth}</p>
                         <div className="flex items-center gap-4 text-xs text-foreground-600">
@@ -188,37 +166,23 @@ export default function GrowthReports() {
                           <span className="flex items-center gap-1"><i className="ri-building-line"></i>{CLUB_LABELS[record.club]}</span>
                         </div>
                       </div>
-                      <div className="flex items-center shrink-0">
-                        <div className="w-10 h-10 rounded-full bg-secondary-100 flex items-center justify-center">
-                          <i className="ri-arrow-right-s-line text-secondary-500"></i>
-                        </div>
-                      </div>
+                      <div className="flex items-center shrink-0"><div className="w-10 h-10 rounded-full bg-secondary-100 flex items-center justify-center"><i className="ri-arrow-right-s-line text-secondary-500"></i></div></div>
                     </div>
                   </Link>
                 </motion.div>
               ))}
             </div>
 
-            {/* 모바일: 학생 아바타 + 우측 상단 상태 칩 카드 */}
             <div className="md:hidden space-y-3">
               {records.map((record, i) => (
                 <motion.div key={`m-${record.id}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.3) }} whileTap={{ scale: 0.97 }}>
                   <Link to={`/reports/growth/${record.id}`} className="relative flex gap-3 bg-background-100 border border-background-200 rounded-[20px] p-4 pl-3 overflow-hidden cursor-pointer">
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${STATUS_BAR[record.status]}`}></div>
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary-400 to-primary-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ml-1">
-                      {record.student_name.charAt(0)}
-                    </div>
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary-400 to-primary-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ml-1">{record.student_name.charAt(0)}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <span className="text-sm font-bold text-foreground-950">{record.student_name}</span>
-                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_COLORS[record.status]}`}>
-                          {STATUS_LABELS[record.status]}
-                        </span>
-                      </div>
+                      <div className="flex items-start justify-between gap-2 mb-1"><span className="text-sm font-bold text-foreground-950">{record.student_name}</span><span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_COLORS[record.status]}`}>{STATUS_LABELS[record.status]}</span></div>
                       <p className="text-xs text-foreground-600 line-clamp-1 mb-1.5">{record.spiritual_growth}</p>
-                      <div className="flex items-center gap-2 text-[11px] text-foreground-500">
-                        <span>{formatDate(record.record_date)} · {CLUB_LABELS[record.club]}</span>
-                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-foreground-500"><span>{formatDate(record.record_date)} · {CLUB_LABELS[record.club]}</span></div>
                     </div>
                   </Link>
                 </motion.div>
