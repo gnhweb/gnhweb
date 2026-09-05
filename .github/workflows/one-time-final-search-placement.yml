@@ -1,4 +1,4 @@
-name: One-time final search placement fix
+name: One-time event planning removal
 
 on:
   workflow_dispatch:
@@ -10,73 +10,94 @@ permissions:
   contents: write
 
 jobs:
-  fix:
+  remove:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Patch search placement
+      - name: Remove event planning features
         shell: python
         run: |
           from pathlib import Path
+          import re
 
-          p = Path('src/components/feature/Navbar.tsx')
-          s = p.read_text()
+          def edit(path, patterns):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              for pattern, replacement in patterns:
+                  text = re.sub(pattern, replacement, text, flags=re.M)
+              p.write_text(text, encoding='utf-8')
 
-          old_theme = '<ThemeToggleButton className="absolute right-0 top-1/2 -translate-y-1/2" />'
-          new_theme = '''<div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              <button type="button" onClick={() => { setNotificationsOpen(false); setMobileOpen(false); navigate('/search'); }} aria-label="검색" title="검색" className="md:hidden flex w-9 h-9 items-center justify-center rounded-full hover:bg-background-200 active:bg-background-200 transition-colors cursor-pointer">
-                <i className="ri-search-line text-[19px] text-foreground-700"></i>
-              </button>
-              <ThemeToggleButton />
-            </div>'''
-          if old_theme not in s:
-              raise SystemExit('theme toggle anchor not found')
-          s = s.replace(old_theme, new_theme, 1)
+          edit('src/components/feature/Navbar.tsx', [
+              (r"^\s*\{ path: '/pds-planner', label: '행사 기획 마법사'.*?\},\s*$", ''),
+              (r"^\s*\{ path: '/event-ideas', label: '행사 기획 아이디어'.*?\},\s*$", ''),
+          ])
+          edit('src/components/feature/UnifiedNavbar.tsx', [
+              (r"\['/pds-planner','행사 기획'\],", ''),
+              (r"\['/event-ideas','행사 아이디어'\],", ''),
+          ])
+          edit('src/lib/siteSearch.ts', [
+              (r"^\s*\{ path: '/pds-planner', label: '행사 기획 마법사'.*?\},\s*$", ''),
+              (r"^\s*\{ path: '/event-ideas', label: '행사 기획 아이디어'.*?\},\s*$", ''),
+          ])
 
-          mobile_search = '''              <form onSubmit={(e) => { e.preventDefault(); const q = globalSearch.trim(); navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search'); setMobileOpen(false); }} className="relative mb-4">
-                <i className="ri-search-line pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-foreground-400"></i>
-                <input value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="사이트 검색" enterKeyHint="search" autoComplete="off" className="w-full rounded-2xl border border-background-200 bg-background-100 py-3.5 pl-11 pr-4 text-[16px] outline-none focus:border-primary-300 focus:ring-4 focus:ring-primary-50" />
-              </form>
-'''
-          if mobile_search in s:
-              s = s.replace(mobile_search, '', 1)
-          s = s.replace('placeholder="사이트 검색"', 'placeholder="검색"')
-          p.write_text(s)
+          edit('src/components/feature/Layout.tsx', [
+              (r"^import EventIdeasEnhanced from '@/pages/eventIdeasEnhanced/page';\n", ''),
+              (r"['\"]?/event-ideas['\"]?,", ''),
+              (r":location\.pathname===['\"]?/event-ideas['\"]?\s*\?\s*<EventIdeasEnhanced\s*/>\s*:", ':'),
+          ])
 
-          h = Path('index.html')
-          hs = h.read_text()
-          start = hs.find('    <script>\n      (function () {\n        var mounted = false;')
-          if start != -1:
-              end_marker = '    </script>\n    <script src="https://readdy.ai/api/public/assistant/widget?'
-              end = hs.find(end_marker, start)
-              if end == -1:
-                  raise SystemExit('bootstrap script end not found')
-              hs = hs[:start] + hs[end:]
-          h.write_text(hs)
+          edit('src/router/config.tsx', [
+              (r"^const EventIdeas = lazy\(\(\) => import\(\"@/pages/eventIdeas/page\"\)\);\n", ''),
+              (r"^const PdsPlanner = lazy\(\(\) => import\(\"@/pages/pdsPlanner/page\"\)\);\n", ''),
+              (r'\{path:"/event-ideas",element:withSuspense\(<EventIdeas/>\)\},', ''),
+              (r'\{path:"/pds-planner",.*?\},', ''),
+          ])
 
-          sp = Path('src/pages/search/page.tsx')
-          ss = sp.read_text().replace('>사이트 검색</h1>', '>검색</h1>').replace('aria-label="사이트 검색"', 'aria-label="검색"')
-          sp.write_text(ss)
+          edit('src/lib/nvidiaNim.ts', [
+              (r"export interface PDSChecklist[\s\S]*?(?=export async function generateLeadershipCoaching)", ''),
+          ])
 
-      - name: Validate
-        run: |
-          grep -n "navigate('/search')" src/components/feature/Navbar.tsx
-          if grep -q 'placeholder="사이트 검색"' src/components/feature/Navbar.tsx; then exit 1; fi
-          if grep -q 'var mounted = false' index.html; then exit 1; fi
+          edit('scripts/verify-site.mjs', [(r"^\s*'/event-ideas',\n", '')])
+          edit('public/navbar-desktop-fix.css', [(r"\n/\* Removed mission tools:.*?a\[href=\"/event-ideas\"\] \{\n\s*display: none !important;\n\}\s*", '\n')])
 
-      - name: Commit
+          for path in [
+              'src/pages/pdsPlanner/page.tsx',
+              'src/pages/eventIdeas/page.tsx',
+              'src/pages/eventIdeasEnhanced/page.tsx',
+              'supabase/functions/nim-pds/index.ts',
+              'supabase/functions/nim-event-ideas/index.ts',
+          ]:
+              Path(path).unlink(missing_ok=True)
+
+          needles = ['/pds-planner', '/event-ideas', '행사 기획 마법서', '행사 기획 아이디어', 'nim-pds', 'nim-event-ideas', 'PDSChecklist', 'EventIdea']
+          leftovers = []
+          for p in Path('.').rglob('*'):
+              if not p.is_file() or '.git' in p.parts or 'node_modules' in p.parts:
+                  continue
+              try:
+                  t = p.read_text(encoding='utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+              if any(n in t for n in needles):
+                  leftovers.append(str(p))
+          if leftovers:
+              raise SystemExit('deprecated references remain: ' + ', '.join(leftovers))
+
+          for path in [
+              '.github/workflows/remove-event-planning-tools.yml',
+              '.github/workflows/remove-event-planning-tools-v2.yml',
+              '.github/workflows/remove-event-planning-tools-v3.yml',
+              '.github/workflows/one-time-final-search-placement.yml',
+          ]:
+              Path(path).unlink(missing_ok=True)
+
+      - name: Commit removal
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/feature/Navbar.tsx src/pages/search/page.tsx index.html
-          git commit -m "fix: place mobile search beside theme toggle"
-          git push
-
-      - name: Remove one-time workflow
-        run: |
-          git rm .github/workflows/one-time-final-search-placement.yml
-          git commit -m "chore: remove one-time final search placement workflow"
+          git add -A
+          git commit -m "remove: delete event planning mission tools"
           git push
