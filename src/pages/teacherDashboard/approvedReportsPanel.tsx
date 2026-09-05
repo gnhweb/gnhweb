@@ -69,10 +69,10 @@ export default function ApprovedReportsPanel() {
               <h2 className="text-xl md:text-2xl font-black text-foreground-950 mt-1">최종 승인된 보고서</h2>
               <p className="text-sm text-foreground-600 mt-1">승인 후에도 사라지지 않습니다. 동아리별로 계속 확인하고 다음 업무의 근거로 사용할 수 있습니다.</p>
             </div>
-            <Link to="/reports/review" className="min-h-11 inline-flex items-center justify-center px-4 rounded-xl bg-foreground-950 text-white text-sm font-bold">검토센터 열기</Link>
+            <Link to="/reports/review" className="min-h-11 inline-flex items-center justify-center px-4 rounded-xl bg-foreground-950 text-white dark:bg-primary-600 dark:text-background-50 text-sm font-bold">검토센터 열기</Link>
           </div>
           <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-            <button type="button" onClick={() => setClub('all')} className={`min-h-10 px-4 rounded-full border text-sm font-bold whitespace-nowrap ${club === 'all' ? 'bg-foreground-950 text-white border-foreground-950' : 'bg-background-100 border-background-200 text-foreground-600'}`}>전체 동아리</button>
+            <button type="button" onClick={() => setClub('all')} className={`min-h-10 px-4 rounded-full border text-sm font-bold whitespace-nowrap ${club === 'all' ? 'bg-foreground-950 text-white border-foreground-950 dark:bg-primary-600 dark:text-background-50 dark:border-primary-600' : 'bg-background-100 border-background-200 text-foreground-600'}`}>전체 동아리</button>
             {clubs.map((c) => <button key={c} type="button" onClick={() => setClub(c)} className={`min-h-10 px-4 rounded-full border text-sm font-bold whitespace-nowrap ${club === c ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-background-100 border-background-200 text-foreground-600'}`}>{CLUB_LABELS[c].split(' (')[0]}</button>)}
           </div>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
