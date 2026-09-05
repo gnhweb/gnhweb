@@ -5,6 +5,7 @@ import { clubs } from '@/mocks/clubs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import LeaderboardModal from '@/pages/bibleQuiz/components/LeaderboardModal';
 import { getCachedQuoteOfTheDay, fetchAndCacheQuoteOfTheDay } from '@/lib/dailyQuote';
 import { todayKey, formatKoreanDate } from '@/lib/date';
 import { CLUB_LABELS } from '@/types/auth';
@@ -300,6 +301,7 @@ export default function Home() {
   const isMobile = useIsMobile();
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [attendanceError, setAttendanceError] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [allMembersTotal, setAllMembersTotal] = useState(0);
   const attendanceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);;
 
@@ -1064,6 +1066,59 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ═══ 7. 오늘의 출석 현황 요약 ═══ */}
+      <section className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
+            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-100"><i className="ri-user-heart-line text-rose-600 text-sm"></i></span>
+            오늘의 출석 현황
+          </h2>
+          {hasRole && hasRole('assistant_zone_leader') && (
+            <Link to="/attendance-board" className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">실시간 출석 현황판 <i className="ri-arrow-right-s-line text-sm"></i></Link>
+          )}
+        </div>
+        <div className="grid grid-cols-3 gap-2 md:gap-4">
+          {attendanceError ? (
+            <div className="col-span-3 bg-accent-100 border border-accent-200 rounded-2xl p-4 text-center">
+              <p className="text-sm text-accent-700">출석 현황을 불러오는 중 문제가 발생했어요</p>
+              <button onClick={() => { setAttendanceError(false); loadAttendanceSummary(); }} className="mt-2 text-xs text-accent-500 underline cursor-pointer">다시 시도</button>
+            </div>
+          ) : (
+            <>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+                <p className="text-3xl font-black text-emerald-600">{attendanceSummary?.attended ?? '\u2013'}</p>
+                <p className="text-xs font-semibold text-emerald-700 mt-1">출석</p>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 text-center">
+                <p className="text-3xl font-black text-orange-500">{attendanceSummary?.absent ?? '\u2013'}</p>
+                <p className="text-xs font-semibold text-orange-600 mt-1">불참</p>
+              </div>
+              <div className="bg-background-100 border border-background-200 rounded-2xl p-4 text-center">
+                <p className="text-3xl font-black text-foreground-500">
+                  {attendanceSummary && allMembersTotal > 0
+                    ? allMembersTotal - attendanceSummary.attended - attendanceSummary.absent
+                    : '\u2013'}
+                </p>
+                <p className="text-xs font-semibold text-foreground-500 mt-1">미응답</p>
+              </div>
+            </>
+          )}
+        </div>
+        {attendanceSummary && allMembersTotal > 0 && (
+          <div className="mt-3 bg-background-100 border border-background-200 rounded-xl px-4 py-2.5 flex items-center gap-3">
+            <div className="flex-1 h-2 bg-background-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all duration-700"
+                style={{ width: `${Math.round((attendanceSummary.attended / allMembersTotal) * 100)}%` }}
+              />
+            </div>
+            <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">
+              {Math.round((attendanceSummary.attended / allMembersTotal) * 100)}% 출석
+            </span>
+          </div>
+        )}
+      </section>
+
       {/* ═══ 3. 동아리 소개 ═══ */}
       <section className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -1150,147 +1205,44 @@ export default function Home() {
       </section>
 
 
-      {/* ═══ 5-0. 확정된 지난달 수상 동아리 (외부에서 실제로 상을 주는 대상) ═══ */}
+      {/* ═══ 홈 상단 핵심: 확정 수상 + 실시간 랭킹 ═══ */}
       {(confirmedQuiz || confirmedMarathon) && (
-        <section className="max-w-6xl mx-auto px-4 md:px-6 mb-6">
-          <div className="relative overflow-hidden rounded-2xl md:rounded-[20px] border border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-4 md:p-5">
-            <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-amber-200/30"></div>
-            <div className="relative flex items-center justify-between mb-3">
-              <h2 className="text-sm md:text-base font-bold text-amber-900 flex items-center gap-2">
-                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-amber-400/90"><i className="ri-award-fill text-white text-sm"></i></span>
-                {confirmedQuiz?.month ?? confirmedMarathon?.month}월 확정 수상 동아리
-              </h2>
-              <Link to="/hall-of-fame" className="text-[11px] md:text-xs font-semibold text-amber-700 hover:text-amber-800 flex items-center gap-0.5 whitespace-nowrap cursor-pointer">
-                명예의 전당 <i className="ri-arrow-right-s-line"></i>
-              </Link>
-            </div>
-            <div className="relative grid grid-cols-2 gap-2.5 md:gap-3">
-              {confirmedQuiz && (
-                <div className="rounded-xl md:rounded-2xl bg-white/70 backdrop-blur border border-amber-200 p-3 md:p-3.5">
-                  <p className="text-[10px] md:text-[11px] font-semibold text-amber-700 mb-1 flex items-center gap-1"><i className="ri-trophy-fill"></i> 성경퀴즈 1위</p>
-                  <p className="font-black text-sm md:text-base text-foreground-950 truncate">{confirmedQuiz.club_label}</p>
-                  <p className="text-[11px] text-foreground-500 mt-0.5">{confirmedQuiz.value.toLocaleString()}점</p>
-                </div>
-              )}
-              {confirmedMarathon && (
-                <div className="rounded-xl md:rounded-2xl bg-white/70 backdrop-blur border border-amber-200 p-3 md:p-3.5">
-                  <p className="text-[10px] md:text-[11px] font-semibold text-amber-700 mb-1 flex items-center gap-1"><i className="ri-book-open-fill"></i> 성경완독 1위</p>
-                  <p className="font-black text-sm md:text-base text-foreground-950 truncate">{confirmedMarathon.club_label}</p>
-                  <p className="text-[11px] text-foreground-500 mt-0.5">{confirmedMarathon.value.toLocaleString()}장 완독</p>
-                </div>
-              )}
+        <section className="max-w-6xl mx-auto px-4 md:px-6 mt-8 mb-6">
+          <div className="relative overflow-hidden rounded-card border border-accent-300/40 bg-background-100 shadow-card-lg">
+            <div className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-accent-400/10 blur-2xl" />
+            <div className="relative p-4 md:p-6">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3 min-w-0"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-card bg-accent-500 text-white shadow-card"><i className="ri-award-fill text-lg" /></span><div className="min-w-0"><p className="text-[10px] font-bold tracking-[0.14em] text-accent-600 dark:text-accent-300">HONOR ROLL</p><h2 className="text-base md:text-lg font-black text-foreground-950 truncate">{confirmedQuiz?.month ?? confirmedMarathon?.month}월 확정 수상</h2></div></div>
+                <Link to="/hall-of-fame" className="shrink-0 inline-flex min-h-11 items-center gap-1 rounded-chip px-3 text-xs font-bold text-accent-700 dark:text-accent-200 hover:bg-accent-50 dark:hover:bg-accent-900/30">명예의 전당 <i className="ri-arrow-right-line" /></Link>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {confirmedQuiz && <div className="rounded-card border border-accent-300/30 bg-background-50 dark:bg-background-200/70 p-4"><p className="text-[10px] font-bold text-accent-600 dark:text-accent-300 flex items-center gap-1"><i className="ri-trophy-fill" /> 성경퀴즈 1위</p><p className="mt-1 font-black text-base md:text-lg text-foreground-950 truncate">{confirmedQuiz.club_label}</p><p className="mt-0.5 text-xs font-semibold text-foreground-600 dark:text-foreground-300">{confirmedQuiz.value.toLocaleString()}점</p></div>}
+                {confirmedMarathon && <div className="rounded-card border border-primary-300/30 bg-background-50 dark:bg-background-200/70 p-4"><p className="text-[10px] font-bold text-primary-600 dark:text-primary-300 flex items-center gap-1"><i className="ri-book-open-fill" /> 성경완독 1위</p><p className="mt-1 font-black text-base md:text-lg text-foreground-950 truncate">{confirmedMarathon.club_label}</p><p className="mt-0.5 text-xs font-semibold text-foreground-600 dark:text-foreground-300">{confirmedMarathon.value.toLocaleString()}장 완독</p></div>}
+              </div>
             </div>
           </div>
         </section>
       )}
 
-      {/* ═══ 5. 이달의 동아리 챔피언 (성경퀴즈 · 성경완독) — 실시간 진행 중 랭킹 ═══ */}
-      {(monthlyChampion || marathonChampion) && (
-        <section className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
-              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-amber-100"><i className="ri-trophy-line text-amber-600 text-sm"></i></span>
-              {new Date().getMonth() + 1}월 동아리 챔피언
-              <span className="inline-flex items-center gap-1 ml-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                진행 중
-              </span>
-            </h2>
-          </div>
-          <p className="text-[11px] md:text-xs text-foreground-400 -mt-2.5 mb-3">아직 확정 전인 실시간 랭킹이에요. 이번 달이 끝나면 자동으로 확정돼요.</p>
-
-          {/* 성경퀴즈 1위 동아리 · 성경완독 1위 동아리 — 나란히 표시 */}
-          <div className="grid grid-cols-2 gap-2.5 md:gap-3">
-            {monthlyChampion && (
-              <Link to="/bible-quiz" className="relative rounded-2xl md:rounded-[20px] overflow-hidden bg-gradient-to-br from-amber-400 via-amber-500 to-accent-500 p-3.5 md:p-4 shadow-card-lg cursor-pointer">
-                <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-background-100/10"></div>
-                <div className="relative flex items-center gap-2 mb-2.5">
-                  <div className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/25 backdrop-blur flex items-center justify-center flex-shrink-0">
-                    <i className="ri-trophy-fill text-lg md:text-2xl text-white"></i>
-                  </div>
-                  <p className="text-white/90 text-[10px] md:text-[11px] font-semibold leading-tight">{new Date().getMonth() + 1}월<br className="md:hidden" /> 성경퀴즈 1위</p>
-                </div>
-                <p className="relative text-white font-black text-base md:text-lg truncate">{monthlyChampion.topClub.club_name}</p>
-                <p className="relative text-white/80 text-[11px] md:text-xs font-semibold mt-0.5">{monthlyChampion.topClub.total_score.toLocaleString()}점</p>
-              </Link>
-            )}
-            {marathonChampion && (
-              <Link to="/bible-marathon" className="relative rounded-2xl md:rounded-[20px] overflow-hidden bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-500 p-3.5 md:p-4 shadow-card-lg cursor-pointer">
-                <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-background-100/10"></div>
-                <div className="relative flex items-center gap-2 mb-2.5">
-                  <div className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/25 backdrop-blur flex items-center justify-center flex-shrink-0">
-                    <i className="ri-book-open-fill text-lg md:text-2xl text-white"></i>
-                  </div>
-                  <p className="text-white/90 text-[10px] md:text-[11px] font-semibold leading-tight">{new Date().getMonth() + 1}월<br className="md:hidden" /> 성경완독 1위</p>
-                </div>
-                <p className="relative text-white font-black text-base md:text-lg truncate">{marathonChampion.label}</p>
-                <p className="relative text-white/80 text-[11px] md:text-xs font-semibold mt-0.5">{marathonChampion.chapters.toLocaleString()}장 완독</p>
-              </Link>
-            )}
-          </div>
-
-          {monthlyChampion?.topPlayer && (
-            <div className="mt-2.5 md:mt-3 flex items-center gap-4 p-3.5 md:p-4 bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200 rounded-2xl">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0"><i className="ri-vip-crown-line text-xl md:text-2xl text-rose-500"></i></div>
-              <div className="min-w-0"><p className="text-xs font-semibold text-rose-700 mb-0.5">이달의 퀴즈 MVP</p><p className="text-base md:text-lg font-black text-foreground-950 truncate">{monthlyChampion.topPlayer.nickname}</p><p className="text-xs text-foreground-500 truncate">{monthlyChampion.topPlayer.club_name} · {monthlyChampion.topPlayer.total_score.toLocaleString()}점</p></div>
-            </div>
-          )}
-        </section>
-      )}
-
-
-      {/* ═══ 7. 오늘의 출석 현황 요약 ═══ */}
       <section className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
-            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-100"><i className="ri-user-heart-line text-rose-600 text-sm"></i></span>
-            오늘의 출석 현황
-          </h2>
-          {hasRole && hasRole('assistant_zone_leader') && (
-            <Link to="/attendance-board" className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">실시간 출석 현황판 <i className="ri-arrow-right-s-line text-sm"></i></Link>
-          )}
-        </div>
-        <div className="grid grid-cols-3 gap-2 md:gap-4">
-          {attendanceError ? (
-            <div className="col-span-3 bg-accent-100 border border-accent-200 rounded-2xl p-4 text-center">
-              <p className="text-sm text-accent-700">출석 현황을 불러오는 중 문제가 발생했어요</p>
-              <button onClick={() => { setAttendanceError(false); loadAttendanceSummary(); }} className="mt-2 text-xs text-accent-500 underline cursor-pointer">다시 시도</button>
+        <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-background-100 via-background-100 to-background-200 border border-background-300 shadow-card-lg">
+          <div className="absolute -left-20 -top-20 h-48 w-48 rounded-full bg-primary-500/10 blur-2xl" /><div className="absolute -right-16 -bottom-20 h-48 w-48 rounded-full bg-accent-500/10 blur-2xl" />
+          <div className="relative p-4 md:p-6">
+            <div className="flex items-end justify-between gap-3 mb-4">
+              <div><div className="flex items-center gap-2 mb-1.5"><span className="inline-flex h-8 w-8 items-center justify-center rounded-card bg-accent-500 text-white shadow-card"><i className="ri-bar-chart-grouped-line" /></span><p className="text-[10px] font-black tracking-[0.14em] text-accent-600 dark:text-accent-300">LIVE RANKING</p></div><h2 className="text-xl md:text-2xl font-black text-foreground-950">{new Date().getMonth() + 1}월 실시간 성경 랭킹</h2><p className="mt-1 text-xs text-foreground-600 dark:text-foreground-300">지금 이 순간의 순위입니다. 이번 달이 끝나면 자동으로 확정돼요.</p></div>
+              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-chip bg-primary-100 dark:bg-primary-900/40 px-3 py-1.5 text-[10px] font-black text-primary-700 dark:text-primary-200"><span className="h-1.5 w-1.5 rounded-full bg-primary-500 animate-pulse" /> 실시간</span>
             </div>
-          ) : (
-            <>
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
-                <p className="text-3xl font-black text-emerald-600">{attendanceSummary?.attended ?? '\u2013'}</p>
-                <p className="text-xs font-semibold text-emerald-700 mt-1">출석</p>
-              </div>
-              <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 text-center">
-                <p className="text-3xl font-black text-orange-500">{attendanceSummary?.absent ?? '\u2013'}</p>
-                <p className="text-xs font-semibold text-orange-600 mt-1">불참</p>
-              </div>
-              <div className="bg-background-100 border border-background-200 rounded-2xl p-4 text-center">
-                <p className="text-3xl font-black text-foreground-500">
-                  {attendanceSummary && allMembersTotal > 0
-                    ? allMembersTotal - attendanceSummary.attended - attendanceSummary.absent
-                    : '\u2013'}
-                </p>
-                <p className="text-xs font-semibold text-foreground-500 mt-1">미응답</p>
-              </div>
-            </>
-          )}
-        </div>
-        {attendanceSummary && allMembersTotal > 0 && (
-          <div className="mt-3 bg-background-100 border border-background-200 rounded-xl px-4 py-2.5 flex items-center gap-3">
-            <div className="flex-1 h-2 bg-background-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 rounded-full transition-all duration-700"
-                style={{ width: `${Math.round((attendanceSummary.attended / allMembersTotal) * 100)}%` }}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {monthlyChampion && <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-accent-400 via-accent-500 to-accent-700 p-4 md:p-5 shadow-card-lg"><div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10" /><div className="relative flex items-center justify-between gap-3"><div className="flex items-center gap-2.5 min-w-0"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-card bg-white/15 text-white backdrop-blur"><i className="ri-trophy-fill text-xl" /></span><div className="min-w-0"><p className="text-[10px] font-bold text-white/80">성경퀴즈 1위</p><p className="text-lg font-black text-white truncate">{monthlyChampion.topClub.club_name}</p></div></div><span className="shrink-0 text-sm font-black text-white">{monthlyChampion.topClub.total_score.toLocaleString()}점</span></div></div>}
+              {marathonChampion && <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-primary-500 via-primary-600 to-primary-800 p-4 md:p-5 shadow-card-lg"><div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10" /><div className="relative flex items-center justify-between gap-3"><div className="flex items-center gap-2.5 min-w-0"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-card bg-white/15 text-white backdrop-blur"><i className="ri-book-open-fill text-xl" /></span><div className="min-w-0"><p className="text-[10px] font-bold text-white/80">성경완독 1위</p><p className="text-lg font-black text-white truncate">{marathonChampion.label}</p></div></div><span className="shrink-0 text-sm font-black text-white">{marathonChampion.chapters.toLocaleString()}장</span></div></div>}
             </div>
-            <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">
-              {Math.round((attendanceSummary.attended / allMembersTotal) * 100)}% 출석
-            </span>
+            <button type="button" onClick={() => setShowLeaderboard(true)} className="mt-3 flex min-h-14 w-full items-center justify-between gap-3 rounded-card border border-primary-300/40 bg-background-50/90 dark:bg-background-200/80 px-4 md:px-5 text-left shadow-card transition-all hover:border-primary-400/60 hover:shadow-card-lg active:scale-[0.99] cursor-pointer"><span className="flex items-center gap-3 min-w-0"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-card bg-primary-500 text-white shadow-card"><i className="ri-trophy-line text-lg" /></span><span className="min-w-0"><span className="block text-sm font-black text-foreground-950">실시간 리더보드</span><span className="block text-[11px] text-foreground-600 dark:text-foreground-300 truncate">전체 순위를 지금 바로 확인해보세요</span></span></span><i className="ri-arrow-right-line shrink-0 text-primary-600 dark:text-primary-300 text-xl" /></button>
           </div>
-        )}
+        </div>
       </section>
+
+
+      <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />
 
       {/* ═══ Footer ═══ */}
       <footer className="border-t border-primary-100/50 py-8 mt-4">
