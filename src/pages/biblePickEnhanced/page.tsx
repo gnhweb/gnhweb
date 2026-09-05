@@ -28,7 +28,7 @@ type BiblePickRecord = {
 };
 
 const HISTORY_STORAGE_KEY = 'bible_picks_history';
-const fallbackPrayer = '하나님, 오늘 제 마음을 있는 그대로 맡겨드립니다. 말씀을 통해 제가 혼자가 아니라는 것을 기억하게 하시고, 오늘 제게 필요한 한 걸음을 걸어가게 해주세요. 아멘.';
+const fallbackPrayer = '아버지, 오늘 제 마음을 있는 그대로 맡겨드립니다. 말씀을 통해 제가 혼자가 아니라는 것을 기억하게 하시고, 오늘 제게 필요한 한 걸음을 걸어가게 해주세요. 아멘.';
 
 function saveToLocalHistory(record: BiblePickRecord) {
   try {
@@ -116,7 +116,7 @@ function ResultView({ result, onReset }: { result: Result; onReset: () => void }
       </section>
 
       <section className="rounded-card border border-secondary-200 bg-secondary-50 p-5 md:p-6">
-        <div className="flex items-center gap-2"><i className="ri-heart-3-line text-lg text-secondary-700" aria-hidden="true" /><p className="text-sm font-bold text-secondary-900">하나님께 이렇게 기도해봐요</p></div>
+        <div className="flex items-center gap-2"><i className="ri-heart-3-line text-lg text-secondary-700" aria-hidden="true" /><p className="text-sm font-bold text-secondary-900">아버지께 이렇게 기도해봐요</p></div>
         <p className="mt-3 font-quote text-[15px] leading-8 text-secondary-900">{prayer}</p>
         {result.prayers?.length > 1 && <div className="mt-4 border-t border-secondary-200 pt-4">{result.prayers.slice(1, 3).map((item, index) => <p key={`${item}-${index}`} className="mt-2 font-quote text-sm leading-7 text-secondary-800">{item}</p>)}</div>}
       </section>
