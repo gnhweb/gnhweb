@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-/** 기존 Home 캐러셀을 유지하면서 실제 memory_photos를 랜덤으로 주입한다. 데이터가 없거나 이미지가 깨지면 원래 hero/main.svg로 복구한다. */
+/** 기존 Home 캐러셀을 유지하면서 실제 memory_photos의 작은 썸네일을 랜덤으로 주입한다. 원본은 홈에서 요청하지 않는다. */
 export default function HomeMemoryEnhancer() {
   useEffect(() => {
     let cancelled = false;
@@ -36,14 +36,14 @@ export default function HomeMemoryEnhancer() {
     (async () => {
       const { data, error } = await supabase
         .from('memory_photos')
-        .select('id, photo_url')
-        .not('photo_url', 'is', null)
+        .select('id, thumb_url')
+        .not('thumb_url', 'is', null)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(20);
       if (cancelled || error || !data?.length) return;
-      const usable = data.filter((x: { photo_url?: string }) => typeof x.photo_url === 'string' && x.photo_url.trim());
+      const usable = data.filter((x: { thumb_url?: string | null }) => typeof x.thumb_url === 'string' && x.thumb_url.trim());
       if (!usable.length) return;
-      selectedUrl = usable[Math.floor(Math.random() * usable.length)].photo_url;
+      selectedUrl = usable[Math.floor(Math.random() * usable.length)].thumb_url!;
       apply();
     })();
 
