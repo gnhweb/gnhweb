@@ -60,7 +60,7 @@ export default function MemoryBoard() {
     try {
       const { data, error: fetchErr } = await supabase
         .from('memory_photos')
-        .select('*')
+        .select('id, author_id, author_name, title, photo_url, thumb_url, club, created_at')
         .order('created_at', { ascending: false });
       if (fetchErr) throw fetchErr;
       setPhotos(data || []);
