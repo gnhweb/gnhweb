@@ -1,51 +1,10 @@
-name: Fix Bible Pick response format
+# Disabled legacy repair workflow. Kept inert so it cannot modify the repository automatically.
+name: Disabled legacy Bible Pick repair
 on:
-  push:
-    branches: [main]
-permissions:
-  contents: write
+  workflow_dispatch:
+permissions: {}
 jobs:
-  fix:
-    if: github.actor != 'github-actions[bot]'
+  disabled:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Align Bible Pick page with bible-pick-v2
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('src/pages/biblePickEnhanced/page.tsx')
-          s = p.read_text()
-          s = s.replace("  answer: string;\n", "", 1)
-          s = s.replace("${result.answer}", "${result.recommendation}")
-          old = """      const { data, error: functionError } = await supabase.functions.invoke('bible-pick', { body: { userText } });
-      if (functionError || !data) throw new Error(functionError?.message || '말씀을 준비하지 못했습니다.');
-      if (data.error) throw new Error(data.error);
-      const nextResult = data as Result;
-      if (!nextResult.answer || !nextResult.verse || !nextResult.reference) throw new Error('응답 형식이 올바르지 않습니다. 잠시 후 다시 시도해주세요.');
-"""
-          new = """      const { data, error: functionError } = await supabase.functions.invoke('bible-pick-v2', {
-        body: {
-          userText,
-          mode: 'pick',
-          unifiedExperience: true,
-          instruction: '한 가지 말씀 경험으로 답하고, 학생이 실제로 느끼는 감정과 상황을 존중하며 말씀·이유·오늘의 한 걸음·짧은 기도를 자연스럽게 연결하라. 정답을 단정하거나 훈계하지 말고 현실적이고 따뜻하게 답하라.',
-        },
-      });
-      if (functionError || !data) throw new Error(functionError?.message || '말씀을 준비하지 못했습니다.');
-      if (data.error) throw new Error(data.error);
-      const nextResult = data as Result;
-      if (!nextResult.recommendation || !nextResult.verse || !nextResult.reference) throw new Error('응답 형식이 올바르지 않습니다. 잠시 후 다시 시도해주세요.');
-"""
-          if old not in s:
-              raise SystemExit('Expected Bible Pick submit block was not found')
-          s = s.replace(old, new, 1)
-          p.write_text(s)
-          PY
-          rm .github/workflows/_fix_bible_pick_response.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/biblePickEnhanced/page.tsx .github/workflows/_fix_bible_pick_response.yml
-          git commit -m "fix: use bible-pick-v2 response contract"
-          git push
+      - run: echo "Legacy repair workflow is disabled."
