@@ -16,11 +16,8 @@ export interface QuizQuestion {
   points: number;
 }
 
-export interface PDSChecklist { plan: PDSItem[]; do: PDSItem[]; see: PDSItem[]; }
-export interface PDSItem { text: string; priority: 'high' | 'medium' | 'low'; assignee?: string; deadline?: string; }
 export interface SimbangLetter { message: string; tone: string; verseRef: string; followUpQuestions: string[]; }
 export interface MbtiResult { character: string; description: string; lesson: string; matchingPhrase: string; bibleVerse: string; traits: { label: string; value: number }[]; bestWith: string; challenge: string; }
-export interface EventIdea { title: string; ideas: string[]; bibleRef: string; }
 
 const QUIZ_DIFFICULTY_KR: Record<'easy' | 'normal' | 'hard', string> = { easy: '하', normal: '중', hard: '상' };
 const QUIZ_POINTS: Record<'easy' | 'normal' | 'hard', number> = { easy: 20, normal: 50, hard: 80 };
@@ -94,14 +91,6 @@ export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', exc
   throw new Error('선택한 난이도의 문제가 부족해요. 다른 난이도를 선택해주세요.');
 }
 
-export async function generatePlan(eventPurpose: string): Promise<PDSChecklist> {
-  const { data, error } = await supabase.functions.invoke('nim-pds', { body: { eventPurpose } });
-  if (error || !data) throw new Error('행사 기획 체크리스트를 생성하지 못했어요.');
-  const result = data as PDSChecklist;
-  if (result && result.plan && result.do && result.see) return result;
-  throw new Error('체크리스트 형식이 올바르지 않아요.');
-}
-
 export async function generateLeadershipCoaching(concern: string, tone?: 'direct' | 'empathetic'): Promise<string> {
   const { data, error } = await supabase.functions.invoke('nim-coaching', { body: { concern, tone: tone || 'direct' } });
   if (error || !data) throw new Error('리더십 코칭을 생성하지 못했어요.');
@@ -124,12 +113,4 @@ export async function fetchMbtiResult(answers: string[]): Promise<MbtiResult> {
   const result = data as MbtiResult;
   if (result && result.character) return { character: result.character, description: result.description || '', lesson: result.lesson || '', matchingPhrase: result.matchingPhrase || '', bibleVerse: result.bibleVerse || '', traits: Array.isArray(result.traits) ? result.traits : [], bestWith: result.bestWith || '', challenge: result.challenge || '' };
   throw new Error('MBTI 결과 형식이 올바르지 않아요.');
-}
-
-export async function generateEventIdeas(topic: string, audience: string, budget: string): Promise<EventIdea> {
-  const { data, error } = await supabase.functions.invoke('nim-event-ideas', { body: { topic, audience, budget } });
-  if (error || !data) throw new Error('행사 아이디어를 생성하지 못했어요.');
-  const result = data as EventIdea;
-  if (result && result.title && result.ideas) return result;
-  throw new Error('아이디어 형식이 올바르지 않아요.');
 }
