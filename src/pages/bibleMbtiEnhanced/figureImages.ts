@@ -1,24 +1,19 @@
-// Bible MBTI portrait artwork: reference-style character art only; the existing result layout remains unchanged.
-// The 13 available reference portraits are cropped from the supplied design, and the 7 missing figures use matching artwork from the same visual set.
-export const figureImagePaths: Record<string, string> = {
-  '다니엘': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '요셉': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '룻': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '바나바': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '베드로': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '느헤미야': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '에스더': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '디모데': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '다윗': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '마리아': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '아브라함': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '모세': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '여호수아': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '사무엘': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '엘리야': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '이사야': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '예레미야': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '바울': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '요한': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
-  '마르다': 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoQABAAPpE6mU2mYAA=',
+// Bible MBTI portraits: each result uses the supplied storybook-style character art.
+// The result-page layout is unchanged; this file only swaps the portrait source.
+const order = ['다니엘','요셉','룻','바나바','베드로','느헤미야','에스더','디모데','다윗','마리아','아브라함','모세','여호수아','사무엘','엘리야','이사야','예레미야','바울','요한','마르다'] as const;
+
+const spriteUrl = '/bible-mbti/figure-portraits.webp';
+const cols = 5;
+const cellWidth = 80;
+const cellHeight = 63;
+
+const makePortrait = (index: number) => {
+  const x = -(index % cols) * cellWidth;
+  const y = -Math.floor(index / cols) * cellHeight;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${cellWidth} ${cellHeight}"><image href="${spriteUrl}" x="${x}" y="${y}" width="${cols * cellWidth}" height="${4 * cellHeight}" preserveAspectRatio="none"/></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
+
+export const figureImagePaths: Record<string, string> = Object.fromEntries(
+  order.map((name, index) => [name, makePortrait(index)]),
+);
