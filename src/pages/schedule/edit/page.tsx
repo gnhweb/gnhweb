@@ -91,7 +91,7 @@ export default function ScheduleEdit() {
           event_date: eventDate,
           event_time: eventTime.trim(),
           location: location.trim(),
-          description: description.trim(),
+          description: description,
           target_club: targetClub,
           updated_at: new Date().toISOString(),
         })
