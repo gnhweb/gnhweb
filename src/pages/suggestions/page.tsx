@@ -126,6 +126,10 @@ export default function SuggestionsPage() {
 
   const handleRespond = async (suggestionId: string) => {
     if (!responseText.trim() || !profile) return;
+    const suggestion = suggestions.find((item) => item.id === suggestionId);
+    if (!suggestion) return;
+
+    const isResponseEdit = Boolean(suggestion.response);
     try {
       const { error: updateError } = await supabase
         .from('suggestions')
@@ -138,13 +142,32 @@ export default function SuggestionsPage() {
 
       if (updateError) throw updateError;
 
+      // 답변 등록/수정 사실을 건의사항 작성자에게 알린다.
+      // 알림 실패가 답변 저장 자체를 실패시키지는 않는다.
+      if (suggestion.author_id && suggestion.author_id !== profile.user_id) {
+        try {
+          await supabase.from('notifications').insert({
+            user_id: suggestion.author_id,
+            type: 'suggestion_response',
+            title: isResponseEdit ? '건의사항 답변이 수정되었어요' : '건의사항에 답변이 달렸어요',
+            message: isResponseEdit
+              ? `${profile.name} 님이 내 건의사항의 답변을 수정했습니다.`
+              : `${profile.name} 님이 내 건의사항에 답변을 달았습니다.`,
+            is_read: false,
+            link_url: '/suggestions',
+          });
+        } catch {
+          // 알림은 부가 기능이므로 답변 저장 결과에는 영향을 주지 않는다.
+        }
+      }
+
       setResponseText('');
       setRespondingId(null);
-      setSuccessMsg('답변이 등록되었습니다.');
+      setSuccessMsg(isResponseEdit ? '답변이 수정되었습니다.' : '답변이 등록되었습니다.');
       setTimeout(() => setSuccessMsg(null), 3000);
       await fetchSuggestions();
     } catch {
-      setError('답변 등록 중 오류가 발생했습니다.');
+      setError(isResponseEdit ? '답변 수정 중 오류가 발생했습니다.' : '답변 등록 중 오류가 발생했습니다.');
     }
   };
 
@@ -476,9 +499,24 @@ export default function SuggestionsPage() {
 
                                 {item.response && (
                                   <div className="mt-3 p-4 bg-secondary-50 rounded-xl border border-secondary-100">
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                      <i className="ri-chat-quote-line text-secondary-500 text-xs"></i>
-                                      <span className="text-xs font-bold text-secondary-600">답변</span>
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                      <div className="flex items-center gap-1.5">
+                                        <i className="ri-chat-quote-line text-secondary-500 text-xs"></i>
+                                        <span className="text-xs font-bold text-secondary-600">답변</span>
+                                      </div>
+                                      {isTeacherOrAbove && respondingId !== item.id && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setRespondingId(item.id);
+                                            setResponseText(item.response || '');
+                                          }}
+                                          className="inline-flex items-center gap-1 text-xs font-medium text-secondary-600 hover:text-secondary-700 cursor-pointer"
+                                        >
+                                          <i className="ri-edit-line"></i>
+                                          답변 수정
+                                        </button>
+                                      )}
                                     </div>
                                     <p className="text-sm text-foreground-800 leading-relaxed whitespace-pre-wrap">
                                       {item.response}
@@ -525,7 +563,7 @@ export default function SuggestionsPage() {
                                         disabled={!responseText.trim()}
                                         className="px-4 py-2 rounded-full bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
                                       >
-                                        답변 등록
+                                        {item.response ? '답변 저장' : '답변 등록'}
                                       </button>
                                     </div>
                                   </div>
