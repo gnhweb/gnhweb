@@ -16,9 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Apply pending image egress guard
-        if: ${{ github.event_name == 'push' && hashFiles('._apply_egress_guard.py') != '' }}
-        run: python3 ._apply_egress_guard.py
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -26,23 +23,6 @@ jobs:
       - name: Install dependencies
         run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
       - name: Verify site
-        run: |
-          if [ -f ._apply_egress_guard.py ]; then
-            npx eslint src/lib/imageResize.ts src/sw.ts src/components/feature/ClubBannerManager.tsx src/components/feature/SiteBanner.tsx src/pages/profile/page.tsx src/pages/clubs/community/page.tsx src/pages/faithStorybook/page.tsx src/pages/ganghakNews/write/page.tsx src/pages/ganghakNews/edit/page.tsx src/pages/missions/board/page.tsx src/pages/memoryBoard/page.tsx src/pages/clubs/detail/page.tsx
-            npm run build
-          else
-            npm run verify
-          fi
+        run: npm run verify
       - name: Unit tests
-        if: ${{ hashFiles('._apply_egress_guard.py') == '' }}
         run: npm test
-      - name: Commit pending image egress guard
-        if: ${{ github.event_name == 'push' && hashFiles('._apply_egress_guard.py') != '' }}
-        run: |
-          rm -f ._apply_egress_guard.py .github/workflows/apply-image-egress-guard.yml .github/workflows/_apply-egress-guard.yml _egress-guard.patch _egress-guard-trigger.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src supabase/migrations/20260905220000_harden_public_image_bucket.sql
-          git add -u .github/workflows/verify-site.yml .github/workflows/apply-image-egress-guard.yml .github/workflows/_apply-egress-guard.yml ._apply_egress_guard.py _egress-guard-trigger.txt
-          git commit -m "chore: apply image egress guard"
-          git push
