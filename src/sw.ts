@@ -11,6 +11,49 @@ cleanupOutdatedCaches();
 clientsClaim();
 self.skipWaiting();
 
+const SUPABASE_STORAGE_HOST = 'ceearwcfvcbjhmkuuqzv.supabase.co';
+const SUPABASE_PUBLIC_OBJECT_PATH = '/storage/v1/object/public/';
+const IMAGE_PROXY_HOST = 'https://wsrv.nl/';
+
+function toOptimizedStorageImage(request: Request): Request | null {
+  if (request.method !== 'GET') return null;
+
+  let url: URL;
+  try {
+    url = new URL(request.url);
+  } catch {
+    return null;
+  }
+
+  if (url.hostname !== SUPABASE_STORAGE_HOST || !url.pathname.startsWith(SUPABASE_PUBLIC_OBJECT_PATH)) {
+    return null;
+  }
+
+  const proxyUrl = new URL(IMAGE_PROXY_HOST);
+  proxyUrl.searchParams.set('url', url.href);
+  proxyUrl.searchParams.set('w', '1280');
+  proxyUrl.searchParams.set('we', '');
+  proxyUrl.searchParams.set('output', 'webp');
+  proxyUrl.searchParams.set('q', '75');
+  proxyUrl.searchParams.set('maxage', '1y');
+
+  return new Request(proxyUrl.href, {
+    method: 'GET',
+    mode: 'cors',
+    credentials: 'omit',
+    redirect: 'follow',
+  });
+}
+
+self.addEventListener('fetch', (event) => {
+  const optimizedRequest = toOptimizedStorageImage(event.request);
+  if (!optimizedRequest) return;
+
+  event.respondWith(
+    fetch(optimizedRequest).catch(() => fetch(event.request)),
+  );
+});
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   let payload: { title?: string; message?: string; body?: string; link_url?: string; icon?: string; tag?: string };
