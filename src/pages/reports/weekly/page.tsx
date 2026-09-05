@@ -10,7 +10,7 @@ import type { WeeklyReport } from '@/mocks/weeklyReports';
 import { CategoryChip, CategoryChipRow } from '@/components/base/CategoryChip';
 import { createPracticeEntry, getAttendanceSummary, parsePracticeEntries } from '@/lib/weeklyReport';
 
-const ALL_CLUBS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu'];
+const ALL_CLUBS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu', 'cheonhwarae_cheongmyeong'];
 
 /** 상태별 카드 우측 컬러바 (모바일 카드용) */
 const STATUS_BAR: Record<WeeklyReport['status'], string> = {
@@ -23,18 +23,11 @@ const STATUS_BAR: Record<WeeklyReport['status'], string> = {
 };
 
 export default function WeeklyReports() {
-  const { profile, hasRole, assignedTeacherClub } = useAuth();
-  const isChief = hasRole('chief');
-  const isTeacher = hasRole('teacher');
+  const { profile, hasRole } = useAuth();
+  const canViewReports = hasRole('assistant_zone_leader');
   const [clubFilter, setClubFilter] = useState<ClubType | 'all'>('all');
 
-  const getEffectiveClubFilter = (): ClubType | 'all' => {
-    if (isChief) return clubFilter;
-    if (isTeacher && assignedTeacherClub) return assignedTeacherClub as ClubType;
-    return 'all';
-  };
-
-  const effectiveClub = getEffectiveClubFilter();
+  const effectiveClub: ClubType | 'all' = canViewReports ? clubFilter : 'all';
 
   const {
     filteredItems: reports,
@@ -112,45 +105,29 @@ export default function WeeklyReports() {
           )}
         </div>
 
-        {/* 필터 — PC: 기존 필 스타일 유지 */}
         <div className="hidden md:flex md:flex-row items-center gap-3 mb-6 flex-wrap">
           <div className="flex items-center gap-1 overflow-x-auto pb-1">
             {REPORT_STATUS_FILTERS.map(f => (
-              <button
-                key={f.value}
-                onClick={() => setStatusFilter(f.value)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                  statusFilter === f.value
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'bg-background-200 text-foreground-600 hover:bg-background-300/60'
-                }`}
-              >
+              <button key={f.value} onClick={() => setStatusFilter(f.value)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${statusFilter === f.value ? 'bg-primary-100 text-primary-700' : 'bg-background-200 text-foreground-600 hover:bg-background-300/60'}`}>
                 {f.label}
               </button>
             ))}
           </div>
 
-          {(assignedTeacherClub || isChief) && (
+          {canViewReports && (
             <div className="flex items-center gap-1 bg-background-100 border border-background-200 rounded-full p-1 flex-shrink-0">
               <button onClick={() => setClubFilter('all')} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === 'all' ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-950'}`}>
                 전체 동아리
               </button>
-              {isChief ? (
-                ALL_CLUBS.map(c => (
-                  <button key={c} onClick={() => setClubFilter(c)} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === c ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-950'}`}>
-                    {CLUB_LABELS[c].split(' ')[0]}
-                  </button>
-                ))
-              ) : assignedTeacherClub ? (
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-700">
-                  {CLUB_LABELS[assignedTeacherClub as ClubType]?.split(' ')[0]} (담당)
-                </span>
-              ) : null}
+              {ALL_CLUBS.map(c => (
+                <button key={c} onClick={() => setClubFilter(c)} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === c ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-950'}`}>
+                  {CLUB_LABELS[c].split(' ')[0]}
+                </button>
+              ))}
             </div>
           )}
         </div>
 
-        {/* 필터 — 모바일: 공용 가로 스크롤 칩 */}
         <div className="md:hidden space-y-2 mb-6">
           <CategoryChipRow>
             {REPORT_STATUS_FILTERS.map(f => (
@@ -160,29 +137,21 @@ export default function WeeklyReports() {
             ))}
           </CategoryChipRow>
 
-          {(assignedTeacherClub || isChief) && (
-            isChief ? (
-              <CategoryChipRow>
-                <CategoryChip active={clubFilter === 'all'} onClick={() => setClubFilter('all')}>전체 동아리</CategoryChip>
-                {ALL_CLUBS.map(c => (
-                  <CategoryChip key={c} active={clubFilter === c} onClick={() => setClubFilter(c)}>
-                    {CLUB_LABELS[c].split(' ')[0]}
-                  </CategoryChip>
-                ))}
-              </CategoryChipRow>
-            ) : assignedTeacherClub ? (
-              <span className="inline-flex px-3.5 py-2 rounded-chip text-sm font-semibold bg-gradient-to-r from-primary-500 to-accent-500 text-white">
-                {CLUB_LABELS[assignedTeacherClub as ClubType]?.split(' ')[0]} (담당)
-              </span>
-            ) : null
+          {canViewReports && (
+            <CategoryChipRow>
+              <CategoryChip active={clubFilter === 'all'} onClick={() => setClubFilter('all')}>전체 동아리</CategoryChip>
+              {ALL_CLUBS.map(c => (
+                <CategoryChip key={c} active={clubFilter === c} onClick={() => setClubFilter(c)}>
+                  {CLUB_LABELS[c].split(' ')[0]}
+                </CategoryChip>
+              ))}
+            </CategoryChipRow>
           )}
         </div>
 
         {error && (
           <div className="bg-accent-100 border border-accent-200 rounded-[20px] p-4 mb-6">
-            <p className="text-sm text-accent-700 flex items-center gap-2">
-              <i className="ri-error-warning-line"></i>{error}
-            </p>
+            <p className="text-sm text-accent-700 flex items-center gap-2"><i className="ri-error-warning-line"></i>{error}</p>
             <button onClick={refetch} className="mt-2 text-xs text-accent-600 underline cursor-pointer touch-manipulation">다시 시도</button>
           </div>
         )}
@@ -199,7 +168,6 @@ export default function WeeklyReports() {
           </div>
         ) : (
           <>
-            {/* PC: 기존 리스트 유지 */}
             <div className="hidden md:block space-y-3">
               {reports.map((report, i) => (
                 <motion.div key={report.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: i * 0.05 }}>
@@ -208,9 +176,7 @@ export default function WeeklyReports() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className="text-sm font-semibold text-foreground-950">{formatDate(report.week_start)}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[report.status]}`}>
-                            {STATUS_LABELS[report.status]}
-                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[report.status]}`}>{STATUS_LABELS[report.status]}</span>
                         </div>
                         <p className="text-sm text-foreground-700 line-clamp-2 mb-2">{report.progress_summary}</p>
                         <div className="flex items-center gap-4 text-xs text-foreground-600">
@@ -221,9 +187,7 @@ export default function WeeklyReports() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-foreground-600">{report.practice_entries.length > 0 && report.total_members > 0 ? Math.round((getSummary(report).averageAttendance / report.total_members) * 100) : 0}%</span>
-                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                          <i className="ri-arrow-right-s-line text-primary-500"></i>
-                        </div>
+                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center"><i className="ri-arrow-right-s-line text-primary-500"></i></div>
                       </div>
                     </div>
                   </Link>
@@ -231,27 +195,16 @@ export default function WeeklyReports() {
               ))}
             </div>
 
-            {/* 모바일: 작성자 아바타 + 우측 상단 상태 칩 카드 */}
             <div className="md:hidden space-y-3">
               {reports.map((report, i) => (
                 <motion.div key={`m-${report.id}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.3) }} className="relative z-[1] touch-manipulation">
                   <Link to={`/reports/weekly/${report.id}`} className="relative flex gap-3 bg-background-100 border border-background-200 rounded-[20px] p-4 pl-3 overflow-hidden cursor-pointer touch-manipulation" style={{ WebkitTapHighlightColor: 'transparent' }}>
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${STATUS_BAR[report.status]}`}></div>
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ml-1">
-                      {report.author_name?.charAt(0) || '?'}
-                    </div>
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ml-1">{report.author_name?.charAt(0) || '?'}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <span className="text-sm font-bold text-foreground-950">{formatDate(report.week_start)}</span>
-                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_COLORS[report.status]}`}>
-                          {STATUS_LABELS[report.status]}
-                        </span>
-                      </div>
+                      <div className="flex items-start justify-between gap-2 mb-1"><span className="text-sm font-bold text-foreground-950">{formatDate(report.week_start)}</span><span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_COLORS[report.status]}`}>{STATUS_LABELS[report.status]}</span></div>
                       <p className="text-xs text-foreground-600 line-clamp-1 mb-1.5">{report.progress_summary}</p>
-                      <div className="flex items-center gap-3 text-[11px] text-foreground-500">
-                        <span>{report.author_name} · {CLUB_LABELS[report.club]}</span>
-                        <span className="font-semibold text-primary-600">{report.practice_entries.length > 0 && report.total_members > 0 ? Math.round((getSummary(report).averageAttendance / report.total_members) * 100) : 0}%</span>
-                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-foreground-500"><span>{report.author_name} · {CLUB_LABELS[report.club]}</span><span className="font-semibold text-primary-600">{report.practice_entries.length > 0 && report.total_members > 0 ? Math.round((getSummary(report).averageAttendance / report.total_members) * 100) : 0}%</span></div>
                     </div>
                   </Link>
                 </motion.div>
