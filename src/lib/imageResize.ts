@@ -33,6 +33,25 @@ function isHeicFile(source: File | Blob): boolean {
   return false;
 }
 
+function sourceDescription(source: File | Blob): string {
+  const name = source instanceof File ? source.name : 'converted-image';
+  const type = source.type || 'unknown';
+  const size = `${Math.round(source.size / 1024)}KB`;
+  return `${name} | ${type} | ${size}`;
+}
+
+function errorDescription(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message || error.name || 'unknown error';
+  }
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return 'unknown error';
+  }
+}
+
 async function convertHeicToJpeg(source: File | Blob): Promise<Blob> {
   if (!isHeicFile(source)) return source;
 
@@ -46,19 +65,23 @@ async function convertHeicToJpeg(source: File | Blob): Promise<Blob> {
     return Array.isArray(converted) ? converted[0] : converted;
   } catch (error) {
     console.error('HEIC/HEIF 이미지 변환 실패:', error);
-    throw new Error('HEIC 사진을 JPG로 변환하지 못했습니다. 다른 사진을 선택해 주세요.');
+    throw new Error(`[IMAGE_HEIC_CONVERSION_ERROR] ${sourceDescription(source)} | ${errorDescription(error)}`);
   }
 }
 
 /** HEIC/HEIF는 먼저 JPG로 변환한 뒤 브라우저 이미지 디코딩을 진행한다. */
 async function loadDrawable(source: File | Blob): Promise<{ drawable: CanvasImageSource; width: number; height: number; close: () => void }> {
   const drawableSource = await convertHeicToJpeg(source);
+  const sourceInfo = sourceDescription(drawableSource);
+  let bitmapError: unknown = null;
 
   if (typeof createImageBitmap === 'function') {
     try {
       const bitmap = await createImageBitmap(drawableSource);
       return { drawable: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
-    } catch {
+    } catch (error) {
+      bitmapError = error;
+      console.warn('createImageBitmap 이미지 디코딩 실패:', error);
       // fall through to <img> 기반 디코딩
     }
   }
@@ -68,13 +91,14 @@ async function loadDrawable(source: File | Blob): Promise<{ drawable: CanvasImag
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const el = new Image();
       el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error('이미지를 디코딩할 수 없습니다.'));
+      el.onerror = () => reject(new Error('브라우저 Image 디코딩 실패'));
       el.src = objectUrl;
     });
     return { drawable: img, width: img.naturalWidth || img.width, height: img.naturalHeight || img.height, close: () => URL.revokeObjectURL(objectUrl) };
-  } catch (e) {
+  } catch (imgError) {
     URL.revokeObjectURL(objectUrl);
-    throw e;
+    const bitmapDetail = bitmapError ? ` | createImageBitmap=${errorDescription(bitmapError)}` : '';
+    throw new Error(`[IMAGE_DECODE_ERROR] ${sourceInfo}${bitmapDetail} | Image=${errorDescription(imgError)}`);
   }
 }
 
@@ -87,7 +111,7 @@ export async function resizeImageFile(source: File | Blob, options: ResizeOption
 
   const { drawable, width, height, close } = await loadDrawable(source);
   try {
-    if (!width || !height) throw new Error('이미지 크기를 확인할 수 없습니다.');
+    if (!width || !height) throw new Error(`[IMAGE_DIMENSION_ERROR] ${sourceDescription(source)} | width=${width} height=${height}`);
 
     const scale = Math.min(1, maxDimension / Math.max(width, height));
     const targetW = Math.max(1, Math.round(width * scale));
@@ -97,13 +121,13 @@ export async function resizeImageFile(source: File | Blob, options: ResizeOption
     canvas.width = targetW;
     canvas.height = targetH;
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas 2D context를 생성할 수 없습니다.');
+    if (!ctx) throw new Error(`[IMAGE_CANVAS_ERROR] ${sourceDescription(source)} | 2D context unavailable`);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(drawable, 0, 0, targetW, targetH);
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, mimeType, quality));
-    if (!blob) throw new Error('썸네일 생성에 실패했습니다.');
+    if (!blob) throw new Error(`[IMAGE_ENCODE_ERROR] ${sourceDescription(source)} | mime=${mimeType} quality=${quality}`);
     return blob;
   } finally {
     close();
