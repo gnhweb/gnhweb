@@ -8,7 +8,7 @@ const CATEGORIES = ['일반', '긴급', '행사', '모집', '교육', '기도제
 
 export default function NoticeEdit() {
   const { id } = useParams<{ id: string }>();
-  const { profile } = useAuth();
+  const { user, profile, hasRole } = useAuth();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
@@ -22,11 +22,6 @@ export default function NoticeEdit() {
 
   useEffect(() => {
     if (!profile || !id) return;
-    if (profile.role === 'member') {
-      navigate('/notices');
-      return;
-    }
-
     const fetchNotice = async () => {
       try {
         const { data, error: fetchError } = await supabase
@@ -41,7 +36,8 @@ export default function NoticeEdit() {
           return;
         }
 
-        if (data.author_id !== profile.user_id && profile.role !== 'teacher' && profile.role !== 'chief') {
+        const canModify = data.author_id === user?.id || hasRole('teacher') || hasRole('chief');
+        if (!canModify) {
           navigate(`/notices/${id}`);
           return;
         }
@@ -58,7 +54,7 @@ export default function NoticeEdit() {
     };
 
     fetchNotice();
-  }, [id, profile, navigate]);
+  }, [id, profile, user?.id, hasRole, navigate]);
 
   const validate = (): string | null => {
     if (!title.trim()) return '제목을 입력해주세요';
