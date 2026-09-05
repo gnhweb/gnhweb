@@ -8,7 +8,6 @@ import { notifyUser } from '@/lib/mobileFeedback';
 type Result = {
   verse: string;
   reference: string;
-  answer: string;
   recommendation: string;
   practice: string;
   prayers: string[];
@@ -68,7 +67,7 @@ async function savePick(result: Result, userText: string, userId?: string) {
 function ResultView({ result, onReset }: { result: Result; onReset: () => void }) {
   const prayer = (result.prayers?.[0] || fallbackPrayer).replace(/^하나님,\s*/, '아버지, ');
   const share = async () => {
-    const text = `오늘의 말씀 · ${result.reference}\n${result.answer}\n\n${result.verse}\n\n오늘의 기도\n${prayer}`;
+    const text = `오늘의 말씀 · ${result.reference}\n${result.recommendation}\n\n${result.verse}\n\n오늘의 기도\n${prayer}`;
     try {
       if (navigator.share) await navigator.share({ title: '오늘의 말씀', text });
       else if (navigator.clipboard) await navigator.clipboard.writeText(text);
@@ -93,7 +92,7 @@ function ResultView({ result, onReset }: { result: Result; onReset: () => void }
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip bg-primary-100 text-primary-700"><i className="ri-heart-pulse-line text-lg" aria-hidden="true" /></span>
           <div><p className="text-xs font-bold text-foreground-500">지금 필요한 답</p><p className="mt-0.5 text-sm font-semibold text-foreground-800">네가 적어준 상황을 중심으로 말씀을 골랐어요</p></div>
         </div>
-        <p className="mt-5 text-[15px] leading-8 text-foreground-800 md:text-base">{result.answer}</p>
+        <p className="mt-5 text-[15px] leading-8 text-foreground-800 md:text-base">{result.recommendation}</p>
       </section>
 
       <section className="rounded-card border border-primary-200 bg-primary-50 p-6 shadow-card md:p-8">
@@ -146,11 +145,18 @@ export default function BiblePickEnhanced() {
     setLoading(true);
     setError('');
     try {
-      const { data, error: functionError } = await supabase.functions.invoke('bible-pick', { body: { userText } });
+      const { data, error: functionError } = await supabase.functions.invoke('bible-pick-v2', {
+        body: {
+          userText,
+          mode: 'pick',
+          unifiedExperience: true,
+          instruction: '한 가지 말씀 경험으로 답하고, 학생이 실제로 느끼는 감정과 상황을 존중하며 말씀·이유·오늘의 한 걸음·짧은 기도를 자연스럽게 연결하라. 정답을 단정하거나 훈계하지 말고 현실적이고 따뜻하게 답하라.',
+        },
+      });
       if (functionError || !data) throw new Error(functionError?.message || '말씀을 준비하지 못했습니다.');
       if (data.error) throw new Error(data.error);
       const nextResult = data as Result;
-      if (!nextResult.answer || !nextResult.verse || !nextResult.reference) throw new Error('응답 형식이 올바르지 않습니다. 잠시 후 다시 시도해주세요.');
+      if (!nextResult.recommendation || !nextResult.verse || !nextResult.reference) throw new Error('응답 형식이 올바르지 않습니다. 잠시 후 다시 시도해주세요.');
       const saved = await savePick(nextResult, userText, user?.id);
       if (!saved) throw new Error('말씀은 준비됐지만 히스토리 저장에 실패했어요. 잠시 후 다시 시도해주세요.');
       setResult(nextResult);
