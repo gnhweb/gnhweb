@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 
 interface PhotoLightboxProps {
+  /** 확대 뷰어에 사용할 최적화된 표시용 이미지 URL. 원본 URL을 전달하지 않는다. */
   photos: string[];
-  /** 하단 필름스트립 전용 작은 이미지 URL. 없으면 photos(원본)로 폴백. */
+  /** 하단 필름스트립 전용 작은 이미지 URL. 없으면 photos를 사용한다. */
   thumbUrls?: string[];
   initialIndex: number;
   onClose: () => void;
@@ -14,14 +15,13 @@ interface PhotoLightboxProps {
   deletingIndex?: number | null;
 }
 
-/** 모바일 중심 사진 확대 뷰어. 목록에서는 썸네일만 사용하고, 실제 확대가 시작될 때 원본을 로드한다. */
+/** 모바일 중심 사진 확대 뷰어. 확대하더라도 원본 이미지를 추가로 내려받지 않는다. */
 export default function PhotoLightbox({ photos, thumbUrls, initialIndex, onClose, captions, onDelete, canDelete, deletingIndex }: PhotoLightboxProps) {
   const [index, setIndex] = useState(initialIndex);
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [loadedOriginals, setLoadedOriginals] = useState<Set<number>>(() => new Set());
 
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTapRef = useRef(0);
@@ -34,15 +34,6 @@ export default function PhotoLightbox({ photos, thumbUrls, initialIndex, onClose
     setScale(1);
     setTranslate({ x: 0, y: 0 });
   }, []);
-
-  const loadOriginal = useCallback((photoIndex: number) => {
-    if (loadedOriginals.has(photoIndex)) return;
-    setLoadedOriginals(prev => {
-      const next = new Set(prev);
-      next.add(photoIndex);
-      return next;
-    });
-  }, [loadedOriginals]);
 
   const goTo = useCallback((next: number) => {
     if (next < 0 || next >= photos.length) return;
@@ -97,7 +88,6 @@ export default function PhotoLightbox({ photos, thumbUrls, initialIndex, onClose
       const dist = getDistance(pts);
       const nextScale = Math.min(4, Math.max(1, pinchStartRef.current.scale * (dist / pinchStartRef.current.dist)));
       setScale(nextScale);
-      if (nextScale > 1) loadOriginal(index);
       return;
     }
     if (pointersRef.current.size === 1) {
@@ -152,12 +142,8 @@ export default function PhotoLightbox({ photos, thumbUrls, initialIndex, onClose
   const handleDoubleTapOrClick = (e: React.MouseEvent | React.PointerEvent) => {
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
-      if (scale > 1) {
-        resetZoom();
-      } else {
-        loadOriginal(index);
-        setScale(2.2);
-      }
+      if (scale > 1) resetZoom();
+      else setScale(2.2);
     }
     lastTapRef.current = now;
     e.stopPropagation();
@@ -166,8 +152,7 @@ export default function PhotoLightbox({ photos, thumbUrls, initialIndex, onClose
   const currentCaption = captions?.[index];
   const closing = Math.abs(dragOffset) > 90;
   const bgOpacity = scale > 1 ? 1 : Math.max(0.35, 1 - Math.abs(dragOffset) / 400);
-  const currentThumb = thumbUrls?.[index] || photos[index];
-  const currentPhoto = loadedOriginals.has(index) ? photos[index] : currentThumb;
+  const currentPhoto = photos[index];
 
   const content = (
     <AnimatePresence>
@@ -197,12 +182,11 @@ export default function PhotoLightbox({ photos, thumbUrls, initialIndex, onClose
 
         <div ref={containerRef} className="relative flex-1 flex items-center justify-center overflow-hidden" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onClick={e => e.stopPropagation()}>
           <motion.img
-            key={`${photos[index]}-${loadedOriginals.has(index)}`}
+            key={currentPhoto}
             src={currentPhoto}
             alt={currentCaption || `사진 ${index + 1}`}
             draggable={false}
             onClick={handleDoubleTapOrClick}
-            onError={() => setLoadedOriginals(prev => { const next = new Set(prev); next.delete(index); return next; })}
             animate={{ scale, x: translate.x, y: scale > 1 ? translate.y : dragOffset, opacity: closing ? 0.5 : 1 }}
             transition={isDragging ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}
             className="max-w-full max-h-full w-auto h-auto object-contain"
