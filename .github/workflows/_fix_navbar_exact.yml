@@ -1,0 +1,30 @@
+name: Fix Navbar exact requested state
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore uploaded original and apply only requested changes
+        shell: bash
+        run: |
+          git cat-file blob 1503cd9b49d158c740b3c44fdb7da7fe673b88e6 > src/components/feature/Navbar.tsx
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/feature/Navbar.tsx')
+          s = p.read_text()
+          s = s.replace("  { path: '/faith-storybook', label: '신앙 스토리북', icon: 'ri-bookmark-line' },\n  { path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },\n  { path: '/repentance-journal', label: '회개 저널', icon: 'ri-hand-heart-line' },\n", "  { path: '/faith-journal', label: '신앙일기', icon: 'ri-edit-line' },\n", 1)
+          s = s.replace("    { path: '/pds-planner', label: '행사 기획 마법사', icon: 'ri-todo-line' },\n    { path: '/event-ideas', label: '행사 기획 아이디어', icon: 'ri-lightbulb-flash-line' },\n", "", 1)
+          p.write_text(s)
+          PY
+          rm .github/workflows/_fix_navbar_exact.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/feature/Navbar.tsx .github/workflows/_fix_navbar_exact.yml
+          git commit -m "fix: restore Navbar and apply only requested changes"
+          git push
