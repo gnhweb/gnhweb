@@ -20,7 +20,7 @@ interface NoticeItem {
 export default function NoticeDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, hasRole } = useAuth();
   const [notice, setNotice] = useState<NoticeItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,23 +82,33 @@ export default function NoticeDetail() {
     if (id) fetchNotice();
   }, [id, user?.id]);
 
-  const canModify = profile && notice && (
-    profile.user_id === notice.author_id ||
-    profile.role === 'teacher' ||
-    profile.role === 'chief'
+  const canModify = Boolean(
+    notice && (
+      notice.author_id === user?.id ||
+      hasRole('teacher') ||
+      hasRole('chief')
+    )
   );
 
   const handleDelete = async () => {
     if (!id) return;
     setDeleting(true);
     try {
-      const { error: deleteError } = await supabase
+      const { data: deletedNotice, error: deleteError } = await supabase
         .from('notices')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
 
       if (deleteError) {
-        setError('삭제 중 오류가 발생했습니다');
+        setError(deleteError.message || '삭제 중 오류가 발생했습니다');
+        setShowDeleteConfirm(false);
+        return;
+      }
+
+      if (!deletedNotice) {
+        setError('공지사항을 삭제할 권한이 없거나 이미 삭제된 공지사항입니다.');
         setShowDeleteConfirm(false);
         return;
       }
