@@ -19,11 +19,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply guard patch
-        run: |
-          test -f _egress-guard.patch
-          git apply --check _egress-guard.patch
-          git apply _egress-guard.patch
+      - name: Apply guard changes
+        run: python3 ._apply_egress_guard.py
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -44,10 +41,10 @@ jobs:
 
       - name: Commit guard and remove temporary files
         run: |
-          rm -f _egress-guard.patch .github/workflows/_apply-egress-guard.yml
+          rm -f ._apply_egress_guard.py .github/workflows/_apply-egress-guard.yml _egress-guard.patch
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src supabase/migrations/20260905220000_harden_public_image_bucket.sql
-          git add -u .github/workflows/_apply-egress-guard.yml _egress-guard.patch
+          git add -u .github/workflows/_apply-egress-guard.yml ._apply_egress_guard.py _egress-guard.patch
           git commit -m "chore: apply image egress guard"
           git push
