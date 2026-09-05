@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { supabase } from '@/lib/supabase';
-import { ROLE_HIERARCHY } from '@/types/auth';
 import type { ClubType, UserRole } from '@/types/auth';
 import { dateKey } from '@/lib/date';
 
