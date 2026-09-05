@@ -208,12 +208,12 @@ Deno.serve(async (req) => {
 - 일반적인 위로 문구만 반복하지 마세요. 하나님 뜻을 단정하거나 미래를 예언하지 마세요.
 - 학생이 말하지 않은 사실을 추측하지 마세요.
 - practice는 오늘 바로 할 수 있는 구체적인 행동 하나를 1-2문장으로 제안하세요.
-- prayers는 학생의 상황을 반영한 짧은 기도문 2개를 작성하세요.
+- prayers는 학생의 상황을 반영한 짧은 기도문 2개를 작성하세요. 기도는 반드시 '아버지,'로 시작하고, '하나님,'으로 시작하지 마세요.
 - 모든 설명은 자연스러운 해요체로 작성하세요.
 - JSON 이외의 텍스트는 출력하지 마세요.
 
 [JSON 형식]
-{"chosenIndex":0,"answer":"직접적인 답변","recommendation":"말씀을 고른 이유","practice":"오늘의 한 걸음","prayers":["기도문1","기도문2"]}`;
+{"chosenIndex":0,"answer":"직접적인 답변","recommendation":"말씀을 고른 이유","practice":"오늘의 한 걸음","prayers":["아버지, 기도문1","아버지, 기도문2"]}`;
       const userPrompt = `학생의 질문과 상황:\n${text}\n\n후보 말씀:\n${candidateList}\n\n위 학생의 질문에 가장 적절한 말씀 하나를 선택하고, 선택한 말씀을 근거로 직접 답해주세요.`;
       try {
         const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/ai-gateway`, {
@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
               answer = typeof parsed.answer === 'string' ? sanitizeText(parsed.answer) : '';
               recommendation = typeof parsed.recommendation === 'string' ? sanitizeText(parsed.recommendation) : '';
               practice = typeof parsed.practice === 'string' ? sanitizeText(parsed.practice) : '';
-              prayers = (Array.isArray(parsed.prayers) ? parsed.prayers : []).filter((item: unknown) => typeof item === 'string' && item.trim()).map((item: unknown) => sanitizeText(String(item))).slice(0, 2);
+              prayers = (Array.isArray(parsed.prayers) ? parsed.prayers : []).filter((item: unknown) => typeof item === 'string' && item.trim()).map((item: unknown) => sanitizeText(String(item)).replace(/^하나님,\s*/, '아버지, ')).slice(0, 2);
             }
           }
         }
@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
     if (!answer) answer = '지금 겪고 있는 일을 당장 다 해결해야 하는 것은 아니에요. 이 말씀을 붙잡고 지금 내 앞에 놓인 한 가지부터 정직하게 하나님께 맡겨보세요.';
     if (!recommendation) recommendation = `이 말씀은 지금의 ${primaryEmotion}을 단순히 없애라고 하기보다, 그 상황에서 하나님을 바라보며 다음 걸음을 찾도록 도와줘요.`;
     if (!practice) practice = '오늘 이 말씀을 천천히 세 번 읽고, 지금 내 상황에서 내가 할 수 있는 가장 작은 행동 하나를 정해보세요.';
-    if (prayers.length === 0) prayers = ['하나님, 제가 지금 겪는 일을 주님 앞에 솔직하게 내려놓습니다. 제게 필요한 지혜와 힘을 주세요.', '오늘 한 걸음씩 주님을 바라보며 걸어가게 해주세요.'];
+    if (prayers.length === 0) prayers = ['아버지, 제가 지금 겪는 일을 주님 앞에 솔직하게 내려놓습니다. 제게 필요한 지혜와 힘을 주세요.', '아버지, 오늘 한 걸음씩 주님을 바라보며 걸어가게 해주세요.'];
 
     let crisisMessage: string | undefined;
     if (sensitive.isCrisis) crisisMessage = '지금 많이 힘들다면 혼자 견디지 않아도 돼요. 믿을 수 있는 어른이나 선생님에게 지금 상태를 바로 알려주세요. 급하게 자신을 해칠 것 같다면 즉시 119 또는 112에 도움을 요청하세요.';
