@@ -303,9 +303,12 @@ export default function Navbar() {
               {user && <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-background-200 transition-colors cursor-pointer relative"><i className="ri-notification-3-line text-lg text-foreground-600"></i><AnimatePresence>{notificationCount > 0 && <motion.span key={notificationCount} initial={{ scale: 0.6 }} animate={{ scale: [1.25, 1] }} transition={{ duration: 0.25, ease: 'easeOut' }} className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-gradient-to-br from-accent-500 to-primary-500 text-white text-[9px] font-bold flex items-center justify-center shadow-card">{notificationCount > 99 ? '99+' : notificationCount}</motion.span>}</AnimatePresence></button>}
               <button onClick={() => setMobileOpen(!mobileOpen)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-background-200 transition-colors cursor-pointer"><i className={`text-xl text-foreground-700 ${mobileOpen ? 'ri-close-line' : 'ri-menu-line'}`}></i></button>
             </div>
-              <Link to="/search" aria-label="검색" title="검색" className="absolute right-0 top-1/2 -translate-y-1/2 flex w-10 h-10 items-center justify-center rounded-full text-foreground-700 hover:bg-background-200 active:bg-background-200 transition-colors cursor-pointer">
-                <i className="ri-search-line text-[20px]"></i>
-              </Link>
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              {location.pathname === '/' && (
+                <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('home-awards-open'))} aria-label="수상 및 실시간 리더보드" title="수상 및 실시간 리더보드" className="flex h-10 w-10 items-center justify-center rounded-full text-accent-600 transition-all hover:bg-accent-50 hover:text-accent-700 active:scale-95 dark:text-accent-300 dark:hover:bg-accent-900/30 cursor-pointer"><i className="ri-trophy-line text-[20px]"></i></button>
+              )}
+              <Link to="/search" aria-label="검색" title="검색" className="flex w-10 h-10 items-center justify-center rounded-full text-foreground-700 hover:bg-background-200 active:bg-background-200 transition-colors cursor-pointer"><i className="ri-search-line text-[20px]"></i></Link>
+            </div>
           </div>
         </div>
         <AnimatePresence>
