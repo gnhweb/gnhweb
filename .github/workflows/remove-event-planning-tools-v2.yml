@@ -1,0 +1,119 @@
+name: Remove event planning tools v2
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove deprecated features
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def sub(path, pattern, replacement, minimum=1):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              new, count = re.subn(pattern, replacement, text)
+              if count < minimum:
+                  raise SystemExit(f'{path}: expected at least {minimum} matches, got {count}')
+              p.write_text(new, encoding='utf-8')
+
+          sub(
+              'src/components/feature/Navbar.tsx',
+              r"\s*\{ path: '/pds-planner', label: '행사 기획 마법사', icon: 'ri-todo-line' \},\s*\n\s*\{ path: '/event-ideas', label: '행사 기획 아이디어', icon: 'ri-lightbulb-flash-line' \},",
+              '',
+          )
+          sub(
+              'src/components/feature/UnifiedNavbar.tsx',
+              r"\['/pds-planner','행사 기획'\],\['/event-ideas','행사 아이디어'\],",
+              '',
+          )
+          sub(
+              'src/lib/siteSearch.ts',
+              r"\s*\{ path: '/pds-planner', label: '행사 기획 마법사',.*?\},\s*\n\s*\{ path: '/event-ideas', label: '행사 기획 아이디어',.*?\},",
+              '',
+          )
+
+          p = Path('src/components/feature/Layout.tsx')
+          text = p.read_text(encoding='utf-8')
+          text, n = re.subn(r"^import EventIdeasEnhanced from '@/pages/eventIdeasEnhanced/page';\n", '', text, flags=re.M)
+          text, n2 = re.subn(r"['\"]?/event-ideas['\"]?,", '', text)
+          text, n3 = re.subn(r":location\.pathname===['\"]?/event-ideas['\"]?\s*\?\s*<EventIdeasEnhanced\s*/>\s*:", ':', text)
+          if n + n2 + n3 == 0:
+              raise SystemExit('src/components/feature/Layout.tsx: no event-ideas reference found')
+          p.write_text(text, encoding='utf-8')
+
+          p = Path('src/router/config.tsx')
+          text = p.read_text(encoding='utf-8')
+          text, _ = re.subn(r'^const EventIdeas = lazy\(\(\) => import\("@/pages/eventIdeas/page"\)\);\n', '', text, flags=re.M)
+          text, _ = re.subn(r'^const PdsPlanner = lazy\(\(\) => import\("@/pages/pdsPlanner/page"\)\);\n', '', text, flags=re.M)
+          text, _ = re.subn(r'\{path:"/event-ideas",element:withSuspense\(<EventIdeas/ >?\)\},', '', text)
+          text = re.sub(r'\{path:"/event-ideas",element:withSuspense\(<EventIdeas/?>\)\},', '', text)
+          text = re.sub(r'\{path:"/pds-planner",[^}]*\}\},', '', text)
+          p.write_text(text, encoding='utf-8')
+
+          p = Path('src/lib/nvidiaNim.ts')
+          text = p.read_text(encoding='utf-8')
+          pattern = re.compile(r"export interface PDSChecklist[\s\S]*?(?=export async function generateLeadershipCoaching)")
+          text, count = pattern.subn('', text, count=1)
+          if count != 1:
+              raise SystemExit('src/lib/nvidiaNim.ts: PDS/event planning block not found')
+          p.write_text(text, encoding='utf-8')
+
+          sub('scripts/verify-site.mjs', r"^\s*'/event-ideas',\n", '', 1)
+          p = Path('public/navbar-desktop-fix.css')
+          text = p.read_text(encoding='utf-8')
+          text, _ = re.subn(r"\n/\* Removed mission tools:.*?a\[href=\"/event-ideas\"\] \{\n  display: none !important;\n\}\s*", '\n', text, flags=re.S)
+          p.write_text(text, encoding='utf-8')
+
+          for path in [
+              'src/pages/pdsPlanner/page.tsx',
+              'src/pages/eventIdeas/page.tsx',
+              'src/pages/eventIdeasEnhanced/page.tsx',
+              'supabase/functions/nim-pds/index.ts',
+              'supabase/functions/nim-event-ideas/index.ts',
+          ]:
+              p = Path(path)
+              if p.exists():
+                  p.unlink()
+
+          leftovers = []
+          needles = ['/pds-planner', '/event-ideas', '행사 기획 마법서', '행사 기획 아이디어', 'nim-pds', 'nim-event-ideas', 'PDSChecklist', 'EventIdea']
+          for root in ['src', 'supabase', 'scripts', 'public']:
+              for p in Path(root).rglob('*'):
+                  if not p.is_file():
+                      continue
+                  try:
+                      t = p.read_text(encoding='utf-8')
+                  except UnicodeDecodeError:
+                      continue
+                  if any(n in t for n in needles):
+                      leftovers.append(str(p))
+          if leftovers:
+              raise SystemExit('deprecated references remain: ' + ', '.join(leftovers))
+
+          Path('.github/workflows/remove-event-planning-tools.yml').unlink(missing_ok=True)
+          Path('.github/workflows/remove-event-planning-tools-v2.yml').unlink(missing_ok=True)
+
+      - name: Commit removal
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "remove: delete event planning mission tools"
+          git push origin main
