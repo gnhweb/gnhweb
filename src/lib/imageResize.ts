@@ -12,15 +12,15 @@ export interface ResizeOptions {
   quality?: number;
   /** 출력 MIME 타입 (기본 image/jpeg — 투명도가 필요 없는 사진에 가장 작은 용량) */
   mimeType?: string;
+  /** 출력 Blob의 최대 바이트 수. 지정하면 품질/크기를 자동으로 낮춰 상한을 맞춘다. */
+  maxBytes?: number;
 }
 
-const DEFAULTS: Required<ResizeOptions> = {
+const DEFAULTS = {
   maxDimension: 480,
   quality: 0.72,
   mimeType: 'image/jpeg',
-};
-
-const MAX_ORIGINAL_FALLBACK_BYTES = 2 * 1024 * 1024;
+} satisfies Required<Omit<ResizeOptions, 'maxBytes'>>;
 
 function isHeicFile(source: File | Blob): boolean {
   const type = source.type.toLowerCase();
@@ -33,12 +33,6 @@ function isHeicFile(source: File | Blob): boolean {
   }
 
   return false;
-}
-
-function isJpegFile(source: File | Blob): boolean {
-  const type = source.type.toLowerCase();
-  if (type === 'image/jpeg' || type === 'image/jpg') return true;
-  return source instanceof File && /\.(jpe?g)$/i.test(source.name);
 }
 
 function sourceDescription(source: File | Blob): string {
@@ -114,23 +108,14 @@ async function loadDrawable(source: File | Blob): Promise<{ drawable: CanvasImag
  * 이미지 파일(File | Blob)을 지정한 최대 크기로 축소하고 압축한 Blob을 반환한다.
  * 원본이 이미 maxDimension보다 작으면 확대하지 않는다.
  *
- * 브라우저가 특정 JPEG를 디코딩하지 못하더라도 2MB 이하라면 원본을 그대로 반환한다.
- * 이 경우 업로드 계층이 원본을 저장하고 Service Worker/CDN 최적화를 맡을 수 있다.
+ * 디코딩에 실패하면 원본을 그대로 저장하지 않고 업로드를 중단한다.
+ * 업로드 계층에서는 maxBytes를 지정해 Storage에 들어가는 이미지 크기도 제한한다.
  */
 export async function resizeImageFile(source: File | Blob, options: ResizeOptions = {}): Promise<Blob> {
   const { maxDimension, quality, mimeType } = { ...DEFAULTS, ...options };
 
   let drawableResult: Awaited<ReturnType<typeof loadDrawable>>;
-  try {
-    drawableResult = await loadDrawable(source);
-  } catch (error) {
-    const message = errorDescription(error);
-    if (message.startsWith('[IMAGE_DECODE_ERROR]') && isJpegFile(source) && source.size <= MAX_ORIGINAL_FALLBACK_BYTES) {
-      console.warn('브라우저 JPEG 디코딩 실패 — 2MB 이하 원본으로 업로드를 계속합니다.', sourceDescription(source));
-      return source;
-    }
-    throw error;
-  }
+  drawableResult = await loadDrawable(source);
 
   const { drawable, width, height, close } = drawableResult;
   try {
@@ -149,8 +134,46 @@ export async function resizeImageFile(source: File | Blob, options: ResizeOption
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(drawable, 0, 0, targetW, targetH);
 
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, mimeType, quality));
-    if (!blob) throw new Error(`[IMAGE_ENCODE_ERROR] ${sourceDescription(source)} | mime=${mimeType} quality=${quality}`);
+    const encode = (targetCanvas: HTMLCanvasElement, targetQuality: number) =>
+      new Promise<Blob | null>((resolve) => targetCanvas.toBlob(resolve, mimeType, targetQuality));
+
+    let currentCanvas = canvas;
+    let currentQuality = Math.min(1, Math.max(0.2, quality));
+    let blob = await encode(currentCanvas, currentQuality);
+    if (!blob) throw new Error(`[IMAGE_ENCODE_ERROR] ${sourceDescription(source)} | mime=${mimeType} quality=${currentQuality}`);
+
+    if (options.maxBytes && blob.size > options.maxBytes) {
+      for (let attempt = 0; attempt < 8 && blob.size > options.maxBytes; attempt += 1) {
+        currentQuality = Math.max(0.2, currentQuality - 0.1);
+        blob = await encode(currentCanvas, currentQuality);
+        if (!blob) break;
+      }
+    }
+
+    if (options.maxBytes && blob && blob.size > options.maxBytes) {
+      let width = currentCanvas.width;
+      let height = currentCanvas.height;
+      for (let attempt = 0; attempt < 5 && blob.size > options.maxBytes; attempt += 1) {
+        width = Math.max(1, Math.round(width * 0.85));
+        height = Math.max(1, Math.round(height * 0.85));
+        const smallerCanvas = document.createElement('canvas');
+        smallerCanvas.width = width;
+        smallerCanvas.height = height;
+        const smallerCtx = smallerCanvas.getContext('2d');
+        if (!smallerCtx) break;
+        smallerCtx.imageSmoothingEnabled = true;
+        smallerCtx.imageSmoothingQuality = 'high';
+        smallerCtx.drawImage(drawable, 0, 0, width, height);
+        currentCanvas = smallerCanvas;
+        blob = await encode(currentCanvas, currentQuality);
+        if (!blob) break;
+      }
+    }
+
+    if (!blob) throw new Error(`[IMAGE_ENCODE_ERROR] ${sourceDescription(source)} | mime=${mimeType}`);
+    if (options.maxBytes && blob.size > options.maxBytes) {
+      throw new Error(`[IMAGE_SIZE_LIMIT_ERROR] ${sourceDescription(source)} | output=${blob.size} max=${options.maxBytes}`);
+    }
     return blob;
   } finally {
     close();
