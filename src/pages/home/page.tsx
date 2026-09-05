@@ -184,12 +184,12 @@ function timeAgo(dateStr: string): string {
 }
 
 const CATEGORY_COLOR_MAP: Record<string, { bg: string; text: string; icon: string; chip: string }> = {
-  '긴급': { bg: 'bg-rose-100', text: 'text-rose-600', icon: 'ri-alarm-warning-fill', chip: 'bg-rose-100 text-rose-700' },
-  '행사': { bg: 'bg-emerald-100', text: 'text-emerald-600', icon: 'ri-calendar-event-fill', chip: 'bg-emerald-100 text-emerald-700' },
-  '모집': { bg: 'bg-amber-100', text: 'text-amber-600', icon: 'ri-user-add-fill', chip: 'bg-amber-100 text-amber-700' },
-  '교육': { bg: 'bg-sky-100', text: 'text-sky-600', icon: 'ri-book-open-fill', chip: 'bg-sky-100 text-sky-700' },
-  '기도제목': { bg: 'bg-violet-100', text: 'text-violet-600', icon: 'ri-hand-heart-fill', chip: 'bg-violet-100 text-violet-700' },
-  '일반': { bg: 'bg-background-200', text: 'text-foreground-500', icon: 'ri-megaphone-fill', chip: 'bg-background-200 text-foreground-600' },
+  '긴급': { bg: 'bg-rose-100', text: 'text-rose-600', icon: 'ri-alarm-warning-line', chip: 'bg-rose-100 text-rose-700' },
+  '행사': { bg: 'bg-emerald-100', text: 'text-emerald-600', icon: 'ri-calendar-event-line', chip: 'bg-emerald-100 text-emerald-700' },
+  '모집': { bg: 'bg-amber-100', text: 'text-amber-600', icon: 'ri-user-add-line', chip: 'bg-amber-100 text-amber-700' },
+  '교육': { bg: 'bg-sky-100', text: 'text-sky-600', icon: 'ri-book-open-line', chip: 'bg-sky-100 text-sky-700' },
+  '기도제목': { bg: 'bg-violet-100', text: 'text-violet-600', icon: 'ri-hand-heart-line', chip: 'bg-violet-100 text-violet-700' },
+  '일반': { bg: 'bg-background-200', text: 'text-foreground-500', icon: 'ri-megaphone-line', chip: 'bg-background-200 text-foreground-600' },
 };
 
 function getCategoryColor(category: string | null) {
@@ -314,12 +314,6 @@ export default function Home() {
 
   // 모바일: 공지·일정·강학뉴스를 세로로 다 펼치지 않고 탭으로 전환해서 봄
   const [homeTab, setHomeTab] = useState<'notice' | 'schedule' | 'news'>('notice');
-  const [homeNoticeCategory, setHomeNoticeCategory] = useState('전체');
-
-  const HOME_NOTICE_CATEGORIES = ['전체', '일반', '긴급', '행사', '모집', '교육', '기도제목'];
-  const filteredHomeNotices = homeNoticeCategory === '전체'
-    ? notices
-    : notices.filter((notice) => (notice.category || '일반') === homeNoticeCategory);
 
   // 달력
   const today = new Date();
@@ -773,7 +767,7 @@ export default function Home() {
               <img
                 src={heroSlides[slideIndex].image || heroImages[heroSlides[slideIndex].id]}
                 alt={heroSlides[slideIndex].title}
-                className="absolute inset-0 w-full h-full object-cover md:object-contain object-center bg-foreground-950"
+                className="absolute inset-0 w-full h-full object-cover object-center bg-foreground-950"
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/60"></div>
@@ -783,13 +777,13 @@ export default function Home() {
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold text-white mb-2 sm:mb-3 ${heroSlides[slideIndex].badgeColor}`}>
                     <i className={{
                       main: 'ri-map-pin-line',
-                      notice: 'ri-megaphone-fill',
-                      schedule: 'ri-calendar-event-fill',
+                      notice: 'ri-megaphone-line',
+                      schedule: 'ri-calendar-event-line',
                       clubs: 'ri-group-line',
-                      'bible-pick': 'ri-book-open-fill',
+                      'bible-pick': 'ri-book-open-line',
                       champion: 'ri-trophy-line',
                       'champion-quiz': 'ri-trophy-line',
-                      'champion-marathon': 'ri-book-open-fill',
+                      'champion-marathon': 'ri-book-open-line',
                       quiz: 'ri-question-answer-line',
                       qna: 'ri-question-answer-line',
                       'faith-journal': 'ri-edit-line',
@@ -829,7 +823,7 @@ export default function Home() {
           {/* 헤더는 한 줄로 묶고, 본문은 카드 전체 폭을 사용해 모바일 좌측 여백을 최소화 */}
           <div className="relative flex items-center gap-2.5 min-[360px]:gap-3 md:gap-3.5 mb-3 min-[360px]:mb-3.5 md:mb-5">
             <span className="flex w-10 h-10 min-[360px]:w-11 min-[360px]:h-11 md:w-12 md:h-12 flex-shrink-0 items-center justify-center rounded-xl bg-white/15 border border-white/20 shadow-inner">
-              <i className="ri-book-open-fill text-white text-base min-[360px]:text-lg md:text-xl"></i>
+              <i className="ri-book-open-line text-white text-base min-[360px]:text-lg md:text-xl"></i>
             </span>
             <p className="text-[clamp(0.7rem,2.8vw,0.8rem)] font-black tracking-[0.16em] text-white/90">오늘의 어록</p>
           </div>
@@ -860,8 +854,8 @@ export default function Home() {
         {/* 모바일 전용: 공지 · 일정 · 강학뉴스 탭 — 세로로 다 펼치지 않고 하나씩 전환 */}
         <div className="lg:hidden flex items-center gap-1 mb-4 bg-background-100 border border-background-200 rounded-full p-1">
           {[
-            { key: 'notice' as const, label: '공지', icon: 'ri-megaphone-fill' },
-            { key: 'schedule' as const, label: '일정', icon: 'ri-calendar-event-fill' },
+            { key: 'notice' as const, label: '공지', icon: 'ri-megaphone-line' },
+            { key: 'schedule' as const, label: '일정', icon: 'ri-calendar-event-line' },
             { key: 'news' as const, label: '강학뉴스', icon: 'ri-newspaper-line' },
           ].map((t) => (
             <button
@@ -881,30 +875,10 @@ export default function Home() {
           <div className={`lg:col-span-3 ${homeTab === 'notice' ? 'block' : 'hidden'} lg:block`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
-                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary-100"><i className="ri-megaphone-fill text-primary-600 text-sm"></i></span>
+                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary-100"><i className="ri-megaphone-line text-primary-600 text-sm"></i></span>
                 최신 공지사항
               </h2>
               <Link to="/notices" className="text-xs text-primary-600 hover:text-primary-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">전체보기 <i className="ri-arrow-right-s-line text-sm"></i></Link>
-            </div>
-            <div className="mb-3 rounded-2xl border border-background-200 bg-background-100 p-2.5">
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5" role="tablist" aria-label="최신 공지사항 카테고리">
-                {HOME_NOTICE_CATEGORIES.map((category) => {
-                  const count = category === '전체' ? notices.length : notices.filter((notice) => (notice.category || '일반') === category).length;
-                  const active = homeNoticeCategory === category;
-                  return (
-                    <button
-                      key={category}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => setHomeNoticeCategory(category)}
-                      className={`min-h-10 shrink-0 rounded-chip px-3.5 text-xs font-bold transition-colors cursor-pointer ${active ? 'bg-primary-500 text-white shadow-card' : 'bg-background-200 text-foreground-600 hover:bg-background-300'}`}
-                    >
-                      {category}<span className={`ml-1.5 ${active ? 'text-white/80' : 'text-foreground-400'}`}>{count}</span>
-                    </button>
-                  );
-                })}
-              </div>
             </div>
             <div className="space-y-2">
               {noticesLoading ? (
@@ -920,7 +894,7 @@ export default function Home() {
                 <>
                 {/* 모바일 전용: 인스타 스토리처럼 원형으로 훑어보는 최근 공지 링 */}
                 <div className="lg:hidden flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1 mb-1 snap-x">
-                  {filteredHomeNotices.slice(0, 6).map((notice) => {
+                  {notices.slice(0, 6).map((notice) => {
                     const readIds = getReadNoticeIds(user?.id);
                     const isRead = readIds.has(notice.id);
                     const catColor = getCategoryColor(notice.category);
@@ -940,7 +914,7 @@ export default function Home() {
                     );
                   })}
                 </div>
-                {filteredHomeNotices.map((notice) => {
+                {notices.map((notice) => {
                   const readIds = getReadNoticeIds(user?.id);
                   const isNew = !readIds.has(notice.id) && (Date.now() - new Date(notice.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
                   const catColor = getCategoryColor(notice.category);
@@ -989,7 +963,7 @@ export default function Home() {
           <div className={`lg:col-span-2 ${homeTab === 'schedule' ? 'block' : 'hidden'} lg:block`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
-                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-secondary-100"><i className="ri-calendar-event-fill text-secondary-600 text-sm"></i></span>
+                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-secondary-100"><i className="ri-calendar-event-line text-secondary-600 text-sm"></i></span>
                 일정 달력
               </h2>
               <Link to="/schedule" className="text-xs text-secondary-600 hover:text-secondary-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">전체보기 <i className="ri-arrow-right-s-line text-sm"></i></Link>
@@ -1082,9 +1056,6 @@ export default function Home() {
           ) : (
             newsItems.map((item, i) => (
               <Link key={item.id} to={`/ganghak-news/${item.id}`} className={`flex items-start gap-3 px-4 py-3.5 hover:bg-background-50 transition-colors cursor-pointer group ${i < newsItems.length - 1 ? 'border-b border-background-100' : ''}`}>
-                <div className="flex-shrink-0 mt-0.5">
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-sky-100 text-sky-600 text-[9px] font-bold">{i + 1}</span>
-                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-[10px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">{item.category}</span>
