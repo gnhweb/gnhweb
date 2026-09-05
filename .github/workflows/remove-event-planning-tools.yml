@@ -1,0 +1,150 @@
+name: Remove deprecated event planning tools
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove event planning features
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly 1 match, got {count}')
+              p.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace_once(
+              'src/components/feature/Navbar.tsx',
+              "    { path: '/pds-planner', label: '행사 기획 마법사', icon: 'ri-todo-line' },\n    { path: '/event-ideas', label: '행사 기획 아이디어', icon: 'ri-lightbulb-flash-line' },\n",
+              ''
+          )
+
+          replace_once(
+              'src/components/feature/UnifiedNavbar.tsx',
+              "['/pds-planner','행사 기획'],['/event-ideas','행사 아이디어'],",
+              ''
+          )
+
+          replace_once(
+              'src/lib/siteSearch.ts',
+              "  { path: '/pds-planner', label: '행사 기획 마법사', description: '행사 Plan-Do-See 체크리스트 생성', icon: 'ri-todo-line', group: '사명 도구', keywords: ['행사', '기획', '체크리스트', 'pds', 'ai'] },\n  { path: '/event-ideas', label: '행사 기획 아이디어', description: 'AI로 행사 아이디어 만들기', icon: 'ri-lightbulb-flash-line', group: '사명 도구', keywords: ['행사', '아이디어', '기획', 'ai'] },\n",
+              ''
+          )
+
+          replace_once(
+              'src/components/feature/Layout.tsx',
+              "import EventIdeasEnhanced from '@/pages/eventIdeasEnhanced/page';\n",
+              ''
+          )
+          replace_once(
+              'src/components/feature/Layout.tsx',
+              "'/event-ideas',",
+              ''
+          )
+          replace_once(
+              'src/components/feature/Layout.tsx',
+              ":location.pathname==='/event-ideas'?<EventIdeasEnhanced/>:",
+              ':'
+          )
+
+          replace_once(
+              'src/router/config.tsx',
+              'const EventIdeas = lazy(() => import("@/pages/eventIdeas/page"));\n',
+              ''
+          )
+          replace_once(
+              'src/router/config.tsx',
+              'const PdsPlanner = lazy(() => import("@/pages/pdsPlanner/page"));\n',
+              ''
+          )
+          replace_once(
+              'src/router/config.tsx',
+              '{path:"/event-ideas",element:withSuspense(<EventIdeas/>)},',
+              ''
+          )
+          replace_once(
+              'src/router/config.tsx',
+              '{path:"/pds-planner",element:<AuthGuard minRole="assistant_zone_leader">{withSuspense(<PdsPlanner/>)}</AuthGuard>},',
+              ''
+          )
+
+          p = Path('src/lib/nvidiaNim.ts')
+          text = p.read_text(encoding='utf-8')
+          pattern = re.compile(
+              r"export interface PDSChecklist[\\s\\S]*?export async function generateLeadershipCoaching",
+          )
+          match = pattern.search(text)
+          if not match:
+              raise SystemExit('src/lib/nvidiaNim.ts: PDS/event idea block not found')
+          replacement = "export async function generateLeadershipCoaching"
+          p.write_text(text[:match.start()] + replacement + text[match.end():], encoding='utf-8')
+          text = p.read_text(encoding='utf-8')
+          if 'nim-pds' in text or 'nim-event-ideas' in text or 'PDSChecklist' in text or 'EventIdea' in text:
+              raise SystemExit('src/lib/nvidiaNim.ts: deprecated event planning references remain')
+
+          replace_once(
+              'scripts/verify-site.mjs',
+              "  '/event-ideas',\n",
+              ''
+          )
+
+          replace_once(
+              'public/navbar-desktop-fix.css',
+              "\n/* Removed mission tools: keep the deprecated event-planning links out of all navigation/search surfaces. */\na[href=\"/pds-planner\"],\na[href=\"/event-ideas\"] {\n  display: none !important;\n} \n",
+              '\n'
+          )
+
+          for path in [
+              'src/pages/pdsPlanner/page.tsx',
+              'src/pages/eventIdeas/page.tsx',
+              'src/pages/eventIdeasEnhanced/page.tsx',
+              'supabase/functions/nim-pds/index.ts',
+              'supabase/functions/nim-event-ideas/index.ts',
+          ]:
+              p = Path(path)
+              if not p.exists():
+                  raise SystemExit(f'{path}: file not found')
+              p.unlink()
+
+          remaining = []
+          for root in ['src', 'supabase', 'scripts', 'public']:
+              for p in Path(root).rglob('*'):
+                  if p.is_file():
+                      try:
+                          t = p.read_text(encoding='utf-8')
+                      except UnicodeDecodeError:
+                          continue
+                      if any(s in t for s in ['/pds-planner', '/event-ideas', '행사 기획 마법서', '행사 기획 아이디어', 'nim-pds', 'nim-event-ideas']):
+                          remaining.append(str(p))
+          if remaining:
+              raise SystemExit('deprecated references remain: ' + ', '.join(remaining))
+
+          Path('.github/workflows/remove-event-planning-tools.yml').unlink()
+
+      - name: Commit removal
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "remove: delete event planning mission tools"
+          git push origin main
