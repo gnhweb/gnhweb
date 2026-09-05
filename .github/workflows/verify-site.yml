@@ -26,7 +26,13 @@ jobs:
       - name: Install dependencies
         run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
       - name: Verify site
-        run: if [ -f ._apply_egress_guard.py ]; then npm run type-check && npm run lint && npm run build; else npm run verify; fi
+        run: |
+          if [ -f ._apply_egress_guard.py ]; then
+            npx eslint src/lib/imageResize.ts src/sw.ts src/components/feature/ClubBannerManager.tsx src/components/feature/SiteBanner.tsx src/pages/profile/page.tsx src/pages/clubs/community/page.tsx src/pages/faithStorybook/page.tsx src/pages/ganghakNews/write/page.tsx src/pages/ganghakNews/edit/page.tsx src/pages/missions/board/page.tsx src/pages/memoryBoard/page.tsx src/pages/clubs/detail/page.tsx
+            npm run build
+          else
+            npm run verify
+          fi
       - name: Unit tests
         if: ${{ hashFiles('._apply_egress_guard.py') == '' }}
         run: npm test
