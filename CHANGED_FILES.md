@@ -23,7 +23,3 @@ were intentionally not changed.
   - Mobile safe-area/viewport modal rules
   - 44px minimum touch target for small icon buttons
   - Improved tap behavior
-
-- src/pages/biblePickEnhanced/page.tsx
-  - Align enhanced Bible Pick with the active bible-pick-v2 response contract
-  - Remove stale answer-field validation and use recommendation
