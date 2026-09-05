@@ -1,0 +1,39 @@
+name: Fix home UI order
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Move ranking block to top
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'src/pages/home/page.tsx';
+          let s = fs.readFileSync(path, 'utf8');
+          const start = s.indexOf('      {/* ═══ 홈 상단 핵심: 확정 수상 + 실시간 랭킹 ═══ */}');
+          const modal = s.indexOf('      <LeaderboardModal isOpen={showLeaderboard}', start);
+          const notices = s.indexOf('      {/* ═══ 2. 공지사항 + 달력 그리드 ═══ */}');
+          if (start < 0 || modal < 0 || notices < 0) throw new Error('home ranking markers not found');
+          const ranking = s.slice(start, modal);
+          s = s.slice(0, start) + s.slice(modal);
+          const target = s.indexOf('      {/* ═══ 2. 공지사항 + 달력 그리드 ═══ */}');
+          s = s.slice(0, target) + ranking + s.slice(target);
+          fs.writeFileSync(path, s);
+          NODE
+          git rm .github/workflows/home-ui-order.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/home/page.tsx
+          git commit -m "fix: place home ranking above notices"
+          git push origin HEAD:main
