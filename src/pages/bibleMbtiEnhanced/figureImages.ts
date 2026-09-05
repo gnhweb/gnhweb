@@ -4,8 +4,8 @@ const order = ['다니엘','요셉','룻','바나바','베드로','느헤미야'
 
 const spriteUrl = '/bible-mbti/figure-portraits.webp';
 const cols = 5;
-const cellWidth = 80;
-const cellHeight = 63;
+const cellWidth = 64;
+const cellHeight = 50;
 
 const makePortrait = (index: number) => {
   const x = -(index % cols) * cellWidth;
