@@ -15,6 +15,33 @@ export default function Notices(){
  useEffect(()=>{let mounted=true;(async()=>{setLoading(true);setError(null);try{const {data,error}=await supabase.from('notices').select('id,author_id,author_name,title,content,category,is_pinned,created_at,updated_at').order('is_pinned',{ascending:false}).order('created_at',{ascending:false});if(error)throw error;const rows=(data||[]) as NoticeItem[];if(!mounted)return;setNotices(rows);
    if(user?.id&&rows.length){const {data:reads,error:readError}=await supabase.from('notice_reads').select('notice_id').eq('user_id',user.id).in('notice_id',rows.map(x=>x.id));if(!mounted)return;if(!readError&&reads){const next=new Set(reads.map((r:{notice_id:string})=>r.notice_id));setReadIds(next);try{localStorage.setItem(localKey(user.id),JSON.stringify([...next]))}catch{}}else setReadIds(localIds(user.id));}else if(!user?.id)setReadIds(localIds());
   }catch{if(mounted){setError('공지사항을 불러오는 중 오류가 발생했습니다');setReadIds(localIds(user?.id))}}finally{if(mounted)setLoading(false)}})();return()=>{mounted=false}},[user?.id]);
+
+ useEffect(()=>{
+   if(!user?.id) return;
+
+   const channel = supabase
+     .channel(`notice-reads:${user.id}`)
+     .on(
+       'postgres_changes',
+       { event: '*', schema: 'public', table: 'notice_reads', filter: `user_id=eq.${user.id}` },
+       (payload) => {
+         const noticeId = String((payload.new as { notice_id?: string } | null)?.notice_id ?? (payload.old as { notice_id?: string } | null)?.notice_id ?? '');
+         if (!noticeId) return;
+
+         setReadIds((current) => {
+           const next = new Set(current);
+           if (payload.eventType === 'DELETE') next.delete(noticeId);
+           else next.add(noticeId);
+           try { localStorage.setItem(localKey(user.id), JSON.stringify([...next])); } catch { /* ignore */ }
+           return next;
+         });
+       },
+     )
+     .subscribe();
+
+   return () => { supabase.removeChannel(channel); };
+ }, [user?.id]);
+
  const formatDate=(s:string)=>formatKoreanDate(s,{year:'numeric',month:'numeric',day:'numeric'}).replace(/ /g,'.');
  if(loading)return <div className="min-h-screen bg-background-50 flex items-center justify-center"><i className="ri-loader-4-line animate-spin text-2xl text-primary-500"/></div>;
  return <div className="min-h-screen bg-background-50"><div className="mx-auto max-w-4xl px-4 py-6 md:px-6 md:py-14 pb-28"><motion.div initial={{opacity:0,y:15}} animate={{opacity:1,y:0}}><div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="mb-3 flex h-12 w-12 items-center justify-center rounded-[18px] bg-background-100 border border-background-200"><i className="ri-megaphone-line text-2xl text-primary-600"/></div><h1 className="text-2xl md:text-3xl font-black text-foreground-950">공지사항</h1><p className="mt-1 text-sm text-foreground-600">강릉 학생회의 주요 소식을 확인하세요.</p></div>{profile&&profile.role!=='member'&&<Link to="/notices/write" className="inline-flex min-h-11 items-center gap-2 self-start rounded-full bg-primary-500 px-4 text-sm font-bold text-white">공지 작성</Link>}</div>
