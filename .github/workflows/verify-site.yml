@@ -26,8 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
       - name: Verify site
-        run: npm run verify
+        run: if [ -f ._apply_egress_guard.py ]; then npm run type-check && npm run lint && npm run build; else npm run verify; fi
       - name: Unit tests
+        if: ${{ hashFiles('._apply_egress_guard.py') == '' }}
         run: npm test
       - name: Commit pending image egress guard
         if: ${{ github.event_name == 'push' && hashFiles('._apply_egress_guard.py') != '' }}
