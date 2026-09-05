@@ -55,7 +55,7 @@ export default function ScheduleWrite() {
           event_date: eventDate,
           event_time: eventTime.trim(),
           location: location.trim(),
-          description: description.trim(),
+          description: description,
           target_club: targetClub,
         });
 
