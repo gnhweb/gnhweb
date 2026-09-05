@@ -1,0 +1,114 @@
+/* Global dark-mode contrast hardening.
+ * Keep intentional white text on colored controls intact; only normalize
+ * neutral white/near-white surfaces and white text used on those surfaces.
+ */
+
+.dark {
+  color-scheme: dark;
+}
+
+/* Neutral white surfaces must not remain bright in dark mode. */
+.dark [class*="bg-white"],
+.dark [class*="bg-gray-50"],
+.dark [class*="bg-gray-100"],
+.dark [class*="bg-slate-50"],
+.dark [class*="bg-slate-100"],
+.dark [class*="bg-zinc-50"],
+.dark [class*="bg-zinc-100"],
+.dark [class*="bg-neutral-50"],
+.dark [class*="bg-neutral-100"],
+.dark [class*="bg-stone-50"],
+.dark [class*="bg-stone-100"] {
+  background-color: oklch(var(--background-100)) !important;
+}
+
+/* Neutral white borders/background accents should follow the dark surface. */
+.dark [class*="border-white"],
+.dark [class*="border-gray-100"],
+.dark [class*="border-gray-200"],
+.dark [class*="border-slate-100"],
+.dark [class*="border-slate-200"],
+.dark [class*="border-zinc-100"],
+.dark [class*="border-zinc-200"],
+.dark [class*="border-neutral-100"],
+.dark [class*="border-neutral-200"],
+.dark [class*="border-stone-100"],
+.dark [class*="border-stone-200"] {
+  border-color: oklch(var(--background-300)) !important;
+}
+
+/* White/black text is only normalized when it is sitting on a neutral surface.
+ * This avoids turning intentional white labels on primary/accent buttons dark.
+ */
+.dark [class*="bg-white"] [class~="text-white"],
+.dark [class*="bg-gray-50"] [class~="text-white"],
+.dark [class*="bg-gray-100"] [class~="text-white"],
+.dark [class*="bg-slate-50"] [class~="text-white"],
+.dark [class*="bg-slate-100"] [class~="text-white"],
+.dark [class*="bg-zinc-50"] [class~="text-white"],
+.dark [class*="bg-zinc-100"] [class~="text-white"],
+.dark [class*="bg-neutral-50"] [class~="text-white"],
+.dark [class*="bg-neutral-100"] [class~="text-white"],
+.dark [class*="bg-stone-50"] [class~="text-white"],
+.dark [class*="bg-stone-100"] [class~="text-white"],
+.dark [class*="bg-white"][class~="text-white"],
+.dark [class*="bg-gray-50"][class~="text-white"],
+.dark [class*="bg-gray-100"][class~="text-white"],
+.dark [class*="bg-slate-50"][class~="text-white"],
+.dark [class*="bg-slate-100"][class~="text-white"],
+.dark [class*="bg-zinc-50"][class~="text-white"],
+.dark [class*="bg-zinc-100"][class~="text-white"],
+.dark [class*="bg-neutral-50"][class~="text-white"],
+.dark [class*="bg-neutral-100"][class~="text-white"],
+.dark [class*="bg-stone-50"][class~="text-white"],
+.dark [class*="bg-stone-100"][class~="text-white"] {
+  color: oklch(var(--foreground-950)) !important;
+}
+
+.dark [class*="bg-white"] [class~="text-black"],
+.dark [class*="bg-white"][class~="text-black"] {
+  color: oklch(var(--foreground-950)) !important;
+}
+
+/* Explicit white utility text on ordinary dark surfaces is readable with the
+ * semantic foreground token, while white text on colored controls is left alone.
+ */
+.dark [class~="text-white"]:not([class*="bg-primary"]):not([class*="bg-secondary"]):not([class*="bg-accent"]):not([class*="bg-emerald"]):not([class*="bg-green"]):not([class*="bg-blue"]):not([class*="bg-indigo"]):not([class*="bg-violet"]):not([class*="bg-purple"]):not([class*="bg-pink"]):not([class*="bg-rose"]):not([class*="bg-red"]):not([class*="bg-orange"]):not([class*="bg-amber"]):not([class*="bg-yellow"]):not([class*="bg-cyan"]):not([class*="bg-teal"]):not([class*="bg-sky"]):not([class*="bg-lime"]):not([class*="bg-gradient"]) {
+  color: oklch(var(--foreground-950));
+}
+
+/* Black text is effectively invisible on dark surfaces. */
+.dark [class~="text-black"] {
+  color: oklch(var(--foreground-950)) !important;
+}
+
+/* Form controls must always use the semantic dark surface/text pair. */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: oklch(var(--background-100));
+  color: oklch(var(--foreground-950));
+  border-color: oklch(var(--background-300));
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: oklch(var(--foreground-500));
+  opacity: 1;
+}
+
+.dark select option {
+  background-color: oklch(var(--background-100));
+  color: oklch(var(--foreground-950));
+}
+
+/* White utility icon fills/strokes on neutral elements should not disappear. */
+.dark [class*="bg-white"] .text-white,
+.dark [class*="bg-white"] [class*="fill-white"],
+.dark [class*="bg-white"] [class*="stroke-white"],
+.dark [class*="bg-gray-50"] [class*="fill-white"],
+.dark [class*="bg-gray-50"] [class*="stroke-white"] {
+  color: oklch(var(--foreground-950)) !important;
+  fill: oklch(var(--foreground-950)) !important;
+  stroke: oklch(var(--foreground-950)) !important;
+}
