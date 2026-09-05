@@ -14,7 +14,7 @@ self.skipWaiting();
 const SUPABASE_STORAGE_HOST = 'ceearwcfvcbjhmkuuqzv.supabase.co';
 const SUPABASE_PUBLIC_OBJECT_PATH = '/storage/v1/object/public/';
 const IMAGE_PROXY_HOST = 'https://wsrv.nl/';
-const OPTIMIZED_IMAGE_CACHE = 'gnh-optimized-storage-images-v2';
+const OPTIMIZED_IMAGE_CACHE = 'gnh-optimized-storage-images-v3';
 
 function toOptimizedStorageImage(request: Request): Request | null {
   if (request.method !== 'GET') return null;
@@ -38,10 +38,11 @@ function toOptimizedStorageImage(request: Request): Request | null {
 
   const proxyUrl = new URL(IMAGE_PROXY_HOST);
   proxyUrl.searchParams.set('url', url.href);
-  proxyUrl.searchParams.set('w', '1280');
+  // 모바일 카드/리스트 표시 기준으로 충분한 최대 폭만 요청해 원본 변환량을 줄인다.
+  proxyUrl.searchParams.set('w', '960');
   proxyUrl.searchParams.set('we', '');
   proxyUrl.searchParams.set('output', 'webp');
-  proxyUrl.searchParams.set('q', '75');
+  proxyUrl.searchParams.set('q', '68');
   proxyUrl.searchParams.set('maxage', '1y');
 
   return new Request(proxyUrl.href, {
