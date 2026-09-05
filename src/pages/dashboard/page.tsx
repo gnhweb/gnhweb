@@ -7,6 +7,7 @@ import type { ClubType, UserRole } from '@/types/auth';
 import { clubs } from '@/mocks/clubs';
 import { supabase } from '@/lib/supabase';
 import { dateKey, formatKoreanDate } from '@/lib/date';
+import WorshipAttendanceInsights from '@/components/feature/WorshipAttendanceInsights';
 
 interface VisitationWidget {
   id: string;
@@ -581,6 +582,13 @@ export default function Dashboard() {
               })}
             </div>
           </motion.div>
+        )}
+
+        {(role === 'teacher' || role === 'zone_leader' || role === 'assistant_zone_leader') && (
+          <WorshipAttendanceInsights
+            profile={{ user_id: profile.user_id, role, club: profile.club }}
+            compact
+          />
         )}
 
         <motion.div
