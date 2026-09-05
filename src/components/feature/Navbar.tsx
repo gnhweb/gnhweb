@@ -41,6 +41,8 @@ const COMMUNITY_CATEGORY: CategoryGroup = {
     { path: '/song-vote', label: '찬양투표', icon: 'ri-music-line' },
     { path: '/prayer-relay', label: '기도 릴레이', icon: 'ri-hand-heart-line' },
     { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },
+    { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },
+    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },
   ],
 };
 
@@ -71,10 +73,6 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
   ]},
   { label: '사명 도구', items: [
     { path: '/leadership-diary', label: '리더십 코칭', icon: 'ri-book-read-line' },
-  ]},
-  { label: '미션', items: [
-    { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },
-    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },
   ]},
 ];
 
