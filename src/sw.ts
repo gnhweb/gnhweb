@@ -14,7 +14,7 @@ self.skipWaiting();
 const SUPABASE_STORAGE_HOST = 'ceearwcfvcbjhmkuuqzv.supabase.co';
 const SUPABASE_PUBLIC_OBJECT_PATH = '/storage/v1/object/public/';
 const IMAGE_PROXY_HOST = 'https://wsrv.nl/';
-const OPTIMIZED_IMAGE_CACHE = 'gnh-optimized-storage-images-v1';
+const OPTIMIZED_IMAGE_CACHE = 'gnh-optimized-storage-images-v2';
 
 function toOptimizedStorageImage(request: Request): Request | null {
   if (request.method !== 'GET') return null;
@@ -29,6 +29,12 @@ function toOptimizedStorageImage(request: Request): Request | null {
   if (url.hostname !== SUPABASE_STORAGE_HOST || !url.pathname.startsWith(SUPABASE_PUBLIC_OBJECT_PATH)) {
     return null;
   }
+
+  // 이미 클라이언트에서 480px 이하로 만든 썸네일은 다시 프록시하지 않는다.
+  // 작은 썸네일을 Supabase에서 직접 받아 불필요한 wsrv 원본 재조회도 막는다.
+  const path = decodeURIComponent(url.pathname);
+  const isThumbnail = /\/thumb_[^/]+\.jpg$/i.test(path);
+  if (isThumbnail) return null;
 
   const proxyUrl = new URL(IMAGE_PROXY_HOST);
   proxyUrl.searchParams.set('url', url.href);
