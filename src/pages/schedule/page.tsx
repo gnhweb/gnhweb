@@ -109,6 +109,14 @@ export default function Schedule() {
   }, [filtered]);
 
   const eventDateSet = useMemo(() => new Set(filtered.map(s => s.event_date)), [filtered]);
+  const calendarEventsByDate = useMemo(() => {
+    const grouped: Record<string, ScheduleItem[]> = {};
+    filtered.forEach(event => {
+      if (!grouped[event.event_date]) grouped[event.event_date] = [];
+      grouped[event.event_date].push(event);
+    });
+    return grouped;
+  }, [filtered]);
   const calDays = useMemo(() => getCalDays(calYear, calMonth, eventDateSet), [calYear, calMonth, eventDateSet]);
   const selectedDateEvents = useMemo(() => {
     if (!selectedDate) return [];
@@ -120,6 +128,23 @@ export default function Schedule() {
   };
   const goNextMonth = () => {
     if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else { setCalMonth(m => m + 1); }
+  };
+
+  const clubColorClass = (clubId: string | null) => {
+    if (!clubId) return 'bg-foreground-500';
+    const colorByClub: Record<string, string> = {
+      saeullim: 'bg-primary-500',
+      cheonjipoong: 'bg-secondary-500',
+      cheonjihu: 'bg-accent-500',
+      munhwabu: 'bg-primary-700',
+      cheonhwarae_cheongmyeong: 'bg-secondary-700',
+    };
+    return colorByClub[clubId] || 'bg-foreground-500';
+  };
+
+  const clubName = (clubId: string | null) => {
+    if (!clubId) return '전체 행사';
+    return clubs.find(club => club.id === clubId)?.name || clubId;
   };
 
   const canModifyEvent = (event: ScheduleItem) => {
@@ -292,10 +317,45 @@ export default function Schedule() {
                     {d.date}
                   </span>
                   {d.hasEvent && d.isCurrentMonth && selectedDate !== d.dateStr && (
-                    <span className="absolute bottom-0 w-1 h-1 rounded-full bg-accent-500"></span>
+                    <div
+                      className="absolute bottom-0 flex max-w-[32px] items-center justify-center gap-0.5 overflow-hidden"
+                      aria-label="이 날짜의 동아리 일정"
+                    >
+                      {(calendarEventsByDate[d.dateStr] || [])
+                        .map(event => event.target_club)
+                        .filter(
+                          (clubId, index, clubIds): clubId is string =>
+                            Boolean(clubId) && clubIds.indexOf(clubId) === index,
+                        )
+                        .slice(0, 3)
+                        .map(clubId => (
+                          <span
+                            key={clubId}
+                            className={`h-1.5 w-1.5 rounded-full ${clubColorClass(clubId)}`}
+                            title={clubName(clubId)}
+                          />
+                        ))}
+                      {(calendarEventsByDate[d.dateStr] || [])
+                        .map(event => event.target_club)
+                        .filter(
+                          (clubId, index, clubIds): clubId is string =>
+                            Boolean(clubId) && clubIds.indexOf(clubId) === index,
+                        ).length > 3 && (
+                          <span className="text-[7px] font-bold leading-none text-foreground-500">+</span>
+                        )}
+                    </div>
                   )}
                 </button>
               ))}
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-background-200 pt-3">
+              {clubs.map(club => (
+                <span key={club.id} className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-foreground-600">
+                  <span className={`h-2 w-2 rounded-full ${clubColorClass(club.id)}`} aria-hidden="true" />
+                  {club.name}
+                </span>
+              ))}
+              <span className="text-[10px] text-foreground-400">색 점으로 날짜별 동아리 일정을 한눈에 확인할 수 있어요</span>
             </div>
           </div>
 
@@ -314,11 +374,17 @@ export default function Schedule() {
                 <div className="space-y-2">
                   {selectedDateEvents.map(event => (
                     <motion.div key={event.id} whileTap={{ scale: 0.97 }} onClick={() => setSelectedEvent(event)} className="bg-background-100 border border-background-200 rounded-[20px] p-4 flex items-center gap-3 cursor-pointer">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center flex-shrink-0">
-                        <i className="ri-calendar-event-line text-white text-sm"></i>
+                      <div className={`w-10 h-10 rounded-xl ${clubColorClass(event.target_club)} flex items-center justify-center flex-shrink-0`}>
+                        <i className="ri-calendar-event-line text-background-50 text-sm"></i>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-foreground-950 truncate">{event.title}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-foreground-950 truncate">{event.title}</p>
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-chip bg-background-200 px-2 py-0.5 text-[10px] font-semibold text-foreground-600">
+                            <span className={`h-1.5 w-1.5 rounded-full ${clubColorClass(event.target_club)}`} aria-hidden="true" />
+                            {clubName(event.target_club)}
+                          </span>
+                        </div>
                         <p className="text-xs text-foreground-500">{event.event_time} · {event.location}</p>
                       </div>
                     </motion.div>
