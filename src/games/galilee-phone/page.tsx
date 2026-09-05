@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { GameOrientationGuard } from "@/components/base/GameOrientationGuard";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { GameManager } from "./GameManager";
@@ -15,11 +16,13 @@ function randomRoomCode() {
 
 export default function GalileePhone() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 py-10 px-4">
-      <h1 className="text-white text-2xl font-bold mb-1">🕊️ 갈릴리폰</h1>
-      <p className="text-gray-400 text-sm mb-4">말이 그림 되고, 그림이 말씀 되고</p>
-      <GalileePhoneGame />
-    </div>
+    <GameOrientationGuard orientation="portrait">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 py-10 px-4">
+        <h1 className="text-white text-2xl font-bold mb-1">🕊️ 갈릴리폰</h1>
+        <p className="text-gray-400 text-sm mb-4">말이 그림 되고, 그림이 말씀 되고</p>
+        <GalileePhoneGame />
+      </div>
+    </GameOrientationGuard>
   );
 }
 
