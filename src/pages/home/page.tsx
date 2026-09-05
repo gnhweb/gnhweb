@@ -314,6 +314,12 @@ export default function Home() {
 
   // 모바일: 공지·일정·강학뉴스를 세로로 다 펼치지 않고 탭으로 전환해서 봄
   const [homeTab, setHomeTab] = useState<'notice' | 'schedule' | 'news'>('notice');
+  const [homeNoticeCategory, setHomeNoticeCategory] = useState('전체');
+
+  const HOME_NOTICE_CATEGORIES = ['전체', '일반', '긴급', '행사', '모집', '교육', '기도제목'];
+  const filteredHomeNotices = homeNoticeCategory === '전체'
+    ? notices
+    : notices.filter((notice) => (notice.category || '일반') === homeNoticeCategory);
 
   // 달력
   const today = new Date();
@@ -880,6 +886,26 @@ export default function Home() {
               </h2>
               <Link to="/notices" className="text-xs text-primary-600 hover:text-primary-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">전체보기 <i className="ri-arrow-right-s-line text-sm"></i></Link>
             </div>
+            <div className="mb-3 rounded-2xl border border-background-200 bg-background-100 p-2.5">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5" role="tablist" aria-label="최신 공지사항 카테고리">
+                {HOME_NOTICE_CATEGORIES.map((category) => {
+                  const count = category === '전체' ? notices.length : notices.filter((notice) => (notice.category || '일반') === category).length;
+                  const active = homeNoticeCategory === category;
+                  return (
+                    <button
+                      key={category}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setHomeNoticeCategory(category)}
+                      className={`min-h-10 shrink-0 rounded-chip px-3.5 text-xs font-bold transition-colors cursor-pointer ${active ? 'bg-primary-500 text-white shadow-card' : 'bg-background-200 text-foreground-600 hover:bg-background-300'}`}
+                    >
+                      {category}<span className={`ml-1.5 ${active ? 'text-white/80' : 'text-foreground-400'}`}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="space-y-2">
               {noticesLoading ? (
                 <div className="p-8 text-center"><div className="w-6 h-6 border-2 border-primary-300 border-t-transparent rounded-full animate-spin mx-auto"></div></div>
@@ -894,7 +920,7 @@ export default function Home() {
                 <>
                 {/* 모바일 전용: 인스타 스토리처럼 원형으로 훑어보는 최근 공지 링 */}
                 <div className="lg:hidden flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1 mb-1 snap-x">
-                  {notices.slice(0, 6).map((notice) => {
+                  {filteredHomeNotices.slice(0, 6).map((notice) => {
                     const readIds = getReadNoticeIds(user?.id);
                     const isRead = readIds.has(notice.id);
                     const catColor = getCategoryColor(notice.category);
@@ -914,7 +940,7 @@ export default function Home() {
                     );
                   })}
                 </div>
-                {notices.map((notice) => {
+                {filteredHomeNotices.map((notice) => {
                   const readIds = getReadNoticeIds(user?.id);
                   const isNew = !readIds.has(notice.id) && (Date.now() - new Date(notice.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
                   const catColor = getCategoryColor(notice.category);
