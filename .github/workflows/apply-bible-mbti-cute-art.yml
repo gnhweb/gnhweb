@@ -1,0 +1,85 @@
+name: Apply cute Bible MBTI artwork
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replace Bible MBTI artwork with local cute sprite
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          page = Path('src/pages/bibleMbti/page.tsx')
+          text = page.read_text()
+          start = text.index('function CharacterIllustration')
+          end = text.index('\n\nconst axisLabels', start)
+          replacement = '''function CharacterIllustration({ name, className }: { name: string; className?: string }) {
+            const index = MBTI_CHARACTER_INDEX[name];
+            if (index === undefined) return <div className={className} aria-hidden="true" />;
+            const column = index % 5;
+            const row = Math.floor(index / 5);
+            const x = column * 25;
+            const y = row * (100 / 3);
+
+            return (
+              <div
+                role="img"
+                aria-label={`${name} 성경인물 일러스트`}
+                className={`bg-no-repeat ${className ?? ''}`}
+                style={{
+                  backgroundImage: 'url(/bible-mbti/characters-cute.svg)',
+                  backgroundPosition: `${x}% ${y}%`,
+                  backgroundSize: '500% 400%',
+                }}
+              />
+            );
+          }'''
+          text = text[:start] + replacement + text[end:]
+          page.write_text(text)
+
+          main = Path('src/main.tsx')
+          text = main.read_text()
+          text = text.replace("import './bible-mbti-supplied-art.css'\n", '')
+          text = text.replace("import './bible-mbti-david-fix.css'\n", '')
+          main.write_text(text)
+
+          enhanced = Path('src/pages/bibleMbtiEnhanced/page.tsx')
+          text = enhanced.read_text()
+          start = text.index('function FigureIllustration')
+          end = text.index('\n\nfunction calculate', start)
+          replacement = '''function FigureIllustration({name,className}:{name:Figure;className:string}){
+            const index=figureOrder.indexOf(name);
+            const column=index%5;
+            const row=Math.floor(index/5);
+            return <div aria-label={`${name} 성경인물 프로필`} role="img" className={`bg-no-repeat ${className}`} style={{backgroundImage:"url('/bible-mbti/characters-cute.svg')",backgroundPosition:`${column*25}% ${row*(100/3)}%`,backgroundSize:'500% 400%'}}/>;
+          }'''
+          text = text[:start] + replacement + text[end:]
+          enhanced.write_text(text)
+          PY
+
+      - name: Commit artwork update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx src/pages/bibleMbti/page.tsx src/pages/bibleMbtiEnhanced/page.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: use local cute artwork for all Bible MBTI figures"
+          git push
+
+      - name: Remove temporary workflow
+        if: success()
+        run: |
+          git rm .github/workflows/apply-bible-mbti-cute-art.yml
+          git commit -m "chore: remove temporary Bible MBTI artwork workflow"
+          git push
