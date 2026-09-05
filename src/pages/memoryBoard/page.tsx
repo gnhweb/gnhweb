@@ -36,6 +36,7 @@ export default function MemoryBoard() {
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => { loadPhotos(); }, []);
   useEffect(() => { setVisibleCount(PAGE_SIZE); setLightboxIndex(null); }, [filter]);
@@ -74,6 +75,7 @@ export default function MemoryBoard() {
     if (!uploadFile || !uploadTitle.trim() || !profile || uploading) return;
     setUploading(true);
     setError(null);
+    setUploadError(null);
     let displayPath: string | null = null;
     let thumbPath: string | null = null;
     try {
@@ -121,7 +123,9 @@ export default function MemoryBoard() {
         try { await supabase.storage.from('Public').remove(paths); } catch { /* best-effort cleanup */ }
       }
       console.error('Upload error:', e);
-      setError(e instanceof Error ? e.message : '업로드 중 오류가 발생했습니다.');
+      const message = e instanceof Error ? e.message : '업로드 중 오류가 발생했습니다.';
+      setUploadError(message);
+      setError(message);
     } finally {
       setUploading(false);
     }
@@ -240,7 +244,7 @@ export default function MemoryBoard() {
 
           {filteredPhotos.length === 0 && <div className="text-center py-16"><p className="text-sm text-foreground-600">아직 추억이 없어요</p></div>}
 
-          {isEditor && <div className="text-center mt-8"><button onClick={() => setShowUpload(true)} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 transition-all cursor-pointer"><i className="ri-upload-line"></i> 사진 올리기</button></div>}
+          {isEditor && <div className="text-center mt-8"><button onClick={() => { setShowUpload(true); setUploadError(null); }} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 transition-all cursor-pointer"><i className="ri-upload-line"></i> 사진 올리기</button></div>}
         </motion.div>
       </div>
 
@@ -251,9 +255,15 @@ export default function MemoryBoard() {
           <div className="bg-background-100 rounded-[20px] p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-4">사진 올리기</h3>
             <input type="text" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} placeholder="제목" maxLength={30} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none focus:border-rose-400 mb-4" />
-            <input type="file" accept="image/*" onChange={e => setUploadFile(e.target.files?.[0] || null)} className="w-full text-sm mb-4" />
+            <input type="file" accept="image/*" onChange={e => { setUploadFile(e.target.files?.[0] || null); setUploadError(null); }} className="w-full text-sm mb-4" />
+            {uploadError && (
+              <div className="mb-4 rounded-[20px] border border-accent-200 bg-accent-100 p-3" role="alert">
+                <p className="text-sm font-semibold text-accent-700"><i className="ri-error-warning-line mr-1"></i>사진 업로드에 실패했습니다.</p>
+                <p className="mt-1 text-xs leading-5 text-accent-700 break-words">{uploadError}</p>
+              </div>
+            )}
             <div className="flex gap-2">
-              <button onClick={() => setShowUpload(false)} className="flex-1 py-2.5 rounded-full border border-gray-200 text-sm cursor-pointer">취소</button>
+              <button onClick={() => { setShowUpload(false); setUploadError(null); }} className="flex-1 py-2.5 rounded-full border border-gray-200 text-sm cursor-pointer">취소</button>
               <button onClick={handleUpload} disabled={!uploadFile || !uploadTitle.trim() || uploading} className="flex-1 py-2.5 rounded-full bg-rose-500 text-white text-sm font-semibold disabled:opacity-40 cursor-pointer">{uploading ? '업로드 중...' : '올리기'}</button>
             </div>
           </div>
