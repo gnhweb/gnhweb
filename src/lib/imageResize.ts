@@ -20,6 +20,8 @@ const DEFAULTS: Required<ResizeOptions> = {
   mimeType: 'image/jpeg',
 };
 
+const MAX_ORIGINAL_FALLBACK_BYTES = 2 * 1024 * 1024;
+
 function isHeicFile(source: File | Blob): boolean {
   const type = source.type.toLowerCase();
   if (type === 'image/heic' || type === 'image/heif' || type === 'image/heic-sequence' || type === 'image/heif-sequence') {
@@ -31,6 +33,12 @@ function isHeicFile(source: File | Blob): boolean {
   }
 
   return false;
+}
+
+function isJpegFile(source: File | Blob): boolean {
+  const type = source.type.toLowerCase();
+  if (type === 'image/jpeg' || type === 'image/jpg') return true;
+  return source instanceof File && /\.(jpe?g)$/i.test(source.name);
 }
 
 function sourceDescription(source: File | Blob): string {
@@ -105,11 +113,26 @@ async function loadDrawable(source: File | Blob): Promise<{ drawable: CanvasImag
 /**
  * 이미지 파일(File | Blob)을 지정한 최대 크기로 축소하고 압축한 Blob을 반환한다.
  * 원본이 이미 maxDimension보다 작으면 확대하지 않는다.
+ *
+ * 브라우저가 특정 JPEG를 디코딩하지 못하더라도 2MB 이하라면 원본을 그대로 반환한다.
+ * 이 경우 업로드 계층이 원본을 저장하고 Service Worker/CDN 최적화를 맡을 수 있다.
  */
 export async function resizeImageFile(source: File | Blob, options: ResizeOptions = {}): Promise<Blob> {
   const { maxDimension, quality, mimeType } = { ...DEFAULTS, ...options };
 
-  const { drawable, width, height, close } = await loadDrawable(source);
+  let drawableResult: Awaited<ReturnType<typeof loadDrawable>>;
+  try {
+    drawableResult = await loadDrawable(source);
+  } catch (error) {
+    const message = errorDescription(error);
+    if (message.startsWith('[IMAGE_DECODE_ERROR]') && isJpegFile(source) && source.size <= MAX_ORIGINAL_FALLBACK_BYTES) {
+      console.warn('브라우저 JPEG 디코딩 실패 — 2MB 이하 원본으로 업로드를 계속합니다.', sourceDescription(source));
+      return source;
+    }
+    throw error;
+  }
+
+  const { drawable, width, height, close } = drawableResult;
   try {
     if (!width || !height) throw new Error(`[IMAGE_DIMENSION_ERROR] ${sourceDescription(source)} | width=${width} height=${height}`);
 
