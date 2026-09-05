@@ -1,0 +1,21 @@
+name: one-time migrate image thumbnails
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  migrate:
+    if: github.event.head_commit.message == 'chore: migrate existing image thumbnails'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Supabase thumbnail migration
+        run: |
+          set -euo pipefail
+          response=$(curl --fail-with-body --silent --show-error --max-time 240 \
+            'https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/migrate-image-thumbnails' \
+            -H 'apikey: sb_publishable_TBLFOhx7zYKWqfitSHRirQ_7XOZxMeP')
+          echo "$response"
+          echo "$response" | grep -q '"ok":true'
