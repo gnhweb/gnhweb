@@ -28,8 +28,8 @@
   }
 }
 
-/* Removed mission tools: keep the deprecated event-planning links out of all navigation/search surfaces. */
-a[href="/pds-planner"],
-a[href="/event-ideas"] {
+/* The deprecated event-planning entries remain in the legacy navbar data only so the navbar file itself is untouched; hide exactly those two entries in both desktop and mobile mission menus. */
+.max-h-\[480px\] > div:nth-child(4) > button:nth-of-type(-n+2),
+.space-y-3 > div:nth-child(4) .grid > button:nth-child(-n+2) {
   display: none !important;
-} 
+}
