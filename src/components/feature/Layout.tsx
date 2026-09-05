@@ -14,7 +14,6 @@ import FaithHubPage from '@/pages/faithHub/page';
 import TelegramSettingsPage from '@/pages/telegramSettings/page';
 import BiblePickEnhanced from '@/pages/biblePickEnhanced/page';
 import BibleMbtiEnhanced from '@/pages/bibleMbtiEnhanced/page';
-import EventIdeasEnhanced from '@/pages/eventIdeasEnhanced/page';
 import { useAutoLogout } from '@/hooks/useAutoLogout';
 import { MobileMenuProvider } from '@/hooks/useMobileMenu';
 import { listPasskeys } from '@/lib/passkey';
@@ -63,10 +62,10 @@ export default function Layout(){
 
  const persistedPinUnlocked = !!user && hasPin && isPinUnlockValid(user.id);
  if(pinLocked && !persistedPinUnlocked)return <AppLockScreen/>; if(pinSetupNeeded)return <PinSetupPrompt/>;
- const isSpecial=['/faith','/telegram-settings','/bible-pick','/bible-mbti','/event-ideas','/leadership-diary'].includes(location.pathname);
+ const isSpecial=['/faith','/telegram-settings','/bible-pick','/bible-mbti','/leadership-diary'].includes(location.pathname);
  const isFullscreen=FULLSCREEN_GAME_PATHS.some(p=>location.pathname.startsWith(p));
  const showNavbar=!isFullscreen&&!!user&&(!profile||(profile.approval_status==='approved'&&!profile.is_expelled));
- const special=location.pathname==='/faith'?<FaithHubPage/>:location.pathname==='/telegram-settings'?<TelegramSettingsPage/>:location.pathname==='/bible-pick'?<BiblePickEnhanced/>:location.pathname==='/bible-mbti'?<BibleMbtiEnhanced/>:location.pathname==='/event-ideas'?<EventIdeasEnhanced/>:location.pathname==='/leadership-diary'?<AuthGuard minRole="assistant_zone_leader"><Suspense fallback={<div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">로딩 중…</div>}><LeadershipDiary/></Suspense></AuthGuard>:null;
+ const special=location.pathname==='/faith'?<FaithHubPage/>:location.pathname==='/telegram-settings'?<TelegramSettingsPage/>:location.pathname==='/bible-pick'?<BiblePickEnhanced/>:location.pathname==='/bible-mbti'?<BibleMbtiEnhanced/>:location.pathname==='/leadership-diary'?<AuthGuard minRole="assistant_zone_leader"><Suspense fallback={<div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">로딩 중…</div>}><LeadershipDiary/></Suspense></AuthGuard>:null;
  if(isFullscreen)return <><IosPwaBackButton/><Outlet/></>;
  const showMissionaryAttendanceSummary=location.pathname==='/dashboard'&&profile?.role==='member';
  const showTelegramEnhancer=location.pathname==='/attendance-board'||location.pathname==='/dashboard/attendance';
