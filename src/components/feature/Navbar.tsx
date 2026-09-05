@@ -93,9 +93,7 @@ const ADMIN_CATEGORY_ITEMS: AdminItem[] = [
 const PROFILE_FAITH_ITEMS: CategoryItem[] = [
   { path: '/bible-pick/history', label: '말씀 히스토리', icon: 'ri-history-line' },
   { path: '/bible-streak', label: '말씀 스트릭', icon: 'ri-fire-line' },
-  { path: '/faith-storybook', label: '신앙 스토리북', icon: 'ri-bookmark-line' },
-  { path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },
-  { path: '/repentance-journal', label: '회개 저널', icon: 'ri-hand-heart-line' },
+  { path: '/faith-journal', label: '신앙일기', icon: 'ri-edit-line' },
   { path: '/bucket-list', label: '버킷리스트', icon: 'ri-todo-line' },
   { path: '/year-end-summary', label: '월별 결산', icon: 'ri-calendar-check-line' },
 ];
