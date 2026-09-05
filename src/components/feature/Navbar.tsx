@@ -304,6 +304,15 @@ export default function Navbar() {
               <button onClick={() => setMobileOpen(!mobileOpen)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-background-200 transition-colors cursor-pointer"><i className={`text-xl text-foreground-700 ${mobileOpen ? 'ri-close-line' : 'ri-menu-line'}`}></i></button>
             </div>
               <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <Link
+                to="/dashboard/attendance"
+                aria-label="스마트 출석"
+                title="스마트 출석"
+                className={`md:hidden flex h-10 items-center justify-center gap-1.5 rounded-chip px-2.5 text-sm font-semibold transition-colors active:scale-95 ${isActive('/dashboard/attendance') ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300' : 'text-primary-700 hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-900/30'}`}
+              >
+                <i className="ri-user-heart-line text-[20px]"></i>
+                <span>출석</span>
+              </Link>
               {location.pathname === '/' && (
                 <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('home-awards-open'))} aria-label="수상 및 실시간 리더보드" title="수상 및 실시간 리더보드" className="flex h-10 w-10 items-center justify-center rounded-full text-accent-600 transition-all hover:bg-accent-50 hover:text-accent-700 active:scale-95 dark:text-accent-300 dark:hover:bg-accent-900/30 cursor-pointer"><i className="ri-trophy-line text-[20px]"></i></button>
               )}
