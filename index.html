@@ -71,6 +71,54 @@
   </head>
   <body class="notranslate" translate="no">
     <div id="root"></div>
+    <script>
+      (function () {
+        var RECOVERY_KEY = 'gnh-startup-recovery-v1';
+        var recoveryStarted = false;
+
+        function recoverFromBlankStartup() {
+          if (recoveryStarted) return;
+          try {
+            if (sessionStorage.getItem(RECOVERY_KEY) === '1') return;
+            sessionStorage.setItem(RECOVERY_KEY, '1');
+          } catch (e) {}
+          recoveryStarted = true;
+
+          var root = document.getElementById('root');
+          if (root && root.childElementCount === 0) {
+            root.textContent = '앱을 다시 불러오는 중입니다…';
+            root.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;font-size:14px;';
+          }
+
+          var cleanup = [];
+          if ('serviceWorker' in navigator) {
+            cleanup.push(navigator.serviceWorker.getRegistrations().then(function (registrations) {
+              return Promise.all(registrations.map(function (registration) { return registration.unregister(); }));
+            }).catch(function () {}));
+          }
+          if ('caches' in window) {
+            cleanup.push(caches.keys().then(function (names) {
+              return Promise.all(names.map(function (name) { return caches.delete(name); }));
+            }).catch(function () {}));
+          }
+
+          Promise.all(cleanup).then(function () {
+            window.location.reload();
+          });
+        }
+
+        window.addEventListener('error', function (event) {
+          if (event && event.filename && /\/assets\/.*\.js/.test(event.filename)) {
+            window.setTimeout(recoverFromBlankStartup, 250);
+          }
+        }, true);
+
+        window.setTimeout(function () {
+          var root = document.getElementById('root');
+          if (root && root.childElementCount === 0) recoverFromBlankStartup();
+        }, 7000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     <script src="https://readdy.ai/api/public/assistant/widget?projectId=bf294611-0b59-44df-aa0a-5ff8df712394" mode="hybrid" voice-show-transcript="true" theme="light" size="compact" accent-color="#F59E0B" button-base-color="#1F2937" button-accent-color="#FFFFFF" main-label="학생회 AI 도우미" defer></script>
   </body>
