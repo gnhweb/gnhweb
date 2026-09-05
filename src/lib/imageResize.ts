@@ -20,18 +20,50 @@ const DEFAULTS: Required<ResizeOptions> = {
   mimeType: 'image/jpeg',
 };
 
-/** createImageBitmap 우선 시도, 실패 시(예: 일부 브라우저의 HEIC 등) <img> 디코딩으로 폴백 */
-async function loadDrawable(source: Blob): Promise<{ drawable: CanvasImageSource; width: number; height: number; close: () => void }> {
+function isHeicFile(source: File | Blob): boolean {
+  const type = source.type.toLowerCase();
+  if (type === 'image/heic' || type === 'image/heif' || type === 'image/heic-sequence' || type === 'image/heif-sequence') {
+    return true;
+  }
+
+  if (source instanceof File) {
+    return /\.(heic|heif)$/i.test(source.name);
+  }
+
+  return false;
+}
+
+async function convertHeicToJpeg(source: File | Blob): Promise<Blob> {
+  if (!isHeicFile(source)) return source;
+
+  try {
+    const { default: heic2any } = await import('heic2any');
+    const converted = await heic2any({
+      blob: source,
+      toType: 'image/jpeg',
+      quality: 0.88,
+    });
+    return Array.isArray(converted) ? converted[0] : converted;
+  } catch (error) {
+    console.error('HEIC/HEIF 이미지 변환 실패:', error);
+    throw new Error('HEIC 사진을 JPG로 변환하지 못했습니다. 다른 사진을 선택해 주세요.');
+  }
+}
+
+/** HEIC/HEIF는 먼저 JPG로 변환한 뒤 브라우저 이미지 디코딩을 진행한다. */
+async function loadDrawable(source: File | Blob): Promise<{ drawable: CanvasImageSource; width: number; height: number; close: () => void }> {
+  const drawableSource = await convertHeicToJpeg(source);
+
   if (typeof createImageBitmap === 'function') {
     try {
-      const bitmap = await createImageBitmap(source);
+      const bitmap = await createImageBitmap(drawableSource);
       return { drawable: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
     } catch {
       // fall through to <img> 기반 디코딩
     }
   }
 
-  const objectUrl = URL.createObjectURL(source);
+  const objectUrl = URL.createObjectURL(drawableSource);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const el = new Image();
