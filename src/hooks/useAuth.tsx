@@ -438,10 +438,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user, fetchProfile]);
 
+  const signIn = useCallback(async (email: string, password: string) => {
+    try {
+      refreshFailureHandledRef.current = false;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { error: error.message, user: null };
 
+      const signedInUser = data.user ?? null;
+      if (signedInUser) {
+        // Mark successful sign-in newer than the initial bootstrap read.
+        authEventVersionRef.current += 1;
+        setUser(signedInUser);
+        setLoading(false);
+        setProfileError(null);
+        fetchProfile(signedInUser);
+      }
+      return { error: null, user: signedInUser };
+    } catch (e: any) {
+      const errMsg = e?.message === 'Failed to fetch'
+        ? '서버 연결이 원활하지 않습니다. 네트워크를 확인하고 다시 시도해주세요.'
+        : '로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      console.error('[Auth] signIn exception:', e);
+      return { error: errMsg, user: null };
+    }
+  }, [fetchProfile]);
 
+  const signUp = useCallback(async (email: string, password: string, name: string, role: UserRole, club?: string, birthYear?: number, gender?: string, birthMonth?: number, birthDay?: number, interests?: string, grade?: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name, role, club: club || null, birth_year: birthYear || null, gender: gender || null, birth_month: birthMonth || null, birth_day: birthDay || null, interests: interests || null, grade: grade || null },
+      },
+    });
+    if (error) return { error: error.message };
 
+    if (data.session && data.user) {
+      const { error: roleError } = await supabase.from('user_roles').insert({
+        user_id: data.user.id,
+        role,
+        name,
+        club: club || null,
+        birth_year: birthYear || null,
+        gender: gender || null,
+        birth_month: birthMonth || null,
+        birth_day: birthDay || null,
+        interests: interests || null,
+        grade: grade || null,
+        is_active: true,
+        approval_status: 'pending',
+      });
+      if (roleError) return { error: roleError.message };
+    }
 
+    return { error: null };
+  }, []);
+
+  const retryProfile = useCallback(async () => {
+    if (!user) return;
+    setProfileRetrying(true);
+    setProfileError(null);
+    try {
+      await fetchProfile(user);
+    } finally {
+      setProfileRetrying(false);
+    }
+  }, [user, fetchProfile]);
 
 
 
