@@ -13,10 +13,7 @@ let currentRegistration: ServiceWorkerRegistration | undefined;
 let updateInFlight = false;
 
 const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
-// Explicitly version the registration URL so an already-installed PWA gets a
-// fresh service-worker registration after navigation/menu fixes. `updateViaCache`
-// below still prevents the browser from serving a cached worker script.
-const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=20260906-leadership-menu`;
+const SW_URL = `${import.meta.env.BASE_URL}sw.js`;
 
 async function checkForUpdate(registration?: ServiceWorkerRegistration) {
   if (!registration || updateInFlight) return;
