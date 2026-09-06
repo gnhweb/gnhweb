@@ -52,6 +52,9 @@ auth = auth.replace(
   'value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signUp, signOut,',
   'value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signInWithPasskey, signUp, signOut,',
 );
+// The normalization workflow has historically inserted blank lines around this existing passkey helper.
+// Restore the exact spacing that existed before this temporary workflow change.
+auth = auth.replace(/(  }, \[user, fetchProfile\]);)\n{18}(  const signInWithPasskey)/, (_, anchor, helper) => anchor + '\n'.repeat(11) + helper);
 write('src/hooks/useAuth.tsx', auth);
 
 let router = read('src/router/config.tsx');
