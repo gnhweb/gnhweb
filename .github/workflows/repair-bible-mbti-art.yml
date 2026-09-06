@@ -16,28 +16,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Patch enhanced Bible MBTI portrait renderer
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          p = Path('src/pages/bibleMbtiEnhanced/page.tsx')
-          s = p.read_text(encoding='utf-8')
-          pattern = r"function FigureIllustration\(\{name,className\}:\{name:Figure;className:string\}\)\{.*?\n\}"
-          replacement = '''function FigureIllustration({name,className}:{name:Figure;className:string}){
- const index = figureOrder.indexOf(name);
- const column = index % 5;
- const row = Math.floor(index / 5);
- return <div role="img" aria-label={`${name} 성경인물 프로필`} className={`bg-no-repeat ${className}`} style={{backgroundImage:'url(/bible-mbti/figure-portraits.webp)',backgroundPosition:`${column * 25}% ${row * (100 / 3)}%`,backgroundSize:'500% 400%'}}/>;
-}'''
-          s2, count = re.subn(pattern, replacement, s, count=1, flags=re.S)
-          if count != 1:
-              raise SystemExit('FigureIllustration block not found')
-          s2 = s2.replace("import { figureImagePaths } from './figureImages';\n", '', 1)
-          p.write_text(s2, encoding='utf-8')
-          PY
-
       - name: Rebuild sprite from supplied art embedded in the repo
         shell: bash
         run: |
@@ -69,6 +47,6 @@ jobs:
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add public/bible-mbti/characters.svg src/pages/bibleMbtiEnhanced/page.tsx
-          git commit -m 'fix: render Bible MBTI character portraits' || exit 0
+          git add public/bible-mbti/characters.svg
+          git commit -m 'fix: use supplied Bible MBTI character art' || exit 0
           git push
