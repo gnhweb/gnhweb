@@ -201,6 +201,18 @@ function formatDateShort(dateStr: string) {
   return formatKoreanDate(dateStr, { month: 'numeric', day: 'numeric' }).replace(/\s/g, '');
 }
 
+const CLUB_CALENDAR_DOT_CLASSES: Record<string, string> = {
+  saeullim: 'bg-primary-500',
+  cheonjipoong: 'bg-secondary-500',
+  cheonjihu: 'bg-accent-500',
+  munhwabu: 'bg-primary-700',
+  cheonhwarae_cheongmyeong: 'bg-secondary-700',
+};
+
+function getClubCalendarDotClass(clubId: string | null) {
+  return clubId ? CLUB_CALENDAR_DOT_CLASSES[clubId] || 'bg-foreground-500' : 'bg-foreground-500';
+}
+
 // ──────────────────────────────────────────────
 // 달력 헬퍼
 // ──────────────────────────────────────────────
@@ -997,7 +1009,16 @@ export default function Home() {
                       >
                         {d.day}
                         {hasEvent && !d.isToday && !isSelected && (
-                          <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-secondary-400"></span>
+                          <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex max-w-[24px] items-center justify-center gap-0.5 overflow-hidden" aria-label="이 날짜의 동아리 일정">
+                            {Array.from(new Set(d.events.map(event => event.target_club).filter((clubId): clubId is string => Boolean(clubId))))
+                              .slice(0, 3)
+                              .map(clubId => (
+                                <span key={clubId} className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${getClubCalendarDotClass(clubId)}`} title={clubs.find(club => club.id === clubId)?.name || clubId} />
+                              ))}
+                            {Array.from(new Set(d.events.map(event => event.target_club).filter((clubId): clubId is string => Boolean(clubId)))).length > 3 && (
+                              <span className="text-[7px] font-bold leading-none text-foreground-500">+</span>
+                            )}
+                          </span>
                         )}
                       </button>
                       {/* Hover tooltip */}
