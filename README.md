@@ -16,3 +16,5 @@
 <!-- Production E2E retrigger: auth bootstrap race fix verified in source. -->
 
 <!-- Force production deployment after verified Bible MBTI portrait fix. -->
+
+<!-- Force second production deployment after verifying the actual enhanced MBTI route source. -->
