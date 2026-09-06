@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'supabase/migrations/20260906120000_allow_multiple_small_mission_claims.sql'
+      - '.github/workflows/apply-20260906-fixes.yml'
 
 permissions:
   contents: write
@@ -27,23 +28,19 @@ jobs:
               text = p.read_text(encoding='utf-8')
               new = fn(text)
               if new == text:
-                  raise SystemExit(f'{path}: no change made')
+                  print(f'{path}: already applied')
+                  return
               p.write_text(new, encoding='utf-8')
 
           def navbar(text):
               if "{ path: '/missions/leaderboard', label: '이달의 사명왕'" not in text:
-                  text = text.replace(
-                      "    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },",
-                      "    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },\n    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },",
-                      1,
-                  )
+                  text = text.replace("    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },", "    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },\n    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },", 1)
               text = re.sub(r"\n  \{ label: '미션', items: \[.*?\n  \]\},", "", text, count=1, flags=re.S)
-              text = text.replace("{ path: '/faith-journal', label: '신앙일기', icon: 'ri-edit-line' },", "{ path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },")
+              text = text.replace("{ path: '/faith-journal', label: '신앙일기', icon: 'ri-edit-line' },", "{ path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },", 1)
               marker = "  const showMissionTab = user && hasRole('assistant_zone_leader');"
               if "const communityItems: CategoryItem[]" not in text:
                   text = text.replace(marker, marker + "\n  const communityItems: CategoryItem[] = showMissionTab\n    ? [...COMMUNITY_CATEGORY.items, { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' }]\n    : COMMUNITY_CATEGORY.items;", 1)
-              text = text.replace("{COMMUNITY_CATEGORY.items.map(item =>", "{communityItems.map(item =>")
-              return text
+              return text.replace("{COMMUNITY_CATEGORY.items.map(item =>", "{communityItems.map(item =>")
 
           edit('src/components/feature/Navbar.tsx', navbar)
           edit('src/pages/profile/page.tsx', lambda text: text.replace("{ path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },", "{ path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },", 1))
@@ -83,12 +80,7 @@ async function uploadNotebookFile(path: string, file: File, onProgress: UploadPr
   if (sessionError || !data.session?.access_token) throw sessionError || new Error('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
   const token = data.session.access_token;
   const endpoint = getSupabaseResumableEndpoint();
-  const metadata = [
-    `bucketName ${encodeTusMetadata('notebook-files')}`,
-    `objectName ${encodeTusMetadata(path)}`,
-    `contentType ${encodeTusMetadata(file.type || 'application/octet-stream')}`,
-    `cacheControl ${encodeTusMetadata('3600')}`,
-  ].join(',');
+  const metadata = [`bucketName ${encodeTusMetadata('notebook-files')}`, `objectName ${encodeTusMetadata(path)}`, `contentType ${encodeTusMetadata(file.type || 'application/octet-stream')}`, `cacheControl ${encodeTusMetadata('3600')}`].join(',');
   const create = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Tus-Resumable': '1.0.0', 'Upload-Length': String(file.size), 'Upload-Metadata': metadata } });
   if (!create.ok) throw new Error(`대용량 파일 업로드를 시작하지 못했습니다. (${create.status})`);
   const uploadUrl = create.headers.get('Location');
@@ -102,8 +94,7 @@ async function uploadNotebookFile(path: string, file: File, onProgress: UploadPr
       if (!response.ok) throw new Error(`파일 조각 업로드에 실패했습니다. (${response.status})`);
       const next = Number(response.headers.get('Upload-Offset'));
       if (!Number.isFinite(next) || next <= offset) throw new Error('파일 업로드 진행 위치를 확인하지 못했습니다.');
-      offset = next;
-      retries = 0;
+      offset = next; retries = 0;
       onProgress(Math.min(100, Math.round(offset / file.size * 100)));
     } catch (error) {
       if (retries >= 3) throw error;
@@ -121,23 +112,17 @@ async function uploadNotebookFile(path: string, file: File, onProgress: UploadPr
               text = text.replace(anchor, helper, 1)
           if 'const [uploadProgress, setUploadProgress]' not in text:
               text = text.replace('  const [uploading, setUploading] = useState(false);', '  const [uploading, setUploading] = useState(false);\n  const [uploadProgress, setUploadProgress] = useState(0);', 1)
-          text = re.sub(r"const \{ error: uploadErr \} = await supabase\.storage\.from\(\"notebook-files\"\)\.upload\(path, file\);\n      if \(uploadErr\) throw uploadErr;", "await uploadNotebookFile(path, file, setUploadProgress);", text, count=1)
+          text = text.replace('const { error: uploadErr } = await supabase.storage.from("notebook-files").upload(path, file);\n      if (uploadErr) throw uploadErr;', 'await uploadNotebookFile(path, file, setUploadProgress);', 1)
           text = text.replace('    setUploading(true);\n    setErrorBanner(null);', '    setUploading(true);\n    setUploadProgress(0);\n    setErrorBanner(null);', 1)
           text = text.replace('    } finally {\n      setUploading(false);', '    } finally {\n      setUploading(false);\n      setUploadProgress(0);', 1)
           text = text.replace('{uploading ? "업로드 및 텍스트 추출 중..." : "파일 업로드 (txt / md / pdf)"}', '{uploading ? `업로드 ${uploadProgress}% · 텍스트 추출 중...` : "파일 업로드 (txt / md / pdf)"}', 1)
           p.write_text(text, encoding='utf-8')
-
-      - name: Verify changed source
-        run: |
-          grep -q "RESUMABLE_UPLOAD_THRESHOLD" src/pages/notebookCopilot/page.tsx
-          grep -q "communityItems" src/components/feature/Navbar.tsx
-          grep -q "신앙 기록" src/pages/profile/page.tsx
-
-      - name: Commit and remove workflow
+          PY
+      - name: Commit source fixes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/components/feature/Navbar.tsx src/pages/profile/page.tsx src/pages/notebookCopilot/page.tsx
-          git rm .github/workflows/apply-20260906-fixes.yml
+          if git diff --cached --quiet; then echo "No source changes"; exit 0; fi
           git commit -m "fix: restore mission and faith navigation and resilient notebook uploads"
           git push
