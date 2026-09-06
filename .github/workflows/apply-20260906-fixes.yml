@@ -5,6 +5,7 @@ on:
     paths:
       - 'supabase/migrations/20260906120000_allow_multiple_small_mission_claims.sql'
       - '.github/workflows/apply-20260906-fixes.yml'
+      - 'club-qna-apply-trigger-3.txt'
 
 permissions:
   contents: write
