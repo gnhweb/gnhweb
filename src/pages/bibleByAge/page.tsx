@@ -25,7 +25,7 @@ interface VerseItem {
 
 export default function BibleByAge() {
   const { user, profile, hasRole } = useAuth();
-  const isEditor = user && hasRole('teacher');
+  const isEditor = user && (hasRole('teacher') || hasRole('education_manager'));
   const [selectedAge, setSelectedAge] = useState<AgeGroup>('high');
   const [expandedVerse, setExpandedVerse] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -312,14 +312,13 @@ export default function BibleByAge() {
                         exit={{ opacity: 0, height: 0 }}
                         className="overflow-hidden"
                       >
-                        <div className="px-5 pb-5 pt-0 border-t border-background-200 mx-5">
-                          <div className="mt-3 pt-3">
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <i className="ri-lightbulb-line text-xs text-amber-500"></i>
-                              <span className="text-xs font-bold text-amber-700">묵상 포인트</span>
+                        <div className="px-5 pb-5 pt-1 border-t border-background-200">
+                          {verse.application && (
+                            <div className="mt-4">
+                              <p className="text-xs font-semibold text-foreground-500 mb-1">묵상 포인트</p>
+                              <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{verse.application}</p>
                             </div>
-                            <p className="text-sm text-foreground-700 leading-relaxed">{verse.application}</p>
-                          </div>
+                          )}
                         </div>
                       </motion.div>
                     )}
