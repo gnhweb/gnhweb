@@ -47,10 +47,10 @@ const profiles:Record<Figure,Profile> = {
 const figureOrder:Figure[]=['다니엘','요셉','룻','바나바','베드로','느헤미야','에스더','디모데','다윗','마리아','아브라함','모세','여호수아','사무엘','엘리야','이사야','예레미야','바울','요한','마르다'];
 
 function FigureIllustration({name,className}:{name:Figure;className:string}){
- const index = figureOrder.indexOf(name);
- const column = index % 5;
- const row = Math.floor(index / 5);
- return <div role="img" aria-label={`${name} 성경인물 프로필`} className={`bg-no-repeat ${className}`} style={{backgroundImage:'url(/bible-mbti/figure-portraits.webp)',backgroundPosition:`${column * 25}% ${row * (100 / 3)}%`,backgroundSize:'500% 400%'}}/>;
+ const index=figureOrder.indexOf(name);
+ const column=index%5;
+ const row=Math.floor(index/5);
+ return <div role="img" aria-label={`${name} 성경인물 프로필`} className={`bg-no-repeat ${className}`} style={{backgroundImage:'url(/bible-mbti/characters-cute.svg)',backgroundPosition:`${column*25}% ${row*(100/3)}%`,backgroundSize:'500% 400%'}}/>;
 }
 
 function calculate(answers:string[]){const axis:Record<Axis,number>={EI:0,SN:0,TF:0,JP:0};const figures:Record<Figure,number>=Object.fromEntries(figureOrder.map(f=>[f,0])) as Record<Figure,number>;answers.forEach((answer,i)=>{const q=questions[i];const o=q?.options.find(x=>x.text===answer);if(!o)return;axis[q.axis]+=o.side===0?1:-1;figures[o.figure]+=3;});const type=`${axis.EI>=0?'E':'I'}${axis.SN>=0?'N':'S'}${axis.TF>=0?'F':'T'}${axis.JP>=0?'J':'P'}`;const ranked=[...figureOrder].sort((a,b)=>figures[b]-figures[a]);return{type,ranked,profile:profiles[ranked[0]]};}
