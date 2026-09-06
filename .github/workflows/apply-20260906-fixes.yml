@@ -1,0 +1,249 @@
+name: apply-20260906-fixes
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-20260906-fixes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply requested fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one match, got {count}')
+              p.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace_once(
+              'src/components/feature/Navbar.tsx',
+              "    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },\n",
+              "    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },\n    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },\n",
+          )
+          replace_once(
+              'src/components/feature/Navbar.tsx',
+              "  { label: '미션', items: [\n    { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },\n    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },\n  ]},\n",
+              '',
+          )
+          replace_once(
+              'src/components/feature/Navbar.tsx',
+              "  { path: '/faith-journal', label: '신앙일기', icon: 'ri-edit-line' },",
+              "  { path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },",
+          )
+          replace_once(
+              'src/components/feature/Navbar.tsx',
+              "  const showMissionTab = user && hasRole('assistant_zone_leader');\n",
+              "  const showMissionTab = user && hasRole('assistant_zone_leader');\n  const communityItems: CategoryItem[] = showMissionTab\n    ? [...COMMUNITY_CATEGORY.items, { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' }]\n    : COMMUNITY_CATEGORY.items;\n",
+          )
+          replace_once(
+              'src/components/feature/Navbar.tsx',
+              '{COMMUNITY_CATEGORY.items.map(item =>',
+              '{communityItems.map(item =>',
+          )
+
+          replace_once(
+              'src/pages/profile/page.tsx',
+              "  { path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },",
+              "  { path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },",
+          )
+
+          p = Path('src/pages/notebookCopilot/page.tsx')
+          text = p.read_text(encoding='utf-8')
+          old = 'const FUNCTIONS_URL = `${import.meta.env.VITE_PUBLIC_SUPABASE_URL}/functions/v1/notebook-copilot`;\nconst STORAGE_KEY = "gnh-notebook-session-v1";\n'
+          new = '''const FUNCTIONS_URL = `${import.meta.env.VITE_PUBLIC_SUPABASE_URL}/functions/v1/notebook-copilot`;
+const STORAGE_KEY = "gnh-notebook-session-v1";
+const RESUMABLE_UPLOAD_THRESHOLD = 6 * 1024 * 1024;
+const RESUMABLE_CHUNK_SIZE = 6 * 1024 * 1024;
+
+type UploadProgressHandler = (progress: number) => void;
+
+function getSupabaseResumableEndpoint(): string {
+  const configuredUrl = String(import.meta.env.VITE_PUBLIC_SUPABASE_URL || '');
+  const hostname = new URL(configuredUrl).hostname;
+  const projectRef = hostname.split('.')[0];
+  if (!projectRef) throw new Error('Supabase 프로젝트 주소를 확인할 수 없습니다.');
+  return `https://${projectRef}.storage.supabase.co/storage/v1/upload/resumable`;
+}
+
+function encodeTusMetadata(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+  return btoa(binary);
+}
+
+async function uploadNotebookFile(path: string, file: File, onProgress: UploadProgressHandler): Promise<void> {
+  if (file.size <= RESUMABLE_UPLOAD_THRESHOLD) {
+    const { error } = await supabase.storage.from('notebook-files').upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || 'application/octet-stream',
+    });
+    if (error) throw error;
+    onProgress(100);
+    return;
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session?.access_token) {
+    throw sessionError || new Error('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+  }
+
+  const token = sessionData.session.access_token;
+  const endpoint = getSupabaseResumableEndpoint();
+  const metadata = [
+    `bucketName ${encodeTusMetadata('notebook-files')}`,
+    `objectName ${encodeTusMetadata(path)}`,
+    `contentType ${encodeTusMetadata(file.type || 'application/octet-stream')}`,
+    `cacheControl ${encodeTusMetadata('3600')}`,
+  ].join(',');
+
+  const createResponse = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Tus-Resumable': '1.0.0',
+      'Upload-Length': String(file.size),
+      'Upload-Metadata': metadata,
+    },
+  });
+  if (!createResponse.ok) throw new Error(`대용량 파일 업로드를 시작하지 못했습니다. (${createResponse.status})`);
+
+  const uploadUrl = createResponse.headers.get('Location');
+  if (!uploadUrl) throw new Error('대용량 파일 업로드 주소를 받지 못했습니다.');
+
+  let offset = 0;
+  let retries = 0;
+  while (offset < file.size) {
+    const chunk = file.slice(offset, Math.min(offset + RESUMABLE_CHUNK_SIZE, file.size));
+    try {
+      const patchResponse = await fetch(uploadUrl, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Tus-Resumable': '1.0.0',
+          'Content-Type': 'application/offset+octet-stream',
+          'Upload-Offset': String(offset),
+        },
+        body: chunk,
+      });
+      if (!patchResponse.ok) throw new Error(`파일 조각 업로드에 실패했습니다. (${patchResponse.status})`);
+      const nextOffset = Number(patchResponse.headers.get('Upload-Offset'));
+      if (!Number.isFinite(nextOffset) || nextOffset <= offset) throw new Error('파일 업로드 진행 위치를 확인하지 못했습니다.');
+      offset = nextOffset;
+      retries = 0;
+      onProgress(Math.min(100, Math.round((offset / file.size) * 100)));
+    } catch (error) {
+      if (retries >= 3) throw error;
+      retries += 1;
+      await new Promise(resolve => window.setTimeout(resolve, retries * 1500));
+      const headResponse = await fetch(uploadUrl, {
+        method: 'HEAD',
+        headers: { Authorization: `Bearer ${token}`, 'Tus-Resumable': '1.0.0' },
+      });
+      if (headResponse.ok) {
+        const serverOffset = Number(headResponse.headers.get('Upload-Offset'));
+        if (Number.isFinite(serverOffset) && serverOffset >= offset && serverOffset <= file.size) {
+          offset = serverOffset;
+          onProgress(Math.min(100, Math.round((offset / file.size) * 100)));
+        }
+      }
+    }
+  }
+}
+'''
+          if text.count(old) != 1:
+              raise SystemExit('notebookCopilot: upload helper anchor mismatch')
+          text = text.replace(old, new)
+
+          old = '  const [uploading, setUploading] = useState(false);\n'
+          new = '  const [uploading, setUploading] = useState(false);\n  const [uploadProgress, setUploadProgress] = useState(0);\n'
+          if text.count(old) != 1:
+              raise SystemExit('notebookCopilot: upload state anchor mismatch')
+          text = text.replace(old, new)
+
+          old = '''    setUploading(true);
+    setErrorBanner(null);
+    try {
+      const safeName = file.name.replace(/[^\\w.\\-가-힣 ]/g, "_");
+      const path = `${user.id}/${Date.now()}_${safeName}`;
+      const { error: uploadErr } = await supabase.storage.from("notebook-files").upload(path, file);
+      if (uploadErr) throw uploadErr;
+'''
+          new = '''    setUploading(true);
+    setUploadProgress(0);
+    setErrorBanner(null);
+    try {
+      const safeName = file.name.replace(/[^\\w.\\-가-힣 ]/g, "_");
+      const path = `${user.id}/${Date.now()}_${safeName}`;
+      await uploadNotebookFile(path, file, setUploadProgress);
+'''
+          if text.count(old) != 1:
+              raise SystemExit('notebookCopilot: upload handler anchor mismatch')
+          text = text.replace(old, new)
+
+          old = '''        })
+        .select()
+        .single();
+      if (insertErr) throw insertErr;
+'''
+          new = '''        })
+        .select()
+        .single();
+      if (insertErr) {
+        await supabase.storage.from("notebook-files").remove([path]).catch(() => undefined);
+        throw insertErr;
+      }
+'''
+          if text.count(old) != 1:
+              raise SystemExit('notebookCopilot: insert cleanup anchor mismatch')
+          text = text.replace(old, new)
+
+          old = '''    } catch (e) {
+      console.error(e);
+      setErrorBanner("파일 업로드 중 오류가 발생했어요.");
+    } finally {
+      setUploading(false);
+    }
+'''
+          new = '''    } catch (e) {
+      console.error(e);
+      setErrorBanner(e instanceof Error ? `파일 업로드 중 오류가 발생했어요: ${e.message}` : "파일 업로드 중 오류가 발생했어요.");
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+'''
+          if text.count(old) != 1:
+              raise SystemExit('notebookCopilot: error handling anchor mismatch')
+          text = text.replace(old, new)
+
+          old = '{uploading ? "업로드 및 텍스트 추출 중..." : "파일 업로드 (txt / md / pdf)"}'
+          new = '{uploading ? `업로드 ${uploadProgress}% · 텍스트 추출 중...` : "파일 업로드 (txt / md / pdf)"}'
+          if text.count(old) != 1:
+              raise SystemExit('notebookCopilot: upload button anchor mismatch')
+          text = text.replace(old, new)
+          p.write_text(text, encoding='utf-8')
+
+          Path('.github/workflows/apply-20260906-fixes.yml').unlink()
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/feature/Navbar.tsx src/pages/profile/page.tsx src/pages/notebookCopilot/page.tsx .github/workflows/apply-20260906-fixes.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: restore mission and faith navigation and resilient notebook uploads"
+          git push
