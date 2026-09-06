@@ -50,5 +50,3 @@ jobs:
           git add public/bible-mbti/characters.svg
           git commit -m 'fix: use supplied Bible MBTI character art' || exit 0
           git push
-
-# Trigger the existing repair workflow so the connected Vercel deployment pipeline can process main.
