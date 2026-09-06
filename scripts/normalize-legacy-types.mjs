@@ -52,9 +52,16 @@ auth = auth.replace(
   'value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signUp, signOut,',
   'value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signInWithPasskey, signUp, signOut,',
 );
-// The normalization workflow has historically inserted blank lines around this existing passkey helper.
-// Restore the exact spacing that existed before this temporary workflow change.
-auth = auth.replace(/(  }, \[user, fetchProfile\]);)\n{18}(  const signInWithPasskey)/, (_, anchor, helper) => anchor + '\n'.repeat(11) + helper);
+const authMarker = '  }, [user, fetchProfile]);';
+const authHelperMarker = '  const signInWithPasskey';
+const authMarkerIndex = auth.indexOf(authMarker);
+const authHelperIndex = auth.indexOf(authHelperMarker, authMarkerIndex + authMarker.length);
+if (authMarkerIndex >= 0 && authHelperIndex > authMarkerIndex) {
+  const between = auth.slice(authMarkerIndex + authMarker.length, authHelperIndex);
+  if (between === '\n'.repeat(19)) {
+    auth = auth.slice(0, authMarkerIndex + authMarker.length) + '\n'.repeat(11) + auth.slice(authHelperIndex);
+  }
+}
 write('src/hooks/useAuth.tsx', auth);
 
 let router = read('src/router/config.tsx');
