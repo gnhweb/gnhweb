@@ -55,3 +55,5 @@ jobs:
           git add src/pages/clubs/detail/page.tsx
           git commit -m "fix: tidy club QnA date and ownership controls"
           git push
+
+# one-time trigger
