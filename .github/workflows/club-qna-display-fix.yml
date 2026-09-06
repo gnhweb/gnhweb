@@ -1,0 +1,40 @@
+name: Club QnA display fix
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply QnA display fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/pages/clubs/detail/page.tsx')
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              ("createdAt: q.created_at,", "createdAt: new Date(q.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\\s/g, ''),"),
+              ("// 질문 작성자 본인 또는 동아리 사명자만 질문을 수정/삭제할 수 있어요.\n  const canManageQnaQuestion = (item: ClubQnA) =>\n    isClubLeader || (!!user && !!item.authorId && item.authorId === user.id);", "// 질문 작성자 본인 또는 동아리 사명자만 질문을 수정/삭제할 수 있어요.\n  const canManageQnaQuestion = (item: ClubQnA) =>\n    isClubLeader || (!!user && !!item.authorId && item.authorId === user.id);"),
+              ("{!item.answer && <span className=\"text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700\">답변 대기</span>}", "{!item.answer && <span className=\"inline-flex flex-shrink-0 items-center justify-center min-w-[72px] h-8 px-3 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold whitespace-nowrap\">답변 대기</span>}"),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'Expected source pattern not found: {old[:80]}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/clubs/detail/page.tsx
+          git diff --cached --exit-code && exit 1 || true
+          git commit -m "fix: improve club qna date and status display"
+          git push --force origin "HEAD:${{ github.head_ref }}"
