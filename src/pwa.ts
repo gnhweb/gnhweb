@@ -7,6 +7,7 @@
  * generated service worker itself is valid.
  */
 
+// Keep production deployment aligned with the current main-branch navbar build.
 let updateTimer: number | undefined;
 let currentRegistration: ServiceWorkerRegistration | undefined;
 let updateInFlight = false;
