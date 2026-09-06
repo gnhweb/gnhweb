@@ -388,7 +388,7 @@ export default function ClubDetail() {
           isAnonymous: q.is_anonymous || false,
           answer: q.answer || undefined,
           answerer: q.answerer_name || undefined,
-          createdAt: q.created_at,
+          createdAt: new Date(q.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\s/g, ''),
         }));
         setQnaItems(mapped);
       }
@@ -1284,7 +1284,7 @@ export default function ClubDetail() {
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-medium text-accent-600">{item.isAnonymous ? '익명' : item.questioner}</span>
                             <span className="text-xs text-foreground-500">{item.createdAt}</span>
-                            {!item.answer && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">답변 대기</span>}
+                            {!item.answer && <span className="inline-flex flex-shrink-0 items-center justify-center min-w-[72px] h-8 px-3 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold whitespace-nowrap">답변 대기</span>}
                           </div>
                           {editingQnaId === item.id ? (
                             <div>
