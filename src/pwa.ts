@@ -7,7 +7,6 @@
  * generated service worker itself is valid.
  */
 
-let refreshing = false;
 let updateTimer: number | undefined;
 let currentRegistration: ServiceWorkerRegistration | undefined;
 let updateInFlight = false;
@@ -36,7 +35,8 @@ function installRegistrationListeners(registration: ServiceWorkerRegistration) {
 
     worker.addEventListener('statechange', () => {
       if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-        // sw.ts uses skipWaiting(), so the new worker should take control.
+        // sw.ts uses skipWaiting(), so the new worker takes control without
+        // forcing the currently open page to reload.
         void worker;
       }
     });
@@ -44,12 +44,6 @@ function installRegistrationListeners(registration: ServiceWorkerRegistration) {
 }
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshing) return;
-    refreshing = true;
-    window.location.reload();
-  });
-
   void navigator.serviceWorker
     .register(SW_URL, {
       scope: import.meta.env.BASE_URL,
