@@ -28,8 +28,6 @@ function CharacterIllustration({ name, className }: { name: string; className?: 
   if (index === undefined) return <div className={className} aria-hidden="true" />;
   const column = index % 5;
   const row = Math.floor(index / 5);
-  const x = column * 20;
-  const y = row * 25;
 
   return (
     <div
@@ -45,8 +43,8 @@ function CharacterIllustration({ name, className }: { name: string; className?: 
         style={{
           width: '500%',
           height: '400%',
-          left: `${-x}%`,
-          top: `${-y}%`,
+          left: `-${column * 100}%`,
+          top: `-${row * 100}%`,
         }}
       />
     </div>
