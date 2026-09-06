@@ -12,7 +12,7 @@ let currentRegistration: ServiceWorkerRegistration | undefined;
 let updateInFlight = false;
 
 const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
-const PWA_VERSION = '20260907-1';
+const PWA_VERSION = '20260907-2';
 const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=${PWA_VERSION}`;
 const RELOAD_KEY = `gnhweb-pwa-reloaded:${PWA_VERSION}`;
 
