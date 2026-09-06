@@ -37,4 +37,4 @@ jobs:
           git add src/pages/clubs/detail/page.tsx
           git diff --cached --exit-code && exit 1 || true
           git commit -m "fix: improve club qna date and status display"
-          git push origin "HEAD:${{ github.head_ref }}"
+          git push --force origin "HEAD:${{ github.head_ref }}"
