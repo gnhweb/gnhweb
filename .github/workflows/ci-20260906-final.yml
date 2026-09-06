@@ -1,0 +1,132 @@
+name: ci-20260906-final
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm install --no-package-lock --ignore-scripts --no-audit --no-fund
+      - name: Apply requested source fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('src/components/feature/Navbar.tsx')
+          s = p.read_text(encoding='utf-8')
+          if "{ path: '/missions/leaderboard', label: '이달의 사명왕'" not in s:
+              s = s.replace("    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },", "    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },\n    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },", 1)
+          s = re.sub(r"\n  \{ label: '미션', items: \[.*?\n  \]\},", "", s, count=1, flags=re.S)
+          s = s.replace("{ path: '/faith-journal', label: '신앙일기', icon: 'ri-edit-line' },", "{ path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },", 1)
+          if "const communityItems: CategoryItem[]" not in s:
+              marker = "  const showMissionTab = user && hasRole('assistant_zone_leader');"
+              s = s.replace(marker, marker + "\n  const communityItems: CategoryItem[] = showMissionTab\n    ? [...COMMUNITY_CATEGORY.items, { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' }]\n    : COMMUNITY_CATEGORY.items;", 1)
+          s = s.replace('{COMMUNITY_CATEGORY.items.map(item =>', '{communityItems.map(item =>')
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/pages/profile/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("{ path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },", "{ path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },", 1)
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/pages/notebookCopilot/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          if 'RESUMABLE_UPLOAD_THRESHOLD' not in s:
+              anchor = 'const STORAGE_KEY = "gnh-notebook-session-v1";'
+              helper = r'''const STORAGE_KEY = "gnh-notebook-session-v1";
+const RESUMABLE_UPLOAD_THRESHOLD = 6 * 1024 * 1024;
+const RESUMABLE_CHUNK_SIZE = 6 * 1024 * 1024;
+
+type UploadProgressHandler = (progress: number) => void;
+
+function getSupabaseResumableEndpoint(): string {
+  const configuredUrl = String(import.meta.env.VITE_PUBLIC_SUPABASE_URL || '');
+  const projectRef = new URL(configuredUrl).hostname.split('.')[0];
+  if (!projectRef) throw new Error('Supabase 프로젝트 주소를 확인할 수 없습니다.');
+  return `https://${projectRef}.storage.supabase.co/storage/v1/upload/resumable`;
+}
+
+function encodeTusMetadata(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+  return btoa(binary);
+}
+
+async function uploadNotebookFile(path: string, file: File, onProgress: UploadProgressHandler): Promise<void> {
+  if (file.size <= RESUMABLE_UPLOAD_THRESHOLD) {
+    const { error } = await supabase.storage.from('notebook-files').upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type || 'application/octet-stream' });
+    if (error) throw error;
+    onProgress(100);
+    return;
+  }
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !data.session?.access_token) throw sessionError || new Error('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+  const token = data.session.access_token;
+  const endpoint = getSupabaseResumableEndpoint();
+  const metadata = [`bucketName ${encodeTusMetadata('notebook-files')}`, `objectName ${encodeTusMetadata(path)}`, `contentType ${encodeTusMetadata(file.type || 'application/octet-stream')}`, `cacheControl ${encodeTusMetadata('3600')}`].join(',');
+  const create = await fetch(endpoint, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Tus-Resumable': '1.0.0', 'Upload-Length': String(file.size), 'Upload-Metadata': metadata } });
+  if (!create.ok) throw new Error(`대용량 파일 업로드를 시작하지 못했습니다. (${create.status})`);
+  const uploadUrl = create.headers.get('Location');
+  if (!uploadUrl) throw new Error('대용량 파일 업로드 주소를 받지 못했습니다.');
+  let offset = 0;
+  let retries = 0;
+  while (offset < file.size) {
+    const chunk = file.slice(offset, Math.min(offset + RESUMABLE_CHUNK_SIZE, file.size));
+    try {
+      const response = await fetch(uploadUrl, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Tus-Resumable': '1.0.0', 'Content-Type': 'application/offset+octet-stream', 'Upload-Offset': String(offset) }, body: chunk });
+      if (!response.ok) throw new Error(`파일 조각 업로드에 실패했습니다. (${response.status})`);
+      const next = Number(response.headers.get('Upload-Offset'));
+      if (!Number.isFinite(next) || next <= offset) throw new Error('파일 업로드 진행 위치를 확인하지 못했습니다.');
+      offset = next; retries = 0;
+      onProgress(Math.min(100, Math.round(offset / file.size * 100)));
+    } catch (error) {
+      if (retries >= 3) throw error;
+      retries += 1;
+      await new Promise(resolve => window.setTimeout(resolve, retries * 1500));
+      const head = await fetch(uploadUrl, { method: 'HEAD', headers: { Authorization: `Bearer ${token}`, 'Tus-Resumable': '1.0.0' } });
+      if (head.ok) {
+        const serverOffset = Number(head.headers.get('Upload-Offset'));
+        if (Number.isFinite(serverOffset) && serverOffset >= offset && serverOffset <= file.size) offset = serverOffset;
+      }
+    }
+  }
+}
+'''
+              s = s.replace(anchor, helper, 1)
+          if 'const [uploadProgress, setUploadProgress]' not in s:
+              s = s.replace('  const [uploading, setUploading] = useState(false);', '  const [uploading, setUploading] = useState(false);\n  const [uploadProgress, setUploadProgress] = useState(0);', 1)
+          s = s.replace('const { error: uploadErr } = await supabase.storage.from("notebook-files").upload(path, file);\n      if (uploadErr) throw uploadErr;', 'await uploadNotebookFile(path, file, setUploadProgress);', 1)
+          s = s.replace('    setUploading(true);\n    setErrorBanner(null);', '    setUploading(true);\n    setUploadProgress(0);\n    setErrorBanner(null);', 1)
+          s = s.replace('    } finally {\n      setUploading(false);', '    } finally {\n      setUploading(false);\n      setUploadProgress(0);', 1)
+          s = s.replace('{uploading ? "업로드 및 텍스트 추출 중..." : "파일 업로드 (txt / md / pdf)"}', '{uploading ? `업로드 ${uploadProgress}% · 텍스트 추출 중...` : "파일 업로드 (txt / md / pdf)"}', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Type check
+        run: npm run type-check
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Commit source fixes and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/feature/Navbar.tsx src/pages/profile/page.tsx src/pages/notebookCopilot/page.tsx
+          git commit -m "fix: restore mission and faith navigation and resilient notebook uploads" || true
+          git push
+          git rm .github/workflows/ci-20260906-final.yml || true
+          git commit -m "chore: remove temporary verification workflow" || true
+          git push
