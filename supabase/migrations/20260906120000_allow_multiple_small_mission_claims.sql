@@ -1,5 +1,6 @@
 -- Allow each active member to claim the same small mission independently.
 -- A mission is not globally exclusive; only the same member's duplicate active claim is blocked.
+-- Source-fix workflow trigger marker: 2026-09-06.
 CREATE OR REPLACE FUNCTION public.claim_mission(p_mission_id bigint)
 RETURNS bigint
 LANGUAGE plpgsql
