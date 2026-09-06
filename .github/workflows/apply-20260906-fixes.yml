@@ -18,8 +18,9 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
 
-          def replace_once(path: str, old: str, new: str):
+          def replace_once(path, old, new):
               p = Path(path)
               text = p.read_text(encoding='utf-8')
               count = text.count(old)
@@ -27,37 +28,29 @@ jobs:
                   raise SystemExit(f'{path}: expected exactly one match, got {count}')
               p.write_text(text.replace(old, new), encoding='utf-8')
 
-          replace_once(
-              'src/components/feature/Navbar.tsx',
+          p = Path('src/components/feature/Navbar.tsx')
+          text = p.read_text(encoding='utf-8')
+          replace_once('src/components/feature/Navbar.tsx',
               "    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },\n",
-              "    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },\n    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },\n",
-          )
-          replace_once(
-              'src/components/feature/Navbar.tsx',
+              "    { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },\n    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },\n")
+          replace_once('src/components/feature/Navbar.tsx',
               "  { label: '미션', items: [\n    { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },\n    { path: '/missions/leaderboard', label: '이달의 사명왕', icon: 'ri-trophy-line' },\n  ]},\n",
-              '',
-          )
-          replace_once(
-              'src/components/feature/Navbar.tsx',
+              '')
+          replace_once('src/components/feature/Navbar.tsx',
               "  { path: '/faith-journal', label: '신앙일기', icon: 'ri-edit-line' },",
-              "  { path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },",
-          )
-          replace_once(
-              'src/components/feature/Navbar.tsx',
+              "  { path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },")
+          replace_once('src/components/feature/Navbar.tsx',
               "  const showMissionTab = user && hasRole('assistant_zone_leader');\n",
-              "  const showMissionTab = user && hasRole('assistant_zone_leader');\n  const communityItems: CategoryItem[] = showMissionTab\n    ? [...COMMUNITY_CATEGORY.items, { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' }]\n    : COMMUNITY_CATEGORY.items;\n",
-          )
-          replace_once(
-              'src/components/feature/Navbar.tsx',
-              '{COMMUNITY_CATEGORY.items.map(item =>',
-              '{communityItems.map(item =>',
-          )
+              "  const showMissionTab = user && hasRole('assistant_zone_leader');\n  const communityItems: CategoryItem[] = showMissionTab\n    ? [...COMMUNITY_CATEGORY.items, { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' }]\n    : COMMUNITY_CATEGORY.items;\n")
+          text = Path('src/components/feature/Navbar.tsx').read_text(encoding='utf-8')
+          count = text.count('{COMMUNITY_CATEGORY.items.map(item =>')
+          if count < 1:
+              raise SystemExit(f'Navbar community render anchor not found: {count}')
+          Path('src/components/feature/Navbar.tsx').write_text(text.replace('{COMMUNITY_CATEGORY.items.map(item =>', '{communityItems.map(item =>'), encoding='utf-8')
 
-          replace_once(
-              'src/pages/profile/page.tsx',
+          replace_once('src/pages/profile/page.tsx',
               "  { path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },",
-              "  { path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },",
-          )
+              "  { path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },")
 
           p = Path('src/pages/notebookCopilot/page.tsx')
           text = p.read_text(encoding='utf-8')
@@ -100,7 +93,6 @@ async function uploadNotebookFile(path: string, file: File, onProgress: UploadPr
   if (sessionError || !sessionData.session?.access_token) {
     throw sessionError || new Error('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
   }
-
   const token = sessionData.session.access_token;
   const endpoint = getSupabaseResumableEndpoint();
   const metadata = [
@@ -120,7 +112,6 @@ async function uploadNotebookFile(path: string, file: File, onProgress: UploadPr
     },
   });
   if (!createResponse.ok) throw new Error(`대용량 파일 업로드를 시작하지 못했습니다. (${createResponse.status})`);
-
   const uploadUrl = createResponse.headers.get('Location');
   if (!uploadUrl) throw new Error('대용량 파일 업로드 주소를 받지 못했습니다.');
 
@@ -164,15 +155,11 @@ async function uploadNotebookFile(path: string, file: File, onProgress: UploadPr
   }
 }
 '''
-          if text.count(old) != 1:
-              raise SystemExit('notebookCopilot: upload helper anchor mismatch')
-          text = text.replace(old, new)
+          replace_once('src/pages/notebookCopilot/page.tsx', old, new)
 
-          old = '  const [uploading, setUploading] = useState(false);\n'
-          new = '  const [uploading, setUploading] = useState(false);\n  const [uploadProgress, setUploadProgress] = useState(0);\n'
-          if text.count(old) != 1:
-              raise SystemExit('notebookCopilot: upload state anchor mismatch')
-          text = text.replace(old, new)
+          replace_once('src/pages/notebookCopilot/page.tsx',
+              '  const [uploading, setUploading] = useState(false);\n',
+              '  const [uploading, setUploading] = useState(false);\n  const [uploadProgress, setUploadProgress] = useState(0);\n')
 
           old = '''    setUploading(true);
     setErrorBanner(null);
@@ -190,9 +177,7 @@ async function uploadNotebookFile(path: string, file: File, onProgress: UploadPr
       const path = `${user.id}/${Date.now()}_${safeName}`;
       await uploadNotebookFile(path, file, setUploadProgress);
 '''
-          if text.count(old) != 1:
-              raise SystemExit('notebookCopilot: upload handler anchor mismatch')
-          text = text.replace(old, new)
+          replace_once('src/pages/notebookCopilot/page.tsx', old, new)
 
           old = '''        })
         .select()
@@ -207,9 +192,7 @@ async function uploadNotebookFile(path: string, file: File, onProgress: UploadPr
         throw insertErr;
       }
 '''
-          if text.count(old) != 1:
-              raise SystemExit('notebookCopilot: insert cleanup anchor mismatch')
-          text = text.replace(old, new)
+          replace_once('src/pages/notebookCopilot/page.tsx', old, new)
 
           old = '''    } catch (e) {
       console.error(e);
@@ -226,16 +209,11 @@ async function uploadNotebookFile(path: string, file: File, onProgress: UploadPr
       setUploadProgress(0);
     }
 '''
-          if text.count(old) != 1:
-              raise SystemExit('notebookCopilot: error handling anchor mismatch')
-          text = text.replace(old, new)
+          replace_once('src/pages/notebookCopilot/page.tsx', old, new)
 
-          old = '{uploading ? "업로드 및 텍스트 추출 중..." : "파일 업로드 (txt / md / pdf)"}'
-          new = '{uploading ? `업로드 ${uploadProgress}% · 텍스트 추출 중...` : "파일 업로드 (txt / md / pdf)"}'
-          if text.count(old) != 1:
-              raise SystemExit('notebookCopilot: upload button anchor mismatch')
-          text = text.replace(old, new)
-          p.write_text(text, encoding='utf-8')
+          replace_once('src/pages/notebookCopilot/page.tsx',
+              '{uploading ? "업로드 및 텍스트 추출 중..." : "파일 업로드 (txt / md / pdf)"}',
+              '{uploading ? `업로드 ${uploadProgress}% · 텍스트 추출 중...` : "파일 업로드 (txt / md / pdf)"}')
 
           Path('.github/workflows/apply-20260906-fixes.yml').unlink()
 
