@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
 
@@ -35,31 +36,10 @@ let sw = read('src/sw.ts');
 sw = sw.replace(/\n\s*vibrate: \[120, 60, 120\],/m, '');
 write('src/sw.ts', sw);
 
-let auth = read('src/hooks/useAuth.tsx');
-auth = auth.replace(
-  "import { authenticateRegisteredPasskey, isPasskeySupported } from '@/lib/passkey';",
-  "import { authenticateRegisteredPasskey, isPasskeySupported, signInWithPasskey as signInWithPasskeyLib } from '@/lib/passkey';",
-);
-auth = auth.replace(
-  "  signIn: (email: string, password: string) => Promise<{ error: string | null; user: User | null }>;\n",
-  "  signIn: (email: string, password: string) => Promise<{ error: string | null; user: User | null }>;\n  signInWithPasskey: () => Promise<{ error: string | null }>;\n",
-);
-auth = auth.replace(
-  '  const signOut = useCallback(async () => {',
-  "  const signInWithPasskey = useCallback(async () => {\n    if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };\n    const result = await signInWithPasskeyLib();\n    return { error: result.error?.message ?? null };\n  }, []);\n\n  const signOut = useCallback(async () => {",
-);
-auth = auth.replace(
-  'value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signUp, signOut,',
-  'value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signInWithPasskey, signUp, signOut,',
-);
-const authMarker = '  }, [user, fetchProfile]);';
-const authHelperMarker = '  const signInWithPasskey';
-const authMarkerIndex = auth.indexOf(authMarker);
-const authHelperIndex = auth.indexOf(authHelperMarker, authMarkerIndex + authMarker.length);
-if (authMarkerIndex >= 0 && authHelperIndex > authMarkerIndex) {
-  auth = auth.slice(0, authMarkerIndex + authMarker.length) + '\n'.repeat(11) + auth.slice(authHelperIndex);
-}
-write('src/hooks/useAuth.tsx', auth);
+// Restore this file exactly to the pre-task main revision. The temporary normalization
+// workflow must not leave unrelated auth whitespace/source changes behind.
+const authBeforeTask = execFileSync('git', ['show', 'a090b594f6d2f67c927c80d12a056df1b30a5093:src/hooks/useAuth.tsx'], { encoding: 'utf8' });
+write('src/hooks/useAuth.tsx', authBeforeTask);
 
 let router = read('src/router/config.tsx');
 router = router.replace(
