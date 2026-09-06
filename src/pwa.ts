@@ -13,7 +13,9 @@ let currentRegistration: ServiceWorkerRegistration | undefined;
 let updateInFlight = false;
 
 const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
-const SW_URL = `${import.meta.env.BASE_URL}sw.js`;
+// Bump the worker URL once to invalidate stale PWA registrations without
+// forcing a page reload. The worker itself still uses skipWaiting/clientsClaim.
+const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=20260907`;
 
 async function checkForUpdate(registration?: ServiceWorkerRegistration) {
   if (!registration || updateInFlight) return;
