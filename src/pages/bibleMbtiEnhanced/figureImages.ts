@@ -1,5 +1,6 @@
 // Bible MBTI portraits: each result uses the supplied storybook-style character art.
 // The result-page layout is unchanged; this file only swaps the portrait source.
+// Verified production retrigger marker for the enhanced MBTI route.
 const order = ['다니엘','요셉','룻','바나바','베드로','느헤미야','에스더','디모데','다윗','마리아','아브라함','모세','여호수아','사무엘','엘리야','이사야','예레미야','바울','요한','마르다'] as const;
 
 const spriteUrl = `${window.location.origin}/bible-mbti/figure-portraits.webp`;
