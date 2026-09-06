@@ -65,4 +65,17 @@ router = router.replace(
 );
 write('src/router/config.tsx', router);
 
+let home = read('src/pages/home/page.tsx');
+const homeHelperAnchor = "function formatDateShort(dateStr: string) {\n  return formatKoreanDate(dateStr, { month: 'numeric', day: 'numeric' }).replace(/\\s/g, '');\n}\n";
+const homeHelper = `\nconst CLUB_CALENDAR_DOT_CLASSES: Record<string, string> = {\n  saeullim: 'bg-primary-500',\n  cheonjipoong: 'bg-secondary-500',\n  cheonjihu: 'bg-accent-500',\n  munhwabu: 'bg-primary-700',\n  cheonhwarae_cheongmyeong: 'bg-secondary-700',\n};\n\nfunction getClubCalendarDotClass(clubId: string | null) {\n  return clubId ? CLUB_CALENDAR_DOT_CLASSES[clubId] || 'bg-foreground-500' : 'bg-foreground-500';\n}\n`;
+if (!home.includes('const CLUB_CALENDAR_DOT_CLASSES')) {
+  home = home.replace(homeHelperAnchor, homeHelperAnchor + homeHelper);
+}
+const oldHomeDot = '<span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-secondary-400"></span>';
+const newHomeDot = '<span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex max-w-[24px] items-center justify-center gap-0.5 overflow-hidden" aria-label="이 날짜의 동아리 일정">\n                            {Array.from(new Set(d.events.map(event => event.target_club).filter((clubId): clubId is string => Boolean(clubId))))\n                              .slice(0, 3)\n                              .map(clubId => (\n                                <span key={clubId} className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${getClubCalendarDotClass(clubId)}`} title={clubs.find(club => club.id === clubId)?.name || clubId} />\n                              ))}\n                            {Array.from(new Set(d.events.map(event => event.target_club).filter((clubId): clubId is string => Boolean(clubId)))).length > 3 && (\n                              <span className="text-[7px] font-bold leading-none text-foreground-500">+</span>\n                            )}\n                          </span>';
+if (home.includes(oldHomeDot)) {
+  home = home.replace(oldHomeDot, newHomeDot);
+}
+write('src/pages/home/page.tsx', home);
+
 console.log('Legacy TypeScript normalization complete.');
