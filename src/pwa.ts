@@ -7,15 +7,14 @@
  * generated service worker itself is valid.
  */
 
-// Keep production deployment aligned with the current main-branch navbar build.
 let updateTimer: number | undefined;
 let currentRegistration: ServiceWorkerRegistration | undefined;
 let updateInFlight = false;
 
 const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
-// Bump the worker URL once to invalidate stale PWA registrations without
-// forcing a page reload. The worker itself still uses skipWaiting/clientsClaim.
-const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=20260907`;
+const PWA_VERSION = '20260907-1';
+const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=${PWA_VERSION}`;
+const RELOAD_KEY = `gnhweb-pwa-reloaded:${PWA_VERSION}`;
 
 async function checkForUpdate(registration?: ServiceWorkerRegistration) {
   if (!registration || updateInFlight) return;
@@ -38,9 +37,16 @@ function installRegistrationListeners(registration: ServiceWorkerRegistration) {
 
     worker.addEventListener('statechange', () => {
       if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-        // sw.ts uses skipWaiting(), so the new worker takes control without
-        // forcing the currently open page to reload.
-        void worker;
+        // sw.ts uses skipWaiting()/clientsClaim(), so the new worker takes
+        // control immediately. Reload exactly once for this PWA version so the
+        // open page also uses the newly precached application bundle.
+        try {
+          if (sessionStorage.getItem(RELOAD_KEY) === '1') return;
+          sessionStorage.setItem(RELOAD_KEY, '1');
+          window.location.reload();
+        } catch {
+          // Storage restrictions must never block application startup.
+        }
       }
     });
   });
