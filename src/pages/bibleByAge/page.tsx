@@ -25,7 +25,10 @@ interface VerseItem {
 
 export default function BibleByAge() {
   const { user, profile, hasRole } = useAuth();
-  const isEditor = user && (hasRole('teacher') || hasRole('education_manager'));
+  const isEditor = Boolean(
+    user &&
+    (hasRole('teacher') || profile?.role === 'education_manager' || profile?.roles?.includes('education_manager'))
+  );
   const [selectedAge, setSelectedAge] = useState<AgeGroup>('high');
   const [expandedVerse, setExpandedVerse] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
