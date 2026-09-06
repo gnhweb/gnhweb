@@ -14,5 +14,3 @@
 <!-- Production E2E retrigger after verified auth fix. -->
 
 <!-- Production E2E retrigger: auth bootstrap race fix verified in source. -->
-
-<!-- Production trigger for verified Bible MBTI character portrait fix. -->
