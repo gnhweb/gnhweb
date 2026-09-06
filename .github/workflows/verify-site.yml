@@ -37,6 +37,12 @@ jobs:
           s = s.replace("{ path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },", "{ path: '/faith', label: '신앙 기록', icon: 'ri-book-open-line' },", 1)
           p.write_text(s, encoding='utf-8')
 
+          p = Path('src/pages/clubs/detail/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("createdAt: q.created_at,", "createdAt: new Date(q.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\\s/g, ''),", 1)
+          s = s.replace("{!item.answer && <span className=\"text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700\">답변 대기</span>}", "{!item.answer && <span className=\"inline-flex flex-shrink-0 items-center justify-center min-w-[72px] h-8 px-3 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold whitespace-nowrap\">답변 대기</span>}", 1)
+          p.write_text(s, encoding='utf-8')
+
           p = Path('src/pages/notebookCopilot/page.tsx')
           s = p.read_text(encoding='utf-8')
           if 'RESUMABLE_UPLOAD_THRESHOLD' not in s:
@@ -127,8 +133,8 @@ async function uploadNotebookFile(path: string, file: File, onProgress: UploadPr
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/feature/Navbar.tsx src/pages/profile/page.tsx src/pages/notebookCopilot/page.tsx
-          git commit -m "fix: restore mission and faith navigation and resilient notebook uploads" || true
+          git add src/components/feature/Navbar.tsx src/pages/profile/page.tsx src/pages/clubs/detail/page.tsx src/pages/notebookCopilot/page.tsx
+          git commit -m "fix: restore mission and faith navigation, notebook uploads, and club qna display" || true
           git push
           git checkout HEAD~1 -- .github/workflows/verify-site.yml
           git add .github/workflows/verify-site.yml
