@@ -1,0 +1,37 @@
+name: Apply Bible MBTI render fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch MBTI portrait renderer
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('src/pages/bibleMbtiEnhanced/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          pattern = r"function FigureIllustration\(\{name,className\}:\{name:Figure;className:string\}\)\{.*?\n\}"
+          replacement = '''function FigureIllustration({name,className}:{name:Figure;className:string}){
+ const index = figureOrder.indexOf(name);
+ const column = index % 5;
+ const row = Math.floor(index / 5);
+ return <div role="img" aria-label={`${name} 성경인물 프로필`} className={`bg-no-repeat ${className}`} style={{backgroundImage:'url(/bible-mbti/figure-portraits.webp)',backgroundPosition:`${column * 25}% ${row * (100 / 3)}%`,backgroundSize:'500% 400%'}}/>;
+}'''
+          s2, count = re.subn(pattern, replacement, s, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('FigureIllustration block not found')
+          s2 = s2.replace("import { figureImagePaths } from './figureImages';\n", '', 1)
+          p.write_text(s2, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/bibleMbtiEnhanced/page.tsx .github/workflows/fix-bible-mbti-render.yml
+          git commit -m "fix: render Bible MBTI portraits directly from sprite"
+          git push
