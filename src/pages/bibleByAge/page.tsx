@@ -169,6 +169,7 @@ export default function BibleByAge() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm('정말 이 말씀을 삭제할까요? 삭제한 말씀은 복구할 수 없습니다.')) return;
     try {
       await supabase.from('bible_age_verses').delete().eq('id', id);
       setVersesData(prev => ({
