@@ -1,0 +1,41 @@
+name: one-time-mobile-leadership-visibility
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-time-mobile-leadership-visibility.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch only mobile leadership menu
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/feature/Navbar.tsx')
+          text = p.read_text(encoding='utf-8')
+          old = "{MISSION_SUBSECTIONS.map(section => <div key={`m-ms-${section.label}`}><p className=\"px-2 py-1 text-[11px] font-semibold text-foreground-400 uppercase tracking-wider\">{section.label}</p><div className=\"grid grid-cols-3 gap-1\">{section.items.map(item => <MenuGridCard key={`m-msi-${item.label}`} icon={item.icon} label={item.label} colorClass=\"bg-accent-100 text-accent-600\" active={!!item.path && isActive(item.path)} onClick={() => handleMissionAction(item)} />)}</div></div>)}"
+          new = "{MISSION_SUBSECTIONS.filter(section => section.label !== '사명 도구').map(section => <div key={`m-ms-${section.label}`}><p className=\"px-2 py-1 text-[11px] font-semibold text-foreground-400 uppercase tracking-wider\">{section.label}</p><div className=\"grid grid-cols-3 gap-1\">{section.items.map(item => <MenuGridCard key={`m-msi-${item.label}`} icon={item.icon} label={item.label} colorClass=\"bg-accent-100 text-accent-600\" active={!!item.path && isActive(item.path)} onClick={() => handleMissionAction(item)} />)}</div></div>)}<div><p className=\"px-2 py-1 text-[11px] font-semibold text-foreground-400 uppercase tracking-wider\">사명 도구</p><div className=\"grid grid-cols-3 gap-1\"><MenuGridCard icon=\"ri-book-read-line\" label=\"리더십 코칭\" colorClass=\"bg-accent-100 text-accent-600\" active={isActive('/leadership-diary')} onClick={() => { navigate('/leadership-diary'); setMobileOpen(false); }} /></div></div>"
+          if old not in text:
+              raise SystemExit('expected mobile mission menu block not found')
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one mobile mission menu block')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Commit and remove this one-time workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/feature/Navbar.tsx
+          git rm .github/workflows/one-time-mobile-leadership-visibility.yml
+          git commit -m "fix: show leadership coaching in mobile mission tools"
+          git push
