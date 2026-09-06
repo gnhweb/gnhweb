@@ -57,10 +57,7 @@ const authHelperMarker = '  const signInWithPasskey';
 const authMarkerIndex = auth.indexOf(authMarker);
 const authHelperIndex = auth.indexOf(authHelperMarker, authMarkerIndex + authMarker.length);
 if (authMarkerIndex >= 0 && authHelperIndex > authMarkerIndex) {
-  const between = auth.slice(authMarkerIndex + authMarker.length, authHelperIndex);
-  if (between === '\n'.repeat(19)) {
-    auth = auth.slice(0, authMarkerIndex + authMarker.length) + '\n'.repeat(11) + auth.slice(authHelperIndex);
-  }
+  auth = auth.slice(0, authMarkerIndex + authMarker.length) + '\n'.repeat(11) + auth.slice(authHelperIndex);
 }
 write('src/hooks/useAuth.tsx', auth);
 
