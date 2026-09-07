@@ -1,0 +1,47 @@
+name: one-time-attendance-order-fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-time-attendance-order-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reorder attendance board sections
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('src/pages/attendanceBoard/page.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          absent = re.search(r"\n            (<div className=\"bg-background-100 border border-background-200 rounded-2xl p-5 mb-4\">\n              <h3[^\n]*>.*?불참 신고 \(\{absentCount\}명\).*?</div>\n            </div>)", text, re.S)
+          unresponsive = re.search(r"\n            (<div className=\"bg-background-100 border border-background-200 rounded-2xl p-5 mb-4\">\n              <h3[^\n]*>.*?미응답 \(\{unresponsiveCount\}명\).*?</div>\n            </div>)", text, re.S)
+
+          if not absent or not unresponsive:
+              raise SystemExit('Could not locate attendance sections')
+
+          absent_block = absent.group(1)
+          unresponsive_block = unresponsive.group(1)
+          if absent.start() < unresponsive.start():
+              print('Already ordered: absent before unresponsive')
+          else:
+              text = text[:unresponsive.start()] + absent_block + text[unresponsive.end():]
+              text = text[:absent.start()] + unresponsive_block + text[absent.end():]
+              path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit and remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/attendanceBoard/page.tsx .github/workflows/one-time-attendance-order-fix.yml
+          git rm .github/workflows/one-time-attendance-order-fix.yml
+          git commit -m "fix: order attendance board status sections"
+          git push
