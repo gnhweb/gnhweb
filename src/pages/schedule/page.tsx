@@ -288,12 +288,12 @@ export default function Schedule() {
           {/* 월간 캘린더 — 모바일/PC 공통 */}
           <div className="bg-background-100 border border-background-200 rounded-[20px] p-4 md:p-5 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <button onClick={goPrevMonth} className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-full hover:bg-background-200 cursor-pointer">
-                <i className="ri-arrow-left-s-line text-foreground-600"></i>
+              <button onClick={goPrevMonth} aria-label="이전 달" className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-full hover:bg-background-200 cursor-pointer">
+                <i className="ri-arrow-left-s-line text-foreground-600" aria-hidden="true"></i>
               </button>
-              <span className="text-sm font-bold text-foreground-900">{calYear}년 {calMonth + 1}월</span>
-              <button onClick={goNextMonth} className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-full hover:bg-background-200 cursor-pointer">
-                <i className="ri-arrow-right-s-line text-foreground-600"></i>
+              <span className="text-sm font-bold text-foreground-900" aria-live="polite">{calYear}년 {calMonth + 1}월</span>
+              <button onClick={goNextMonth} aria-label="다음 달" className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-full hover:bg-background-200 cursor-pointer">
+                <i className="ri-arrow-right-s-line text-foreground-600" aria-hidden="true"></i>
               </button>
             </div>
             <div className="grid grid-cols-7 gap-y-2 text-center">

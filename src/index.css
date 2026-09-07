@@ -71,6 +71,7 @@
   --gold: #D79A00;
   --rose: #E0526B;
   --cobalt: #3B5BDB;
+  --insta-gradient: linear-gradient(45deg, oklch(var(--accent-400)) 0%, oklch(var(--primary-500)) 45%, oklch(var(--secondary-600)) 100%);
 }
 
 :root.dark {
@@ -175,6 +176,48 @@ button { font-family: inherit; cursor: pointer; transition: all 0.15s ease; }
 
 .card-surface { background-color: var(--background-color, oklch(var(--background-100))); border: 1px solid oklch(var(--background-200)); border-radius: 20px; box-shadow: 0 2px 10px rgba(17,19,24,0.06); transition: background-color 0.2s ease, border-color 0.2s ease; }
 .dark .card-surface { box-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+
+/* ── 인스타그램풍 그라데이션(보라→핑크→오렌지) 공용 유틸 ──
+   포인트를 남발하지 않도록 "스토리 링 / 라이브 강조" 등 딱 한 가지 시각적 신호로만 쓴다. */
+.insta-gradient-ring {
+  background-image: var(--insta-gradient);
+  padding: 2.5px;
+  border-radius: 9999px;
+  display: inline-flex;
+}
+.insta-gradient-ring > * { border-radius: 9999px; }
+.insta-gradient-text {
+  background-image: var(--insta-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.insta-gradient-bg { background-image: var(--insta-gradient); }
+
+/* ── 접근성: 스킵 링크 ── */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 200;
+  background: oklch(var(--foreground-950));
+  color: oklch(var(--background-50));
+  padding: 0.75rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  transition: top 0.15s ease;
+}
+.skip-link:focus { top: 1rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 vapi-widget { display: none !important; }
 readdy-assistant-widget, readdy-ai-assistant, [class*="readdy-assistant"], [id*="readdy-assistant"] { display: none !important; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

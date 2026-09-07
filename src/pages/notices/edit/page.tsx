@@ -155,11 +155,11 @@ export default function NoticeEdit() {
 
           <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 space-y-6">
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-bookmark-line mr-1.5 text-foreground-600"></i>
+              <p id="notice-category-label" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-bookmark-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 카테고리
-              </label>
-              <div className="flex items-center gap-2 flex-wrap">
+              </p>
+              <div role="group" aria-labelledby="notice-category-label" className="flex items-center gap-2 flex-wrap">
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat}
@@ -177,12 +177,13 @@ export default function NoticeEdit() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-edit-line mr-1.5 text-foreground-600"></i>
+              <label htmlFor="notice-title" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-edit-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 제목
                 <span className="text-foreground-500 font-normal ml-1">({title.length}/100)</span>
               </label>
               <input
+                id="notice-title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -193,12 +194,13 @@ export default function NoticeEdit() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-file-text-line mr-1.5 text-foreground-600"></i>
+              <label htmlFor="notice-content" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-file-text-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 내용
                 <span className="text-foreground-500 font-normal ml-1">({content.length}/5000)</span>
               </label>
               <textarea
+                id="notice-content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="공지 내용을 상세히 작성해주세요..."

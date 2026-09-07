@@ -46,6 +46,7 @@ export default function ProfilePage() {
   const [birthMonth, setBirthMonth] = useState('');
   const [birthDay, setBirthDay] = useState('');
   const [gender, setGender] = useState('');
+  const [grade, setGrade] = useState('');
   const [bio, setBio] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [profileImage, setProfileImage] = useState('');
@@ -121,11 +122,12 @@ export default function ProfilePage() {
         setBirthMonth(data.birth_month ? String(data.birth_month) : '');
         setBirthDay(data.birth_day ? String(data.birth_day) : '');
         setGender(data.gender || '');
+        setGrade(data.grade || '');
         setBio(data.bio || '');
         setInterests(data.interests ? data.interests.split(',').filter(Boolean) : []);
         setProfileImage(data.profile_image || '');
         setGraduationExpected(data.graduation_expected === true);
-        setAutoLogoutMinutes(data.auto_logout_minutes ?? null);
+        setAutoLogoutMinutes(data.auto_logout_minutes ?? 30);
       }
     } catch { /* */ }
     setLoading(false);
@@ -202,15 +204,13 @@ export default function ProfilePage() {
   };
 
   const handleAutoLogoutChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const raw = e.target.value;
-    const val = raw === '' ? null : parseInt(raw, 10);
+    const val = parseInt(e.target.value);
     setAutoLogoutMinutes(val);
     if (!user) return;
     try {
       await supabase.from('user_roles').update({ auto_logout_minutes: val }).eq('user_id', user.id);
     } catch { /* ignore */ }
-    if (val === null) localStorage.removeItem(`auto_logout_timeout_minutes_${user.id}`);
-    else localStorage.setItem(`auto_logout_timeout_minutes_${user.id}`, String(val));
+    localStorage.setItem(`auto_logout_timeout_minutes_${user.id}`, String(val));
     // 저장만 하면 이미 실행 중인 자동 로그아웃 타이머는 이 변경을 몰라서 예전
     // 시간 기준으로 계속 돌아가는 문제가 있었다. 지금 즉시 새 시간으로
     // 타이머를 다시 세팅하도록 알려준다.
@@ -228,6 +228,7 @@ export default function ProfilePage() {
         birth_month: birthMonth ? parseInt(birthMonth) : null,
         birth_day: birthDay ? parseInt(birthDay) : null,
         gender: gender || null,
+        grade: grade || null,
         bio: bio.trim() || null,
         interests: interests.length > 0 ? interests.join(',') : null,
         profile_image: profileImage || null,
@@ -423,12 +424,14 @@ export default function ProfilePage() {
           {/* ── 모바일 전용 "인스타 프로필형" 헤더 ── */}
           <div className="md:hidden mb-6">
             <div className="text-center">
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-background-200 border-4 border-white shadow-card mx-auto flex items-center justify-center">
-                {profileImage ? (
-                  <img src={profileImage} alt="프로필" className="w-full h-full object-cover" />
-                ) : (
-                  <i className="ri-user-line text-4xl text-foreground-400"></i>
-                )}
+              <div className="insta-gradient-ring mx-auto w-fit">
+                <div className="w-24 h-24 rounded-full overflow-hidden bg-background-200 border-4 border-white shadow-card flex items-center justify-center">
+                  {profileImage ? (
+                    <img src={profileImage} alt="프로필 사진" className="w-full h-full object-cover" />
+                  ) : (
+                    <i className="ri-user-line text-4xl text-foreground-400" aria-hidden="true"></i>
+                  )}
+                </div>
               </div>
               <p className="mt-3 text-lg font-bold text-foreground-950">{name || '이름 미입력'}</p>
               {bio ? (
@@ -536,12 +539,30 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* 성별 */}
-            <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">성별</label>
-              <div className="flex gap-2">
-                <button onClick={() => setGender('남')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '남' ? 'bg-sky-100 text-sky-700 border border-sky-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>남</button>
-                <button onClick={() => setGender('여')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '여' ? 'bg-rose-100 text-rose-700 border border-rose-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>여</button>
+            {/* 성별 & 학년 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground-950 mb-2">성별</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setGender('남')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '남' ? 'bg-sky-100 text-sky-700 border border-sky-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>남</button>
+                  <button onClick={() => setGender('여')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '여' ? 'bg-rose-100 text-rose-700 border border-rose-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>여</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground-950 mb-2">학년</label>
+                <select
+                  value={grade}
+                  onChange={e => setGrade(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-primary-400 outline-none appearance-none cursor-pointer"
+                >
+                  <option value="">선택하세요</option>
+                  <option value="중1">중1</option>
+                  <option value="중2">중2</option>
+                  <option value="중3">중3</option>
+                  <option value="고1">고1</option>
+                  <option value="고2">고2</option>
+                  <option value="고3">고3</option>
+                </select>
               </div>
             </div>
 
@@ -720,11 +741,10 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 <select
-                  value={autoLogoutMinutes ?? ''}
+                  value={autoLogoutMinutes ?? 30}
                   onChange={handleAutoLogoutChange}
                   className="px-3 py-2 rounded-xl border border-background-200 bg-background-100 text-sm focus:outline-none focus:border-primary-400 cursor-pointer appearance-none"
                 >
-                  <option value="">설정 안함</option>
                   <option value={1}>1분</option>
                   <option value={5}>5분</option>
                   <option value={30}>30분</option>

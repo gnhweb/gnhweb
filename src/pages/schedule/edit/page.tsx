@@ -168,11 +168,12 @@ export default function ScheduleEdit() {
 
           <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 space-y-6">
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-edit-line mr-1.5 text-foreground-600"></i>
+              <label htmlFor="sched-edit-title" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-edit-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 일정 제목
               </label>
               <input
+                id="sched-edit-title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -184,11 +185,12 @@ export default function ScheduleEdit() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <i className="ri-calendar-line mr-1.5 text-gray-400"></i>
+                <label htmlFor="sched-edit-date" className="block text-sm font-medium text-gray-700 mb-2">
+                  <i className="ri-calendar-line mr-1.5 text-gray-400" aria-hidden="true"></i>
                   날짜
                 </label>
                 <input
+                  id="sched-edit-date"
                   type="date"
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
@@ -196,11 +198,12 @@ export default function ScheduleEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <i className="ri-time-line mr-1.5 text-gray-400"></i>
+                <label htmlFor="sched-edit-time" className="block text-sm font-medium text-gray-700 mb-2">
+                  <i className="ri-time-line mr-1.5 text-gray-400" aria-hidden="true"></i>
                   시간
                 </label>
                 <input
+                  id="sched-edit-time"
                   type="text"
                   value={eventTime}
                   onChange={(e) => setEventTime(e.target.value)}
@@ -211,11 +214,12 @@ export default function ScheduleEdit() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-map-pin-line mr-1.5 text-foreground-600"></i>
+              <label htmlFor="sched-edit-location" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-map-pin-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 장소
               </label>
               <input
+                id="sched-edit-location"
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
@@ -225,12 +229,12 @@ export default function ScheduleEdit() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-group-line mr-1.5 text-foreground-600"></i>
+              <p id="sched-edit-target-club-label" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-group-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 대상 동아리
                 <span className="text-foreground-500 font-normal ml-1">(선택)</span>
-              </label>
-              <div className="flex items-center gap-2 flex-wrap">
+              </p>
+              <div role="group" aria-labelledby="sched-edit-target-club-label" className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setTargetClub(null)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
@@ -254,12 +258,13 @@ export default function ScheduleEdit() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-file-text-line mr-1.5 text-foreground-600"></i>
+              <label htmlFor="sched-edit-description" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-file-text-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 설명
                 <span className="text-foreground-500 font-normal ml-1">({description.length}/1000)</span>
               </label>
               <textarea
+                id="sched-edit-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="일정에 대한 상세 설명, 준비물, 참고 사항 등을 작성해주세요..."

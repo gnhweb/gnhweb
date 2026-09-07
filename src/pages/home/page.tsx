@@ -815,8 +815,8 @@ export default function Home() {
             </div>
           </motion.div>
         </AnimatePresence>
-        <button onClick={prevSlide} className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-left-s-line text-xl"></i></button>
-        <button onClick={nextSlide} className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-right-s-line text-xl"></i></button>
+        <button onClick={prevSlide} aria-label="이전 슬라이드" className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-left-s-line text-xl" aria-hidden="true"></i></button>
+        <button onClick={nextSlide} aria-label="다음 슬라이드" className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-right-s-line text-xl" aria-hidden="true"></i></button>
         <div className="absolute bottom-2.5 sm:bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1.5 max-w-[calc(100%-24px)]">
           <span className="text-[10px] md:text-xs font-semibold text-white/90 tabular-nums">{slideIndex + 1} / {heroSlides.length}</span>
           <div className="flex items-center gap-1.5">
@@ -983,9 +983,9 @@ export default function Home() {
             <div className="bg-background-100 rounded-2xl border border-background-200 p-4">
               {/* 월 네비게이션 */}
               <div className="flex items-center justify-between mb-3">
-                <button onClick={prevMonth} className="w-7 h-7 rounded-lg hover:bg-background-100 flex items-center justify-center cursor-pointer"><i className="ri-arrow-left-s-line text-foreground-600"></i></button>
-                <span className="text-sm font-bold text-foreground-950">{calYear}년 {calMonth + 1}월</span>
-                <button onClick={nextMonth} className="w-7 h-7 rounded-lg hover:bg-background-100 flex items-center justify-center cursor-pointer"><i className="ri-arrow-right-s-line text-foreground-600"></i></button>
+                <button onClick={prevMonth} aria-label="이전 달" className="w-7 h-7 rounded-lg hover:bg-background-100 flex items-center justify-center cursor-pointer"><i className="ri-arrow-left-s-line text-foreground-600" aria-hidden="true"></i></button>
+                <span className="text-sm font-bold text-foreground-950" aria-live="polite">{calYear}년 {calMonth + 1}월</span>
+                <button onClick={nextMonth} aria-label="다음 달" className="w-7 h-7 rounded-lg hover:bg-background-100 flex items-center justify-center cursor-pointer"><i className="ri-arrow-right-s-line text-foreground-600" aria-hidden="true"></i></button>
               </div>
               {/* 요일 헤더 */}
               <div className="grid grid-cols-7 mb-1">

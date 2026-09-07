@@ -1098,7 +1098,7 @@ export default function ClubDetail() {
                   <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6">
                     <div className="flex items-center gap-2 mb-3">
                       <i className="ri-cake-line text-rose-500 text-lg"></i>
-                      <h3 className="text-sm font-bold text-rose-700">이번 달 생일자</h3>
+                      <h2 className="text-sm font-bold text-rose-700">이번 달 생일자</h2>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {members.filter(m => m.isBirthdayThisMonth).map((m, i) => (
@@ -1174,10 +1174,10 @@ export default function ClubDetail() {
             <motion.div key="photos" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
               <div className="bg-background-100 border border-background-200 rounded-[20px] p-6">
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                  <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
                     <i className="ri-camera-line text-rose-600"></i> 동아리 사진
                     <span className="text-xs text-foreground-500 font-normal">({clubDetail.photos.length}장)</span>
-                  </h3>
+                  </h2>
                   <div className="flex items-center gap-2">
                     {isClubLeader && selectedPhotos.size > 0 && (
                       <button
@@ -1246,9 +1246,9 @@ export default function ClubDetail() {
             <motion.div key="qna" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
               {user && (
                 <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6">
-                  <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
                     <i className="ri-question-line text-accent-600"></i> 질문하기
-                  </h3>
+                  </h2>
                   <textarea value={qnaQuestion} onChange={e => setQnaQuestion(e.target.value)} placeholder={`${club.name}에 대해 궁금한 점을 물어보세요...`} rows={3} maxLength={300} className="w-full px-4 py-3 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-accent-400 outline-none resize-none" />
                   <div className="flex items-center justify-between mt-2">
                     <label className="flex items-center gap-1.5 text-xs text-foreground-600 cursor-pointer">

@@ -169,21 +169,23 @@ export default function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean;
                   <button
                     onClick={handleReset}
                     disabled={resetting}
+                    aria-label="리더보드 초기화 (부장 전용)"
                     className="w-8 h-8 rounded-full bg-accent-100 flex items-center justify-center hover:bg-accent-200 transition-colors cursor-pointer disabled:opacity-50"
                     title="리더보드 초기화 (부장 전용)"
                   >
                     {resetting ? (
-                      <span className="w-3.5 h-3.5 border-2 border-accent-500 border-t-transparent rounded-full animate-spin"></span>
+                      <span className="w-3.5 h-3.5 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
                     ) : (
-                      <i className="ri-restart-line text-accent-600"></i>
+                      <i className="ri-restart-line text-accent-600" aria-hidden="true"></i>
                     )}
                   </button>
                 )}
                 <button
                   onClick={onClose}
+                  aria-label="닫기"
                   className="w-8 h-8 rounded-full bg-background-200 flex items-center justify-center hover:bg-background-300 transition-colors cursor-pointer"
                 >
-                  <i className="ri-close-line text-foreground-600"></i>
+                  <i className="ri-close-line text-foreground-600" aria-hidden="true"></i>
                 </button>
               </div>
             </div>

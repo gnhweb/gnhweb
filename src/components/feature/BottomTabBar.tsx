@@ -161,17 +161,19 @@ export default function BottomTabBar() {
                       </div>
                     ) : tab.key === "more" && profile?.profile_image ? (
                       <div
-                        className={`w-7 h-7 rounded-full overflow-hidden ${
+                        className={
                           active
-                            ? "ring-2 ring-primary-500"
-                            : "ring-1 ring-background-200"
-                        }`}
+                            ? "insta-gradient-ring"
+                            : "p-[2.5px] rounded-full bg-background-200"
+                        }
                       >
-                        <img
-                          src={profile.profile_image}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-background-100 border-2 border-background-100">
+                          <img
+                            src={profile.profile_image}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
                       </div>
                     ) : (
                       <i

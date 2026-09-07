@@ -496,7 +496,7 @@ export default function ClubCommunity() {
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-[20px] bg-primary-100 mb-4">
               <i className="ri-chat-3-line text-2xl text-primary-400"></i>
             </div>
-            <h3 className="text-base font-medium text-foreground-700 mb-2">아직 올라온 글이 없어요</h3>
+            <p className="text-base font-medium text-foreground-700 mb-2">아직 올라온 글이 없어요</p>
             <p className="text-sm text-foreground-600">첫 번째 글을 올려 동아리원들과 소통을 시작해보세요!</p>
           </motion.div>
         ) : (
