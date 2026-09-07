@@ -26,8 +26,7 @@ jobs:
           import subprocess
 
           path = Path('src/pages/attendanceBoard/page.tsx')
-          parent = subprocess.check_output(['git', 'show', 'HEAD^:src/pages/attendanceBoard/page.tsx'], text=True)
-          text = parent
+          text = subprocess.check_output(['git', 'show', 'e1e9d8caed1de4222ba6f3762f29e67f8e1a32a7:src/pages/attendanceBoard/page.tsx'], text=True)
 
           def block_for(source, heading):
               heading_pos = source.find(heading)
@@ -46,10 +45,6 @@ jobs:
 
           if absent_start > unresponsive_start:
               text = text[:unresponsive_start] + absent_block + unresponsive_block + text[absent_end:]
-              print('Reordered: attended -> late -> absent -> unresponsive')
-          else:
-              print('Already ordered: absent before unresponsive')
-
           path.write_text(text, encoding='utf-8')
           PY
 
