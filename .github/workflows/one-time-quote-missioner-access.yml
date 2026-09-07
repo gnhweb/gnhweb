@@ -1,7 +1,8 @@
 name: One-time quote missioner access
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: write
@@ -25,7 +26,7 @@ jobs:
 
           router = Path('src/router/config.tsx')
           text = router.read_text()
-          text = text.replace('{path:\"/teacher-dashboard/quote-manage\",element:<AuthGuard minRole=\"teacher\">{withSuspense(<QuoteManagePage/>)}</AuthGuard>}', '{path:\"/teacher-dashboard/quote-manage\",element:<AuthGuard minRole=\"assistant_zone_leader\">{withSuspense(<QuoteManagePage/>)}</AuthGuard>}')
+          text = text.replace('{path:"/teacher-dashboard/quote-manage",element:<AuthGuard minRole="teacher">{withSuspense(<QuoteManagePage/>)}</AuthGuard>}', '{path:"/teacher-dashboard/quote-manage",element:<AuthGuard minRole="assistant_zone_leader">{withSuspense(<QuoteManagePage/>)}</AuthGuard>}')
           router.write_text(text)
 
           navbar = Path('src/components/feature/Navbar.tsx')
@@ -45,48 +46,9 @@ jobs:
           drop policy if exists quotes_update_manager on public.quotes;
           drop policy if exists quotes_delete_manager on public.quotes;
 
-          create policy quotes_insert_manager
-          on public.quotes
-          for insert
-          to authenticated
-          with check (
-            exists (
-              select 1 from public.user_roles ur
-              where ur.user_id = auth.uid()
-                and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])
-            )
-          );
-
-          create policy quotes_update_manager
-          on public.quotes
-          for update
-          to authenticated
-          using (
-            exists (
-              select 1 from public.user_roles ur
-              where ur.user_id = auth.uid()
-                and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])
-            )
-          )
-          with check (
-            exists (
-              select 1 from public.user_roles ur
-              where ur.user_id = auth.uid()
-                and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])
-            )
-          );
-
-          create policy quotes_delete_manager
-          on public.quotes
-          for delete
-          to authenticated
-          using (
-            exists (
-              select 1 from public.user_roles ur
-              where ur.user_id = auth.uid()
-                and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])
-            )
-          );
+          create policy quotes_insert_manager on public.quotes for insert to authenticated with check (exists (select 1 from public.user_roles ur where ur.user_id = auth.uid() and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])));
+          create policy quotes_update_manager on public.quotes for update to authenticated using (exists (select 1 from public.user_roles ur where ur.user_id = auth.uid() and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text]))) with check (exists (select 1 from public.user_roles ur where ur.user_id = auth.uid() and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])));
+          create policy quotes_delete_manager on public.quotes for delete to authenticated using (exists (select 1 from public.user_roles ur where ur.user_id = auth.uid() and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])));
           SQL
 
       - name: Build
