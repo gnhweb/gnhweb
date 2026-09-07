@@ -1,0 +1,84 @@
+name: Remove notebook feature
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  remove-notebook:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Remove notebook feature
+        shell: python
+        run: |
+          from pathlib import Path
+
+          replacements = {
+              'src/components/feature/Navbar.tsx': [
+                  ("    { path: '/notebook', label: '학생회 노트북', icon: 'ri-book-open-line' },\n", ''),
+              ],
+              'src/components/feature/UnifiedNavbar.tsx': [
+                  ("['/notebook','학생회 노트북'],", ''),
+              ],
+              'src/lib/siteSearch.ts': [
+                  ("  { path: '/notebook', label: '학생회 노트북', description: '회의록/공지/보고서/파일을 소스로 골라 AI에게 근거 기반으로 질문', icon: 'ri-book-open-line', group: '회의', keywords: ['노트북', 'notebooklm', 'ai', '코파일럿', '학생회 노트북'] },\n", ''),
+              ],
+              'src/router/config.tsx': [
+                  ('const NotebookCopilotPage = lazy(() => import("@/pages/notebookCopilot/page"));\n', ''),
+                  ('{path:"/notebook",element:<AuthGuard minRole="member">{withSuspense(<NotebookCopilotPage/>)}</AuthGuard>},', ''),
+              ],
+              'src/pages/meetings/page.tsx': [
+                  ('''\n        <Link\n          to="/notebook"\n          className="group flex items-center gap-4 mb-6 p-4 md:p-5 rounded-2xl bg-gradient-to-br from-primary-600 via-primary-500 to-violet-600 hover:brightness-105 transition-all cursor-pointer relative overflow-hidden"\n        >\n          <div className="absolute inset-0 opacity-10 [background-image:radial-gradient(circle_at_15%_30%,white,transparent_35%)]"></div>\n          <div className="w-11 h-11 rounded-xl bg-background-100/15 backdrop-blur-sm border border-white/20 flex items-center justify-center flex-shrink-0 relative">\n            <i className="ri-robot-2-fill text-white text-xl"></i>\n          </div>\n          <div className="flex-1 min-w-0 relative">\n            <p className="text-sm font-bold text-white">AI 회의 코파일럿과 대화하기</p>\n            <p className="text-xs text-white/75 mt-0.5">강릉학생회만의 독자적인 AI 회의 도우미 — 안건 구조화부터 Action Item 도출까지</p>\n          </div>\n          <i className="ri-arrow-right-line text-white/80 text-xl group-hover:translate-x-1 transition-transform flex-shrink-0 relative"></i>\n        </Link>\n''', '\n'),
+              ],
+              'src/pages/meetings/detail/page.tsx': [
+                  ('''          <Link\n            to={`/notebook`}\n            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-br from-primary-500 to-violet-500 text-white hover:brightness-105 transition-all cursor-pointer whitespace-nowrap"\n          >\n            <i className="ri-robot-2-fill"></i>\n            AI 코파일럿\n          </Link>\n''', ''),
+              ],
+          }
+
+          for path, pairs in replacements.items():
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  if old not in text:
+                      raise SystemExit(f'Expected notebook reference not found in {path}')
+                  text = text.replace(old, new, 1)
+              p.write_text(text, encoding='utf-8')
+
+          page = Path('src/pages/notebookCopilot/page.tsx')
+          if not page.exists():
+              raise SystemExit('Notebook page is missing before removal')
+          page.unlink()
+
+          import subprocess
+          result = subprocess.run(
+              ['git', 'grep', '-nE', '학생회 노트북|/notebook|notebook-copilot|notebook_files', '--', 'src'],
+              capture_output=True,
+              text=True,
+          )
+          if result.returncode == 0:
+              print(result.stdout)
+              raise SystemExit('Notebook references remain in src')
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          git rm .github/workflows/remove-notebook-feature.yml
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat: remove student council notebook"
+          git push origin main
