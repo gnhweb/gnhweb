@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'fix/**'
+      - 'main'
   workflow_dispatch:
 
 permissions:
@@ -18,24 +19,40 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Normalize source
+      - name: Apply attendance board ordering patch
         run: |
-          node scripts/normalize-legacy-types.mjs
-          node scripts/dedupe-passkey-auth.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
 
-      - name: Commit normalized source when changed
+          path = Path('src/pages/attendanceBoard/page.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          absent = re.search(r"\n            (<div className=\"bg-background-100 border border-background-200 rounded-2xl p-5 mb-4\">\n              <h3[^\n]*>.*?불참 신고 \(\{absentCount\}명\).*?</div>\n            </div>)", text, re.S)
+          unresponsive = re.search(r"\n            (<div className=\"bg-background-100 border border-background-200 rounded-2xl p-5 mb-4\">\n              <h3[^\n]*>.*?미응답 \(\{unresponsiveCount\}명\).*?</div>\n            </div>)", text, re.S)
+
+          if not absent or not unresponsive:
+              raise SystemExit('Could not locate attendance sections')
+
+          if absent.start() > unresponsive.start():
+              absent_block = absent.group(1)
+              unresponsive_block = unresponsive.group(1)
+              text = text[:unresponsive.start()] + absent_block + text[unresponsive.end():]
+              text = text[:absent.start()] + unresponsive_block + text[absent.end():]
+              path.write_text(text, encoding='utf-8')
+              print('Reordered: attended -> late -> absent -> unresponsive')
+          else:
+              print('Already ordered: absent before unresponsive')
+          PY
+
+      - name: Commit attendance source when changed
         run: |
-          if git diff --quiet; then
-            echo "No normalization changes needed."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src scripts
-          git commit -m "fix: normalize legacy type errors"
+          git add src/pages/attendanceBoard/page.tsx
+          if git diff --cached --quiet; then
+            echo "No attendance ordering changes needed."
+            exit 0
+          fi
+          git commit -m "fix: order attendance board status sections"
           git push origin HEAD:${GITHUB_REF_NAME}
