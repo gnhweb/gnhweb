@@ -1,0 +1,76 @@
+name: one-time-remove-profile-grade
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-time-remove-profile-grade.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'fix: remove profile grade setting'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove profile grade setting
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/profile/page.tsx')
+          text = p.read_text(encoding='utf-8')
+          original = text
+          text = text.replace("  const [grade, setGrade] = useState('');\n", '', 1)
+          text = text.replace("        setGrade(data.grade || '');\n", '', 1)
+          text = text.replace("        grade: grade || null,\n", '', 1)
+          old = '''            {/* 성별 & 학년 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground-950 mb-2">성별</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setGender('남')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '남' ? 'bg-sky-100 text-sky-700 border border-sky-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>남</button>
+                  <button onClick={() => setGender('여')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '여' ? 'bg-rose-100 text-rose-700 border border-rose-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>여</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground-950 mb-2">학년</label>
+                <select
+                  value={grade}
+                  onChange={e => setGrade(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-primary-400 outline-none appearance-none cursor-pointer"
+                >
+                  <option value="">선택하세요</option>
+                  <option value="중1">중1</option>
+                  <option value="중2">중2</option>
+                  <option value="중3">중3</option>
+                  <option value="고1">고1</option>
+                  <option value="고2">고2</option>
+                  <option value="고3">고3</option>
+                </select>
+              </div>
+            </div>
+'''
+          new = '''            {/* 성별 */}
+            <div>
+              <label className="block text-sm font-medium text-foreground-950 mb-2">성별</label>
+              <div className="flex gap-2">
+                <button onClick={() => setGender('남')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '남' ? 'bg-sky-100 text-sky-700 border border-sky-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>남</button>
+                <button onClick={() => setGender('여')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '여' ? 'bg-rose-100 text-rose-700 border border-rose-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>여</button>
+              </div>
+            </div>
+'''
+          if old not in text:
+              raise SystemExit('expected profile grade UI block not found')
+          text = text.replace(old, new, 1)
+          if text == original:
+              raise SystemExit('no profile changes were made')
+          p.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit source change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/profile/page.tsx
+          git commit -m "fix: remove profile grade setting"
+          git push
