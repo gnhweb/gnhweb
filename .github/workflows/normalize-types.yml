@@ -34,10 +34,10 @@ jobs:
               start = text.rfind('\n            <div className="bg-background-100 border border-background-200 rounded-2xl p-5', 0, heading_pos)
               if start < 0:
                   raise SystemExit(f'Could not locate card start: {heading}')
-              next_start = text.find('\n            <div className="bg-background-100 border border-background-200 rounded-2xl p-5', heading_pos + len(heading))
-              if next_start < 0:
-                  raise SystemExit(f'Could not locate card end: {heading}')
-              return start, next_start, text[start:next_start]
+              end = text.find('\n            <div className="bg-background-100 border border-background-200 rounded-2xl p-5', heading_pos + len(heading))
+              if end < 0:
+                  end = len(text)
+              return start, end, text[start:end]
 
           absent_start, absent_end, absent_block = block_for('불참 신고 ({absentCount}명)')
           unresponsive_start, unresponsive_end, unresponsive_block = block_for('미응답 ({unresponsiveCount}명)')
