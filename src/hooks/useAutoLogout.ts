@@ -10,7 +10,7 @@ const ACTIVITY_PERSIST_INTERVAL_MS = 10_000;
 export function useAutoLogout() {
   const { user, profile, signOut, hasPin, lockApp } = useAuth();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const timeoutMinutesRef = useRef(DEFAULT_TIMEOUT_MINUTES);
+  const timeoutMinutesRef = useRef<number | null>(DEFAULT_TIMEOUT_MINUTES);
   const lastPersistRef = useRef(0);
 
   const timeoutAction = useCallback(() => {
@@ -22,7 +22,7 @@ export function useAutoLogout() {
     if (timerRef.current) clearTimeout(timerRef.current);
 
     const mins = timeoutMinutesRef.current;
-    if (mins <= 0 || !user) return;
+    if (mins === null || mins <= 0 || !user) return;
     if (hasPin) {
       const expiresAt = getPinUnlockExpiration(user.id);
       const delay = expiresAt > Date.now() ? expiresAt - Date.now() : 0;
@@ -50,7 +50,10 @@ export function useAutoLogout() {
         .select('auto_logout_minutes')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (data?.auto_logout_minutes !== null && data?.auto_logout_minutes !== undefined) {
+      if (data?.auto_logout_minutes === null || data?.auto_logout_minutes === undefined) {
+        timeoutMinutesRef.current = null;
+        localStorage.removeItem(`${STORAGE_KEY}_${user.id}`);
+      } else {
         timeoutMinutesRef.current = data.auto_logout_minutes;
         localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(data.auto_logout_minutes));
       }
@@ -60,7 +63,7 @@ export function useAutoLogout() {
   useEffect(() => {
     if (!user) return;
     loadTimeoutSetting().then(() => {
-      if (timeoutMinutesRef.current > 0) resetTimer();
+      if (timeoutMinutesRef.current !== null && timeoutMinutesRef.current > 0) resetTimer();
     });
 
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'] as const;
@@ -81,11 +84,14 @@ export function useAutoLogout() {
     };
   }, [user, hasPin, loadTimeoutSetting, resetTimer]);
 
-  const updateTimeout = useCallback((minutes: number) => {
+  const updateTimeout = useCallback((minutes: number | null) => {
     timeoutMinutesRef.current = minutes;
-    if (user) localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(minutes));
+    if (user) {
+      if (minutes === null) localStorage.removeItem(`${STORAGE_KEY}_${user.id}`);
+      else localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(minutes));
+    }
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (minutes > 0 && user) {
+    if (minutes !== null && minutes > 0 && user) {
       if (hasPin) {
         setPinUnlockExpiration(user.id, Date.now() + minutes * 60 * 1000);
         timerRef.current = setTimeout(timeoutAction, minutes * 60 * 1000);
@@ -98,7 +104,7 @@ export function useAutoLogout() {
   useEffect(() => {
     if (!user) return;
     const onExternalChange = (e: Event) => {
-      const detail = (e as CustomEvent<{ userId: string; minutes: number }>).detail;
+      const detail = (e as CustomEvent<{ userId: string; minutes: number | null }>).detail;
       if (!detail || detail.userId !== user.id) return;
       updateTimeout(detail.minutes);
     };

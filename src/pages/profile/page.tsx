@@ -125,7 +125,7 @@ export default function ProfilePage() {
         setInterests(data.interests ? data.interests.split(',').filter(Boolean) : []);
         setProfileImage(data.profile_image || '');
         setGraduationExpected(data.graduation_expected === true);
-        setAutoLogoutMinutes(data.auto_logout_minutes ?? 30);
+        setAutoLogoutMinutes(data.auto_logout_minutes ?? null);
       }
     } catch { /* */ }
     setLoading(false);
@@ -202,13 +202,15 @@ export default function ProfilePage() {
   };
 
   const handleAutoLogoutChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = parseInt(e.target.value);
+    const raw = e.target.value;
+    const val = raw === '' ? null : parseInt(raw, 10);
     setAutoLogoutMinutes(val);
     if (!user) return;
     try {
       await supabase.from('user_roles').update({ auto_logout_minutes: val }).eq('user_id', user.id);
     } catch { /* ignore */ }
-    localStorage.setItem(`auto_logout_timeout_minutes_${user.id}`, String(val));
+    if (val === null) localStorage.removeItem(`auto_logout_timeout_minutes_${user.id}`);
+    else localStorage.setItem(`auto_logout_timeout_minutes_${user.id}`, String(val));
     // 저장만 하면 이미 실행 중인 자동 로그아웃 타이머는 이 변경을 몰라서 예전
     // 시간 기준으로 계속 돌아가는 문제가 있었다. 지금 즉시 새 시간으로
     // 타이머를 다시 세팅하도록 알려준다.
@@ -718,10 +720,11 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 <select
-                  value={autoLogoutMinutes ?? 30}
+                  value={autoLogoutMinutes ?? ''}
                   onChange={handleAutoLogoutChange}
                   className="px-3 py-2 rounded-xl border border-background-200 bg-background-100 text-sm focus:outline-none focus:border-primary-400 cursor-pointer appearance-none"
                 >
+                  <option value="">설정 안함</option>
                   <option value={1}>1분</option>
                   <option value={5}>5분</option>
                   <option value={30}>30분</option>

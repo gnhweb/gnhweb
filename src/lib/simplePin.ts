@@ -189,7 +189,7 @@ export function getAutoLogoutMinutes(userId: string): number {
 // 다시 설정한다.
 export const AUTO_LOGOUT_CHANGE_EVENT = 'auto-logout-minutes-changed';
 
-export function notifyAutoLogoutMinutesChanged(userId: string, minutes: number): void {
+export function notifyAutoLogoutMinutesChanged(userId: string, minutes: number | null): void {
   try {
     window.dispatchEvent(
       new CustomEvent(AUTO_LOGOUT_CHANGE_EVENT, { detail: { userId, minutes } })
