@@ -17,7 +17,7 @@ const PAGE_SIZE = 25;
 
 export default function QuoteManagePage() {
   const { user, hasRole } = useAuth();
-  const canManage = user && (hasRole('teacher') || hasRole('chief'));
+  const canManage = user && hasRole('assistant_zone_leader');
 
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -241,7 +241,7 @@ export default function QuoteManagePage() {
             <i className="ri-shield-keyhole-line text-3xl text-primary-600"></i>
           </div>
           <p className="text-lg font-bold text-foreground-950 mb-2">접근 권한이 없습니다</p>
-          <p className="text-sm text-foreground-600">교사 또는 부장님 계정으로 로그인해주세요</p>
+          <p className="text-sm text-foreground-600">사명자 계정으로 로그인해주세요</p>
         </div>
       </div>
     );
