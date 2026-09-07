@@ -6,6 +6,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
 };
 
 interface QuizScore {
