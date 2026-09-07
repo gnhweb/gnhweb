@@ -1,0 +1,40 @@
+name: One-time quote mobile menu fix
+on:
+  push:
+    branches: [main]
+jobs:
+  patch:
+    if: github.actor == 'gnhweb' || github.actor == 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Patch mobile mission menu
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/feature/Navbar.tsx')
+          s = p.read_text()
+          old = '''t.jsxs("div",{children:[t.jsx("p",{className:"px-2 py-1 text-[11px] font-semibold text-foreground-400 uppercase tracking-wider",children:"사명 도구"}),t.jsx("div",{className:"grid grid-cols-3 gap-1",children:t.jsx(ce,{icon:"ri-user-star-line",label:"리더십 코칭",colorClass:"bg-accent-100 text-accent-600",active:q("/leadership-diary"),onClick:()=>{i("/leadership-diary"),j(!1)}})})]})''' 
+          new = '''t.jsxs("div",{children:[t.jsx("p",{className:"px-2 py-1 text-[11px] font-semibold text-foreground-400 uppercase tracking-wider",children:"사명 도구"}),t.jsx("div",{className:"grid grid-cols-2 gap-1",children:[t.jsx(ce,{icon:"ri-user-star-line",label:"리더십 코칭",colorClass:"bg-accent-100 text-accent-600",active:q("/leadership-diary"),onClick:()=>{i("/leadership-diary"),j(!1)}}),t.jsx(ce,{icon:"ri-chat-quote-line",label:"어록 관리",colorClass:"bg-accent-100 text-accent-600",active:q("/teacher-dashboard/quote-manage"),onClick:()=>{i("/teacher-dashboard/quote-manage"),j(!1)}})]})]})'''
+          if old not in s:
+              raise SystemExit('target mobile mission-tools block not found')
+          p.write_text(s.replace(old, new, 1))
+          print('patched')
+          PY
+      - run: npm run build
+      - name: Commit and remove workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/feature/Navbar.tsx .github/workflows/one-time-quote-mobile-menu-fix.yml
+          git commit -m 'fix: show quote management in missioner mobile menu'
+          git rm .github/workflows/one-time-quote-mobile-menu-fix.yml
+          git commit -m 'chore: remove one-time quote mobile menu workflow'
+          git push
