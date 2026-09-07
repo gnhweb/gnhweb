@@ -5,30 +5,18 @@
  * workbox-window's `registerSW()` helper. The latter has produced a runtime
  * `waiting` property error in the production mobile E2E environment while the
  * generated service worker itself is valid.
+ *
+ * The service worker is updated by the browser's normal registration/update
+ * lifecycle. We intentionally do not poll `registration.update()` on a timer
+ * or on every foreground/focus/pageshow event because each forced update check
+ * creates another request to Vercel's Edge Network.
  */
 
-let updateTimer: number | undefined;
 let currentRegistration: ServiceWorkerRegistration | undefined;
-let updateInFlight = false;
 
-const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
-const PWA_VERSION = '20260907-2';
+const PWA_VERSION = '20260907-3';
 const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=${PWA_VERSION}`;
 const RELOAD_KEY = `gnhweb-pwa-reloaded:${PWA_VERSION}`;
-
-async function checkForUpdate(registration?: ServiceWorkerRegistration) {
-  if (!registration || updateInFlight) return;
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-
-  updateInFlight = true;
-  try {
-    await registration.update();
-  } catch {
-    // Network/offline failures are non-fatal.
-  } finally {
-    updateInFlight = false;
-  }
-}
 
 function installRegistrationListeners(registration: ServiceWorkerRegistration) {
   registration.addEventListener('updatefound', () => {
@@ -36,17 +24,17 @@ function installRegistrationListeners(registration: ServiceWorkerRegistration) {
     if (!worker) return;
 
     worker.addEventListener('statechange', () => {
-      if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-        // sw.ts uses skipWaiting()/clientsClaim(), so the new worker takes
-        // control immediately. Reload exactly once for this PWA version so the
-        // open page also uses the newly precached application bundle.
-        try {
-          if (sessionStorage.getItem(RELOAD_KEY) === '1') return;
-          sessionStorage.setItem(RELOAD_KEY, '1');
-          window.location.reload();
-        } catch {
-          // Storage restrictions must never block application startup.
-        }
+      if (worker.state !== 'installed' || !navigator.serviceWorker.controller) return;
+
+      // sw.ts uses skipWaiting()/clientsClaim(), so the new worker takes
+      // control immediately. Reload exactly once for this PWA version so the
+      // open page also uses the newly precached application bundle.
+      try {
+        if (sessionStorage.getItem(RELOAD_KEY) === '1') return;
+        sessionStorage.setItem(RELOAD_KEY, '1');
+        window.location.reload();
+      } catch {
+        // Storage restrictions must never block application startup.
       }
     });
   });
@@ -56,37 +44,16 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   void navigator.serviceWorker
     .register(SW_URL, {
       scope: import.meta.env.BASE_URL,
-      updateViaCache: 'none',
+      // Allow the browser's normal service-worker update algorithm to use its
+      // HTTP cache instead of forcing a network request on every check.
+      updateViaCache: 'imports',
     })
     .then((registration) => {
       currentRegistration = registration;
-      installRegistrationListeners(registration);
-      void checkForUpdate(registration);
-
-      if (updateTimer === undefined) {
-        updateTimer = window.setInterval(() => {
-          void checkForUpdate(currentRegistration);
-        }, UPDATE_INTERVAL_MS);
-      }
+      installRegistrationListeners(currentRegistration);
     })
     .catch(() => {
       // PWA support is optional. Failure must never surface as a console error
       // or block authentication/app startup.
     });
-
-  const checkWhenForeground = () => {
-    if (document.visibilityState === 'visible') {
-      void checkForUpdate(currentRegistration);
-    }
-  };
-
-  document.addEventListener('visibilitychange', checkWhenForeground);
-  window.addEventListener('focus', checkWhenForeground);
-  window.addEventListener('pageshow', checkWhenForeground);
-  window.addEventListener('online', checkWhenForeground);
-  window.addEventListener('pageshow', () => {
-    window.setTimeout(() => {
-      void checkForUpdate(currentRegistration);
-    }, 750);
-  });
 }
