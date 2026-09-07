@@ -23,22 +23,30 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path('src/pages/attendanceBoard/page.tsx')
           text = path.read_text(encoding='utf-8')
 
-          absent = re.search(r"\n            (<div className=\"bg-background-100 border border-background-200 rounded-2xl p-5 mb-4\">\n              <h3[^\n]*>.*?불참 신고 \(\{absentCount\}명\).*?</div>\n            </div>)", text, re.S)
-          unresponsive = re.search(r"\n            (<div className=\"bg-background-100 border border-background-200 rounded-2xl p-5 mb-4\">\n              <h3[^\n]*>.*?미응답 \(\{unresponsiveCount\}명\).*?</div>\n            </div>)", text, re.S)
+          def block_for(heading):
+              heading_pos = text.find(heading)
+              if heading_pos < 0:
+                  raise SystemExit(f'Could not locate heading: {heading}')
+              start = text.rfind('\n            <div className="bg-background-100 border border-background-200 rounded-2xl p-5', 0, heading_pos)
+              if start < 0:
+                  raise SystemExit(f'Could not locate card start: {heading}')
+              next_start = text.find('\n            <div className="bg-background-100 border border-background-200 rounded-2xl p-5', heading_pos + len(heading))
+              if next_start < 0:
+                  raise SystemExit(f'Could not locate card end: {heading}')
+              return start, next_start, text[start:next_start]
 
-          if not absent or not unresponsive:
-              raise SystemExit('Could not locate attendance sections')
+          absent_start, absent_end, absent_block = block_for('불참 신고 ({absentCount}명)')
+          unresponsive_start, unresponsive_end, unresponsive_block = block_for('미응답 ({unresponsiveCount}명)')
 
-          if absent.start() > unresponsive.start():
-              absent_block = absent.group(1)
-              unresponsive_block = unresponsive.group(1)
-              text = text[:unresponsive.start()] + absent_block + text[unresponsive.end():]
-              text = text[:absent.start()] + unresponsive_block + text[absent.end():]
+          if absent_start > unresponsive_start:
+              before = text[:unresponsive_start]
+              middle = text[unresponsive_end:absent_start]
+              after = text[absent_end:]
+              text = before + absent_block + middle + unresponsive_block + after
               path.write_text(text, encoding='utf-8')
               print('Reordered: attended -> late -> absent -> unresponsive')
           else:
