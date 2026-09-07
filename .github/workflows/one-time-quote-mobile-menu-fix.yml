@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
+      - run: npm install
       - name: Patch mobile mission menu
         run: |
           python3 - <<'PY'
@@ -32,7 +32,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/components/feature/Navbar.tsx .github/workflows/one-time-quote-mobile-menu-fix.yml
+          git add src/components/feature/Navbar.tsx .github/workflows/one-time-quote-mobile-menu-fix.yml package-lock.json
           git commit -m 'fix: show quote management in missioner mobile menu'
           git rm .github/workflows/one-time-quote-mobile-menu-fix.yml
           git commit -m 'chore: remove one-time quote mobile menu workflow'
