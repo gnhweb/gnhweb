@@ -1,0 +1,72 @@
+name: Add auto logout disabled setting
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/pages/profile/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("setAutoLogoutMinutes(data.auto_logout_minutes ?? 30);", "setAutoLogoutMinutes(data.auto_logout_minutes ?? null);")
+          s = s.replace("const val = parseInt(e.target.value);\n    setAutoLogoutMinutes(val);", "const raw = e.target.value;\n    const val = raw === '' ? null : parseInt(raw, 10);\n    setAutoLogoutMinutes(val);")
+          s = s.replace("await supabase.from('user_roles').update({ auto_logout_minutes: val }).eq('user_id', user.id);", "await supabase.from('user_roles').update({ auto_logout_minutes: val }).eq('user_id', user.id);")
+          s = s.replace("localStorage.setItem(`auto_logout_timeout_minutes_${user.id}`, String(val));", "if (val === null) localStorage.removeItem(`auto_logout_timeout_minutes_${user.id}`);\n    else localStorage.setItem(`auto_logout_timeout_minutes_${user.id}`, String(val));")
+          s = s.replace("notifyAutoLogoutMinutesChanged(user.id, val);", "notifyAutoLogoutMinutesChanged(user.id, val);")
+          s = s.replace("value={autoLogoutMinutes ?? 30}", "value={autoLogoutMinutes ?? ''}")
+          s = s.replace("<option value={1}>1분</option>", "<option value=\"\">설정 안함</option>\n                  <option value={1}>1분</option>")
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/hooks/useAutoLogout.ts')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("const timeoutMinutesRef = useRef(DEFAULT_TIMEOUT_MINUTES);", "const timeoutMinutesRef = useRef<number | null>(DEFAULT_TIMEOUT_MINUTES);")
+          s = s.replace("if (mins <= 0 || !user) return;", "if (mins === null || mins <= 0 || !user) return;")
+          old = """    if (saved) {\n      const mins = parseInt(saved, 10);\n      if (!isNaN(mins)) timeoutMinutesRef.current = mins;\n    }"""
+          new = """    if (saved) {\n      const mins = parseInt(saved, 10);\n      if (!isNaN(mins)) timeoutMinutesRef.current = mins;\n    }"""
+          s = s.replace(old, new)
+          old = """      if (data?.auto_logout_minutes !== null && data?.auto_logout_minutes !== undefined) {\n        timeoutMinutesRef.current = data.auto_logout_minutes;\n        localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(data.auto_logout_minutes));\n      }"""
+          new = """      if (data?.auto_logout_minutes === null || data?.auto_logout_minutes === undefined) {\n        timeoutMinutesRef.current = null;\n        localStorage.removeItem(`${STORAGE_KEY}_${user.id}`);\n      } else {\n        timeoutMinutesRef.current = data.auto_logout_minutes;\n        localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(data.auto_logout_minutes));\n      }"""
+          if old not in s:
+              raise SystemExit('useAutoLogout DB block not found')
+          s = s.replace(old, new, 1)
+          s = s.replace("if (timeoutMinutesRef.current > 0) resetTimer();", "if (timeoutMinutesRef.current !== null && timeoutMinutesRef.current > 0) resetTimer();")
+          s = s.replace("const updateTimeout = useCallback((minutes: number) => {", "const updateTimeout = useCallback((minutes: number | null) => {")
+          s = s.replace("if (minutes > 0 && user) {", "if (minutes !== null && minutes > 0 && user) {")
+          s = s.replace("const detail = (e as CustomEvent<{ userId: string; minutes: number }>).detail;", "const detail = (e as CustomEvent<{ userId: string; minutes: number | null }>).detail;")
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/lib/simplePin.ts')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("export function notifyAutoLogoutMinutesChanged(userId: string, minutes: number): void {", "export function notifyAutoLogoutMinutesChanged(userId: string, minutes: number | null): void {")
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Type check and build
+        run: |
+          npm install --include=dev
+          npm run type-check
+          npm run build
+
+      - name: Commit and remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/profile/page.tsx src/hooks/useAutoLogout.ts src/lib/simplePin.ts
+          git commit -m "fix: allow disabling automatic logout" || true
+          git push
+          git rm .github/workflows/one-time-auto-logout-none.yml
+          git commit -m "chore: remove one-time auto logout patch workflow"
+          git push
