@@ -18,3 +18,5 @@
 <!-- Force production deployment after verified Bible MBTI portrait fix. -->
 
 <!-- Force second production deployment after verifying the actual enhanced MBTI route source. -->
+
+<!-- Temporary trigger for verified quote mobile menu patch. -->
