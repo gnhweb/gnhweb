@@ -61,7 +61,6 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
   ]},
   { label: '회의록', items: [
     { path: '/meetings', label: '회의록', icon: 'ri-chat-check-line' },
-    { path: '/notebook', label: '학생회 노트북', icon: 'ri-book-open-line' },
   ]},
   { label: '보고서', items: [
     { path: '/reports/weekly', label: '주간 보고서', icon: 'ri-file-list-3-line' },
