@@ -46,7 +46,6 @@ export default function ProfilePage() {
   const [birthMonth, setBirthMonth] = useState('');
   const [birthDay, setBirthDay] = useState('');
   const [gender, setGender] = useState('');
-  const [grade, setGrade] = useState('');
   const [bio, setBio] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [profileImage, setProfileImage] = useState('');
@@ -122,7 +121,6 @@ export default function ProfilePage() {
         setBirthMonth(data.birth_month ? String(data.birth_month) : '');
         setBirthDay(data.birth_day ? String(data.birth_day) : '');
         setGender(data.gender || '');
-        setGrade(data.grade || '');
         setBio(data.bio || '');
         setInterests(data.interests ? data.interests.split(',').filter(Boolean) : []);
         setProfileImage(data.profile_image || '');
@@ -228,7 +226,6 @@ export default function ProfilePage() {
         birth_month: birthMonth ? parseInt(birthMonth) : null,
         birth_day: birthDay ? parseInt(birthDay) : null,
         gender: gender || null,
-        grade: grade || null,
         bio: bio.trim() || null,
         interests: interests.length > 0 ? interests.join(',') : null,
         profile_image: profileImage || null,
@@ -537,30 +534,12 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* 성별 & 학년 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground-950 mb-2">성별</label>
-                <div className="flex gap-2">
-                  <button onClick={() => setGender('남')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '남' ? 'bg-sky-100 text-sky-700 border border-sky-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>남</button>
-                  <button onClick={() => setGender('여')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '여' ? 'bg-rose-100 text-rose-700 border border-rose-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>여</button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground-950 mb-2">학년</label>
-                <select
-                  value={grade}
-                  onChange={e => setGrade(e.target.value)}
-                  className="w-full px-4 py-2.5 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-primary-400 outline-none appearance-none cursor-pointer"
-                >
-                  <option value="">선택하세요</option>
-                  <option value="중1">중1</option>
-                  <option value="중2">중2</option>
-                  <option value="중3">중3</option>
-                  <option value="고1">고1</option>
-                  <option value="고2">고2</option>
-                  <option value="고3">고3</option>
-                </select>
+            {/* 성별 */}
+            <div>
+              <label className="block text-sm font-medium text-foreground-950 mb-2">성별</label>
+              <div className="flex gap-2">
+                <button onClick={() => setGender('남')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '남' ? 'bg-sky-100 text-sky-700 border border-sky-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>남</button>
+                <button onClick={() => setGender('여')} className={`flex-1 py-2.5 rounded-[13px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${gender === '여' ? 'bg-rose-100 text-rose-700 border border-rose-300' : 'bg-background-200 text-foreground-600 border border-background-200'}`}>여</button>
               </div>
             </div>
 
