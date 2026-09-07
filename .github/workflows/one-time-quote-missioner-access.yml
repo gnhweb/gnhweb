@@ -1,0 +1,105 @@
+name: One-time quote missioner access
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch quote permissions and missioner menu
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          quote = Path('src/pages/teacherDashboard/quoteManage/page.tsx')
+          text = quote.read_text()
+          text = text.replace("const canManage = user && (hasRole('teacher') || hasRole('chief'));", "const canManage = user && hasRole('assistant_zone_leader');")
+          text = text.replace("교사 또는 부장님 계정으로 로그인해주세요", "사명자 계정으로 로그인해주세요")
+          quote.write_text(text)
+
+          router = Path('src/router/config.tsx')
+          text = router.read_text()
+          text = text.replace('{path:\"/teacher-dashboard/quote-manage\",element:<AuthGuard minRole=\"teacher\">{withSuspense(<QuoteManagePage/>)}</AuthGuard>}', '{path:\"/teacher-dashboard/quote-manage\",element:<AuthGuard minRole=\"assistant_zone_leader\">{withSuspense(<QuoteManagePage/>)}</AuthGuard>}')
+          router.write_text(text)
+
+          navbar = Path('src/components/feature/Navbar.tsx')
+          text = navbar.read_text()
+          old = "  { label: '사명 도구', items: [\n    { path: '/leadership-diary', label: '리더십 코칭', icon: 'ri-book-read-line' },\n  ]},"
+          new = "  { label: '사명 도구', items: [\n    { path: '/leadership-diary', label: '리더십 코칭', icon: 'ri-book-read-line' },\n    { path: '/teacher-dashboard/quote-manage', label: '어록 관리', icon: 'ri-chat-quote-line' },\n  ]},"
+          if old not in text:
+              raise SystemExit('MISSION_SUBSECTIONS target not found')
+          text = text.replace(old, new, 1)
+          navbar.write_text(text)
+          PY
+
+      - name: Add migration file
+        run: |
+          cat > supabase/migrations/20260907000000_allow_missioners_to_manage_quotes.sql <<'SQL'
+          drop policy if exists quotes_insert_manager on public.quotes;
+          drop policy if exists quotes_update_manager on public.quotes;
+          drop policy if exists quotes_delete_manager on public.quotes;
+
+          create policy quotes_insert_manager
+          on public.quotes
+          for insert
+          to authenticated
+          with check (
+            exists (
+              select 1 from public.user_roles ur
+              where ur.user_id = auth.uid()
+                and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])
+            )
+          );
+
+          create policy quotes_update_manager
+          on public.quotes
+          for update
+          to authenticated
+          using (
+            exists (
+              select 1 from public.user_roles ur
+              where ur.user_id = auth.uid()
+                and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])
+            )
+          )
+          with check (
+            exists (
+              select 1 from public.user_roles ur
+              where ur.user_id = auth.uid()
+                and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])
+            )
+          );
+
+          create policy quotes_delete_manager
+          on public.quotes
+          for delete
+          to authenticated
+          using (
+            exists (
+              select 1 from public.user_roles ur
+              where ur.user_id = auth.uid()
+                and ur.role = any (array['assistant_zone_leader'::text, 'zone_leader'::text, 'president'::text, 'teacher'::text, 'chief'::text])
+            )
+          );
+          SQL
+
+      - name: Build
+        run: |
+          npm install --include=dev
+          npm run build
+
+      - name: Commit and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/teacherDashboard/quoteManage/page.tsx src/router/config.tsx src/components/feature/Navbar.tsx supabase/migrations/20260907000000_allow_missioners_to_manage_quotes.sql .github/workflows/one-time-quote-missioner-access.yml
+          git commit -m "fix: allow missioners to manage quotes"
+          git rm .github/workflows/one-time-quote-missioner-access.yml
+          git commit -m "chore: remove one-time quote missioner workflow"
+          git push
