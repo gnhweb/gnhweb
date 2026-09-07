@@ -90,21 +90,12 @@
             root.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;font-size:14px;';
           }
 
-          var cleanup = [];
-          if ('serviceWorker' in navigator) {
-            cleanup.push(navigator.serviceWorker.getRegistrations().then(function (registrations) {
-              return Promise.all(registrations.map(function (registration) { return registration.unregister(); }));
-            }).catch(function () {}));
-          }
-          if ('caches' in window) {
-            cleanup.push(caches.keys().then(function (names) {
-              return Promise.all(names.map(function (name) { return caches.delete(name); }));
-            }).catch(function () {}));
-          }
-
-          Promise.all(cleanup).then(function () {
+          // Do not unregister the service worker or delete every Cache Storage entry
+          // before reloading. That forced a cold-start on the next load and could turn
+          // one transient startup error into a burst of Vercel asset requests.
+          window.setTimeout(function () {
             window.location.reload();
-          });
+          }, 150);
         }
 
         window.addEventListener('error', function (event) {
@@ -113,10 +104,12 @@
           }
         }, true);
 
+        // Give slower mobile devices/connections more time before treating an empty
+        // React root as a failed startup. Recovery is still limited to once per tab.
         window.setTimeout(function () {
           var root = document.getElementById('root');
           if (root && root.childElementCount === 0) recoverFromBlankStartup();
-        }, 7000);
+        }, 15000);
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
