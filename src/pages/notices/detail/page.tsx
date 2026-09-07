@@ -40,7 +40,20 @@ export default function NoticeDetail() {
         setNotice(data);
 
         // Mark as read in Supabase for cross-device/account sync.
+        // Also persist locally immediately so the Home page reflects the read state
+        // even when the user returns with browser Back (the Home component may stay mounted).
         if (data && id) {
+          const localKey = user?.id ? `notice_reads:${user.id}` : 'notice_reads';
+          try {
+            const raw = localStorage.getItem(localKey);
+            const reads: string[] = raw ? JSON.parse(raw) : [];
+            if (!reads.includes(id)) {
+              reads.push(id);
+              localStorage.setItem(localKey, JSON.stringify(reads));
+            }
+            window.dispatchEvent(new CustomEvent('notice-read', { detail: { noticeId: id } }));
+          } catch { /* ignore local storage errors */ }
+
           if (user?.id) {
             const { error: readError } = await supabase
               .from('notice_reads')
@@ -50,26 +63,9 @@ export default function NoticeDetail() {
               );
 
             if (readError) {
-              // Preserve the previous browser-local behavior as a fallback.
-              try {
-                const key = `notice_reads:${user.id}`;
-                const raw = localStorage.getItem(key);
-                const reads: string[] = raw ? JSON.parse(raw) : [];
-                if (!reads.includes(id)) {
-                  reads.push(id);
-                  localStorage.setItem(key, JSON.stringify(reads));
-                }
-              } catch { /* ignore */ }
+              // Local storage was already updated above, so the current device
+              // still behaves correctly even if the cross-device sync fails.
             }
-          } else {
-            try {
-              const raw = localStorage.getItem('notice_reads');
-              const reads: string[] = raw ? JSON.parse(raw) : [];
-              if (!reads.includes(id)) {
-                reads.push(id);
-                localStorage.setItem('notice_reads', JSON.stringify(reads));
-              }
-            } catch { /* ignore */ }
           }
         }
       } catch {
