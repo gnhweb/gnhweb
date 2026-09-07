@@ -181,7 +181,7 @@ export default function SeniorCalendar() {
                     <h2 className="text-base font-bold text-foreground-950 mb-2 px-1">{monthLabel(month)}</h2>
                     <div className="space-y-2">
                       {monthEvents.map(ev => (
-                        <div key={ev.id} onClick={() => setSelectedEvent(ev)} className="bg-background-100 border border-background-200 rounded-2xl p-4 hover:border-emerald-300 transition-all duration-200 cursor-pointer group flex items-center gap-4">
+                        <div key={ev.id} role="button" tabIndex={0} aria-label={`${ev.title} 상세 보기`} onClick={() => setSelectedEvent(ev)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedEvent(ev); } }} className="bg-background-100 border border-background-200 rounded-2xl p-4 hover:border-emerald-300 transition-all duration-200 cursor-pointer group flex items-center gap-4 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none">
                           <div className="w-12 h-12 rounded-xl bg-emerald-100 flex flex-col items-center justify-center flex-shrink-0">
                             <span className="text-lg font-bold text-emerald-600">{new Date(ev.event_date).getDate()}</span>
                             <span className="text-[10px] text-emerald-500">{new Date(ev.event_date).getMonth() + 1}월</span>

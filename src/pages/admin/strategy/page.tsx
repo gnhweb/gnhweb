@@ -339,7 +339,7 @@ export default function StrategyDashboard() {
             transition={{ duration: 0.4, delay: 0.1 }}
             className="lg:col-span-3 bg-background-100 border border-background-200 rounded-[20px] p-5"
           >
-            <h3 className="text-sm font-bold text-foreground-700 mb-1">동아리별 참여율 및 보고서 현황</h3>
+            <h2 className="text-sm font-bold text-foreground-700 mb-1">동아리별 참여율 및 보고서 현황</h2>
             <p className="text-xs text-foreground-600 mb-4">참여율(막대) + 전체 보고서 수</p>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={clubMetrics} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -376,7 +376,7 @@ export default function StrategyDashboard() {
             transition={{ duration: 0.4, delay: 0.2 }}
             className="lg:col-span-2 bg-background-100 border border-background-200 rounded-[20px] p-5"
           >
-            <h3 className="text-sm font-bold text-foreground-700 mb-1">보고서 상태 분포</h3>
+            <h2 className="text-sm font-bold text-foreground-700 mb-1">보고서 상태 분포</h2>
             <p className="text-xs text-foreground-600 mb-2">전체 보고서 {totalReports}건 기준</p>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -409,7 +409,7 @@ export default function StrategyDashboard() {
             transition={{ duration: 0.4, delay: 0.3 }}
             className="lg:col-span-3 bg-background-100 border border-background-200 rounded-[20px] p-5"
           >
-            <h3 className="text-sm font-bold text-foreground-700 mb-1">주간 참여율 추이</h3>
+            <h2 className="text-sm font-bold text-foreground-700 mb-1">주간 참여율 추이</h2>
             <p className="text-xs text-foreground-600 mb-4">동아리별 최근 4주 출석률 추세</p>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={weeklyTrend} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -431,7 +431,7 @@ export default function StrategyDashboard() {
             transition={{ duration: 0.4, delay: 0.35 }}
             className="lg:col-span-2 bg-background-100 border border-background-200 rounded-[20px] p-5"
           >
-            <h3 className="text-sm font-bold text-foreground-700 mb-1">동아리 활동 지수</h3>
+            <h2 className="text-sm font-bold text-foreground-700 mb-1">동아리 활동 지수</h2>
             <p className="text-xs text-foreground-600 mb-4">참여율 40% + 보고서 30% + 인원 30%</p>
             <div className="space-y-4">
               {[...clubMetrics].sort((a, b) => b.activityIndex - a.activityIndex).map((club, i) => (
@@ -471,7 +471,7 @@ export default function StrategyDashboard() {
           className="bg-background-100 border border-background-200 rounded-[20px] overflow-hidden"
         >
           <div className="px-5 py-4 border-b border-background-200">
-            <h3 className="text-sm font-bold text-foreground-700">동아리별 상세 지표</h3>
+            <h2 className="text-sm font-bold text-foreground-700">동아리별 상세 지표</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -533,7 +533,7 @@ export default function StrategyDashboard() {
           >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-foreground-700 mb-1">회의 이슈 추이 및 반복 안건</h3>
+                <h2 className="text-sm font-bold text-foreground-700 mb-1">회의 이슈 추이 및 반복 안건</h2>
                 <p className="text-xs text-foreground-600">최근 회의록 기준 태그 빈도 및 3회 이상 반복 이슈</p>
               </div>
               <Link to="/meetings" className="text-sm text-primary-600 hover:text-primary-700 font-medium whitespace-nowrap cursor-pointer">
@@ -558,10 +558,10 @@ export default function StrategyDashboard() {
               </div>
 
               <div className="lg:col-span-2">
-                <h4 className="text-xs font-semibold text-foreground-700 mb-2 flex items-center gap-1.5">
+                <h3 className="text-xs font-semibold text-foreground-700 mb-2 flex items-center gap-1.5">
                   <i className="ri-loop-left-line text-rose-500"></i>
                   3회 이상 반복 이슈
-                </h4>
+                </h3>
                 {recurringAlerts.length === 0 ? (
                   <p className="text-xs text-foreground-500 py-4">아직 3회 이상 반복된 이슈가 없습니다</p>
                 ) : (

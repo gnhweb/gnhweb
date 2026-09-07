@@ -426,10 +426,14 @@ export default function Schedule() {
                     {events.map((event) => (
                       <div
                         key={event.id}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setSelectedEvent(event)}
-                        className="bg-background-100 border border-background-200 rounded-[20px] p-4 md:p-5 hover:border-background-300/60 transition-all duration-300 cursor-pointer group flex items-center gap-4"
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedEvent(event); } }}
+                        aria-label={`${event.title} 상세 보기`}
+                        className="bg-background-100 border border-background-200 rounded-[20px] p-4 md:p-5 hover:border-background-300/60 transition-all duration-300 cursor-pointer group flex items-center gap-4 focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:outline-none"
                       >
-                        <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-primary-100 flex flex-col items-center justify-center flex-shrink-0">
+                        <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-primary-100 flex flex-col items-center justify-center flex-shrink-0" aria-hidden="true">
                           <span className="text-lg md:text-xl font-bold text-primary-600">{new Date(event.event_date).getDate()}</span>
                           <span className="text-[10px] text-primary-500">{new Date(event.event_date).getMonth() + 1}월</span>
                         </div>

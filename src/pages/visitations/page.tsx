@@ -246,7 +246,7 @@ export default function VisitationsPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className="text-sm font-semibold text-foreground-950">{v.student_name} 학생</h3>
+                            <h2 className="text-sm font-semibold text-foreground-950">{v.student_name} 학생</h2>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${statusBadge(v.status)}`}>
                               {statusLabel(v.status)}
                             </span>
@@ -280,9 +280,9 @@ export default function VisitationsPage() {
           ) : (
             <div className="bg-background-100 border border-background-200 rounded-2xl overflow-hidden">
               <div className="p-4 border-b border-background-200">
-                <h3 className="text-base font-bold text-foreground-950 text-center">
+                <h2 className="text-base font-bold text-foreground-950 text-center">
                   {calendarDays.year}년 {calendarDays.month + 1}월
-                </h3>
+                </h2>
               </div>
               <div className="grid grid-cols-7 text-center border-b border-background-200">
                 {WEEKDAYS.map(day => (

@@ -83,7 +83,7 @@ export default function Clubs() {
             <img>가 뷰포트와 무관하게 항상 다운로드된다 (동아리 카드 이미지가 방문마다 2배로
             받아졌던 원인 중 하나). isMobile로 실제 필요한 카드 레이아웃 하나만 렌더링한다. */}
         {!isMobile && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8" role="list" aria-label="동아리 목록">
           {clubs.map((club, index) => {
             const clubBanner = clubBannerMap[club.id];
             const clubDetail = clubDetailMap[club.id];
@@ -95,6 +95,7 @@ export default function Clubs() {
             return (
               <motion.div
                 key={club.id}
+                role="listitem"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: index * 0.1 }}
@@ -151,7 +152,7 @@ export default function Clubs() {
 
         {/* ── 모바일 전용: 인스타 프로필 카드 느낌의 세로 카드 리스트 ── */}
         {isMobile && (
-        <div className="space-y-4">
+        <div className="space-y-4" role="list" aria-label="동아리 목록">
           {clubs.map((club, index) => {
             const clubBanner = clubBannerMap[club.id];
             const clubDetail = clubDetailMap[club.id];
@@ -163,6 +164,7 @@ export default function Clubs() {
             return (
               <motion.div
                 key={`m-${club.id}`}
+                role="listitem"
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: Math.min(index * 0.05, 0.3) }}

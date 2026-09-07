@@ -179,7 +179,7 @@ export default function AttendanceBoard() {
           </div>
 
           <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-6">
-            <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-bar-chart-2-line text-emerald-600" />출결 막대그래프</h3><span className="text-xs text-foreground-500">{selectedLabel}</span></div>
+            <div className="flex items-center justify-between mb-4"><h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-bar-chart-2-line text-emerald-600" />출결 막대그래프</h2><span className="text-xs text-foreground-500">{selectedLabel}</span></div>
             <div className="space-y-3">
               {[
                 { label: '정시 출석', value: presentCount, className: 'bg-emerald-400' },
@@ -198,24 +198,24 @@ export default function AttendanceBoard() {
 
           {selectedTotal === 0 ? <div className="bg-background-100 border border-background-200 rounded-2xl p-8 text-center"><p className="text-sm font-semibold text-foreground-700">이 동아리에 등록된 학생이 없습니다.</p></div> : <>
             <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-4">
-              <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />정시 출석 ({presentCount}명)</h3>
+              <h2 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />정시 출석 ({presentCount}명)</h2>
               {visibleData.attended.length ? <div className="flex flex-wrap gap-2">{visibleData.attended.map(m => <span key={m.user_id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-sm font-medium text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-100"><ProfileAvatar src={m.profile_image} name={m.user_name} className="bg-emerald-100 dark:bg-emerald-900/60 border-emerald-200/70 dark:border-emerald-700/70" /><span>{m.user_name}{selectedTab === 'all' && <span className="text-[10px] text-emerald-500 ml-1">· {getClubName(m.club)}</span>}{m.checked_in_at && <span className="text-[10px] text-emerald-400 ml-1">{formatTime(m.checked_in_at)}</span>}</span></span>)}</div> : <p className="text-xs text-foreground-500">아직 정시 출석한 학생이 없습니다.</p>}
             </div>
 
             <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-4">
-              <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" />늦참 ({lateCount}명)</h3>
+              <h2 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" />늦참 ({lateCount}명)</h2>
               {visibleData.late.length ? <div className="space-y-2">{visibleData.late.map(m => <div key={m.user_id} className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-100 dark:bg-amber-950/40 dark:border-amber-800"><div className="flex items-center gap-2 min-w-0"><ProfileAvatar src={m.profile_image} name={m.user_name} className="w-8 h-8 bg-amber-100 dark:bg-amber-900/60 border-amber-200/70 dark:border-amber-700/70" /><span className="text-sm font-medium text-foreground-800 truncate">{m.user_name}</span>{selectedTab === 'all' && <span className="text-[10px] text-amber-600 dark:text-amber-300 whitespace-nowrap">· {getClubName(m.club)}</span>}</div><div className="flex flex-wrap items-center gap-2 sm:ml-auto"><span className="text-[11px] font-bold text-amber-700 dark:text-amber-200">{formatTime(m.checked_in_at)} 늦참</span>{m.late_reason && <span className="text-xs text-amber-800 dark:text-amber-200">사유: {m.late_reason}</span>}</div></div>)}</div> : <p className="text-xs text-foreground-500">늦참 학생이 없습니다.</p>}
             </div>
 
-            <div className="bg-background-100 border border-background-200 rounded-2xl p-5">
-              <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-orange-400" />불참 신고 ({absentCount}명)</h3>
-              {visibleData.absent.length ? <div className="space-y-2">{visibleData.absent.map(m => <div key={m.user_id} className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2.5 rounded-xl bg-orange-50 border border-orange-100 dark:bg-orange-950/40 dark:border-orange-800"><div className="flex items-center gap-2 min-w-0"><ProfileAvatar src={m.profile_image} name={m.user_name} className="w-8 h-8 bg-orange-100 dark:bg-orange-900/60 border-orange-200/70 dark:border-orange-700/70" /><span className="text-sm font-medium text-foreground-800 truncate">{m.user_name}</span>{selectedTab === 'all' && <span className="text-[10px] text-orange-500 whitespace-nowrap">· {getClubName(m.club)}</span>}</div>{m.absence_reason && <span className="text-xs text-orange-600 dark:text-orange-300 sm:ml-auto">{m.absence_reason}</span>}</div>)}</div> : <p className="text-xs text-foreground-500">불참 신고한 학생이 없습니다.</p>}
-            </div>
             <div className="bg-background-100 border border-background-200 rounded-2xl p-5 mb-4">
-              <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-gray-400" />미응답 ({unresponsiveCount}명)</h3>
+              <h2 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-gray-400" />미응답 ({unresponsiveCount}명)</h2>
               {visibleData.unresponsive.length ? <div className="flex flex-wrap gap-2">{visibleData.unresponsive.map(m => <div key={m.user_id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 dark:bg-background-200 dark:border-background-400 dark:text-foreground-800"><ProfileAvatar src={m.profile_image} name={m.name} /><span>{m.name}{selectedTab === 'all' && <span className="text-[10px] text-gray-400 ml-1">· {getClubName(m.club)}</span>}</span><a href="tg://" className="ml-1 text-sky-600" aria-label={`${m.name} 텔레그램 심방`}><i className="ri-telegram-line" /></a></div>)}</div> : <p className="text-xs text-foreground-500">미응답 학생이 없습니다.</p>}
             </div>
 
+            <div className="bg-background-100 border border-background-200 rounded-2xl p-5">
+              <h2 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-orange-400" />불참 신고 ({absentCount}명)</h2>
+              {visibleData.absent.length ? <div className="space-y-2">{visibleData.absent.map(m => <div key={m.user_id} className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2.5 rounded-xl bg-orange-50 border border-orange-100 dark:bg-orange-950/40 dark:border-orange-800"><div className="flex items-center gap-2 min-w-0"><ProfileAvatar src={m.profile_image} name={m.user_name} className="w-8 h-8 bg-orange-100 dark:bg-orange-900/60 border-orange-200/70 dark:border-orange-700/70" /><span className="text-sm font-medium text-foreground-800 truncate">{m.user_name}</span>{selectedTab === 'all' && <span className="text-[10px] text-orange-500 whitespace-nowrap">· {getClubName(m.club)}</span>}</div>{m.absence_reason && <span className="text-xs text-orange-600 dark:text-orange-300 sm:ml-auto">{m.absence_reason}</span>}</div>)}</div> : <p className="text-xs text-foreground-500">불참 신고한 학생이 없습니다.</p>}
+            </div>
           </>}
         </motion.div>
       </div>

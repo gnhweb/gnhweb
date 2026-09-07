@@ -191,7 +191,7 @@ export default function SeniorConnection() {
                   <div className="p-5">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className="text-base font-bold text-foreground-950 mb-2">{item.title}</h3>
+                        <h2 className="text-base font-bold text-foreground-950 mb-2">{item.title}</h2>
                         <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{item.content}</p>
                       </div>
                       {isTeacherOrChief && (
@@ -223,7 +223,7 @@ export default function SeniorConnection() {
         {showEditor && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowEditor(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-background-100 border border-background-200 rounded-2xl p-6 max-w-md w-full max-h-[85dvh] max-h-[85vh] overflow-y-auto mobile-safe-modal" onClick={e => e.stopPropagation()}>
-              <h3 className="text-lg font-bold text-foreground-950 mb-4">{editingId ? '내용 수정' : '새 내용 추가'}</h3>
+              <h2 className="text-lg font-bold text-foreground-950 mb-4">{editingId ? '내용 수정' : '새 내용 추가'}</h2>
               <div className="space-y-3">
                 <select value={editSection} onChange={e => setEditSection(e.target.value)} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none cursor-pointer">
                   {SECTIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}

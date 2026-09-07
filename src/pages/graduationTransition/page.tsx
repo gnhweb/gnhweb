@@ -344,10 +344,15 @@ export default function GraduationTransition() {
                         ) : (
                           <>
                             <div
+                              role="checkbox"
+                              tabIndex={0}
+                              aria-checked={isCompleted(item.id)}
+                              aria-label={item.task}
                               onClick={() => toggleCheck(item.id)}
-                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors cursor-pointer ${isCompleted(item.id) ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 hover:border-emerald-400'}`}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCheck(item.id); } }}
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none ${isCompleted(item.id) ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 hover:border-emerald-400'}`}
                             >
-                              {isCompleted(item.id) && <i className="ri-check-line text-white text-[10px]"></i>}
+                              {isCompleted(item.id) && <i className="ri-check-line text-white text-[10px]" aria-hidden="true"></i>}
                             </div>
                             <span className={`flex-1 text-sm ${isCompleted(item.id) ? 'text-foreground-500 line-through' : 'text-foreground-800'}`}>{item.task}</span>
                             {isEditor && (

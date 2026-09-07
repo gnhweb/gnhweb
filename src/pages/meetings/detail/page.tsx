@@ -217,6 +217,13 @@ export default function MeetingDetailPage() {
               {MEETING_CLUB_LABELS[meeting.club as keyof typeof MEETING_CLUB_LABELS] || meeting.club}
             </span>
           )}
+          <Link
+            to={`/notebook`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-br from-primary-500 to-violet-500 text-white hover:brightness-105 transition-all cursor-pointer whitespace-nowrap"
+          >
+            <i className="ri-robot-2-fill"></i>
+            AI 코파일럿
+          </Link>
           {canModifyMeeting && (
             <div className="flex items-center gap-1.5">
               <Link
@@ -256,7 +263,7 @@ export default function MeetingDetailPage() {
 
               <div className="flex items-center gap-2 mb-2">
                 <i className="ri-file-text-line text-foreground-400"></i>
-                <h3 className="text-sm font-bold text-foreground-700">회의 요약</h3>
+                <h2 className="text-sm font-bold text-foreground-700">회의 요약</h2>
               </div>
               <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{meeting.summary}</p>
 
@@ -276,7 +283,7 @@ export default function MeetingDetailPage() {
                   <div className="w-6 h-6 rounded-md bg-emerald-100 flex items-center justify-center">
                     <i className="ri-check-line text-emerald-600 text-xs"></i>
                   </div>
-                  <h3 className="text-sm font-bold text-foreground-700">결정 사항</h3>
+                  <h2 className="text-sm font-bold text-foreground-700">결정 사항</h2>
                 </div>
                 <ul className="space-y-2">
                   {meeting.decisions.map((d, i) => (
@@ -296,7 +303,7 @@ export default function MeetingDetailPage() {
                   <div className="w-6 h-6 rounded-md bg-rose-100 flex items-center justify-center">
                     <i className="ri-error-warning-line text-rose-600 text-xs"></i>
                   </div>
-                  <h3 className="text-sm font-bold text-foreground-700">제기된 이슈/문제점</h3>
+                  <h2 className="text-sm font-bold text-foreground-700">제기된 이슈/문제점</h2>
                 </div>
                 <ul className="space-y-2">
                   {meeting.issues.map((issue, i) => (
@@ -316,7 +323,7 @@ export default function MeetingDetailPage() {
                   <div className="w-6 h-6 rounded-md bg-amber-100 flex items-center justify-center">
                     <i className="ri-alert-line text-amber-600 text-xs"></i>
                   </div>
-                  <h3 className="text-sm font-bold text-foreground-700">병목 요인</h3>
+                  <h2 className="text-sm font-bold text-foreground-700">병목 요인</h2>
                 </div>
                 <ul className="space-y-2">
                   {meeting.bottlenecks.map((b, i) => (
@@ -336,7 +343,7 @@ export default function MeetingDetailPage() {
                   <div className="w-6 h-6 rounded-md bg-sky-100 flex items-center justify-center">
                     <i className="ri-time-line text-sky-600 text-xs"></i>
                   </div>
-                  <h3 className="text-sm font-bold text-foreground-700">미결/추후 논의 사항</h3>
+                  <h2 className="text-sm font-bold text-foreground-700">미결/추후 논의 사항</h2>
                 </div>
                 <ul className="space-y-2">
                   {meeting.unresolvedItems.map((item, i) => (
@@ -355,7 +362,7 @@ export default function MeetingDetailPage() {
                 <div className="w-6 h-6 rounded-md bg-secondary-100 flex items-center justify-center">
                   <i className="ri-group-line text-secondary-600 text-xs"></i>
                 </div>
-                <h3 className="text-sm font-bold text-foreground-700">참석자 ({meeting.attendees.length}명)</h3>
+                <h2 className="text-sm font-bold text-foreground-700">참석자 ({meeting.attendees.length}명)</h2>
               </div>
               <div className="flex flex-wrap gap-2">
                 {meeting.attendees.map(name => (
@@ -374,7 +381,7 @@ export default function MeetingDetailPage() {
                 <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
                   <i className="ri-brain-line text-violet-600 text-sm"></i>
                 </div>
-                <h3 className="text-sm font-bold text-foreground-700">AI 회의 분석</h3>
+                <h2 className="text-sm font-bold text-foreground-700">AI 회의 분석</h2>
               </div>
 
               {!insight ? (
@@ -410,10 +417,10 @@ export default function MeetingDetailPage() {
                   {/* 반복 이슈 */}
                   {insight.recurringIssues.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-bold text-foreground-700 mb-2 flex items-center gap-1.5">
+                      <h3 className="text-xs font-bold text-foreground-700 mb-2 flex items-center gap-1.5">
                         <i className="ri-loop-left-line text-rose-500"></i>
                         반복 이슈
-                      </h4>
+                      </h3>
                       <div className="space-y-2">
                         {insight.recurringIssues.map((issue, i) => (
                           <div key={i} className={`p-3 rounded-xl border text-xs ${SEVERITY_COLORS[issue.severity]}`}>
@@ -435,10 +442,10 @@ export default function MeetingDetailPage() {
                   {/* 미결 사항 추적 */}
                   {insight.undecidedMatters.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-bold text-foreground-700 mb-2 flex items-center gap-1.5">
+                      <h3 className="text-xs font-bold text-foreground-700 mb-2 flex items-center gap-1.5">
                         <i className="ri-time-line text-amber-500"></i>
                         미결 사항 추적
-                      </h4>
+                      </h3>
                       <div className="space-y-1.5">
                         {insight.undecidedMatters.map((matter, i) => (
                           <div key={i} className="p-2.5 bg-background-50 rounded-lg border border-background-200 text-xs">
@@ -458,10 +465,10 @@ export default function MeetingDetailPage() {
                   {/* 병목 패턴 */}
                   {insight.bottlenecks.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-bold text-foreground-700 mb-2 flex items-center gap-1.5">
+                      <h3 className="text-xs font-bold text-foreground-700 mb-2 flex items-center gap-1.5">
                         <i className="ri-alert-line text-amber-500"></i>
                         병목 패턴 분석
-                      </h4>
+                      </h3>
                       <div className="space-y-1.5">
                         {insight.bottlenecks.map((bn, i) => (
                           <div key={i} className="p-2.5 bg-background-50 rounded-lg border border-background-200 text-xs">

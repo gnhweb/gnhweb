@@ -177,9 +177,10 @@ export default function Counseling() {
             <button
               onClick={handleSend}
               disabled={loading || !input.trim()}
+              aria-label="전송"
               className="w-10 h-10 rounded-full bg-primary-500 text-background-50 flex items-center justify-center hover:bg-primary-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex-shrink-0"
             >
-              <i className={`text-lg ${loading ? 'ri-loader-4-line animate-spin' : 'ri-send-plane-line'}`}></i>
+              <i className={`text-lg ${loading ? 'ri-loader-4-line animate-spin' : 'ri-send-plane-line'}`} aria-hidden="true"></i>
             </button>
           </div>
           <p className="text-xs text-foreground-500 text-center mt-2">

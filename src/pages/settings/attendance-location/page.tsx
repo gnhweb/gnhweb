@@ -446,7 +446,7 @@ export default function AttendanceLocationPage() {
                         <i className={`ri-map-pin-line ${loc.is_active ? 'text-emerald-600' : 'text-foreground-400'}`}></i>
                       </div>
                       <div>
-                        <h3 className="text-sm font-semibold text-foreground-950">{loc.label}</h3>
+                        <h2 className="text-sm font-semibold text-foreground-950">{loc.label}</h2>
                         <p className="text-xs text-foreground-500">반경 {loc.radius_meters}m · ({loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)})</p>
                       </div>
                     </div>
@@ -493,9 +493,9 @@ export default function AttendanceLocationPage() {
                   {(
                     <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-5 space-y-5">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold text-foreground-950">
+                        <h2 className="text-sm font-bold text-foreground-950">
                           {editingId ? `'${label}' 수정` : '새 위치 등록'}
-                        </h3>
+                        </h2>
                         {editingId && (
                           <button onClick={resetForm} className="text-xs text-foreground-500 hover:text-foreground-700 cursor-pointer">
                             취소

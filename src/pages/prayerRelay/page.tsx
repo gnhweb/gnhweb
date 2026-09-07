@@ -199,7 +199,7 @@ export default function PrayerRelay() {
                 <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-accent-100 flex items-center justify-center">
                   <i className="ri-heart-line text-3xl text-accent-400"></i>
                 </div>
-                <h3 className="text-lg font-semibold text-foreground-950 mb-2">진행 중인 릴레이가 없어요</h3>
+                <h2 className="text-lg font-semibold text-foreground-950 mb-2">진행 중인 릴레이가 없어요</h2>
                 <p className="text-sm text-foreground-600 mb-6">첫 기도 릴레이를 시작해보세요!</p>
               </div>
             ) : (
@@ -213,7 +213,7 @@ export default function PrayerRelay() {
                     onClick={() => { setView('detail'); loadDetail(r.id); }}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-bold text-foreground-800">{r.title}</h3>
+                      <h2 className="text-sm font-bold text-foreground-800">{r.title}</h2>
                       <div className="flex items-center gap-1.5">
                         {isEditor && (
                           <button onClick={(e) => { e.stopPropagation(); handleDelete(r.id); }} className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-rose-50 cursor-pointer">
@@ -303,7 +303,7 @@ export default function PrayerRelay() {
             {/* Join form - only if active and not already joined */}
             {activeRelay.status === 'active' && !isAlreadyJoined && (
               <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6">
-                <h3 className="text-sm font-bold text-foreground-800 mb-3">이어서 기도하기</h3>
+                <h2 className="text-sm font-bold text-foreground-800 mb-3">이어서 기도하기</h2>
                 <textarea
                   value={joinPrayer}
                   onChange={e => { setJoinPrayer(e.target.value); setJoinError(''); }}

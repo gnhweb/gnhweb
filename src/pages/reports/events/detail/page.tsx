@@ -171,10 +171,10 @@ export default function EventReportDetail() {
 
         <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 space-y-6">
           <div>
-            <h3 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
+            <h2 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
               <i className="ri-star-line text-secondary-500"></i>
               성과 요약
-            </h3>
+            </h2>
             <div className="bg-secondary-50/50 rounded-xl p-4 border border-secondary-200">
               <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{report.performance_summary}</p>
             </div>
@@ -182,10 +182,10 @@ export default function EventReportDetail() {
 
           {report.improvement_points && (
             <div>
-              <h3 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
+              <h2 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
                 <i className="ri-lightbulb-line text-primary-500"></i>
                 개선점
-              </h3>
+              </h2>
               <div className="bg-primary-50/50 rounded-xl p-4 border border-primary-200">
                 <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{report.improvement_points}</p>
               </div>
@@ -194,10 +194,10 @@ export default function EventReportDetail() {
 
           {report.feedback_text && (
             <div>
-              <h3 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
+              <h2 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
                 <i className="ri-chat-smile-2-line text-accent-500"></i>
                 참가자 피드백
-              </h3>
+              </h2>
               <div className="bg-accent-50/50 rounded-xl p-4 border border-accent-200">
                 <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{report.feedback_text}</p>
               </div>
@@ -206,13 +206,13 @@ export default function EventReportDetail() {
 
           {report.feedback && (
             <div>
-              <h3 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
+              <h2 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
                 <i className="ri-feedback-line text-foreground-600"></i>
                 교사 피드백
                 {report.reviewer_name && (
                   <span className="text-xs text-foreground-600 font-normal">· {report.reviewer_name}</span>
                 )}
-              </h3>
+              </h2>
               <div className="bg-secondary-100 rounded-xl p-4 border border-secondary-200">
                 <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{report.feedback}</p>
               </div>

@@ -282,7 +282,7 @@ export default function AdminApprovals() {
               <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-emerald-100 flex items-center justify-center">
                 <i className="ri-check-double-line text-3xl text-emerald-500"></i>
               </div>
-              <h3 className="text-lg font-semibold text-foreground-950 mb-2">승인 대기 중인 회원이 없습니다</h3>
+              <h2 className="text-lg font-semibold text-foreground-950 mb-2">승인 대기 중인 회원이 없습니다</h2>
               <p className="text-sm text-foreground-600">모든 신규 가입이 처리되었습니다.</p>
               <Link to="/teacher-dashboard" className="inline-flex items-center gap-1.5 mt-4 text-sm text-primary-600 hover:text-primary-700 cursor-pointer">
                 <i className="ri-arrow-left-line"></i>

@@ -1208,11 +1208,21 @@ export default function ClubDetail() {
                     {clubDetail.photos.map((photo, i) => (
                       <div
                         key={i}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`동아리 사진 ${i + 1} ${isClubLeader && selectedPhotos.size > 0 ? '선택' : '크게 보기'}`}
                         onClick={() => {
                           if (isClubLeader && selectedPhotos.size > 0) togglePhotoSelect(photo.url);
                           else setLightboxIndex(i);
                         }}
-                        className={`group relative overflow-hidden rounded-xl bg-background-200 aspect-[4/3] cursor-pointer active:scale-[0.98] transition-transform ${selectedPhotos.has(photo.url) ? 'ring-2 ring-rose-500 ring-offset-2 ring-offset-background-100' : ''}`}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (isClubLeader && selectedPhotos.size > 0) togglePhotoSelect(photo.url);
+                            else setLightboxIndex(i);
+                          }
+                        }}
+                        className={`group relative overflow-hidden rounded-xl bg-background-200 aspect-[4/3] cursor-pointer active:scale-[0.98] transition-transform focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none ${selectedPhotos.has(photo.url) ? 'ring-2 ring-rose-500 ring-offset-2 ring-offset-background-100' : ''}`}
                       >
                         <img src={photo.thumbUrl || photo.url} alt={`동아리 사진 ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         {isClubLeader && (

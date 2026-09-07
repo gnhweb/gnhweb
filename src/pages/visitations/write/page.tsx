@@ -180,12 +180,13 @@ export default function VisitationWrite() {
 
           <div className="bg-background-100 border border-background-200 rounded-2xl p-6 space-y-6">
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-user-line mr-1.5 text-foreground-600"></i>
+              <label htmlFor="vw-student-name" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-user-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 학생 선택
               </label>
               <div className="relative">
                 <input
+                  id="vw-student-name"
                   type="text"
                   name="student_name"
                   value={studentSearch}
@@ -234,11 +235,12 @@ export default function VisitationWrite() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground-950 mb-2">
-                  <i className="ri-calendar-line mr-1.5 text-foreground-600"></i>
+                <label htmlFor="vw-date" className="block text-sm font-medium text-foreground-950 mb-2">
+                  <i className="ri-calendar-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                   날짜
                 </label>
                 <input
+                  id="vw-date"
                   type="date"
                   name="scheduled_date"
                   value={scheduledDate}
@@ -247,11 +249,12 @@ export default function VisitationWrite() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground-950 mb-2">
-                  <i className="ri-time-line mr-1.5 text-foreground-600"></i>
+                <label htmlFor="vw-time" className="block text-sm font-medium text-foreground-950 mb-2">
+                  <i className="ri-time-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                   시간
                 </label>
                 <input
+                  id="vw-time"
                   type="time"
                   name="scheduled_time"
                   value={scheduledTime}
@@ -291,12 +294,13 @@ export default function VisitationWrite() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-chat-3-line mr-1.5 text-foreground-600"></i>
+              <label htmlFor="vw-topic" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-chat-3-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 심방 주제
                 <span className="text-foreground-500 font-normal ml-1">(선택)</span>
               </label>
               <input
+                id="vw-topic"
                 type="text"
                 name="topic"
                 value={topic}
@@ -308,12 +312,13 @@ export default function VisitationWrite() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-file-text-line mr-1.5 text-foreground-600"></i>
+              <label htmlFor="vw-notes" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-file-text-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 사전 메모
                 <span className="text-foreground-500 font-normal ml-1">(선택, {notes.length}/500)</span>
               </label>
               <textarea
+                id="vw-notes"
                 name="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

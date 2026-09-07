@@ -629,7 +629,7 @@ export default function AdminRolesPage() {
                 <div className="w-14 h-14 rounded-[20px] bg-accent-100 flex items-center justify-center mx-auto mb-3">
                   <i className="ri-alert-line text-2xl text-accent-600"></i>
                 </div>
-                <h3 className="text-lg font-bold text-foreground-950 mb-1">정말 추방하시겠습니까?</h3>
+                <h2 className="text-lg font-bold text-foreground-950 mb-1">정말 추방하시겠습니까?</h2>
                 <p className="text-sm text-foreground-600">
                   <span className="font-semibold text-gray-700">{expelTarget.name}</span>님을 추방 처리합니다. 추방된 사용자는 &apos;추방됨&apos; 탭에서 복원할 수 있습니다.
                 </p>
@@ -736,7 +736,7 @@ function CAManager({ users, extraClubs, loadingExtraClubs, addExtraClub, removeE
     >
       <div className="flex items-center gap-2 mb-3">
         <i className="ri-music-2-line text-accent-600"></i>
-        <h3 className="text-sm font-bold text-accent-800">천화래와 청명 (CA) 겸직 관리</h3>
+        <h2 className="text-sm font-bold text-accent-800">천화래와 청명 (CA) 겸직 관리</h2>
       </div>
       <p className="text-xs text-accent-600 mb-4">
         천화래·청명(찬양·밴드) 동아리는 전용 겸직 관리입니다. 교사는 CA 단원에 포함될 수 없습니다.
@@ -889,7 +889,7 @@ function ClubTeacherManager({ users, showToast, fetchUsers }: {
     >
       <div className="flex items-center gap-2 mb-4">
         <i className="ri-user-star-line text-secondary-600"></i>
-        <h3 className="text-sm font-bold text-secondary-800">동아리별 담당 교사 지정 (다중 지정 가능)</h3>
+        <h2 className="text-sm font-bold text-secondary-800">동아리별 담당 교사 지정 (다중 지정 가능)</h2>
       </div>
       <p className="text-xs text-secondary-600 mb-4">각 동아리에 여러 명의 담당 교사를 지정할 수 있습니다. 지정된 교사는 해당 동아리의 보고서와 출석을 확인할 수 있습니다.</p>
 
@@ -1154,9 +1154,9 @@ function UserRow({
               setEditing('club');
             }}
             disabled={isSaving}
-            className="text-sm text-gray-300 hover:text-gray-500 cursor-pointer transition-colors"
+            className="text-sm text-gray-500 hover:text-gray-700 cursor-pointer transition-colors"
           >
-            지정 안됨 <i className="ri-arrow-down-s-line text-xs"></i>
+            지정 안됨 <i className="ri-arrow-down-s-line text-xs" aria-hidden="true"></i>
           </button>
         )}
       </td>
@@ -1186,7 +1186,7 @@ function UserRow({
             disabled={isSaving}
             className="text-sm text-gray-500 hover:text-gray-700 cursor-pointer transition-colors group flex items-center gap-1"
           >
-            {user.zone || <span className="text-gray-300">미지정</span>}
+            {user.zone || <span className="text-gray-500">미지정</span>}
             <i className="ri-pencil-line text-xs text-gray-300 group-hover:text-gray-400"></i>
           </button>
         )}
@@ -1196,6 +1196,9 @@ function UserRow({
         <button
           onClick={handleActiveToggle}
           disabled={isSaving}
+          role="switch"
+          aria-checked={user.is_active}
+          aria-label={user.is_active ? '활성 상태 (클릭 시 비활성화)' : '비활성 상태 (클릭 시 활성화)'}
           className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${
             user.is_active ? 'bg-emerald-400' : 'bg-gray-200'
           }`}
@@ -1204,6 +1207,7 @@ function UserRow({
             animate={{ x: user.is_active ? 18 : 2 }}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             className="w-4 h-4 rounded-full bg-background-100 shadow-sm absolute top-0.5"
+            aria-hidden="true"
           ></motion.div>
         </button>
       </td>
@@ -1230,8 +1234,9 @@ function UserRow({
           <button
             onClick={() => onExpel(user)}
             disabled={isSaving}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-300 hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
             title="추방"
+            aria-label="추방"
           >
             <i className="ri-user-unfollow-line"></i>
           </button>

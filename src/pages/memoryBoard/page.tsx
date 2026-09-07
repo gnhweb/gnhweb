@@ -253,7 +253,7 @@ export default function MemoryBoard() {
       {showUpload && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
           <div className="bg-background-100 rounded-[20px] p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold mb-4">사진 올리기</h3>
+            <h2 className="text-lg font-bold mb-4">사진 올리기</h2>
             <input type="text" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} placeholder="제목" maxLength={30} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none focus:border-rose-400 mb-4" />
             <input type="file" accept="image/*" onChange={e => { setUploadFile(e.target.files?.[0] || null); setUploadError(null); }} className="w-full text-sm mb-4" />
             {uploadError && (

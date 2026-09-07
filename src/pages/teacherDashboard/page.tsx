@@ -343,9 +343,9 @@ export default function TeacherDashboard() {
           {/* ── 전체 출결 3종 막대그래프 ── */}
           <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
+              <h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
                 <i className="ri-bar-chart-2-line text-primary-600"></i>전체 출결 현황
-              </h3>
+              </h2>
               <span className="text-xs text-foreground-500">전체 학생 기준</span>
             </div>
             <div className="space-y-4">
@@ -373,13 +373,13 @@ export default function TeacherDashboard() {
 
           <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-              <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
+              <h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
                 <i className="ri-user-heart-line text-rose-600"></i>
                 오늘 출석 현황
                 <span className="text-xs text-foreground-500 font-normal">
                   (출석 {attendanceList.attended.length}명 · 불참 {attendanceList.absent.length}명 · 미응답 {attendanceList.unresponsive.length}명)
                 </span>
-              </h3>
+              </h2>
               <div className="flex items-center gap-1 bg-background-200 rounded-full p-0.5">
                 <button
                   onClick={() => setAttendanceFilter('all')}
@@ -458,9 +458,9 @@ export default function TeacherDashboard() {
           {/* Club attendance */}
           <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-8">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
+              <h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
                 <i className="ri-community-line text-primary-600"></i>동아리별 출결
-              </h3>
+              </h2>
               <span className="text-xs text-foreground-500">출석률</span>
             </div>
             <div className="space-y-4">
@@ -485,7 +485,7 @@ export default function TeacherDashboard() {
           <div className="grid md:grid-cols-2 gap-6 mb-8">
             <div className="bg-background-100 border border-background-200 rounded-[20px] p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-file-list-3-line text-primary-600"></i>최근 주간 보고서</h3>
+                <h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-file-list-3-line text-primary-600"></i>최근 주간 보고서</h2>
                 <span className="text-xs text-foreground-500">{weeklyReports.length}건</span>
               </div>
               {weeklyReports.length === 0 ? <p className="text-sm text-foreground-500 py-6 text-center">등록된 보고서가 없습니다.</p> : (
@@ -502,7 +502,7 @@ export default function TeacherDashboard() {
 
             <div className="bg-background-100 border border-background-200 rounded-[20px] p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-seedling-line text-emerald-600"></i>최근 성장 기록</h3>
+                <h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-seedling-line text-emerald-600"></i>최근 성장 기록</h2>
                 <span className="text-xs text-foreground-500">{growthRecords.length}건</span>
               </div>
               {growthRecords.length === 0 ? <p className="text-sm text-foreground-500 py-6 text-center">등록된 성장 기록이 없습니다.</p> : (
@@ -521,14 +521,14 @@ export default function TeacherDashboard() {
           {/* QnA and marathon */}
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-background-100 border border-background-200 rounded-[20px] p-5">
-              <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-question-answer-line text-amber-600"></i>미답변 질문</h3><span className="text-xs text-foreground-500">{unansweredQnA.length}건</span></div>
+              <div className="flex items-center justify-between mb-4"><h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-question-answer-line text-amber-600"></i>미답변 질문</h2><span className="text-xs text-foreground-500">{unansweredQnA.length}건</span></div>
               {unansweredQnA.length === 0 ? <p className="text-sm text-foreground-500 py-6 text-center">미답변 질문이 없습니다.</p> : (
                 <div className="space-y-2">{unansweredQnA.map((q) => <Link to={`/qna-board?question=${q.id}`} key={q.id} className="block rounded-xl bg-background-50 border border-background-200 p-3 hover:bg-background-100 transition-colors"><p className="text-sm font-semibold text-foreground-800 line-clamp-2">{q.question}</p><p className="text-xs text-foreground-500 mt-1">{formatDate(q.created_at)}</p></Link>)}</div>
               )}
             </div>
 
             <div className="bg-background-100 border border-background-200 rounded-[20px] p-5">
-              <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-book-open-line text-rose-600"></i>묵상 확인 대기</h3><span className="text-xs text-foreground-500">{pendingMarathon.length}건</span></div>
+              <div className="flex items-center justify-between mb-4"><h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-book-open-line text-rose-600"></i>묵상 확인 대기</h2><span className="text-xs text-foreground-500">{pendingMarathon.length}건</span></div>
               {pendingMarathon.length === 0 ? <p className="text-sm text-foreground-500 py-6 text-center">확인 대기 묵상이 없습니다.</p> : (
                 <div className="space-y-2">
                   {pendingMarathon.map((m) => (

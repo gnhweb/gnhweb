@@ -168,11 +168,12 @@ export default function GrowthReportEdit() {
         <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 space-y-6">
           <div className="grid grid-cols-[1fr_auto] gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-user-line mr-1.5 text-foreground-600"></i>
+              <label htmlFor="ge-student-name" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-user-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 학생 이름
               </label>
               <input
+                id="ge-student-name"
                 type="text"
                 value={studentName}
                 onChange={(e) => setStudentName(e.target.value)}
@@ -182,11 +183,12 @@ export default function GrowthReportEdit() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <i className="ri-calendar-line mr-1.5 text-gray-400"></i>
+              <label htmlFor="ge-record-date" className="block text-sm font-medium text-gray-700 mb-2">
+                <i className="ri-calendar-line mr-1.5 text-gray-400" aria-hidden="true"></i>
                 기록일
               </label>
               <input
+                id="ge-record-date"
                 type="date"
                 value={recordDate}
                 onChange={(e) => setRecordDate(e.target.value)}
@@ -196,12 +198,13 @@ export default function GrowthReportEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <i className="ri-heart-line mr-1.5 text-gray-400"></i>
+            <label htmlFor="ge-spiritual-growth" className="block text-sm font-medium text-gray-700 mb-2">
+              <i className="ri-heart-line mr-1.5 text-gray-400" aria-hidden="true"></i>
               영적 성장 내용
-              <span className="text-gray-300 font-normal ml-1">({spiritualGrowth.length}/500)</span>
+              <span className="text-gray-500 font-normal ml-1">({spiritualGrowth.length}/500)</span>
             </label>
             <textarea
+              id="ge-spiritual-growth"
               value={spiritualGrowth}
               onChange={(e) => setSpiritualGrowth(e.target.value)}
               placeholder="학생의 영적 성장과 변화를 구체적으로 기록해주세요..."
@@ -212,12 +215,13 @@ export default function GrowthReportEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <i className="ri-line-chart-line mr-1.5 text-gray-400"></i>
+            <label htmlFor="ge-participation" className="block text-sm font-medium text-gray-700 mb-2">
+              <i className="ri-line-chart-line mr-1.5 text-gray-400" aria-hidden="true"></i>
               참여도 변화
-              <span className="text-gray-300 font-normal ml-1">({participationChange.length}/500)</span>
+              <span className="text-gray-500 font-normal ml-1">({participationChange.length}/500)</span>
             </label>
             <textarea
+              id="ge-participation"
               value={participationChange}
               onChange={(e) => setParticipationChange(e.target.value)}
               placeholder="출석률 변화, 연습 태도, 자발적 참여 활동 등을 기록해주세요..."
@@ -228,12 +232,13 @@ export default function GrowthReportEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <i className="ri-hand-heart-line mr-1.5 text-gray-400"></i>
+            <label htmlFor="ge-prayer-requests" className="block text-sm font-medium text-gray-700 mb-2">
+              <i className="ri-hand-heart-line mr-1.5 text-gray-400" aria-hidden="true"></i>
               기도제목
-              <span className="text-gray-300 font-normal ml-1">({prayerRequests.length}/500)</span>
+              <span className="text-gray-500 font-normal ml-1">({prayerRequests.length}/500)</span>
             </label>
             <textarea
+              id="ge-prayer-requests"
               value={prayerRequests}
               onChange={(e) => setPrayerRequests(e.target.value)}
               placeholder="학생이 나누었거나 보호자 관점에서 필요한 기도제목을 기록해주세요..."

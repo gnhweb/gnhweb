@@ -235,9 +235,17 @@ export default function SeniorProposals() {
                 <div key={p.id} className="bg-background-100 border-0 md:border md:border-background-200 rounded-[20px] md:rounded-2xl shadow-card md:shadow-none overflow-hidden">
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0" onClick={() => setExpandId(expandId === p.id ? null : p.id)} style={{ cursor: 'pointer' }}>
+                      <div
+                        className="flex-1 min-w-0"
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={expandId === p.id}
+                        onClick={() => setExpandId(expandId === p.id ? null : p.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandId(expandId === p.id ? null : p.id); } }}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h3 className="text-sm font-bold text-foreground-950">{p.title}</h3>
+                          <h2 className="text-sm font-bold text-foreground-950">{p.title}</h2>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusLabel(p.status).cls}`}>{statusLabel(p.status).text}</span>
                         </div>
                         <p className="text-xs text-foreground-600">
@@ -300,7 +308,7 @@ export default function SeniorProposals() {
         {showForm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-background-100 border border-background-200 rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
-              <h3 className="text-lg font-bold text-foreground-950 mb-4">{editingId ? '제안 수정' : '새 제안 작성'}</h3>
+              <h2 className="text-lg font-bold text-foreground-950 mb-4">{editingId ? '제안 수정' : '새 제안 작성'}</h2>
               <div className="space-y-3">
                 <input type="text" value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="제목" maxLength={100} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none focus:border-rose-400" />
                 <textarea value={formContent} onChange={e => setFormContent(e.target.value)} placeholder="내용을 자세히 작성해주세요" rows={5} maxLength={1000} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none focus:border-rose-400 resize-none" />

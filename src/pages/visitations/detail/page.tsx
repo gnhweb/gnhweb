@@ -316,7 +316,7 @@ export default function VisitationDetail() {
 
             {visitation.status === 'scheduled' && canModify && (
               <div className="mt-6 pt-5 border-t border-background-200">
-                <h3 className="text-sm font-bold text-foreground-950 mb-4">심방 완료하기</h3>
+                <h2 className="text-sm font-bold text-foreground-950 mb-4">심방 완료하기</h2>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-foreground-600 mb-1.5">
@@ -395,7 +395,7 @@ export default function VisitationDetail() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <h3 className="text-sm font-bold text-foreground-950 mb-1">심방 기록 수정</h3>
+                    <h2 className="text-sm font-bold text-foreground-950 mb-1">심방 기록 수정</h2>
                     <div>
                       <label className="block text-xs font-medium text-foreground-600 mb-1.5">
                         심방 기록 ({completionNotes.length}/1000)

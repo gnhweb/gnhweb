@@ -125,6 +125,20 @@ export default function MeetingsPage() {
           )}
         </div>
 
+        <Link
+          to="/notebook"
+          className="group flex items-center gap-4 mb-6 p-4 md:p-5 rounded-2xl bg-gradient-to-br from-primary-600 via-primary-500 to-violet-600 hover:brightness-105 transition-all cursor-pointer relative overflow-hidden"
+        >
+          <div className="absolute inset-0 opacity-10 [background-image:radial-gradient(circle_at_15%_30%,white,transparent_35%)]"></div>
+          <div className="w-11 h-11 rounded-xl bg-background-100/15 backdrop-blur-sm border border-white/20 flex items-center justify-center flex-shrink-0 relative">
+            <i className="ri-robot-2-fill text-white text-xl"></i>
+          </div>
+          <div className="flex-1 min-w-0 relative">
+            <p className="text-sm font-bold text-white">AI 회의 코파일럿과 대화하기</p>
+            <p className="text-xs text-white/75 mt-0.5">강릉학생회만의 독자적인 AI 회의 도우미 — 안건 구조화부터 Action Item 도출까지</p>
+          </div>
+          <i className="ri-arrow-right-line text-white/80 text-xl group-hover:translate-x-1 transition-transform flex-shrink-0 relative"></i>
+        </Link>
 
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 mb-4 -mx-1 px-1">
           <button
@@ -190,10 +204,11 @@ export default function MeetingsPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" role="list">
             {filtered.map((meeting, idx) => (
               <motion.div
                 key={meeting.id}
+                role="listitem"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, delay: idx * 0.04 }}
@@ -205,9 +220,9 @@ export default function MeetingsPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <h3 className="text-base font-bold text-foreground-950 group-hover:text-primary-700 transition-colors truncate">
+                        <h2 className="text-base font-bold text-foreground-950 group-hover:text-primary-700 transition-colors truncate">
                           {meeting.title}
-                        </h3>
+                        </h2>
                         {meeting.club && (
                           <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-secondary-100 text-secondary-700 whitespace-nowrap">
                             {MEETING_CLUB_LABELS[meeting.club as keyof typeof MEETING_CLUB_LABELS] || meeting.club}

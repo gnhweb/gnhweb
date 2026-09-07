@@ -201,7 +201,7 @@ export default function PersonalSchedule() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-foreground-950">{s.title}</h3>
+                      <h2 className="text-sm font-bold text-foreground-950">{s.title}</h2>
                       <div className="flex items-center gap-1">
                         <button onClick={() => handleEdit(s)} className="text-gray-400 hover:text-sky-600 cursor-pointer p-0.5">
                           <i className="ri-edit-line text-xs"></i>
@@ -241,7 +241,7 @@ export default function PersonalSchedule() {
               className="bg-background-100 rounded-[20px] p-6 max-w-md w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold mb-4">{editingId ? '일정 수정' : '개인 일정 추가'}</h3>
+              <h2 className="text-lg font-bold mb-4">{editingId ? '일정 수정' : '개인 일정 추가'}</h2>
               <div className="space-y-3">
                 <input
                   type="date"

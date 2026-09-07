@@ -173,11 +173,12 @@ export default function EventReportEdit() {
         <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 space-y-6">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">
-                <i className="ri-flag-line mr-1.5 text-foreground-600"></i>
+              <label htmlFor="ee-event-name" className="block text-sm font-medium text-foreground-950 mb-2">
+                <i className="ri-flag-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                 행사명
               </label>
               <input
+                id="ee-event-name"
                 type="text"
                 value={eventName}
                 onChange={(e) => setEventName(e.target.value)}
@@ -189,11 +190,12 @@ export default function EventReportEdit() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground-950 mb-2">
-                  <i className="ri-calendar-line mr-1.5 text-foreground-600"></i>
+                <label htmlFor="ee-event-date" className="block text-sm font-medium text-foreground-950 mb-2">
+                  <i className="ri-calendar-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                   행사일
                 </label>
                 <input
+                  id="ee-event-date"
                   type="date"
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
@@ -201,11 +203,12 @@ export default function EventReportEdit() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground-950 mb-2">
-                  <i className="ri-team-line mr-1.5 text-foreground-600"></i>
+                <label htmlFor="ee-participant-count" className="block text-sm font-medium text-foreground-950 mb-2">
+                  <i className="ri-team-line mr-1.5 text-foreground-600" aria-hidden="true"></i>
                   참여 인원
                 </label>
                 <input
+                  id="ee-participant-count"
                   type="number"
                   value={participantCount}
                   onChange={(e) => setParticipantCount(e.target.value)}
@@ -219,12 +222,13 @@ export default function EventReportEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <i className="ri-star-line mr-1.5 text-gray-400"></i>
+            <label htmlFor="ee-performance-summary" className="block text-sm font-medium text-gray-700 mb-2">
+              <i className="ri-star-line mr-1.5 text-gray-400" aria-hidden="true"></i>
               성과 요약
-              <span className="text-gray-300 font-normal ml-1">({performanceSummary.length}/1000)</span>
+              <span className="text-gray-500 font-normal ml-1">({performanceSummary.length}/1000)</span>
             </label>
             <textarea
+              id="ee-performance-summary"
               value={performanceSummary}
               onChange={(e) => setPerformanceSummary(e.target.value)}
               placeholder="행사의 주요 성과와 결과를 구체적으로 기록해주세요..."
@@ -235,12 +239,13 @@ export default function EventReportEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <i className="ri-lightbulb-line mr-1.5 text-gray-400"></i>
+            <label htmlFor="ee-improvement-points" className="block text-sm font-medium text-gray-700 mb-2">
+              <i className="ri-lightbulb-line mr-1.5 text-gray-400" aria-hidden="true"></i>
               개선점
-              <span className="text-gray-300 font-normal ml-1">({improvementPoints.length}/1000)</span>
+              <span className="text-gray-500 font-normal ml-1">({improvementPoints.length}/1000)</span>
             </label>
             <textarea
+              id="ee-improvement-points"
               value={improvementPoints}
               onChange={(e) => setImprovementPoints(e.target.value)}
               placeholder="이번 행사에서 발견된 문제점과 개선이 필요한 부분을 기록해주세요..."
@@ -251,12 +256,13 @@ export default function EventReportEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <i className="ri-chat-smile-2-line mr-1.5 text-gray-400"></i>
+            <label htmlFor="ee-feedback-text" className="block text-sm font-medium text-gray-700 mb-2">
+              <i className="ri-chat-smile-2-line mr-1.5 text-gray-400" aria-hidden="true"></i>
               참가자 피드백
-              <span className="text-gray-300 font-normal ml-1">({feedbackText.length}/1000)</span>
+              <span className="text-gray-500 font-normal ml-1">({feedbackText.length}/1000)</span>
             </label>
             <textarea
+              id="ee-feedback-text"
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
               placeholder="참가자나 관객으로부터 받은 피드백을 기록해주세요..."

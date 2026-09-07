@@ -529,10 +529,10 @@ export default function BibleMarathon() {
               {/* Registration form */}
               {user && (
                 <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6">
-                  <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
                     <i className="ri-bookmark-line text-amber-600"></i>
                     묵상 완료 등록 {isTeacherOrChief && <span className="text-xs font-normal text-emerald-600">(자동 확정)</span>}
-                  </h3>
+                  </h2>
                   <div className="space-y-3">
                     <select value={selectedBook} onChange={e => handleBookChange(e.target.value)} className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 outline-none focus:border-amber-400 cursor-pointer bg-background-100">
                       <option value="">읽은 성경 책 선택</option>
@@ -569,7 +569,7 @@ export default function BibleMarathon() {
               {/* My entries */}
               {user && (
                 <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6">
-                  <h3 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><i className="ri-file-list-3-line text-amber-600"></i>내 등록 내역</h3>
+                  <h2 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><i className="ri-file-list-3-line text-amber-600"></i>내 등록 내역</h2>
                   {myEntries.length === 0 ? (
                     <p className="text-sm text-foreground-600 text-center py-4">아직 등록한 묵상이 없습니다.</p>
                   ) : (
@@ -601,7 +601,7 @@ export default function BibleMarathon() {
               {isTeacherOrChief && (
                 <div className="bg-background-100 border border-amber-200 rounded-[20px] p-5 mb-6">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
-                    <h3 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-check-double-line text-amber-600"></i>확인 대기 중인 묵상 ({filteredPending.length}건)</h3>
+                    <h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-check-double-line text-amber-600"></i>확인 대기 중인 묵상 ({filteredPending.length}건)</h2>
                     {(assignedClub || isChief) && allClubs.length > 0 && (
                       <div className="flex items-center gap-1 bg-background-200/70 rounded-full p-1 flex-shrink-0">
                         <button onClick={() => setClubFilter('all')} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap transition-colors ${clubFilter === 'all' ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600 hover:text-foreground-950'}`}>전체</button>
@@ -636,7 +636,7 @@ export default function BibleMarathon() {
 
               {/* Club competition */}
               <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6">
-                <h3 className="text-sm font-bold text-foreground-950 mb-4 flex items-center gap-2"><i className="ri-trophy-line text-amber-500"></i>동아리별 완독 순위</h3>
+                <h2 className="text-sm font-bold text-foreground-950 mb-4 flex items-center gap-2"><i className="ri-trophy-line text-amber-500"></i>동아리별 완독 순위</h2>
                 {(() => {
                   const clubStats = new Map<string, Set<string>>();
                   entries.filter(e => e.status === 'confirmed' && e.student_club).forEach(e => {
@@ -680,7 +680,7 @@ export default function BibleMarathon() {
               {/* Book progress — "잔디 그래프" 느낌의 타일 그리드 */}
               <div className="bg-background-100 border border-background-200 rounded-[20px] p-5">
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-sm font-bold text-foreground-700">책별 진행 현황 ({ALL_BOOKS.length}권 · 장 단위)</h3>
+                  <h2 className="text-sm font-bold text-foreground-700">책별 진행 현황 ({ALL_BOOKS.length}권 · 장 단위)</h2>
                 </div>
                 <div className="flex items-center gap-3 mb-3 text-[10px] text-foreground-400">
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-background-300 inline-block"></span>미시작</span>

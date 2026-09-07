@@ -287,7 +287,7 @@ export default function BiblePickHistory() {
             <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-primary-100 flex items-center justify-center">
               <i className="ri-book-2-line text-3xl text-primary-400"></i>
             </div>
-            <h3 className="text-lg font-semibold text-foreground-950 mb-2">아직 뽑은 말씀이 없어요</h3>
+            <h2 className="text-lg font-semibold text-foreground-950 mb-2">아직 뽑은 말씀이 없어요</h2>
             <p className="text-sm text-foreground-600 mb-6">말씀뽑기에서 감정을 선택하고 말씀을 받아보세요</p>
             <Link
               to="/bible-pick"
@@ -309,9 +309,9 @@ export default function BiblePickHistory() {
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-background-200 flex items-center justify-center">
               <i className="ri-emotion-line text-2xl text-foreground-500"></i>
             </div>
-            <h3 className="text-base font-semibold text-foreground-700 mb-1">
+            <h2 className="text-base font-semibold text-foreground-700 mb-1">
               '{selectedEmotion}' 감정으로 뽑은 말씀이 없어요
-            </h3>
+            </h2>
             <p className="text-sm text-foreground-600 mb-5">다른 감정을 선택하거나 새로운 말씀을 뽑아보세요</p>
             <button
               onClick={() => setSelectedEmotion('전체')}

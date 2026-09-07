@@ -270,19 +270,19 @@ export default function WeeklyReportWrite() {
                 </div>
 
                 <div className="rounded-2xl bg-background-50 border border-background-200 p-4">
-                  <div className="flex items-center justify-between mb-2"><label className="text-sm font-semibold text-foreground-900">출석 인원</label><span className="text-xs font-medium text-foreground-700">전체 {totalMembers}명</span></div>
-                  <input type="number" min="0" max={totalMembers || undefined} value={entry.attendance_count ?? ''} onChange={(e) => updatePracticeEntry(entry.practice_date, { attendance_count: e.target.value === '' ? null : Number(e.target.value) })} placeholder="예: 12" className="w-full px-4 py-3 rounded-xl border border-background-200 bg-background-100 text-sm" />
+                  <div className="flex items-center justify-between mb-2"><label htmlFor={`attendance-${entry.practice_date}`} className="text-sm font-semibold text-foreground-900">출석 인원</label><span className="text-xs font-medium text-foreground-700">전체 {totalMembers}명</span></div>
+                  <input id={`attendance-${entry.practice_date}`} type="number" min="0" max={totalMembers || undefined} value={entry.attendance_count ?? ''} onChange={(e) => updatePracticeEntry(entry.practice_date, { attendance_count: e.target.value === '' ? null : Number(e.target.value) })} placeholder="예: 12" className="w-full px-4 py-3 rounded-xl border border-background-200 bg-background-100 text-sm" />
                   {typeof entry.attendance_count === 'number' && totalMembers > 0 && <p className="text-xs font-semibold text-primary-800 mt-2">출석률 {Math.round((entry.attendance_count / totalMembers) * 100)}%</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-foreground-900 mb-2">진행 상황 <span className="text-xs font-normal text-foreground-700">({entry.progress_summary.length}/500)</span></label>
-                  <textarea value={entry.progress_summary} onChange={(e) => updatePracticeEntry(entry.practice_date, { progress_summary: e.target.value })} maxLength={500} rows={4} placeholder="오늘 연습에서 무엇을 연습했고, 어떤 진전이 있었는지 기록해주세요." className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm resize-none bg-background-50" />
+                  <label htmlFor={`progress-${entry.practice_date}`} className="block text-sm font-semibold text-foreground-900 mb-2">진행 상황 <span className="text-xs font-normal text-foreground-700">({entry.progress_summary.length}/500)</span></label>
+                  <textarea id={`progress-${entry.practice_date}`} value={entry.progress_summary} onChange={(e) => updatePracticeEntry(entry.practice_date, { progress_summary: e.target.value })} maxLength={500} rows={4} placeholder="오늘 연습에서 무엇을 연습했고, 어떤 진전이 있었는지 기록해주세요." className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm resize-none bg-background-50" />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-foreground-900 mb-2">특이 사항 <span className="text-xs font-normal text-foreground-700">({entry.special_notes.length}/500)</span></label>
-                  <textarea value={entry.special_notes} onChange={(e) => updatePracticeEntry(entry.practice_date, { special_notes: e.target.value })} maxLength={500} rows={3} placeholder="결석 사유, 건강 상태, 장비 문제 등 기록할 사항을 적어주세요." className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm resize-none bg-background-50" />
+                  <label htmlFor={`notes-${entry.practice_date}`} className="block text-sm font-semibold text-foreground-900 mb-2">특이 사항 <span className="text-xs font-normal text-foreground-700">({entry.special_notes.length}/500)</span></label>
+                  <textarea id={`notes-${entry.practice_date}`} value={entry.special_notes} onChange={(e) => updatePracticeEntry(entry.practice_date, { special_notes: e.target.value })} maxLength={500} rows={3} placeholder="결석 사유, 건강 상태, 장비 문제 등 기록할 사항을 적어주세요." className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm resize-none bg-background-50" />
                 </div>
               </section>
             ))}
@@ -294,8 +294,8 @@ export default function WeeklyReportWrite() {
                 <div className="rounded-xl bg-background-50 border border-background-200 p-4"><p className="text-xs font-semibold text-foreground-800">평균 출석</p><p className="text-2xl font-black text-foreground-800 mt-1">{summary.averageAttendance}<span className="text-sm ml-1">명</span></p></div>
               </div>
 
-              <div><label className="block text-sm font-semibold text-foreground-900 mb-2">주간 총평 <span className="text-xs font-normal text-foreground-700">({progressSummary.length}/500)</span></label><textarea value={progressSummary} onChange={(e) => setProgressSummary(e.target.value)} maxLength={500} rows={4} placeholder="이번 주 전체적인 활동 흐름과 다음 주에 이어갈 내용을 요약해주세요." className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm resize-none bg-background-50" /></div>
-              <div><label className="block text-sm font-semibold text-foreground-900 mb-2">주간 총 특이사항 <span className="text-xs font-normal text-foreground-700">({specialNotes.length}/500)</span></label><textarea value={specialNotes} onChange={(e) => setSpecialNotes(e.target.value)} maxLength={500} rows={3} placeholder="여러 연습일을 통틀어 공유할 특이사항이 있다면 적어주세요." className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm resize-none bg-background-50" /></div>
+              <div><label htmlFor="weekly-summary" className="block text-sm font-semibold text-foreground-900 mb-2">주간 총평 <span className="text-xs font-normal text-foreground-700">({progressSummary.length}/500)</span></label><textarea id="weekly-summary" value={progressSummary} onChange={(e) => setProgressSummary(e.target.value)} maxLength={500} rows={4} placeholder="이번 주 전체적인 활동 흐름과 다음 주에 이어갈 내용을 요약해주세요." className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm resize-none bg-background-50" /></div>
+              <div><label htmlFor="weekly-notes" className="block text-sm font-semibold text-foreground-900 mb-2">주간 총 특이사항 <span className="text-xs font-normal text-foreground-700">({specialNotes.length}/500)</span></label><textarea id="weekly-notes" value={specialNotes} onChange={(e) => setSpecialNotes(e.target.value)} maxLength={500} rows={3} placeholder="여러 연습일을 통틀어 공유할 특이사항이 있다면 적어주세요." className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm resize-none bg-background-50" /></div>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button onClick={() => saveReport('draft')} disabled={saving} className="flex-1 sm:flex-none inline-flex justify-center items-center gap-1.5 px-5 py-2.5 rounded-full border border-background-200 text-sm font-medium text-foreground-700 hover:bg-background-100 cursor-pointer disabled:opacity-50"><i className="ri-save-line" />{saving ? '저장 중...' : '임시 저장'}</button>

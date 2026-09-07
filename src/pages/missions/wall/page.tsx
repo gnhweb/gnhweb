@@ -136,7 +136,7 @@ export default function MissionWallPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" role="list" aria-label="사명 인증 게시판">
               {entries.map((entry, idx) => {
                 const cat = MISSION_CATEGORIES[entry.mission_category] || MISSION_CATEGORIES.general;
                 const clubLabel = CLUB_LABELS[entry.student_club] || entry.student_club;
@@ -148,6 +148,7 @@ export default function MissionWallPage() {
                 return (
                   <motion.div
                     key={entry.id}
+                    role="listitem"
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.04 }}
@@ -178,10 +179,10 @@ export default function MissionWallPage() {
                     <div className="p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                          <i className={`${cat.icon} text-emerald-600 text-sm`}></i>
+                          <i className={`${cat.icon} text-emerald-600 text-sm`} aria-hidden="true"></i>
                         </div>
                         <div className="min-w-0">
-                          <h3 className="text-sm font-semibold text-foreground-950 truncate">{entry.mission_title}</h3>
+                          <h2 className="text-sm font-semibold text-foreground-950 truncate">{entry.mission_title}</h2>
                           <p className="text-xs text-foreground-500">{cat.label}</p>
                         </div>
                       </div>

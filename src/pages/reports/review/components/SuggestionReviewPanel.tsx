@@ -86,9 +86,10 @@ export default function SuggestionReviewPanel({ item, onClose, onSubmit, onMarkR
             </div>
             <button
               onClick={onClose}
+              aria-label="닫기"
               className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors cursor-pointer"
             >
-              <i className="ri-close-line text-foreground-500"></i>
+              <i className="ri-close-line text-foreground-500" aria-hidden="true"></i>
             </button>
           </div>
 

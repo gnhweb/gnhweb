@@ -191,10 +191,16 @@ export default function SeniorChecklist() {
                 {items.map((item, idx) => (
                   <div key={item.id} className={`flex items-center gap-3 px-5 py-3.5 group ${idx < items.length - 1 ? 'border-b border-background-100' : ''}`}>
                     <div
+                      role="checkbox"
+                      tabIndex={canEdit ? 0 : -1}
+                      aria-checked={item.completed}
+                      aria-label={item.task}
+                      aria-disabled={!canEdit}
                       onClick={() => toggleComplete(item)}
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${canEdit ? 'cursor-pointer' : 'cursor-default'} ${item.completed ? 'bg-emerald-500 border-emerald-500' : 'border-background-300 hover:border-emerald-400'}`}
+                      onKeyDown={(e) => { if (canEdit && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleComplete(item); } }}
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none ${canEdit ? 'cursor-pointer' : 'cursor-default'} ${item.completed ? 'bg-emerald-500 border-emerald-500' : 'border-background-300 hover:border-emerald-400'}`}
                     >
-                      {item.completed && <i className="ri-check-line text-white text-[10px]"></i>}
+                      {item.completed && <i className="ri-check-line text-white text-[10px]" aria-hidden="true"></i>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm ${item.completed ? 'text-foreground-500 line-through' : 'text-foreground-800'}`}>{item.task}</p>
@@ -272,7 +278,7 @@ export default function SeniorChecklist() {
         {showForm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-background-100 border border-background-200 rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
-              <h3 className="text-lg font-bold text-foreground-950 mb-4">{editingId ? '항목 수정' : '새 항목 추가'}</h3>
+              <h2 className="text-lg font-bold text-foreground-950 mb-4">{editingId ? '항목 수정' : '새 항목 추가'}</h2>
               <div className="space-y-3">
                 <input type="text" value={formTask} onChange={e => setFormTask(e.target.value)} placeholder="할 일" maxLength={200} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none focus:border-teal-400" />
                 <input type="text" value={formAssignee} onChange={e => setFormAssignee(e.target.value)} placeholder="담당자 이름" maxLength={50} className="w-full px-4 py-2.5 text-sm rounded-xl border border-background-200 outline-none" />

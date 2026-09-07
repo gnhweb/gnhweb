@@ -575,7 +575,7 @@ export default function Login() {
             <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
               <i className="ri-shield-keyhole-line text-2xl text-amber-600"></i>
             </div>
-            <h3 className="text-lg font-bold text-center text-foreground-950 mb-1">간편 비밀번호 설정</h3>
+            <h2 className="text-lg font-bold text-center text-foreground-950 mb-1">간편 비밀번호 설정</h2>
             <p className="text-sm text-foreground-600 text-center mb-5">
               이 기기에서 다음부턴 이메일 없이<br />숫자 비밀번호만으로 빠르게 들어올 수 있어요
             </p>

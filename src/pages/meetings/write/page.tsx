@@ -107,8 +107,9 @@ export default function MeetingWritePage() {
           <div className="bg-background-100 border border-background-200 rounded-2xl p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-xs font-medium text-foreground-600 mb-1.5">회의 제목 <span className="text-rose-500">*</span></label>
+                <label htmlFor="mw-title" className="block text-xs font-medium text-foreground-600 mb-1.5">회의 제목 <span className="text-rose-500">*</span></label>
                 <input
+                  id="mw-title"
                   type="text"
                   name="title"
                   value={title}
@@ -119,8 +120,9 @@ export default function MeetingWritePage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-foreground-600 mb-1.5">회의 날짜</label>
+                <label htmlFor="mw-date" className="block text-xs font-medium text-foreground-600 mb-1.5">회의 날짜</label>
                 <input
+                  id="mw-date"
                   type="date"
                   name="date"
                   value={date}
@@ -131,8 +133,9 @@ export default function MeetingWritePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-foreground-600 mb-1.5">분류 (동아리 / 회장단)</label>
+              <label htmlFor="mw-club" className="block text-xs font-medium text-foreground-600 mb-1.5">분류 (동아리 / 회장단)</label>
               <select
+                id="mw-club"
                 name="club"
                 value={club}
                 onChange={e => setClub(e.target.value as typeof club)}
@@ -147,8 +150,9 @@ export default function MeetingWritePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-foreground-600 mb-1.5">참석자 (쉼표로 구분)</label>
+              <label htmlFor="mw-attendees" className="block text-xs font-medium text-foreground-600 mb-1.5">참석자 (쉼표로 구분)</label>
               <input
+                id="mw-attendees"
                 type="text"
                 name="attendees"
                 value={attendeesText}
@@ -159,8 +163,9 @@ export default function MeetingWritePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-foreground-600 mb-1.5">회의 요약 <span className="text-rose-500">*</span></label>
+              <label htmlFor="mw-summary" className="block text-xs font-medium text-foreground-600 mb-1.5">회의 요약 <span className="text-rose-500">*</span></label>
               <textarea
+                id="mw-summary"
                 name="summary"
                 value={summary}
                 onChange={e => setSummary(e.target.value)}
@@ -174,10 +179,11 @@ export default function MeetingWritePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-background-100 border border-background-200 rounded-2xl p-5">
-              <label className="block text-xs font-medium text-foreground-600 mb-1.5">
-                <i className="ri-check-line text-emerald-500 mr-1"></i>결정 사항 (한 줄씩)
+              <label htmlFor="mw-decisions" className="block text-xs font-medium text-foreground-600 mb-1.5">
+                <i className="ri-check-line text-emerald-500 mr-1" aria-hidden="true"></i>결정 사항 (한 줄씩)
               </label>
               <textarea
+                id="mw-decisions"
                 name="decisions"
                 value={decisionsText}
                 onChange={e => setDecisionsText(e.target.value)}
@@ -188,10 +194,11 @@ export default function MeetingWritePage() {
             </div>
 
             <div className="bg-background-100 border border-background-200 rounded-2xl p-5">
-              <label className="block text-xs font-medium text-foreground-600 mb-1.5">
-                <i className="ri-error-warning-line text-rose-500 mr-1"></i>제기된 이슈/문제점 (한 줄씩)
+              <label htmlFor="mw-issues" className="block text-xs font-medium text-foreground-600 mb-1.5">
+                <i className="ri-error-warning-line text-rose-500 mr-1" aria-hidden="true"></i>제기된 이슈/문제점 (한 줄씩)
               </label>
               <textarea
+                id="mw-issues"
                 name="issues"
                 value={issuesText}
                 onChange={e => setIssuesText(e.target.value)}
@@ -202,10 +209,11 @@ export default function MeetingWritePage() {
             </div>
 
             <div className="bg-background-100 border border-background-200 rounded-2xl p-5">
-              <label className="block text-xs font-medium text-foreground-600 mb-1.5">
-                <i className="ri-alert-line text-amber-500 mr-1"></i>병목 요인 (진행 차질 원인, 한 줄씩)
+              <label htmlFor="mw-bottlenecks" className="block text-xs font-medium text-foreground-600 mb-1.5">
+                <i className="ri-alert-line text-amber-500 mr-1" aria-hidden="true"></i>병목 요인 (진행 차질 원인, 한 줄씩)
               </label>
               <textarea
+                id="mw-bottlenecks"
                 name="bottlenecks"
                 value={bottlenecksText}
                 onChange={e => setBottlenecksText(e.target.value)}
@@ -216,10 +224,11 @@ export default function MeetingWritePage() {
             </div>
 
             <div className="bg-background-100 border border-background-200 rounded-2xl p-5">
-              <label className="block text-xs font-medium text-foreground-600 mb-1.5">
-                <i className="ri-time-line text-sky-500 mr-1"></i>미결/추후 논의 사항 (한 줄씩)
+              <label htmlFor="mw-unresolved" className="block text-xs font-medium text-foreground-600 mb-1.5">
+                <i className="ri-time-line text-sky-500 mr-1" aria-hidden="true"></i>미결/추후 논의 사항 (한 줄씩)
               </label>
               <textarea
+                id="mw-unresolved"
                 name="unresolved"
                 value={unresolvedText}
                 onChange={e => setUnresolvedText(e.target.value)}
@@ -231,10 +240,10 @@ export default function MeetingWritePage() {
           </div>
 
           <div className="bg-background-100 border border-background-200 rounded-2xl p-5">
-            <label className="block text-xs font-medium text-foreground-600 mb-2">
-              <i className="ri-price-tag-3-line text-primary-500 mr-1"></i>관련 태그 선택
-            </label>
-            <div className="flex flex-wrap gap-2">
+            <p id="mw-tags-label" className="block text-xs font-medium text-foreground-600 mb-2">
+              <i className="ri-price-tag-3-line text-primary-500 mr-1" aria-hidden="true"></i>관련 태그 선택
+            </p>
+            <div role="group" aria-labelledby="mw-tags-label" className="flex flex-wrap gap-2">
               {COMMON_TAGS.map(tag => (
                 <button
                   key={tag}

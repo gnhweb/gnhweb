@@ -289,19 +289,33 @@ export default function SeniorRoadmap() {
               return (
                 <div key={phase.key} className="relative pl-16 pb-8 last:pb-0">
                   {/* Dot */}
-                  <div className={`absolute left-4 w-5 h-5 rounded-full border-2 ${isComplete ? 'bg-emerald-500 border-emerald-500' : `${cls.bg} ${cls.border}`} flex items-center justify-center cursor-pointer z-10 ${isTeacherOrChief ? 'hover:scale-110 transition-transform' : ''}`} onClick={() => isTeacherOrChief && togglePhaseComplete(phase.key)}>
-                    {isComplete && <i className="ri-check-line text-white text-[10px]"></i>}
+                  <div
+                    role={isTeacherOrChief ? 'checkbox' : undefined}
+                    aria-checked={isTeacherOrChief ? isComplete : undefined}
+                    aria-label={isTeacherOrChief ? `${phase.key} 단계 완료 처리` : undefined}
+                    tabIndex={isTeacherOrChief ? 0 : -1}
+                    onKeyDown={(e) => { if (isTeacherOrChief && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); togglePhaseComplete(phase.key); } }}
+                    className={`absolute left-4 w-5 h-5 rounded-full border-2 ${isComplete ? 'bg-emerald-500 border-emerald-500' : `${cls.bg} ${cls.border}`} flex items-center justify-center cursor-pointer z-10 ${isTeacherOrChief ? 'hover:scale-110 transition-transform focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none' : ''}`} onClick={() => isTeacherOrChief && togglePhaseComplete(phase.key)}>
+                    {isComplete && <i className="ri-check-line text-white text-[10px]" aria-hidden="true"></i>}
                   </div>
 
                   {/* Content */}
                   <div className={`${cls.bg} border ${cls.border} rounded-2xl p-5`}>
-                    <div className="flex items-center justify-between mb-2" onClick={() => setExpandedPhase(isExpanded ? null : phase.key)} style={{ cursor: 'pointer' }}>
+                    <div
+                      className="flex items-center justify-between mb-2"
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      onClick={() => setExpandedPhase(isExpanded ? null : phase.key)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedPhase(isExpanded ? null : phase.key); } }}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="flex items-center gap-3">
                         <div className={`w-9 h-9 rounded-xl ${cls.dotBg} flex items-center justify-center`}>
                           <i className={`${phase.icon} ${cls.text} text-sm`}></i>
                         </div>
                         <div>
-                          <h3 className="text-sm font-bold text-foreground-950">{phase.label}</h3>
+                          <h2 className="text-sm font-bold text-foreground-950">{phase.label}</h2>
                           <p className="text-xs text-foreground-600">{phase.period}</p>
                         </div>
                       </div>
@@ -315,10 +329,10 @@ export default function SeniorRoadmap() {
                             {/* Prayer topics */}
                             {phasePrayers.length > 0 && (
                               <div>
-                                <h4 className="text-xs font-semibold text-foreground-800 mb-2 flex items-center gap-1.5">
+                                <h3 className="text-xs font-semibold text-foreground-800 mb-2 flex items-center gap-1.5">
                                   <i className="ri-hand-heart-line text-amber-500"></i>
                                   이 시기에 함께 기도할 제목
-                                </h4>
+                                </h3>
                                 <div className="space-y-1.5">
                                   {phasePrayers.map(pt => (
                                     <div key={pt.id} className="bg-background-100/70 rounded-xl p-3 group">
@@ -357,10 +371,10 @@ export default function SeniorRoadmap() {
                             {/* Encouragements */}
                             {phaseEncourages.length > 0 && (
                               <div>
-                                <h4 className="text-xs font-semibold text-foreground-800 mb-2 flex items-center gap-1.5">
+                                <h3 className="text-xs font-semibold text-foreground-800 mb-2 flex items-center gap-1.5">
                                   <i className="ri-chat-heart-line text-violet-500"></i>
                                   선배들의 응원 한마디
-                                </h4>
+                                </h3>
                                 <div className="space-y-1.5">
                                   {phaseEncourages.map(enc => (
                                     <div key={enc.id} className="bg-background-100/70 rounded-xl p-3 group">

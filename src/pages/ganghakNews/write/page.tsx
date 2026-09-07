@@ -97,8 +97,8 @@ export default function GanghakNewsWrite() {
           <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 space-y-5">
             {/* Category */}
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">카테고리</label>
-              <div className="flex flex-wrap gap-2">
+              <p id="gn-category-label" className="block text-sm font-medium text-foreground-950 mb-2">카테고리</p>
+              <div role="group" aria-labelledby="gn-category-label" className="flex flex-wrap gap-2">
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat}
@@ -115,8 +115,9 @@ export default function GanghakNewsWrite() {
 
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">제목</label>
+              <label htmlFor="gn-title" className="block text-sm font-medium text-foreground-950 mb-2">제목</label>
               <input
+                id="gn-title"
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
@@ -134,9 +135,10 @@ export default function GanghakNewsWrite() {
                   <img src={imageUrl} alt="대표 이미지" className="w-full h-40 object-cover rounded-xl" />
                   <button
                     onClick={() => setImageUrl('')}
+                    aria-label="이미지 삭제"
                     className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-rose-500 cursor-pointer transition-colors"
                   >
-                    <i className="ri-close-line text-sm"></i>
+                    <i className="ri-close-line text-sm" aria-hidden="true"></i>
                   </button>
                 </div>
               ) : (
@@ -150,8 +152,9 @@ export default function GanghakNewsWrite() {
 
             {/* Content */}
             <div>
-              <label className="block text-sm font-medium text-foreground-950 mb-2">내용</label>
+              <label htmlFor="gn-content" className="block text-sm font-medium text-foreground-950 mb-2">내용</label>
               <textarea
+                id="gn-content"
                 value={content}
                 onChange={e => setContent(e.target.value)}
                 placeholder="뉴스 내용을 작성해주세요..."

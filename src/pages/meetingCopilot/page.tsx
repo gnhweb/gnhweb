@@ -562,10 +562,10 @@ export default function MeetingCopilotPage() {
           <div className="hidden lg:flex flex-col bg-background-100 border border-background-200 rounded-2xl overflow-hidden">
             <div className="flex-shrink-0 p-3.5 border-b border-background-200 space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-foreground-800 flex items-center gap-1.5">
+                <h2 className="text-xs font-bold text-foreground-800 flex items-center gap-1.5">
                   <i className="ri-file-list-3-line"></i>
                   소스 {selectedSourceIds.length > 0 && <span className="text-primary-600">({selectedSourceIds.length})</span>}
-                </h3>
+                </h2>
                 {selectedSourceIds.length > 0 && (
                   <button onClick={clearSources} className="text-[10px] text-foreground-400 hover:text-rose-500 cursor-pointer">
                     전체 해제
@@ -605,7 +605,7 @@ export default function MeetingCopilotPage() {
                   className="fixed top-0 left-0 h-full w-[85%] max-w-[320px] bg-background-100 z-50 flex flex-col shadow-2xl lg:hidden"
                 >
                   <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-background-200">
-                    <h3 className="text-sm font-bold text-foreground-950">소스 선택</h3>
+                    <h2 className="text-sm font-bold text-foreground-950">소스 선택</h2>
                     <button onClick={() => setMobileSourcesOpen(false)} className="w-8 h-8 rounded-lg hover:bg-background-100 flex items-center justify-center cursor-pointer">
                       <i className="ri-close-line text-foreground-500"></i>
                     </button>
@@ -704,10 +704,10 @@ export default function MeetingCopilotPage() {
                 >
                   <div className="px-4 py-3 max-h-[200px] overflow-y-auto">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                      <h3 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
                         <i className="ri-pushpin-fill"></i>
                         아이디어 보드
-                      </h4>
+                      </h3>
                       <span className="text-[10px] text-amber-600">{savedIdeas.length}개 저장됨</span>
                     </div>
                     {savedIdeas.length === 0 ? (
@@ -843,19 +843,21 @@ export default function MeetingCopilotPage() {
                 {streaming ? (
                   <button
                     onClick={handleStopStreaming}
+                    aria-label="응답 중지"
                     className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center hover:bg-rose-200 transition-colors cursor-pointer flex-shrink-0"
                   >
-                    <i className="ri-stop-fill text-lg"></i>
+                    <i className="ri-stop-fill text-lg" aria-hidden="true"></i>
                   </button>
                 ) : (
                   <button
                     onClick={() => handleSend()}
                     disabled={!input.trim()}
+                    aria-label="전송"
                     className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
                       input.trim() ? 'bg-primary-500 text-white hover:bg-primary-600' : 'bg-background-100 text-foreground-400 cursor-not-allowed'
                     }`}
                   >
-                    <i className="ri-send-plane-fill text-lg"></i>
+                    <i className="ri-send-plane-fill text-lg" aria-hidden="true"></i>
                   </button>
                 )}
               </div>

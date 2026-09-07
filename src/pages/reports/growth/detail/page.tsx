@@ -164,10 +164,10 @@ export default function GrowthRecordDetail() {
 
         <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 space-y-6">
           <div>
-            <h3 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
+            <h2 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
               <i className="ri-heart-line text-secondary-500"></i>
               영적 성장
-            </h3>
+            </h2>
             <div className="bg-secondary-50/50 rounded-xl p-4 border border-secondary-200">
               <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{record.spiritual_growth}</p>
             </div>
@@ -175,10 +175,10 @@ export default function GrowthRecordDetail() {
 
           {record.participation_change && (
             <div>
-              <h3 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
+              <h2 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
                 <i className="ri-line-chart-line text-primary-500"></i>
                 참여도 변화
-              </h3>
+              </h2>
               <div className="bg-primary-50/50 rounded-xl p-4 border border-primary-200">
                 <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{record.participation_change}</p>
               </div>
@@ -187,10 +187,10 @@ export default function GrowthRecordDetail() {
 
           {record.prayer_requests && (
             <div>
-              <h3 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
+              <h2 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
                 <i className="ri-hand-heart-line text-accent-500"></i>
                 기도제목
-              </h3>
+              </h2>
               <div className="bg-accent-50/50 rounded-xl p-4 border border-accent-200">
                 <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{record.prayer_requests}</p>
               </div>
@@ -199,13 +199,13 @@ export default function GrowthRecordDetail() {
 
           {record.feedback && (
             <div>
-              <h3 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
+              <h2 className="text-sm font-medium text-foreground-950 mb-2 flex items-center gap-1.5">
                 <i className="ri-feedback-line text-foreground-600"></i>
                 피드백
                 {record.reviewer_name && (
                   <span className="text-xs text-foreground-600 font-normal">· {record.reviewer_name}</span>
                 )}
-              </h3>
+              </h2>
               <div className="bg-secondary-100 rounded-xl p-4 border border-secondary-200">
                 <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{record.feedback}</p>
               </div>
