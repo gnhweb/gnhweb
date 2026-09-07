@@ -27,25 +27,31 @@ jobs:
 
           path = Path('src/pages/attendanceBoard/page.tsx')
           text = subprocess.check_output(['git', 'show', 'e1e9d8caed1de4222ba6f3762f29e67f8e1a32a7:src/pages/attendanceBoard/page.tsx'], text=True)
+          lines = text.splitlines(keepends=True)
+          card_prefix = '            <div className="bg-background-100 border border-background-200 rounded-2xl p-5'
 
-          def block_for(source, heading):
-              heading_pos = source.find(heading)
-              if heading_pos < 0:
-                  raise SystemExit(f'Could not locate heading: {heading}')
-              start = source.rfind('\n            <div className="bg-background-100 border border-background-200 rounded-2xl p-5', 0, heading_pos)
+          def card_for(heading):
+              heading_idx = next(i for i, line in enumerate(lines) if heading in line)
+              start = heading_idx - 1
+              while start >= 0 and not lines[start].startswith(card_prefix):
+                  start -= 1
               if start < 0:
                   raise SystemExit(f'Could not locate card start: {heading}')
-              end = source.find('\n            <div className="bg-background-100 border border-background-200 rounded-2xl p-5', heading_pos + len(heading))
-              if end < 0:
-                  end = len(source)
-              return start, end, source[start:end]
+              end = start + 1
+              while end < len(lines) and not lines[end].startswith(card_prefix) and not lines[end].strip().startswith('</>'):
+                  end += 1
+              return start, end, lines[start:end]
 
-          absent_start, absent_end, absent_block = block_for(text, '불참 신고 ({absentCount}명)')
-          unresponsive_start, unresponsive_end, unresponsive_block = block_for(text, '미응답 ({unresponsiveCount}명)')
+          absent_start, absent_end, absent_block = card_for('불참 신고 ({absentCount}명)')
+          unresponsive_start, unresponsive_end, unresponsive_block = card_for('미응답 ({unresponsiveCount}명)')
 
           if absent_start > unresponsive_start:
-              text = text[:unresponsive_start] + absent_block + unresponsive_block + text[absent_end:]
-          path.write_text(text, encoding='utf-8')
+              lines = lines[:unresponsive_start] + absent_block + lines[unresponsive_end:absent_start] + unresponsive_block + lines[absent_end:]
+              path.write_text(''.join(lines), encoding='utf-8')
+              print('Reordered: attended -> late -> absent -> unresponsive')
+          else:
+              path.write_text(text, encoding='utf-8')
+              print('Already ordered: absent before unresponsive')
           PY
 
       - name: Commit attendance source when changed
