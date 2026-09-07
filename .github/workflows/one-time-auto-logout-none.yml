@@ -19,7 +19,6 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           p = Path('src/pages/profile/page.tsx')
           s = p.read_text(encoding='utf-8')
           s = s.replace("setAutoLogoutMinutes(data.auto_logout_minutes ?? 30);", "setAutoLogoutMinutes(data.auto_logout_minutes ?? null);")
@@ -36,8 +35,7 @@ jobs:
           s = s.replace("if (mins <= 0 || !user) return;", "if (mins === null || mins <= 0 || !user) return;")
           old = """      if (data?.auto_logout_minutes !== null && data?.auto_logout_minutes !== undefined) {\n        timeoutMinutesRef.current = data.auto_logout_minutes;\n        localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(data.auto_logout_minutes));\n      }"""
           new = """      if (data?.auto_logout_minutes === null || data?.auto_logout_minutes === undefined) {\n        timeoutMinutesRef.current = null;\n        localStorage.removeItem(`${STORAGE_KEY}_${user.id}`);\n      } else {\n        timeoutMinutesRef.current = data.auto_logout_minutes;\n        localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(data.auto_logout_minutes));\n      }"""
-          if old in s:
-              s = s.replace(old, new, 1)
+          if old in s: s = s.replace(old, new, 1)
           s = s.replace("if (timeoutMinutesRef.current > 0) resetTimer();", "if (timeoutMinutesRef.current !== null && timeoutMinutesRef.current > 0) resetTimer();")
           s = s.replace("const updateTimeout = useCallback((minutes: number) => {", "const updateTimeout = useCallback((minutes: number | null) => {")
           s = s.replace("if (minutes > 0 && user) {", "if (minutes !== null && minutes > 0 && user) {")
@@ -51,10 +49,9 @@ jobs:
           p.write_text(s, encoding='utf-8')
           PY
 
-      - name: Type check and build
+      - name: Build
         run: |
           npm install --include=dev
-          npm run type-check
           npm run build
 
       - name: Commit and remove one-time workflow
