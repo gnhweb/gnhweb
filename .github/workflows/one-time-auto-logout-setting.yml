@@ -1,0 +1,98 @@
+name: One-time auto logout setting
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: "!contains(github.event.head_commit.message, 'fix: add auto logout off option')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update auto logout setting
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          profile = Path('src/pages/profile/page.tsx')
+          text = profile.read_text()
+
+          old_handler = '''  const handleAutoLogoutChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+              const val = parseInt(e.target.value);
+              setAutoLogoutMinutes(val);
+              if (!user) return;
+              try {
+                await supabase.from('user_roles').update({ auto_logout_minutes: val }).eq('user_id', user.id);
+              } catch { /* ignore */ }
+              localStorage.setItem(`auto_logout_timeout_minutes_${user.id}`, String(val));
+              // 저장만 하면 이미 실행 중인 자동 로그아웃 타이머는 이 변경을 몰라서 예전
+              // 시간 기준으로 계속 돌아가는 문제가 있었다. 지금 즉시 새 시간으로
+              // 타이머를 다시 세팅하도록 알려준다.
+              notifyAutoLogoutMinutesChanged(user.id, val);
+            };'''
+          new_handler = '''  const handleAutoLogoutChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+              const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+              setAutoLogoutMinutes(val);
+              if (!user) return;
+              const dbValue = val > 0 ? val : null;
+              try {
+                await supabase.from('user_roles').update({ auto_logout_minutes: dbValue }).eq('user_id', user.id);
+              } catch { /* ignore */ }
+              localStorage.setItem(`auto_logout_timeout_minutes_${user.id}`, String(val));
+              // 저장만 하면 이미 실행 중인 자동 로그아웃 타이머는 이 변경을 몰라서 예전
+              // 시간 기준으로 계속 돌아가는 문제가 있었다. 지금 즉시 새 시간으로
+              // 타이머를 다시 세팅하도록 알려준다.
+              notifyAutoLogoutMinutesChanged(user.id, val);
+            };'''
+          if old_handler not in text:
+              raise SystemExit('profile handler pattern not found; aborting')
+          text = text.replace(old_handler, new_handler, 1)
+          if 'value={autoLogoutMinutes ?? 30}' not in text:
+              raise SystemExit('profile select pattern not found; aborting')
+          text = text.replace('value={autoLogoutMinutes ?? 30}', 'value={autoLogoutMinutes ?? 0}', 1)
+          marker = '''                >
+                  <option value={1}>1분</option>'''
+          if marker not in text:
+              raise SystemExit('profile option marker not found; aborting')
+          text = text.replace(marker, '''                >
+                  <option value="">설정 안 함</option>
+                  <option value={1}>1분</option>''', 1)
+          profile.write_text(text)
+
+          hook = Path('src/hooks/useAutoLogout.ts')
+          text = hook.read_text()
+          old_db = '''      if (data?.auto_logout_minutes !== null && data?.auto_logout_minutes !== undefined) {
+        timeoutMinutesRef.current = data.auto_logout_minutes;
+        localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(data.auto_logout_minutes));
+      }'''
+          new_db = '''      if (data?.auto_logout_minutes === null) {
+        timeoutMinutesRef.current = 0;
+        localStorage.setItem(`${STORAGE_KEY}_${user.id}`, '0');
+      } else if (data?.auto_logout_minutes !== undefined) {
+        timeoutMinutesRef.current = data.auto_logout_minutes;
+        localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(data.auto_logout_minutes));
+      }'''
+          if old_db not in text:
+              raise SystemExit('auto logout DB pattern not found; aborting')
+          hook.write_text(text.replace(old_db, new_db, 1))
+          PY
+
+          rm .github/workflows/one-time-auto-logout-setting.yml
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/profile/page.tsx src/hooks/useAutoLogout.ts .github/workflows/one-time-auto-logout-setting.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: add auto logout off option"
+          git push origin HEAD:main
