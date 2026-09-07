@@ -6,17 +6,19 @@
  * `waiting` property error in the production mobile E2E environment while the
  * generated service worker itself is valid.
  *
- * The service worker is updated by the browser's normal registration/update
- * lifecycle. We intentionally do not poll `registration.update()` on a timer
- * or on every foreground/focus/pageshow event because each forced update check
- * creates another request to Vercel's Edge Network.
+ * Keep registration checks deployment-aware: after a successful registration,
+ * subsequent page loads only read the existing registration. A new SW URL is
+ * registered once when PWA_VERSION changes. This avoids repeatedly invoking
+ * the registration/update path on every navigation while preserving the
+ * deployment update flow.
  */
 
 let currentRegistration: ServiceWorkerRegistration | undefined;
 
-const PWA_VERSION = '20260907-3';
+const PWA_VERSION = '20260907-4';
 const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=${PWA_VERSION}`;
 const RELOAD_KEY = `gnhweb-pwa-reloaded:${PWA_VERSION}`;
+const REGISTERED_VERSION_KEY = 'gnhweb-pwa-registered-version';
 
 function installRegistrationListeners(registration: ServiceWorkerRegistration) {
   registration.addEventListener('updatefound', () => {
@@ -40,20 +42,42 @@ function installRegistrationListeners(registration: ServiceWorkerRegistration) {
   });
 }
 
+async function registerOrReuseServiceWorker() {
+  const existingRegistration = await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL);
+  const registeredVersion = (() => {
+    try {
+      return localStorage.getItem(REGISTERED_VERSION_KEY);
+    } catch {
+      return null;
+    }
+  })();
+
+  if (existingRegistration && registeredVersion === PWA_VERSION) {
+    currentRegistration = existingRegistration;
+    installRegistrationListeners(currentRegistration);
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.register(SW_URL, {
+    scope: import.meta.env.BASE_URL,
+    // Allow the browser's normal service-worker update algorithm to use its
+    // HTTP cache instead of forcing a network request on every check.
+    updateViaCache: 'imports',
+  });
+
+  currentRegistration = registration;
+  installRegistrationListeners(currentRegistration);
+
+  try {
+    localStorage.setItem(REGISTERED_VERSION_KEY, PWA_VERSION);
+  } catch {
+    // Storage restrictions must never block PWA registration.
+  }
+}
+
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  void navigator.serviceWorker
-    .register(SW_URL, {
-      scope: import.meta.env.BASE_URL,
-      // Allow the browser's normal service-worker update algorithm to use its
-      // HTTP cache instead of forcing a network request on every check.
-      updateViaCache: 'imports',
-    })
-    .then((registration) => {
-      currentRegistration = registration;
-      installRegistrationListeners(currentRegistration);
-    })
-    .catch(() => {
-      // PWA support is optional. Failure must never surface as a console error
-      // or block authentication/app startup.
-    });
+  void registerOrReuseServiceWorker().catch(() => {
+    // PWA support is optional. Failure must never surface as a console error
+    // or block authentication/app startup.
+  });
 }
