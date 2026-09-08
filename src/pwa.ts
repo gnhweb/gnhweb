@@ -8,14 +8,14 @@
  *
  * Keep registration checks deployment-aware: after a successful registration,
  * subsequent page loads only read the existing registration. A new SW URL is
- * registered once when PWA_VERSION changes. This avoids repeatedly invoking
- * the registration/update path on every navigation while preserving the
+ * registered once when PWA_VERSION changes. This avoids repeatedly invoking the
+ * registration/update path on every navigation while preserving the
  * deployment update flow.
  */
 
 let currentRegistration: ServiceWorkerRegistration | undefined;
 
-const PWA_VERSION = '20260907-4';
+const PWA_VERSION = '20260909-1';
 const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=${PWA_VERSION}`;
 const RELOAD_KEY = `gnhweb-pwa-reloaded:${PWA_VERSION}`;
 const REGISTERED_VERSION_KEY = 'gnhweb-pwa-registered-version';
