@@ -19,7 +19,6 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path('src/components/feature/Navbar.tsx')
           text = path.read_text()
@@ -30,17 +29,16 @@ jobs:
                   "import NotificationsModal, { useNotificationCount, NotificationToast } from '@/components/feature/NotificationsModal';\nimport NotificationBadge from '@/components/base/NotificationBadge';\nimport { getNotificationMenuCount, useNotificationMenuCounts } from '@/hooks/useNotificationMenuCounts';"
               )
 
-          text = text.replace(
-              "  const notificationCount = useNotificationCount(user);",
-              "  const notificationCount = useNotificationCount(user);\n  const notificationMenuCounts = useNotificationMenuCounts(user);\n  const menuCount = (path: string) => getNotificationMenuCount(notificationMenuCounts, path);"
-          )
+          if "const notificationMenuCounts" not in text:
+              text = text.replace(
+                  "  const notificationCount = useNotificationCount(user);",
+                  "  const notificationCount = useNotificationCount(user);\n  const notificationMenuCounts = useNotificationMenuCounts(user);\n  const menuCount = (path: string) => getNotificationMenuCount(notificationMenuCounts, path);"
+              )
 
-          # Desktop top-level links.
           old = "{TOP_ITEMS.map(item => <Link key={item.path} to={item.path} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${isActive(item.path) ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-950 hover:bg-background-100'}`}><i className={`${item.icon} text-xs`}></i>{item.label}</Link>)}"
           new = "{TOP_ITEMS.map(item => <Link key={item.path} to={item.path} className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${isActive(item.path) ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-950 hover:bg-background-100'}`}><i className={`${item.icon} text-xs`}></i>{item.label}<NotificationBadge count={menuCount(item.path)} /></Link>)}"
           text = text.replace(old, new)
 
-          # Desktop category buttons: show the aggregate unread count on the menu itself.
           replacements = {
               ">말씀 도구<i className={`ri-arrow-down-s-line": ">말씀 도구<NotificationBadge count={BIBLE_CATEGORY.items.reduce((n, item) => n + menuCount(item.path), 0)} /><i className={`ri-arrow-down-s-line",
               ">소통·공동체<i className={`ri-arrow-down-s-line": ">소통·공동체<NotificationBadge count={COMMUNITY_CATEGORY.items.reduce((n, item) => n + menuCount(item.path), 0)} /><i className={`ri-arrow-down-s-line",
@@ -51,7 +49,6 @@ jobs:
           for a, b in replacements.items():
               text = text.replace(a, b)
 
-          # Mobile top-level cards.
           old = "className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-colors cursor-pointer ${isActive(item.path) ? 'bg-background-100 shadow-card text-primary-700' : 'text-foreground-600 hover:bg-background-100/60'}`}><div className={`w-10 h-10 rounded-full flex items-center justify-center ${isActive(item.path) ? 'insta-gradient-bg' : 'bg-background-100'}`}><i className={`${item.icon} text-lg ${isActive(item.path) ? 'text-white' : 'text-foreground-500'}`}></i></div><span className=\"text-[11px] font-medium whitespace-nowrap\">{item.label}</span></MotionLink>)"
           new = "className={`relative flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-colors cursor-pointer ${isActive(item.path) ? 'bg-background-100 shadow-card text-primary-700' : 'text-foreground-600 hover:bg-background-100/60'}`}><div className={`w-10 h-10 rounded-full flex items-center justify-center ${isActive(item.path) ? 'insta-gradient-bg' : 'bg-background-100'}`}><i className={`${item.icon} text-lg ${isActive(item.path) ? 'text-white' : 'text-foreground-500'}`}></i></div><span className=\"text-[11px] font-medium whitespace-nowrap\">{item.label}</span><NotificationBadge count={menuCount(item.path)} /></MotionLink>)"
           text = text.replace(old, new)
