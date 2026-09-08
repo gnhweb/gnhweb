@@ -23,28 +23,30 @@ const MBTI_CHARACTER_INDEX: Record<string, number> = {
   이사야: 15, 예레미야: 16, 사무엘: 17, 마르다: 18, 요한: 19,
 };
 
+const MBTI_CHARACTER_SLUG: Record<string, string> = {
+  모세: 'moses', 아브라함: 'abraham', 여호수아: 'joshua', 다윗: 'david', 요셉: 'joseph',
+  룻: 'ruth', 에스더: 'esther', 다니엘: 'daniel', 바울: 'paul', 베드로: 'peter',
+  느헤미야: 'nehemiah', 디모데: 'timothy', 바나바: 'barnabas', 마리아: 'mary', 엘리야: 'elijah',
+  이사야: 'isaiah', 예레미야: 'jeremiah', 사무엘: 'samuel', 마르다: 'martha', 요한: 'john',
+};
+
 function CharacterIllustration({ name, className }: { name: string; className?: string }) {
-  const index = MBTI_CHARACTER_INDEX[name];
-  if (index === undefined) return <div className={className} aria-hidden="true" />;
-  const column = index % 5;
-  const row = Math.floor(index / 5);
+  const slug = MBTI_CHARACTER_SLUG[name];
+  if (!slug) return <div className={className} aria-hidden="true" />;
 
   return (
-    <div
-      role="img"
-      aria-label={`${name} 성경인물 일러스트`}
-      className={`relative overflow-hidden ${className ?? ''}`}
-    >
+    <div role="img" aria-label={`${name} 성경인물 일러스트`} className={`relative overflow-hidden ${className ?? ''}`}>
       <img
-        src="/bible-mbti/characters-cute.svg"
-        alt=""
-        aria-hidden="true"
-        className="absolute max-w-none"
-        style={{
-          width: '500%',
-          height: '400%',
-          left: `-${column * 100}%`,
-          top: `-${row * 100}%`,
+        src={`/bible-mbti/characters/${slug}.webp`}
+        alt={`${name} 성경인물`}
+        loading="lazy"
+        decoding="async"
+        className="h-full w-full object-contain"
+        onError={(event) => {
+          const image = event.currentTarget;
+          if (image.dataset.fallback === 'true') return;
+          image.dataset.fallback = 'true';
+          image.src = `/bible-mbti/characters/${slug}.svg`;
         }}
       />
     </div>
