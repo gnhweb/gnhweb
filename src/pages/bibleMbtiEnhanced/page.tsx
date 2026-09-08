@@ -50,7 +50,7 @@ function FigureIllustration({name,className}:{name:Figure;className:string}){
  const slugs:Record<Figure,string>={다니엘:'daniel',요셉:'joseph',룻:'ruth',바나바:'barnabas',베드로:'peter',느헤미야:'nehemiah',에스더:'esther',디모데:'timothy',다윗:'david',마리아:'mary',아브라함:'abraham',모세:'moses',여호수아:'joshua',사무엘:'samuel',엘리야:'elijah',이사야:'isaiah',예레미야:'jeremiah',바울:'paul',요한:'john',마르다:'martha'};
  const slug=slugs[name];
  return <div role="img" aria-label={`${name} 성경인물 프로필`} className={`overflow-hidden ${className}`}>
-   <img src={`/bible-mbti/characters-new/${slug}.svg?v=20260909-3`} alt="" aria-hidden="true" loading="lazy" decoding="async" className="h-full w-full object-contain" />
+   <img src={`/bible-mbti/characters-new/${slug}.svg?v=20260909-4`} alt="" aria-hidden="true" loading="lazy" decoding="async" className="h-full w-full object-contain" />
  </div>;
 }
 
