@@ -1,0 +1,40 @@
+name: Fix Bible MBTI image source
+
+on:
+  push:
+    paths:
+      - .github/workflows/fix-bible-mbti-image-source.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace Bible MBTI image source
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/pages/bibleMbti/page.tsx')
+          text = path.read_text(encoding='utf-8')
+          old = 'src={`/bible-mbti/characters/${slug}.webp`}'
+          new = 'src={`/bible-mbti/characters-new/${slug}.svg`}'
+          if old not in text:
+              raise SystemExit('expected Bible MBTI image source was not found')
+          text = text.replace(old, new, 1)
+          old_fallback = 'image.src = `/bible-mbti/characters/${slug}.svg`;'
+          new_fallback = 'image.src = `/bible-mbti/characters-new/${slug}.svg`;'
+          text = text.replace(old_fallback, new_fallback, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit source fix and remove temporary workflow
+        run: |
+          rm .github/workflows/fix-bible-mbti-image-source.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/bibleMbti/page.tsx .github/workflows/fix-bible-mbti-image-source.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix Bible MBTI to load new character artwork directly'
+          git push origin main
