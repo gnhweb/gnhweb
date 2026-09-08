@@ -69,6 +69,7 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
   ]},
   { label: '사명 도구', items: [
     { path: '/leadership-diary', label: '리더십 코칭', icon: 'ri-book-read-line' },
+    { path: '/teacher-dashboard/quote-manage', label: '어록 관리', icon: 'ri-chat-quote-line' },
   ]},
   { label: '미션', items: [
     { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },
