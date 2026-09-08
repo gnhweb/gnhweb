@@ -1,0 +1,41 @@
+name: Fix Bible MBTI image resolution
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix-resolution:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Upscale SVG image viewport without changing artwork
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in public/bible-mbti/characters-new/*.svg; do
+            sed -i 's/width="80" height="80" viewBox="0 0 80 80"/width="512" height="512" viewBox="0 0 512 512"/; s/<image width="80" height="80"/<image width="512" height="512"/' "$file"
+          done
+
+      - name: Commit and remove one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- public/bible-mbti/characters-new; then
+            echo "No MBTI SVG resolution changes needed."
+            exit 0
+          fi
+          rm -f .github/workflows/fix-mbti-image-resolution.yml
+          git add public/bible-mbti/characters-new .github/workflows/fix-mbti-image-resolution.yml
+          git commit -m "fix Bible MBTI image rendering resolution"
+          git push origin HEAD:main
