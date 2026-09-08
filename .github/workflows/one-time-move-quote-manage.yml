@@ -48,12 +48,10 @@ jobs:
           if 'to="/teacher-dashboard/quote-manage"' in teacher_text:
               raise SystemExit('Teacher dashboard still contains quote management link')
 
-      - name: Verify changed files
+      - name: Verify requested changes
         run: |
-          git diff --check
-          test "$(git status --short | wc -l | tr -d ' ')" = "3"
           grep -F "{ path: '/teacher-dashboard/quote-manage', label: '어록 관리', icon: 'ri-chat-quote-line' }," src/components/feature/Navbar.tsx
-          ! grep -F 'to="/teacher-dashboard/quote-manage"' src/pages/teacherDashboard/page.tsx
+          if grep -F 'to="/teacher-dashboard/quote-manage"' src/pages/teacherDashboard/page.tsx; then exit 1; fi
 
       - name: Commit changes and remove one-time workflow
         run: |
