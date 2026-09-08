@@ -8,7 +8,7 @@ declare const self: ServiceWorkerGlobalScope & {
 
 // Keep this source revisioned so an already-installed PWA detects the updated
 // service worker when its current app bundle is stale.
-const GNHWEB_SW_REVISION = '20260907-4';
+const GNHWEB_SW_REVISION = '20260908-1';
 void GNHWEB_SW_REVISION;
 
 precacheAndRoute(self.__WB_MANIFEST);
