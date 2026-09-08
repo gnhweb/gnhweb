@@ -1,0 +1,121 @@
+name: One-time navigation notification badges
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch Navbar
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/components/feature/Navbar.tsx')
+          text = path.read_text()
+
+          replacements = [
+            (
+              "import NotificationsModal, { useNotificationCount, NotificationToast } from '@/components/feature/NotificationsModal';",
+              "import NotificationsModal, { useNotificationCount, NotificationToast } from '@/components/feature/NotificationsModal';\nimport { getNotificationMenuCount, useNotificationMenuCounts } from '@/hooks/useNotificationMenuCounts';",
+            ),
+            (
+              "  const notificationCount = useNotificationCount(user);",
+              "  const notificationCount = useNotificationCount(user);\n  const notificationMenuCounts = useNotificationMenuCounts(user);\n  const getMenuCount = (path?: string) => getNotificationMenuCount(notificationMenuCounts, path);\n  const bibleNotificationCount = BIBLE_CATEGORY.items.reduce((sum, item) => sum + getMenuCount(item.path), 0);\n  const communityNotificationCount = COMMUNITY_CATEGORY.items.reduce((sum, item) => sum + getMenuCount(item.path), 0);\n  const gameNotificationCount = GAME_CATEGORY.items.reduce((sum, item) => sum + getMenuCount(item.path), 0);\n  const faithNotificationCount = FAITH_CATEGORY.items.reduce((sum, item) => sum + getMenuCount(item.path), 0);",
+            ),
+            (
+              "  const visibleAdminItems = ADMIN_CATEGORY_ITEMS.filter(i => hasRole(i.minRole));",
+              "  const visibleAdminItems = ADMIN_CATEGORY_ITEMS.filter(i => hasRole(i.minRole));\n  const missionNotificationCount = fullMissionItems.reduce((sum, item) => sum + getMenuCount(item.path), 0);\n  const adminNotificationCount = visibleAdminItems.reduce((sum, item) => sum + getMenuCount(item.path), 0);",
+            ),
+            (
+              "{TOP_ITEMS.map(item => <Link key={item.path} to={item.path} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${isActive(item.path) ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-950 hover:bg-background-100'}`}><i className={`${item.icon} text-xs`}></i>{item.label}</Link>)}",
+              "{TOP_ITEMS.map(item => <Link key={item.path} to={item.path} className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap cursor-pointer hover:scale-[1.02] ${isActive(item.path) ? 'bg-primary-100 text-primary-700' : 'text-foreground-600 hover:text-foreground-950 hover:bg-background-100'}`}><i className={`${item.icon} text-xs`}></i>{item.label}<NotificationBadge count={getMenuCount(item.path)} /></Link>)}",
+            ),
+            (
+              '<i className="ri-book-open-line text-xs"></i>말씀 도구<i className={`ri-arrow-down-s-line',
+              '<i className="ri-book-open-line text-xs"></i>말씀 도구<NotificationBadge count={bibleNotificationCount} /><i className={`ri-arrow-down-s-line',
+            ),
+            (
+              '<i className="ri-group-line text-xs"></i>소통·공동체<i className={`ri-arrow-down-s-line',
+              '<i className="ri-group-line text-xs"></i>소통·공동체<NotificationBadge count={communityNotificationCount} /><i className={`ri-arrow-down-s-line',
+            ),
+            (
+              '<i className="ri-gamepad-line text-xs"></i>갓겜<i className={`ri-arrow-down-s-line',
+              '<i className="ri-gamepad-line text-xs"></i>갓겜<NotificationBadge count={gameNotificationCount} /><i className={`ri-arrow-down-s-line',
+            ),
+            (
+              '<i className="ri-lock-line text-xs"></i>신앙(비공개)<i className={`ri-arrow-down-s-line',
+              '<i className="ri-lock-line text-xs"></i>신앙(비공개)<NotificationBadge count={faithNotificationCount} /><i className={`ri-arrow-down-s-line',
+            ),
+            (
+              '<i className="ri-shield-star-line text-xs"></i>사명자<i className={`ri-arrow-down-s-line',
+              '<i className="ri-shield-star-line text-xs"></i>사명자<NotificationBadge count={missionNotificationCount} /><i className={`ri-arrow-down-s-line',
+            ),
+            (
+              '<i className="ri-settings-3-line text-xs"></i>관리<i className={`ri-arrow-down-s-line',
+              '<i className="ri-settings-3-line text-xs"></i>관리<NotificationBadge count={adminNotificationCount} /><i className={`ri-arrow-down-s-line',
+            ),
+            (
+              '<div className={`w-10 h-10 rounded-full flex items-center justify-center ${isActive(item.path) ? \'insta-gradient-bg\' : \'bg-background-100\'}`}><i className={`${item.icon} text-lg ${isActive(item.path) ? \'text-white\' : \'text-foreground-500\'}`}></i></div><span className="text-[11px] font-medium whitespace-nowrap">{item.label}</span>',
+              '<div className="relative"><div className={`w-10 h-10 rounded-full flex items-center justify-center ${isActive(item.path) ? \'insta-gradient-bg\' : \'bg-background-100\'}`}><i className={`${item.icon} text-lg ${isActive(item.path) ? \'text-white\' : \'text-foreground-500\'}`}></i></div><NotificationBadge count={getMenuCount(item.path)} /></div><span className="text-[11px] font-medium whitespace-nowrap">{item.label}</span>',
+            ),
+            (
+              '<AccordionBlock icon="ri-book-open-line" label="말씀 도구" color="amber" open=',
+              '<AccordionBlock icon="ri-book-open-line" label="말씀 도구" color="amber" notificationCount={bibleNotificationCount} open=',
+            ),
+            (
+              '<AccordionBlock icon="ri-group-line" label="소통·공동체" color="emerald" open=',
+              '<AccordionBlock icon="ri-group-line" label="소통·공동체" color="emerald" notificationCount={communityNotificationCount} open=',
+            ),
+            (
+              '<AccordionBlock icon="ri-gamepad-line" label="갓겜" color="indigo" open=',
+              '<AccordionBlock icon="ri-gamepad-line" label="갓겜" color="indigo" notificationCount={gameNotificationCount} open=',
+            ),
+            (
+              '<AccordionBlock icon="ri-lock-line" label="신앙(비공개)" color="primary" open=',
+              '<AccordionBlock icon="ri-lock-line" label="신앙(비공개)" color="primary" notificationCount={faithNotificationCount} open=',
+            ),
+            (
+              '<AccordionBlock icon="ri-shield-star-line" label="사명자 전용" color="rose" open=',
+              '<AccordionBlock icon="ri-shield-star-line" label="사명자 전용" color="rose" notificationCount={missionNotificationCount} open=',
+            ),
+            (
+              '<AccordionBlock icon="ri-settings-3-line" label="관리" color="slate" open=',
+              '<AccordionBlock icon="ri-settings-3-line" label="관리" color="slate" notificationCount={adminNotificationCount} open=',
+            ),
+            (
+              'function AccordionBlock({ icon, label, color, open, onToggle, children }: { icon: string; label: string; color: string; open: boolean; onToggle: () => void; children: React.ReactNode; }) {',
+              'function NotificationBadge({ count }: { count: number }) {\n  if (count <= 0) return null;\n  return <span className="pointer-events-none absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-chip bg-accent-500 text-white text-[9px] font-bold leading-none flex items-center justify-center border-2 border-background-100">{count > 99 ? \'99+\' : count}</span>;\n}\n\nfunction AccordionBlock({ icon, label, color, notificationCount = 0, open, onToggle, children }: { icon: string; label: string; color: string; notificationCount?: number; open: boolean; onToggle: () => void; children: React.ReactNode; }) {',
+            ),
+            (
+              '<span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${badgeBg}`}><i className={`${icon} text-sm`}></i></span>{label}</span>',
+              '<span className={`relative w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${badgeBg}`}><i className={`${icon} text-sm`}></i><NotificationBadge count={notificationCount} /></span>{label}</span>',
+            ),
+          ]
+
+          for old, new in replacements:
+            if old not in text:
+              raise SystemExit(f'Expected Navbar pattern not found: {old[:100]}')
+            text = text.replace(old, new, 1)
+
+          path.write_text(text)
+
+      - name: Verify and commit
+        run: |
+          npm ci
+          npm run type-check
+          npm run lint
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/one-time-navigation-notification-badges.yml
+          git add src/components/feature/Navbar.tsx
+          git commit -m 'feat: show unread badges on navigation menus'
+          git push
