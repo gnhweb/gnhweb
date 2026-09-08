@@ -37,7 +37,6 @@ const BIBLE_CATEGORY: CategoryGroup = {
 const COMMUNITY_CATEGORY: CategoryGroup = {
   name: '소통·공동체', icon: 'ri-group-line', colorClass: 'emerald',
   items: [
-    { path: '/memory-board', label: '추억창', icon: 'ri-image-line' },
     { path: '/song-vote', label: '찬양투표', icon: 'ri-music-line' },
     { path: '/prayer-relay', label: '기도 릴레이', icon: 'ri-hand-heart-line' },
     { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },
@@ -62,7 +61,6 @@ const MISSION_SUBSECTIONS: MissionSubSection[] = [
   ]},
   { label: '회의록', items: [
     { path: '/meetings', label: '회의록', icon: 'ri-chat-check-line' },
-    { path: '/notebook', label: '학생회 노트북', icon: 'ri-book-open-line' },
   ]},
   { label: '보고서', items: [
     { path: '/reports/weekly', label: '주간 보고서', icon: 'ri-file-list-3-line' },
