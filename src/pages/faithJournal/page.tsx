@@ -92,7 +92,7 @@ export default function FaithJournal() {
       if (storyForm.file) {
         const ext = storyForm.file.name.split('.').pop() || 'jpg';
         uploadedPath = `storybook/${user.id}-${Date.now()}.${ext}`;
-        const upload = await supabase.storage.from('Public').upload(uploadedPath, storyForm.file, { upsert: true });
+        const upload = await supabase.storage.from('Public').upload(uploadedPath, storyForm.file, { upsert: true, cacheControl: '31536000' });
         if (upload.error) throw upload.error;
         photoUrl = supabase.storage.from('Public').getPublicUrl(uploadedPath).data.publicUrl;
       }

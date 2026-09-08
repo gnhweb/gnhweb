@@ -146,7 +146,7 @@ export default function ClubCommunity() {
         for (const file of postImages) {
           const ext = file.name.split('.').pop();
           const path = `club-posts/${clubId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-          const { error: uploadErr } = await supabase.storage.from('Public').upload(path, file, { upsert: true });
+          const { error: uploadErr } = await supabase.storage.from('Public').upload(path, file, { upsert: true, cacheControl: '31536000' });
           if (uploadErr) throw uploadErr;
           const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
           imageUrls.push(urlData.publicUrl);

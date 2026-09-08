@@ -76,7 +76,7 @@ export default function GanghakNewsEdit() {
       }
       const ext = file.name.split('.').pop();
       const path = `news/news-${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from('Public').upload(path, file, { upsert: true });
+      const { error: uploadErr } = await supabase.storage.from('Public').upload(path, file, { upsert: true, cacheControl: '31536000' });
       if (uploadErr) throw uploadErr;
       const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
       setImageUrl(urlData.publicUrl);
