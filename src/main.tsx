@@ -12,6 +12,10 @@ import { initMobileRuntime } from './mobile-runtime'
 import './pwa'
 import App from './App.tsx'
 
+const GNHWEB_BUNDLE_REVISION = '20260908-bible-mbti-art-1';
+void GNHWEB_BUNDLE_REVISION;
+
+
 // Supabase auth refresh token 오류는 전역 미처리 rejection으로 앱을 깨뜨리지 않고
 // 인증 캐시를 정리한 뒤 로그인 화면으로 보낸다. 나머지 rejection은 숨기지 않는다.
 let authErrorHandled = false;
