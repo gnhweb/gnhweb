@@ -106,3 +106,4 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 );
+document.documentElement.dataset.gnhwebBundleRevision = '20260908-bible-mbti-art-2';
