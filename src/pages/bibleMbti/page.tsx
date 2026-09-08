@@ -37,7 +37,7 @@ function CharacterIllustration({ name, className }: { name: string; className?: 
   return (
     <div role="img" aria-label={`${name} 성경인물 일러스트`} className={`relative overflow-hidden ${className ?? ''}`}>
       <img
-        src={`/bible-mbti/characters-new/${slug}.svg`}
+        src={`/bible-mbti/characters-new/${slug}.svg?v=20260909-2`}
         alt={`${name} 성경인물`}
         loading="lazy"
         decoding="async"
