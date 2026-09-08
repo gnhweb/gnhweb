@@ -1,0 +1,35 @@
+name: Force Bible MBTI service worker refresh
+
+on:
+  push:
+    paths:
+      - .github/workflows/bump-bible-mbti-sw.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump service worker revision
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/sw.ts')
+          text = path.read_text(encoding='utf-8')
+          old = "const GNHWEB_SW_REVISION = '20260907-4';"
+          new = "const GNHWEB_SW_REVISION = '20260908-1';"
+          if old not in text:
+              raise SystemExit('expected service worker revision was not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Commit and remove temporary workflow
+        run: |
+          rm .github/workflows/bump-bible-mbti-sw.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/sw.ts .github/workflows/bump-bible-mbti-sw.yml
+          git commit -m 'force service worker refresh for Bible MBTI artwork fix'
+          git push origin main
