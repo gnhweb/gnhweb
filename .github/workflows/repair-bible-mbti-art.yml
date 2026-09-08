@@ -1,6 +1,5 @@
-name: Replace Bible MBTI art
+name: Finalize Bible MBTI art
 
-# Trigger a fresh replacement run for the new cute Pixabay artwork set.
 on:
   push:
     paths:
@@ -10,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  replace:
+  finalize:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -18,122 +17,63 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download and normalize free Pixabay character art
+      - name: Point Bible MBTI to the downloaded character art
         shell: bash
         run: |
-          set -euo pipefail
-          mkdir -p public/bible-mbti/characters
-          rm -f public/bible-mbti/characters/*
           python3 - <<'PY'
+          from pathlib import Path
           import re
-          import urllib.parse
-          import urllib.request
-          from pathlib import Path
 
-          items = {
-            'moses':'moses bible cartoon', 'abraham':'abraham bible cartoon', 'joshua':'joshua bible cartoon', 'david':'david bible cartoon', 'joseph':'joseph bible cartoon',
-            'ruth':'ruth bible cartoon', 'esther':'esther bible cartoon', 'daniel':'daniel bible cartoon', 'paul':'paul bible cartoon', 'peter':'peter bible cartoon',
-            'nehemiah':'nehemiah bible cartoon', 'timothy':'timothy bible cartoon', 'barnabas':'barnabas bible cartoon', 'mary':'mary bible cartoon', 'elijah':'elijah bible cartoon',
-            'isaiah':'isaiah bible cartoon', 'jeremiah':'jeremiah bible cartoon', 'samuel':'samuel bible cartoon', 'martha':'martha bible cartoon', 'john':'john bible cartoon'
+          p = Path('src/pages/bibleMbti/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          pattern = r"function CharacterIllustration\(\{ name, className \}: \{ name: string; className\?: string \}\) \{.*?\n\}\n\nconst axisLabels"
+          replacement = '''const MBTI_CHARACTER_SLUG: Record<string, string> = {
+            모세: 'moses', 아브라함: 'abraham', 여호수아: 'joshua', 다윗: 'david', 요셉: 'joseph',
+            룻: 'ruth', 에스더: 'esther', 다니엘: 'daniel', 바울: 'paul', 베드로: 'peter',
+            느헤미야: 'nehemiah', 디모데: 'timothy', 바나바: 'barnabas', 마리아: 'mary', 엘리야: 'elijah',
+            이사야: 'isaiah', 예레미야: 'jeremiah', 사무엘: 'samuel', 마르다: 'martha', 요한: 'john',
+          };
+
+          function CharacterIllustration({ name, className }: { name: string; className?: string }) {
+            const slug = MBTI_CHARACTER_SLUG[name];
+            if (!slug) return <div className={className} aria-hidden="true" />;
+
+            return (
+              <div role="img" aria-label={`${name} 성경인물 일러스트`} className={`relative overflow-hidden ${className ?? ''}`}>
+                <img
+                  src={`/bible-mbti/characters/${slug}.webp`}
+                  alt={`${name} 성경인물`}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-contain"
+                  onError={(event) => {
+                    const image = event.currentTarget;
+                    if (image.dataset.fallback === 'true') return;
+                    image.dataset.fallback = 'true';
+                    image.src = `/bible-mbti/characters/${slug}.svg`;
+                  }}
+                />
+              </div>
+            );
           }
-          headers={'User-Agent':'Mozilla/5.0'}
-          out=Path('public/bible-mbti/characters')
-          for name, query in items.items():
-              search='https://pixabay.com/illustrations/search/'+urllib.parse.quote(query)+'/'
-              html=urllib.request.urlopen(urllib.request.Request(search, headers=headers), timeout=30).read().decode('utf-8','ignore')
-              html=html.replace('\\u002F','/').replace('\\/','/')
-              urls=re.findall(r'(?:https?:)?//cdn\.pixabay\.com/(?:photo|vector)/[^"\']+', html)
-              urls=['https:'+u if u.startswith('//') else u for u in urls]
-              if not urls:
-                  raise RuntimeError(f'No Pixabay image found for {name}: {search}')
-              image_url=urls[0]
-              image_url=re.sub(r'_(?:180|340|640)\.(jpg|jpeg|png)$', r'_1280.\1', image_url)
-              data=urllib.request.urlopen(urllib.request.Request(image_url, headers=headers), timeout=30).read()
-              (out/f'{name}.source').write_bytes(data)
-              print(name, image_url, len(data))
-          PY
 
-          for f in public/bible-mbti/characters/*.source; do
-            name="${f%.source}"
-            if command -v magick >/dev/null 2>&1; then
-              magick "$f" "${name}.png"
-            else
-              convert "$f" "${name}.png"
-            fi
-            rm -f "$f"
-          done
-
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('src/pages/bibleMbti/page.tsx')
-          s=p.read_text(encoding='utf-8')
-          old='''function CharacterIllustration({ name, className }: { name: string; className?: string }) {
-  const index = MBTI_CHARACTER_INDEX[name];
-  if (index === undefined) return <div className={className} aria-hidden="true" />;
-  const column = index % 5;
-  const row = Math.floor(index / 5);
-
-  return (
-    <div
-      role="img"
-      aria-label={`${name} 성경인물 일러스트`}
-      className={`relative overflow-hidden ${className ?? ''}`}
-    >
-      <img
-        src="/bible-mbti/characters-cute.svg"
-        alt=""
-        aria-hidden="true"
-        className="absolute max-w-none"
-        style={{
-          width: '500%',
-          height: '400%',
-          left: `-${column * 100}%`,
-          top: `-${row * 100}%`,
-        }}
-      />
-    </div>
-  );
-}
-'''
-          new='''const MBTI_CHARACTER_SLUG: Record<string, string> = {
-  모세: 'moses', 아브라함: 'abraham', 여호수아: 'joshua', 다윗: 'david', 요셉: 'joseph',
-  룻: 'ruth', 에스더: 'esther', 다니엘: 'daniel', 바울: 'paul', 베드로: 'peter',
-  느헤미야: 'nehemiah', 디모데: 'timothy', 바나바: 'barnabas', 마리아: 'mary', 엘리야: 'elijah',
-  이사야: 'isaiah', 예레미야: 'jeremiah', 사무엘: 'samuel', 마르다: 'martha', 요한: 'john',
-};
-
-function CharacterIllustration({ name, className }: { name: string; className?: string }) {
-  const slug = MBTI_CHARACTER_SLUG[name];
-  if (!slug) return <div className={className} aria-hidden="true" />;
-
-  return (
-    <div role="img" aria-label={`${name} 성경인물 일러스트`} className={`relative overflow-hidden ${className ?? ''}`}>
-      <img
-        src={`/bible-mbti/characters/${slug}.png`}
-        alt={`${name} 성경인물`}
-        loading="lazy"
-        decoding="async"
-        className="h-full w-full object-contain"
-      />
-    </div>
-  );
-}
-'''
-          if old not in s:
-              raise SystemExit('Expected CharacterIllustration block was not found')
-          p.write_text(s.replace(old,new), encoding='utf-8')
+          const axisLabels'''
+          updated, count = re.subn(pattern, replacement, s, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('CharacterIllustration block not found')
+          p.write_text(updated, encoding='utf-8')
           PY
 
           rm -f public/bible-mbti/characters-cute.svg public/bible-mbti/characters.svg public/bible-mbti/david-cute.svg public/bible-mbti/figure-portraits.webp public/bible-mbti/supplied-characters.webp
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add public/bible-mbti src/pages/bibleMbti/page.tsx
-          git commit -m 'feat: replace Bible MBTI character images' || exit 0
+          git add src/pages/bibleMbti/page.tsx public/bible-mbti
+          git commit -m 'fix: use new Bible MBTI character art' || exit 0
           git push
 
       - name: Remove one-time workflow
         shell: bash
         run: |
           git rm .github/workflows/repair-bible-mbti-art.yml
-          git commit -m 'chore: remove one-time MBTI image workflow'
+          git commit -m 'chore: remove one-time MBTI art workflow'
           git push
