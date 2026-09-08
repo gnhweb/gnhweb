@@ -1,0 +1,62 @@
+name: Replace legacy Bible MBTI sprite
+
+on:
+  push:
+    paths:
+      - .github/workflows/fix-legacy-bible-mbti-art.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace legacy character renderer
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          mapping = {
+              '다니엘': 'daniel', '요셉': 'joseph', '룻': 'ruth', '바나바': 'barnabas',
+              '베드로': 'peter', '느헤미야': 'nehemiah', '에스더': 'esther', '디모데': 'timothy',
+              '다윗': 'david', '마리아': 'mary', '아브라함': 'abraham', '모세': 'moses',
+              '여호수아': 'joshua', '사무엘': 'samuel', '엘리야': 'elijah', '이사야': 'isaiah',
+              '예레미야': 'jeremiah', '바울': 'paul', '요한': 'john', '마르다': 'martha',
+          }
+          entries = ',\n'.join(f"  {name!r}: {slug!r}" for name, slug in mapping.items())
+          replacement = f'''const BIBLE_MBTI_CHARACTER_SLUGS = {{\n{entries}\n}};\n\nfunction bt({{name, className}}) {{\n  const slug = BIBLE_MBTI_CHARACTER_SLUGS[name];\n  if (!slug) return null;\n  return (\n    <img\n      src={{`/bible-mbti/characters-new/${slug}.svg`}}\n      alt={{`${name} 성경인물 프로필`}}\n      className={{`object-contain bg-background-50 ${{className || ''}}`}}\n      loading=\"lazy\"\n      decoding=\"async\"\n    />\n  );\n}}\n\nfunction fi'''
+
+          matches = []
+          for path in Path('src').rglob('*'):
+              if path.suffix not in {'.ts', '.tsx'}:
+                  continue
+              text = path.read_text(encoding='utf-8')
+              if 'characters-cute.svg' in text and 'function bt' in text:
+                  matches.append((path, text))
+
+          if len(matches) != 1:
+              raise SystemExit(f'expected exactly one legacy Bible MBTI renderer, found {len(matches)}: {[str(p) for p, _ in matches]}')
+
+          path, text = matches[0]
+          pattern = r'function bt\(\{name:r,className:e\}\)\{.*?\}\s*function fi'
+          updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if count != 1:
+              pattern = r'function bt\(\{name,?\s*className\}\)\{.*?\}\s*function fi'
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'could not locate bt renderer in {path}')
+          path.write_text(updated, encoding='utf-8')
+          print(f'updated {path}')
+          PY
+      - name: Commit source fix and remove temporary workflow
+        run: |
+          rm .github/workflows/fix-legacy-bible-mbti-art.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src .github/workflows/fix-legacy-bible-mbti-art.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'replace legacy Bible MBTI sprite with individual artwork'
+          git push origin main
