@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/bible-mbti/characters/:slug.webp",
+      "destination": "/bible-mbti/characters-new/:slug.svg"
+    },
+    {
+      "source": "/bible-mbti/characters/:slug.svg",
+      "destination": "/bible-mbti/characters-new/:slug.svg"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
