@@ -70,7 +70,7 @@ export default function SiteBanner() {
 
       // Upload cropped blob to Storage
       const path = `banners/banner-${Date.now()}.jpg`;
-      const { error: uploadErr } = await supabase.storage.from('Public').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+      const { error: uploadErr } = await supabase.storage.from('Public').upload(path, blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
       if (uploadErr) throw uploadErr;
 
       const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
