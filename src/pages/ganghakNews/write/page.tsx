@@ -40,7 +40,7 @@ export default function GanghakNewsWrite() {
     try {
       const ext = file.name.split('.').pop();
       const path = `news/news-${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from('Public').upload(path, file, { upsert: true });
+      const { error: uploadErr } = await supabase.storage.from('Public').upload(path, file, { upsert: true, cacheControl: '31536000' });
       if (uploadErr) throw uploadErr;
       const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
       setImageUrl(urlData.publicUrl);
@@ -95,51 +95,26 @@ export default function GanghakNewsWrite() {
           )}
 
           <div className="bg-background-100 border border-background-200 rounded-[20px] p-6 space-y-5">
-            {/* Category */}
             <div>
               <p id="gn-category-label" className="block text-sm font-medium text-foreground-950 mb-2">카테고리</p>
               <div role="group" aria-labelledby="gn-category-label" className="flex flex-wrap gap-2">
                 {CATEGORIES.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategory(cat)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
-                      category === cat ? 'bg-sky-500 text-white' : 'bg-background-100 text-foreground-600 hover:bg-background-200'
-                    }`}
-                  >
+                  <button key={cat} onClick={() => setCategory(cat)} className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${category === cat ? 'bg-sky-500 text-white' : 'bg-background-100 text-foreground-600 hover:bg-background-200'}`}>
                     {cat}
                   </button>
                 ))}
               </div>
             </div>
-
-            {/* Title */}
             <div>
               <label htmlFor="gn-title" className="block text-sm font-medium text-foreground-950 mb-2">제목</label>
-              <input
-                id="gn-title"
-                type="text"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="뉴스 제목을 입력하세요"
-                maxLength={100}
-                className="w-full px-4 py-2.5 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-sky-400 outline-none"
-              />
+              <input id="gn-title" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="뉴스 제목을 입력하세요" maxLength={100} className="w-full px-4 py-2.5 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-sky-400 outline-none" />
             </div>
-
-            {/* Image */}
             <div>
               <label className="block text-sm font-medium text-foreground-950 mb-2">대표 이미지 (선택)</label>
               {imageUrl ? (
                 <div className="relative">
                   <img src={imageUrl} alt="대표 이미지" className="w-full h-40 object-cover rounded-xl" />
-                  <button
-                    onClick={() => setImageUrl('')}
-                    aria-label="이미지 삭제"
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-rose-500 cursor-pointer transition-colors"
-                  >
-                    <i className="ri-close-line text-sm" aria-hidden="true"></i>
-                  </button>
+                  <button onClick={() => setImageUrl('')} aria-label="이미지 삭제" className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-rose-500 cursor-pointer transition-colors"><i className="ri-close-line text-sm" aria-hidden="true"></i></button>
                 </div>
               ) : (
                 <label className="flex items-center justify-center gap-2 h-32 rounded-xl border-2 border-dashed border-background-300 bg-background-50 cursor-pointer hover:border-sky-300 hover:bg-sky-50/30 transition-colors">
@@ -149,37 +124,14 @@ export default function GanghakNewsWrite() {
                 </label>
               )}
             </div>
-
-            {/* Content */}
             <div>
               <label htmlFor="gn-content" className="block text-sm font-medium text-foreground-950 mb-2">내용</label>
-              <textarea
-                id="gn-content"
-                value={content}
-                onChange={e => setContent(e.target.value)}
-                placeholder="뉴스 내용을 작성해주세요..."
-                rows={10}
-                maxLength={5000}
-                className="w-full px-4 py-3 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-sky-400 outline-none resize-none"
-              />
+              <textarea id="gn-content" value={content} onChange={e => setContent(e.target.value)} placeholder="뉴스 내용을 작성해주세요..." rows={10} maxLength={5000} className="w-full px-4 py-3 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-sky-400 outline-none resize-none" />
               <p className="text-xs text-foreground-500 mt-1 text-right">{content.length}/5000</p>
             </div>
-
-            {/* Actions */}
             <div className="flex items-center gap-3 pt-2">
-              <button
-                onClick={() => navigate('/ganghak-news')}
-                className="flex-1 py-3 rounded-full border border-background-200 text-foreground-600 text-sm font-medium hover:bg-background-50 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={!title.trim() || !content.trim() || submitting}
-                className="flex-1 py-3 rounded-full bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
-              >
-                {submitting ? '등록 중...' : '뉴스 등록하기'}
-              </button>
+              <button onClick={() => navigate('/ganghak-news')} className="flex-1 py-3 rounded-full border border-background-200 text-foreground-600 text-sm font-medium hover:bg-background-50 transition-colors cursor-pointer whitespace-nowrap">취소</button>
+              <button onClick={handleSubmit} disabled={!title.trim() || !content.trim() || submitting} className="flex-1 py-3 rounded-full bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap">{submitting ? '등록 중...' : '뉴스 등록하기'}</button>
             </div>
           </div>
         </motion.div>
