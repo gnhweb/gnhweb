@@ -39,13 +39,14 @@ jobs:
           out=Path('public/bible-mbti/characters')
           for name, query in items.items():
               search='https://pixabay.com/illustrations/search/'+urllib.parse.quote(query)+'/'
-              req=urllib.request.Request(search, headers=headers)
-              html=urllib.request.urlopen(req, timeout=30).read().decode('utf-8','ignore')
-              urls=re.findall(r'https://cdn\.pixabay\.com/(?:photo|vector)/[^"\']+', html)
-              urls=[u.replace('\\u002F','/').replace('\\/','/') for u in urls]
+              html=urllib.request.urlopen(urllib.request.Request(search, headers=headers), timeout=30).read().decode('utf-8','ignore')
+              html=html.replace('\\u002F','/').replace('\\/','/')
+              urls=re.findall(r'(?:https?:)?//cdn\.pixabay\.com/(?:photo|vector)/[^"\']+', html)
+              urls=['https:'+u if u.startswith('//') else u for u in urls]
               if not urls:
-                  raise RuntimeError(f'No Pixabay image found for {name}')
+                  raise RuntimeError(f'No Pixabay image found for {name}: {search}')
               image_url=urls[0]
+              image_url=re.sub(r'_(?:180|340|640)\.(jpg|jpeg|png)$', r'_1280.\1', image_url)
               data=urllib.request.urlopen(urllib.request.Request(image_url, headers=headers), timeout=30).read()
               (out/f'{name}.source').write_bytes(data)
               print(name, image_url, len(data))
@@ -53,7 +54,11 @@ jobs:
 
           for f in public/bible-mbti/characters/*.source; do
             name="${f%.source}"
-            magick "$f" "${name}.png"
+            if command -v magick >/dev/null 2>&1; then
+              magick "$f" "${name}.png"
+            else
+              convert "$f" "${name}.png"
+            fi
             rm -f "$f"
           done
 
