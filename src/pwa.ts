@@ -9,13 +9,12 @@
  * Keep registration checks deployment-aware: after a successful registration,
  * subsequent page loads only read the existing registration. A new SW URL is
  * registered once when PWA_VERSION changes. This avoids repeatedly invoking the
- * registration/update path on every navigation while preserving the
- * deployment update flow.
+ * registration/update path on every navigation while preserving the deployment update flow.
  */
 
 let currentRegistration: ServiceWorkerRegistration | undefined;
 
-const PWA_VERSION = '20260909-2';
+const PWA_VERSION = '20260909-3';
 const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=${PWA_VERSION}`;
 const RELOAD_KEY = `gnhweb-pwa-reloaded:${PWA_VERSION}`;
 const REGISTERED_VERSION_KEY = 'gnhweb-pwa-registered-version';
@@ -28,9 +27,6 @@ function installRegistrationListeners(registration: ServiceWorkerRegistration) {
     worker.addEventListener('statechange', () => {
       if (worker.state !== 'installed' || !navigator.serviceWorker.controller) return;
 
-      // sw.ts uses skipWaiting()/clientsClaim(), so the new worker takes
-      // control immediately. Reload exactly once for this PWA version so the
-      // open page also uses the newly precached application bundle.
       try {
         if (sessionStorage.getItem(RELOAD_KEY) === '1') return;
         sessionStorage.setItem(RELOAD_KEY, '1');
@@ -60,8 +56,6 @@ async function registerOrReuseServiceWorker() {
 
   const registration = await navigator.serviceWorker.register(SW_URL, {
     scope: import.meta.env.BASE_URL,
-    // Allow the browser's normal service-worker update algorithm to use its
-    // HTTP cache instead of forcing a network request on every check.
     updateViaCache: 'imports',
   });
 
