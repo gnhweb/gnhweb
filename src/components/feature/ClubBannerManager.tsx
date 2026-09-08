@@ -16,7 +16,6 @@ interface ClubBannerManagerProps {
   onBannerChange?: () => void;
 }
 
-// Each slot's crop config
 const SLOT_CONFIG = {
   hero: { aspectRatio: 2, outputWidth: 1600, outputHeight: 800, label: '배너 이미지', hint: '동아리 페이지 상단에 크게 보여요' },
   card: { aspectRatio: 1.6, outputWidth: 800, outputHeight: 500, label: '카드 이미지', hint: '동아리 목록에서 미리보기로 보여요' },
@@ -65,7 +64,6 @@ export default function ClubBannerManager({ club, onBannerChange }: ClubBannerMa
   const cardInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // 패널 바깥을 클릭하면 닫히도록 처리
   useEffect(() => {
     if (!panelOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -94,7 +92,6 @@ export default function ClubBannerManager({ club, onBannerChange }: ClubBannerMa
     setError(null);
 
     try {
-      // Delete old file if exists
       const oldUrl = type === 'hero' ? banner?.hero_image_url : banner?.card_image_url;
       if (oldUrl) {
         try {
@@ -109,7 +106,7 @@ export default function ClubBannerManager({ club, onBannerChange }: ClubBannerMa
       }
 
       const path = `club-banners/${club}-${type}-${Date.now()}.jpg`;
-      const { error: uploadErr } = await supabase.storage.from('Public').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+      const { error: uploadErr } = await supabase.storage.from('Public').upload(path, blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
       if (uploadErr) throw uploadErr;
 
       const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
@@ -206,109 +203,38 @@ export default function ClubBannerManager({ club, onBannerChange }: ClubBannerMa
               </div>
 
               <div className="space-y-3">
-                <ImageSlotRow
-                  config={SLOT_CONFIG.hero}
-                  imageUrl={banner?.hero_image_url || null}
-                  uploading={uploading === 'hero'}
-                  removing={removing === 'hero'}
-                  inputRef={heroInputRef}
-                  onFileSelect={(f) => handleFileSelect('hero', f)}
-                  onRemove={() => handleRemove('hero')}
-                />
-                <ImageSlotRow
-                  config={SLOT_CONFIG.card}
-                  imageUrl={banner?.card_image_url || null}
-                  uploading={uploading === 'card'}
-                  removing={removing === 'card'}
-                  inputRef={cardInputRef}
-                  onFileSelect={(f) => handleFileSelect('card', f)}
-                  onRemove={() => handleRemove('card')}
-                />
+                <ImageSlotRow config={SLOT_CONFIG.hero} imageUrl={banner?.hero_image_url || null} uploading={uploading === 'hero'} removing={removing === 'hero'} inputRef={heroInputRef} onFileSelect={(f) => handleFileSelect('hero', f)} onRemove={() => handleRemove('hero')} />
+                <ImageSlotRow config={SLOT_CONFIG.card} imageUrl={banner?.card_image_url || null} uploading={uploading === 'card'} removing={removing === 'card'} inputRef={cardInputRef} onFileSelect={(f) => handleFileSelect('card', f)} onRemove={() => handleRemove('card')} />
               </div>
 
-              {error && (
-                <p className="text-xs text-rose-500 mt-3 flex items-start gap-1">
-                  <i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i>{error}
-                </p>
-              )}
-              {!hasAnyImage && !error && (
-                <p className="text-xs text-foreground-400 mt-3">이미지를 올리지 않으면 기본 색상 배경이 보여요</p>
-              )}
+              {error && <p className="text-xs text-rose-500 mt-3 flex items-start gap-1"><i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i>{error}</p>}
+              {!hasAnyImage && !error && <p className="text-xs text-foreground-400 mt-3">이미지를 올리지 않으면 기본 색상 배경이 보여요</p>}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {activeCropConfig && cropFile && (
-        <ImageCropModal
-          open={!!cropSlot}
-          imageFile={cropFile}
-          aspectRatio={activeCropConfig.aspectRatio}
-          outputWidth={activeCropConfig.outputWidth}
-          outputHeight={activeCropConfig.outputHeight}
-          title={`${activeCropConfig.label} 편집`}
-          onApply={handleCroppedUpload}
-          onCancel={() => { setCropSlot(null); setCropFile(null); }}
-        />
-      )}
+      {activeCropConfig && cropFile && <ImageCropModal open={!!cropSlot} imageFile={cropFile} aspectRatio={activeCropConfig.aspectRatio} outputWidth={activeCropConfig.outputWidth} outputHeight={activeCropConfig.outputHeight} title={`${activeCropConfig.label} 편집`} onApply={handleCroppedUpload} onCancel={() => { setCropSlot(null); setCropFile(null); }} />}
     </>
   );
 }
 
-function ImageSlotRow({
-  config,
-  imageUrl,
-  uploading,
-  removing,
-  inputRef,
-  onFileSelect,
-  onRemove,
-}: {
-  config: { label: string; hint: string };
-  imageUrl: string | null;
-  uploading: boolean;
-  removing: boolean;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  onFileSelect: (f: File) => void;
-  onRemove: () => void;
-}) {
+function ImageSlotRow({ config, imageUrl, uploading, removing, inputRef, onFileSelect, onRemove }: { config: { label: string; hint: string }; imageUrl: string | null; uploading: boolean; removing: boolean; inputRef: React.RefObject<HTMLInputElement | null>; onFileSelect: (f: File) => void; onRemove: () => void; }) {
   return (
     <div className="flex items-center gap-3 p-2 rounded-xl border border-background-200 bg-background-50">
       <div className="w-14 h-11 rounded-lg overflow-hidden bg-background-200 flex-shrink-0 flex items-center justify-center">
-        {imageUrl ? (
-          <img src={imageUrl} alt={config.label} className="w-full h-full object-cover" />
-        ) : (
-          <i className="ri-image-line text-foreground-300 text-lg"></i>
-        )}
+        {imageUrl ? <img src={imageUrl} alt={config.label} className="w-full h-full object-cover" /> : <i className="ri-image-line text-foreground-300 text-lg"></i>}
       </div>
-
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold text-foreground-900">{config.label}</p>
         <p className="text-[11px] text-foreground-400 leading-tight">{config.hint}</p>
       </div>
-
       <div className="flex items-center gap-1 flex-shrink-0">
         <label className="px-2.5 py-1.5 rounded-full bg-background-100 border border-background-200 text-[11px] font-medium text-foreground-600 cursor-pointer hover:bg-background-100 transition-colors whitespace-nowrap">
           {uploading ? '업로드 중' : imageUrl ? '변경' : '업로드'}
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) onFileSelect(f); if (e.target) e.target.value = ''; }}
-            disabled={uploading}
-            className="hidden"
-          />
+          <input ref={inputRef} type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFileSelect(f); if (e.target) e.target.value = ''; }} disabled={uploading} className="hidden" />
         </label>
-        {imageUrl && (
-          <button
-            onClick={onRemove}
-            disabled={removing}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-rose-500 hover:bg-rose-50 cursor-pointer flex-shrink-0"
-            title="삭제"
-          >
-            {removing ? <i className="ri-loader-4-line animate-spin text-sm"></i> : <i className="ri-delete-bin-line text-sm"></i>}
-          </button>
-        )}
+        {imageUrl && <button onClick={onRemove} disabled={removing} className="w-7 h-7 rounded-full flex items-center justify-center text-rose-500 hover:bg-rose-50 cursor-pointer flex-shrink-0" title="삭제">{removing ? <i className="ri-loader-4-line animate-spin text-sm"></i> : <i className="ri-delete-bin-line text-sm"></i>}</button>}
       </div>
     </div>
   );
