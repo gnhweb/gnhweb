@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "rm -rf out && vite build",
+    "build": "vite build",
     "prebuild": "node scripts/normalize-legacy-types.mjs && node scripts/dedupe-passkey-auth.mjs",
     "lint": "eslint src --ext ts,tsx",
     "type-check": "tsc --noEmit --project tsconfig.app.json",
@@ -36,6 +36,7 @@
     "react-dom": "^19.0.0",
     "react-i18next": "^15.6.0",
     "react-kakao-maps-sdk": "^1.2.0",
+    "react-router-dom": "^7.1.0",
     "recharts": "^2.15.0",
     "tailwindcss": "^3.4.17",
     "three": "^0.170.0"
