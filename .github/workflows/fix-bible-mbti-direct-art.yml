@@ -1,0 +1,47 @@
+name: Fix Bible MBTI direct artwork
+
+on:
+  push:
+    paths:
+      - .github/workflows/fix-bible-mbti-direct-art.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace sprite renderer with direct character images
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('src/pages/bibleMbtiEnhanced/page.tsx')
+          text = path.read_text(encoding='utf-8')
+          mapping = {
+              '다니엘': 'daniel', '요셉': 'joseph', '룻': 'ruth', '바나바': 'barnabas',
+              '베드로': 'peter', '느헤미야': 'nehemiah', '에스더': 'esther', '디모데': 'timothy',
+              '다윗': 'david', '마리아': 'mary', '아브라함': 'abraham', '모세': 'moses',
+              '여호수아': 'joshua', '사무엘': 'samuel', '엘리야': 'elijah', '이사야': 'isaiah',
+              '예레미야': 'jeremiah', '바울': 'paul', '요한': 'john', '마르다': 'martha',
+          }
+          entries = ',\n'.join(f" {name!r}: '{slug}'" for name, slug in mapping.items())
+          replacement = f'''const figureSlugs: Record<Figure, string> = {{\n{entries}\n}};\n\nfunction FigureIllustration({{name,className}}:{{name:Figure;className:string}}){{\n const slug=figureSlugs[name];\n return <div role="img" aria-label={{`${{name}} 성경인물 프로필`}} className={{`overflow-hidden ${{className}}`}}><img src={{`/bible-mbti/characters-new/${{slug}}.svg?v=20260909`}} alt="" aria-hidden="true" loading="lazy" decoding="async" className="h-full w-full object-contain" /></div>;\n}}\n\nfunction calculate'''
+          pattern = r'const figureOrder:Figure\[\]=.*?function calculate'
+          updated, count = re.subn(pattern, lambda _: 'const figureOrder:Figure[]='+"['다니엘','요셉','룻','바나바','베드로','느헤미야','에스더','디모데','다윗','마리아','아브라함','모세','여호수아','사무엘','엘리야','이사야','예레미야','바울','요한','마르다'];\n\n" + replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'Could not locate Bible MBTI sprite renderer in {path}')
+          path.write_text(updated, encoding='utf-8')
+          PY
+      - name: Commit source fix and remove temporary workflow
+        run: |
+          rm .github/workflows/fix-bible-mbti-direct-art.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/bibleMbtiEnhanced/page.tsx .github/workflows/fix-bible-mbti-direct-art.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix Bible MBTI enhanced portraits to render direct artwork'
+          git push origin main
