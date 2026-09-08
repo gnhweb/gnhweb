@@ -28,6 +28,8 @@ jobs:
           new = old + "\n    { path: '/teacher-dashboard/quote-manage', label: '어록 관리', icon: 'ri-chat-quote-line' },"
           if s.count(old) != 1:
               raise SystemExit('Expected exactly one leadership mission-tool item in Navbar.tsx')
+          if "path: '/teacher-dashboard/quote-manage', label: '어록 관리'" in s:
+              raise SystemExit('Quote management item already exists')
           s = s.replace(old, new, 1)
           navbar.write_text(s, encoding='utf-8')
 
@@ -39,8 +41,6 @@ jobs:
           s = s.replace(old, '', 1)
           teacher.write_text(s, encoding='utf-8')
 
-          # Ensure the final navigation has one quote-management entry and the
-          # teacher dashboard no longer exposes it as a teacher-area quick link.
           navbar_text = navbar.read_text(encoding='utf-8')
           teacher_text = teacher.read_text(encoding='utf-8')
           if navbar_text.count("path: '/teacher-dashboard/quote-manage'") != 1:
@@ -51,7 +51,7 @@ jobs:
       - name: Verify changed files
         run: |
           git diff --check
-          test "$(git status --short | wc -l | tr -d ' ')" = "2"
+          test "$(git status --short | wc -l | tr -d ' ')" = "3"
           grep -F "{ path: '/teacher-dashboard/quote-manage', label: '어록 관리', icon: 'ri-chat-quote-line' }," src/components/feature/Navbar.tsx
           ! grep -F 'to="/teacher-dashboard/quote-manage"' src/pages/teacherDashboard/page.tsx
 
