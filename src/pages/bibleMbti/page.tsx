@@ -37,7 +37,7 @@ function CharacterIllustration({ name, className }: { name: string; className?: 
   return (
     <div role="img" aria-label={`${name} 성경인물 일러스트`} className={`relative overflow-hidden ${className ?? ''}`}>
       <img
-        src={`/bible-mbti/characters/${slug}.webp`}
+        src={`/bible-mbti/characters-new/${slug}.svg`}
         alt={`${name} 성경인물`}
         loading="lazy"
         decoding="async"
@@ -46,7 +46,7 @@ function CharacterIllustration({ name, className }: { name: string; className?: 
           const image = event.currentTarget;
           if (image.dataset.fallback === 'true') return;
           image.dataset.fallback = 'true';
-          image.src = `/bible-mbti/characters/${slug}.svg`;
+          image.src = `/bible-mbti/characters-new/${slug}.svg`;
         }}
       />
     </div>
