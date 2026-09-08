@@ -1,5 +1,6 @@
 name: Replace Bible MBTI art
 
+# Trigger a fresh replacement run for the new cute Pixabay artwork set.
 on:
   push:
     paths:
