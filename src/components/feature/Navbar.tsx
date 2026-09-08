@@ -29,7 +29,6 @@ const BIBLE_CATEGORY: CategoryGroup = {
     { path: '/bible-pick', label: '말씀뽑기', icon: 'ri-book-open-line' },
     { path: '/bible-quiz', label: '성경 퀴즈', icon: 'ri-question-answer-line' },
     { path: '/bible-mbti', label: '말씀 MBTI', icon: 'ri-user-heart-line' },
-    { path: '/bible-by-age', label: '연령별 말씀', icon: 'ri-book-read-line' },
     { path: '/bible-marathon', label: '성경 완독', icon: 'ri-book-open-line' },
   ],
 };
