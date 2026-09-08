@@ -1,0 +1,43 @@
+name: one-time-image-cache-optimize
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  optimize:
+    if: github.event.head_commit.message == 'chore: run image cache optimization'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply image cache metadata
+        shell: python
+        run: |
+          from pathlib import Path
+          replacements = {
+            'src/components/feature/ClubBannerManager.tsx': [("{ upsert: true, contentType: 'image/jpeg' }", "{ upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' }")],
+            'src/components/feature/SiteBanner.tsx': [("{ upsert: true, contentType: 'image/jpeg' }", "{ upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' }")],
+            'src/pages/clubs/community/page.tsx': [("{ upsert: true });", "{ upsert: true, cacheControl: '31536000' });")],
+            'src/pages/faithJournal/page.tsx': [("{ upsert: true });", "{ upsert: true, cacheControl: '31536000' });")],
+            'src/pages/ganghakNews/write/page.tsx': [("{ upsert: true });", "{ upsert: true, cacheControl: '31536000' });")],
+            'src/pages/ganghakNews/edit/page.tsx': [("{ upsert: true });", "{ upsert: true, cacheControl: '31536000' });")],
+            'src/pages/profile/page.tsx': [("{ upsert: true });", "{ upsert: true, cacheControl: '31536000' });")],
+            'src/pages/missions/board/page.tsx': [("{ cacheControl: '3600', upsert: false }", "{ cacheControl: '31536000', upsert: false, contentType: proofFile.type || 'image/jpeg' }")],
+          }
+          for name, pairs in replacements.items():
+            p = Path(name)
+            text = p.read_text()
+            for old, new in pairs:
+              count = text.count(old)
+              if count != 1:
+                raise SystemExit(f'{name}: expected exactly 1 match, got {count}')
+              text = text.replace(old, new)
+            p.write_text(text)
+      - name: Commit optimized source files and remove one-time workflow
+        run: |
+          rm -f .github/workflows/one-time-image-cache-optimize.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/feature/ClubBannerManager.tsx src/components/feature/SiteBanner.tsx src/pages/clubs/community/page.tsx src/pages/faithJournal/page.tsx src/pages/ganghakNews/write/page.tsx src/pages/ganghakNews/edit/page.tsx src/pages/profile/page.tsx src/pages/missions/board/page.tsx .github/workflows/one-time-image-cache-optimize.yml
+          git commit -m 'perf: optimize Supabase image cache metadata'
+          git push
