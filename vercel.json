@@ -1,5 +1,4 @@
 {
-  "buildCommand": "rm -rf out && npm run build",
   "rewrites": [
     {
       "source": "/bible-mbti/characters/:slug.webp",
