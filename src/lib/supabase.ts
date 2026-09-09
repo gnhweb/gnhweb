@@ -4,15 +4,13 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
 
-// The URLs below are the verified Neon migration branch endpoints. They are
-// intentionally kept as a migration fallback until Vercel environment
-// variables are attached to the preview/production environments.
+// Verified against the Neon migration branch. These remain fallbacks until
+// Vercel environment variables are attached to the deployment environments.
 const neonAuthUrl = (import.meta.env.VITE_NEON_AUTH_URL as string | undefined)
   ?? 'https://ep-fancy-rain-azlj6gwv.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth';
 const neonDataApiUrl = (import.meta.env.VITE_NEON_DATA_API_URL as string | undefined)
   ?? 'https://ep-fancy-rain-azlj6gwv.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb/rest/v1';
 
-// ── Global safety net (synchronous – runs BEFORE React mounts) ──
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event?.reason;
@@ -55,11 +53,8 @@ const supabaseClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
 
 /**
  * Compatibility facade during the migration.
- *
- * Neon exposes a Supabase-compatible database surface through Data API, so
- * database reads/writes and RPC calls can move together without changing the
- * dozens of existing call sites. Storage, Functions, and Realtime remain on
- * Supabase until their dedicated migration tracks are verified.
+ * Neon handles auth plus the Supabase-compatible Data API for from/rpc calls.
+ * Storage, Functions, and Realtime stay on Supabase until separately verified.
  */
 const neonClient = createClient({
   auth: {
@@ -71,14 +66,14 @@ const neonClient = createClient({
 });
 
 const neonAuth = neonClient.auth;
+const neonFrom = neonClient.from.bind(neonClient);
+const neonRpc = neonClient.rpc.bind(neonClient);
 
 export const supabase = new Proxy(supabaseClient, {
   get(target, property, receiver) {
     if (property === 'auth') return neonAuth;
-    if (property === 'from' || property === 'rpc') {
-      const value = neonClient[property];
-      return typeof value === 'function' ? value.bind(neonClient) : value;
-    }
+    if (property === 'from') return neonFrom;
+    if (property === 'rpc') return neonRpc;
     return Reflect.get(target, property, receiver);
   },
 });
