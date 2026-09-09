@@ -1,15 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseAuthAdapter } from '@neondatabase/neon-js';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
+const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL as string | undefined;
+const neonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL as string | undefined;
 
 // ── Global safety net (synchronous – runs BEFORE React mounts) ──
-// Supabase's autoRefreshToken timer can fire as soon as the client is
-// created (module-import time). If the stored refresh token is stale,
-// the SDK can reject before the React AuthProvider listeners are attached.
-// Only handle the known stale-session errors here; ordinary authentication
-// failures must remain visible to the login form instead of being treated as
-// a dead session.
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event?.reason;
@@ -21,7 +18,7 @@ if (typeof window !== 'undefined') {
       msg.includes('AuthSessionMissingError')
     ) {
       event.preventDefault();
-      console.warn('[Supabase] Pre-React caught stale auth rejection — cleaning storage:', msg);
+      console.warn('[Auth] Pre-React caught stale auth rejection — cleaning storage:', msg);
 
       try {
         for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -35,21 +32,44 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+const supabaseClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    // Let supabase-js use its supported lock implementation. A hand-rolled
-    // Promise-chain lock can deadlock when auth methods invoke other auth
-    // operations internally, which can leave signInWithPassword hanging on
-    // mobile browsers and make every login attempt appear to remain on /login.
     experimental: { passkey: true },
   },
   realtime: {
     params: {
       eventsPerSecond: 30,
     },
+  },
+});
+
+/**
+ * Compatibility client during the migration.
+ *
+ * When Neon Auth environment variables are present, only the auth surface is
+ * switched to Neon. Existing DB/Storage/Realtime calls intentionally remain
+ * on Supabase until their dedicated migration tracks are verified.
+ * Without Neon variables, the existing Supabase auth remains available so a
+ * partially configured preview cannot be made unusable.
+ */
+const neonAuth = neonAuthUrl && neonDataApiUrl
+  ? createClient({
+      auth: {
+        adapter: SupabaseAuthAdapter(),
+        url: neonAuthUrl,
+        allowAnonymous: true,
+      },
+      dataApi: { url: neonDataApiUrl },
+    }).auth
+  : null;
+
+export const supabase = new Proxy(supabaseClient, {
+  get(target, property, receiver) {
+    if (property === 'auth' && neonAuth) return neonAuth;
+    return Reflect.get(target, property, receiver);
   },
 });
