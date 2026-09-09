@@ -3,10 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 
 const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 const legacySupabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
-const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL;
-const neonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL;
 
-const neonEnabled = Boolean(neonAuthUrl && neonDataApiUrl);
+const DEFAULT_NEON_AUTH_URL = 'https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth';
+const DEFAULT_NEON_DATA_API_URL = 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb/rest/v1';
+
+const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL || DEFAULT_NEON_AUTH_URL;
+const neonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAULT_NEON_DATA_API_URL;
+
+export const neonEnabled = Boolean(neonAuthUrl && neonDataApiUrl);
 
 // Global safety net for stale sessions during the staged auth migration.
 if (typeof window !== 'undefined') {
@@ -47,40 +51,34 @@ const legacySupabase = createClient(legacySupabaseUrl, legacySupabaseAnonKey, {
   },
 });
 
-const neonAuth = neonEnabled
-  ? createAuthClient(neonAuthUrl, {
-      adapter: SupabaseAuthAdapter(),
-      allowAnonymous: true,
-    })
-  : null;
+const neonAuth = createAuthClient(neonAuthUrl, {
+  adapter: SupabaseAuthAdapter(),
+  allowAnonymous: true,
+});
 
 /**
  * Transitional data client:
- * - `.from()` / `.rpc()` use Neon Data API when Neon Auth is configured.
+ * - `.from()` / `.rpc()` use Neon Data API.
  * - storage/functions/realtime remain on the legacy client until those
  *   Supabase services are migrated separately.
  */
-const neonDataClient = neonEnabled
-  ? createClient(neonDataApiUrl, 'anonymous', {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-        storage: undefined,
-      },
-      accessToken: async () => {
-        try {
-          return (await neonAuth?.getJWTToken?.()) ?? null;
-        } catch {
-          return null;
-        }
-      },
-    })
-  : legacySupabase;
+const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false,
+    storage: undefined,
+  },
+  accessToken: async () => {
+    try {
+      return (await neonAuth.getJWTToken?.()) ?? null;
+    } catch {
+      return null;
+    }
+  },
+});
 
-const authClient = neonAuth
-  ? (neonAuth as unknown as typeof legacySupabase.auth)
-  : legacySupabase.auth;
+const authClient = neonAuth as unknown as typeof legacySupabase.auth;
 
 export const supabase = Object.assign(neonDataClient, {
   auth: authClient,
