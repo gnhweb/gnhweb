@@ -78,12 +78,30 @@ const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
 
 const authClient = neonAuth as unknown as typeof legacySupabase.auth;
 
-export const supabase = Object.assign(neonDataClient, {
-  auth: authClient,
-  storage: legacySupabase.storage,
-  functions: legacySupabase.functions,
-  channel: legacySupabase.channel.bind(legacySupabase),
-  removeChannel: legacySupabase.removeChannel.bind(legacySupabase),
-  removeAllChannels: legacySupabase.removeAllChannels.bind(legacySupabase),
-  realtime: legacySupabase.realtime,
-});
+/**
+ * Keep the existing Supabase-shaped API without mutating the Supabase client.
+ * Supabase client service properties such as `functions` are accessor-only,
+ * so Object.assign() throws when trying to replace them.
+ */
+export const supabase = new Proxy(neonDataClient, {
+  get(target, property, receiver) {
+    switch (property) {
+      case 'auth':
+        return authClient;
+      case 'storage':
+        return legacySupabase.storage;
+      case 'functions':
+        return legacySupabase.functions;
+      case 'channel':
+        return legacySupabase.channel.bind(legacySupabase);
+      case 'removeChannel':
+        return legacySupabase.removeChannel.bind(legacySupabase);
+      case 'removeAllChannels':
+        return legacySupabase.removeAllChannels.bind(legacySupabase);
+      case 'realtime':
+        return legacySupabase.realtime;
+      default:
+        return Reflect.get(target, property, receiver);
+    }
+  },
+}) as typeof legacySupabase;
