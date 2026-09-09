@@ -1,4 +1,4 @@
-import { createAuthClient, SupabaseAuthAdapter } from '@neondatabase/auth';
+import { createAuthClient } from '@neondatabase/auth';
 import { createClient } from '@supabase/supabase-js';
 
 const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
@@ -12,7 +12,6 @@ const neonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAULT_NEON_DA
 
 export const neonEnabled = Boolean(neonAuthUrl && neonDataApiUrl);
 
-// Global safety net for stale sessions during the staged auth migration.
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event?.reason;
@@ -52,7 +51,6 @@ const legacySupabase = createClient(legacySupabaseUrl, legacySupabaseAnonKey, {
 });
 
 const neonAuth = createAuthClient(neonAuthUrl, {
-  adapter: SupabaseAuthAdapter(),
   allowAnonymous: true,
 });
 
