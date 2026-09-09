@@ -32,14 +32,23 @@ const getAccessToken = async (): Promise<string | null> => {
   return data.session?.access_token ?? null;
 };
 
+const buildUrl = (bucket: string, path: string, params?: URLSearchParams) => {
+  if (!baseUrl) throw new Error('VITE_R2_STORAGE_URL is not configured');
+  const encodedPath = path
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+  const url = `${baseUrl}/v1/storage/${encodeURIComponent(bucket)}${encodedPath ? `/${encodedPath}` : ''}`;
+  return params?.size ? `${url}?${params.toString()}` : url;
+};
+
 const request = async (
   bucket: string,
   path: string,
   init: RequestInit = {},
   requiresAuth = true,
 ): Promise<Response> => {
-  if (!baseUrl) throw new Error('VITE_R2_STORAGE_URL is not configured');
-
   const headers = new Headers(init.headers);
   if (requiresAuth) {
     const token = await getAccessToken();
@@ -47,13 +56,7 @@ const request = async (
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  return fetch(`${baseUrl}/v1/storage/${encodeURIComponent(bucket)}/${path
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/')}`, {
-    ...init,
-    headers,
-  });
+  return fetch(buildUrl(bucket, path), { ...init, headers });
 };
 
 const parseError = async (response: Response): Promise<StorageError> => {
@@ -82,20 +85,12 @@ class R2BucketClient {
     const error = await parseError(response);
     if (error) return { data: null, error };
 
-    const data = (await response.json()) as { data: { path: string; etag: string } };
+    const data = (await response.json()) as { data: { path: string; id: string; etag: string } };
     return { data: data.data, error: null };
   }
 
   getPublicUrl(path: string) {
-    if (!baseUrl) throw new Error('VITE_R2_STORAGE_URL is not configured');
-    return {
-      data: {
-        publicUrl: `${baseUrl}/v1/storage/${encodeURIComponent(this.bucket)}/${path
-          .split('/')
-          .map((segment) => encodeURIComponent(segment))
-          .join('/')}`,
-      },
-    };
+    return { data: { publicUrl: buildUrl(this.bucket, path) } };
   }
 
   async remove(paths: string[]) {
@@ -109,8 +104,7 @@ class R2BucketClient {
   }
 
   async list(prefix = '', options: ListOptions = {}) {
-    if (!baseUrl) throw new Error('VITE_R2_STORAGE_URL is not configured');
-    const query = new URLSearchParams();
+    const query = new URLSearchParams({ list: 'true' });
     if (prefix) query.set('prefix', prefix);
     if (options.limit) query.set('limit', String(options.limit));
     if (options.sortBy) {
