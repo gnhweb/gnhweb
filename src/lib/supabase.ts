@@ -1,5 +1,6 @@
 import { createClient, SupabaseAuthAdapter } from '@neondatabase/neon-js';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { r2Storage } from '@/lib/r2Storage';
 
 const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
@@ -54,7 +55,9 @@ const supabaseClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
 /**
  * Compatibility facade during the migration.
  * Neon handles auth plus the Supabase-compatible Data API for from/rpc calls.
- * Storage, Functions, and Realtime stay on Supabase until separately verified.
+ * R2 handles the Public bucket when VITE_R2_STORAGE_URL is configured.
+ * notebook-files and Supabase Functions/Realtime remain on Supabase until
+ * those migration tracks are separately verified.
  */
 const neonClient = createClient({
   auth: {
@@ -68,12 +71,27 @@ const neonClient = createClient({
 const neonAuth = neonClient.auth;
 const neonFrom = neonClient.from.bind(neonClient);
 const neonRpc = neonClient.rpc.bind(neonClient);
+const supabaseStorage = supabaseClient.storage;
 
 export const supabase = new Proxy(supabaseClient, {
   get(target, property, receiver) {
     if (property === 'auth') return neonAuth;
     if (property === 'from') return neonFrom;
     if (property === 'rpc') return neonRpc;
+    if (property === 'storage') {
+      return new Proxy(supabaseStorage, {
+        get(storageTarget, storageProperty, storageReceiver) {
+          if (storageProperty === 'from') {
+            return (bucket: string) => {
+              if (r2Storage.enabled && bucket === 'public') return r2Storage.from('Public');
+              if (r2Storage.enabled && bucket === 'Public') return r2Storage.from('Public');
+              return supabaseStorage.from(bucket);
+            };
+          }
+          return Reflect.get(storageTarget, storageProperty, storageReceiver);
+        },
+      });
+    }
     return Reflect.get(target, property, receiver);
   },
 });
