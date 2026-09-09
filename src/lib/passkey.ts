@@ -5,7 +5,9 @@
  * platform authenticator performs biometric verification and only returns a
  * signed WebAuthn credential to Supabase Auth.
  */
-import { supabase } from '@/lib/supabase';
+import { neonEnabled, supabase } from '@/lib/supabase';
+
+const neonPasskeyUnavailableError = () => new Error('현재 로그인 방식에서는 패스키를 사용할 수 없습니다. 이메일과 비밀번호로 로그인해주세요.');
 
 type PasskeyMeta = {
   id: string;
@@ -121,6 +123,7 @@ function biometricUnavailableError(): Error {
 }
 
 export async function registerPasskey(friendlyName?: string): Promise<PasskeyResult<PasskeyMeta>> {
+  if (neonEnabled) return { data: null, error: neonPasskeyUnavailableError() };
   if (!isPasskeySupported()) return { data: null, error: biometricUnavailableError() };
 
   const auth = supabase.auth as typeof supabase.auth & {
@@ -159,6 +162,7 @@ export async function registerPasskey(friendlyName?: string): Promise<PasskeyRes
 }
 
 export async function signInWithPasskey(): Promise<PasskeyResult<{ session: unknown; user: unknown }>> {
+  if (neonEnabled) return { data: null, error: neonPasskeyUnavailableError() };
   if (!isPasskeySupported()) return { data: null, error: biometricUnavailableError() };
 
   const auth = supabase.auth as typeof supabase.auth & {
@@ -198,6 +202,7 @@ export async function signInWithPasskey(): Promise<PasskeyResult<{ session: unkn
  * for a platform/device authenticator with required user verification.
  */
 export async function authenticateRegisteredPasskey(): Promise<PasskeyResult<unknown>> {
+  if (neonEnabled) return { data: null, error: neonPasskeyUnavailableError() };
   if (!isPasskeySupported()) return { data: null, error: biometricUnavailableError() };
 
   const auth = supabase.auth as typeof supabase.auth & {
@@ -232,6 +237,7 @@ export async function authenticateRegisteredPasskey(): Promise<PasskeyResult<unk
 }
 
 export async function listPasskeys(): Promise<PasskeyResult<PasskeyMeta[]>> {
+  if (neonEnabled) return { data: null, error: neonPasskeyUnavailableError() };
   const auth = supabase.auth as typeof supabase.auth & {
     passkey: { list: () => Promise<{ data: PasskeyMeta[] | null; error: Error | null }> };
   };
@@ -239,6 +245,7 @@ export async function listPasskeys(): Promise<PasskeyResult<PasskeyMeta[]>> {
 }
 
 export async function deletePasskey(passkeyId: string) {
+  if (neonEnabled) return { error: neonPasskeyUnavailableError() };
   const auth = supabase.auth as typeof supabase.auth & {
     passkey: { delete: (options: { passkeyId: string }) => Promise<{ error: Error | null }> };
   };
