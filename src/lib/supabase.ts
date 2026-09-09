@@ -8,6 +8,30 @@ const neonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL;
 
 const neonEnabled = Boolean(neonAuthUrl && neonDataApiUrl);
 
+// Global safety net for stale sessions during the staged auth migration.
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event?.reason;
+    const msg = typeof reason?.message === 'string' ? reason.message : String(reason ?? '');
+    if (
+      msg.includes('Invalid Refresh Token') ||
+      msg.includes('Refresh Token Not Found') ||
+      msg.includes('AuthSessionMissingError')
+    ) {
+      event.preventDefault();
+      console.warn('[Auth] Pre-React caught stale auth rejection — cleaning storage:', msg);
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('sb-') || k.startsWith('neon-'))) localStorage.removeItem(k);
+        }
+      } catch {
+        /* localStorage cleanup is always best-effort */
+      }
+    }
+  });
+}
+
 const legacySupabase = createClient(legacySupabaseUrl, legacySupabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -35,9 +59,6 @@ const neonAuth = neonEnabled
  * - `.from()` / `.rpc()` use Neon Data API when Neon Auth is configured.
  * - storage/functions/realtime remain on the legacy client until those
  *   Supabase services are migrated separately.
- *
- * This keeps the migration incremental instead of silently breaking
- * non-database services that still depend on Supabase.
  */
 const neonDataClient = neonEnabled
   ? createClient(neonDataApiUrl, 'anonymous', {
