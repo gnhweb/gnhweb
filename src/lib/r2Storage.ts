@@ -48,6 +48,7 @@ const request = async (
   path: string,
   init: RequestInit = {},
   requiresAuth = true,
+  params?: URLSearchParams,
 ): Promise<Response> => {
   const headers = new Headers(init.headers);
   if (requiresAuth) {
@@ -56,7 +57,7 @@ const request = async (
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  return fetch(buildUrl(bucket, path), { ...init, headers });
+  return fetch(buildUrl(bucket, path, params), { ...init, headers });
 };
 
 const parseError = async (response: Response): Promise<StorageError> => {
@@ -115,7 +116,7 @@ class R2BucketClient {
     const response = await request(this.bucket, '', {
       method: 'GET',
       headers: { accept: 'application/json' },
-    }, true);
+    }, true, query);
     const error = await parseError(response);
     if (error) return { data: null, error };
 
