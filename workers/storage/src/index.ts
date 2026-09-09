@@ -1,0 +1,160 @@
+export interface Env {
+  STORAGE: R2Bucket;
+  ALLOWED_ORIGIN: string;
+  NEON_JWKS_URL: string;
+  NEON_AUTH_ISSUER?: string;
+}
+
+const json = (body: unknown, status = 200, headers: HeadersInit = {}) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      ...headers,
+    },
+  });
+
+function corsHeaders(origin: string, allowedOrigin: string): HeadersInit {
+  const allowOrigin = origin === allowedOrigin ? origin : allowedOrigin;
+  return {
+    'access-control-allow-origin': allowOrigin,
+    'access-control-allow-methods': 'GET,PUT,DELETE,OPTIONS',
+    'access-control-allow-headers': 'Authorization,Content-Type',
+    'access-control-max-age': '86400',
+    vary: 'Origin',
+  };
+}
+
+function base64UrlToBytes(value: string): Uint8Array {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function decodeJsonPart(value: string): Record<string, unknown> {
+  return JSON.parse(new TextDecoder().decode(base64UrlToBytes(value))) as Record<string, unknown>;
+}
+
+async function verifyJwt(token: string, env: Env): Promise<Record<string, unknown>> {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Invalid token');
+
+  const header = decodeJsonPart(parts[0]);
+  const payload = decodeJsonPart(parts[1]);
+  if (header.alg !== 'RS256' || typeof header.kid !== 'string') throw new Error('Unsupported token');
+
+  const exp = typeof payload.exp === 'number' ? payload.exp : 0;
+  if (!exp || exp <= Math.floor(Date.now() / 1000)) throw new Error('Expired token');
+
+  if (env.NEON_AUTH_ISSUER && payload.iss !== env.NEON_AUTH_ISSUER) {
+    throw new Error('Invalid issuer');
+  }
+
+  const jwksResponse = await fetch(env.NEON_JWKS_URL, {
+    headers: { accept: 'application/json' },
+    cf: { cacheTtl: 300, cacheEverything: true },
+  });
+  if (!jwksResponse.ok) throw new Error('JWKS unavailable');
+
+  const jwks = (await jwksResponse.json()) as {
+    keys?: Array<Record<string, unknown>>;
+  };
+  const jwk = jwks.keys?.find((key) => key.kid === header.kid && key.kty === 'RSA');
+  if (!jwk) throw new Error('Signing key not found');
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'jwk',
+    jwk as JsonWebKey,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify'],
+  );
+
+  const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+  const signature = base64UrlToBytes(parts[2]);
+  const valid = await crypto.subtle.verify(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    signature,
+    data,
+  );
+  if (!valid) throw new Error('Invalid signature');
+
+  return payload;
+}
+
+async function requireAuth(request: Request, env: Env): Promise<Record<string, unknown>> {
+  const authorization = request.headers.get('authorization');
+  if (!authorization?.startsWith('Bearer ')) throw new Error('Unauthorized');
+  return verifyJwt(authorization.slice('Bearer '.length).trim(), env);
+}
+
+function objectKey(request: Request): string | null {
+  const url = new URL(request.url);
+  const prefix = '/v1/storage/';
+  if (!url.pathname.startsWith(prefix)) return null;
+  const key = decodeURIComponent(url.pathname.slice(prefix.length));
+  return key || null;
+}
+
+function objectResponse(object: R2ObjectBody, origin: string, env: Env): Response {
+  const headers = new Headers(corsHeaders(origin, env.ALLOWED_ORIGIN));
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('cache-control', 'public, max-age=31536000, immutable');
+  return new Response(object.body, { headers });
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const origin = request.headers.get('origin') ?? '';
+    const cors = corsHeaders(origin, env.ALLOWED_ORIGIN);
+
+    if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
+
+    const key = objectKey(request);
+    if (!key) return json({ error: 'Not found' }, 404, cors);
+
+    const isPublic = key.startsWith('Public/');
+    const storageKey = isPublic ? key.slice('Public/'.length) : key;
+
+    try {
+      if (request.method === 'GET') {
+        if (!isPublic) await requireAuth(request, env);
+        const object = await env.STORAGE.get(storageKey);
+        if (!object) return json({ error: 'Not found' }, 404, cors);
+        return objectResponse(object, origin, env);
+      }
+
+      await requireAuth(request, env);
+
+      if (request.method === 'PUT') {
+        const contentType = request.headers.get('content-type') ?? 'application/octet-stream';
+        const object = await env.STORAGE.put(storageKey, request.body, {
+          httpMetadata: { contentType },
+        });
+        return json({
+          data: {
+            path: key,
+            etag: object.etag,
+          },
+          error: null,
+        }, 200, cors);
+      }
+
+      if (request.method === 'DELETE') {
+        await env.STORAGE.delete(storageKey);
+        return json({ data: null, error: null }, 200, cors);
+      }
+
+      return json({ error: 'Method not allowed' }, 405, cors);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Storage request failed';
+      const status = message === 'Unauthorized' || message.includes('token') || message.includes('signature')
+        ? 401
+        : 500;
+      return json({ error: message }, status, cors);
+    }
+  },
+} satisfies ExportedHandler<Env>;
