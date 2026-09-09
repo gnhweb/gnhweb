@@ -112,6 +112,10 @@ function toStorageItem(object: R2Object): Record<string, unknown> {
   };
 }
 
+function isOwnMemoryPath(path: string, userId: string): boolean {
+  return path.startsWith(`memories/${userId}/`);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get('origin') ?? '';
@@ -147,7 +151,7 @@ export default {
         return objectResponse(object, origin, env);
       }
 
-      await requireAuth(request, env);
+      const claims = await requireAuth(request, env);
 
       if (request.method === 'PUT') {
         const contentType = request.headers.get('content-type') ?? 'application/octet-stream';
@@ -162,10 +166,14 @@ export default {
       }
 
       if (request.method === 'DELETE') {
+        const userId = typeof claims.sub === 'string' ? claims.sub : '';
         const body = request.headers.get('content-type')?.includes('application/json')
           ? await request.json() as { paths?: string[] }
           : null;
         const paths = body?.paths ?? [storageKey];
+        if (!userId || paths.some((path) => !isOwnMemoryPath(path, userId))) {
+          return json({ error: 'Forbidden' }, 403, cors);
+        }
         await Promise.all(paths.map((path) => env.STORAGE.delete(path)));
         return json({ data: null, error: null }, 200, cors);
       }
