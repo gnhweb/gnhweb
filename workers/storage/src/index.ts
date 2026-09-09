@@ -57,9 +57,7 @@ async function verifyJwt(token: string, env: Env): Promise<Record<string, unknow
   });
   if (!jwksResponse.ok) throw new Error('JWKS unavailable');
 
-  const jwks = (await jwksResponse.json()) as {
-    keys?: Array<Record<string, unknown>>;
-  };
+  const jwks = (await jwksResponse.json()) as { keys?: Array<Record<string, unknown>> };
   const jwk = jwks.keys?.find((key) => key.kid === header.kid && key.kty === 'RSA');
   if (!jwk) throw new Error('Signing key not found');
 
@@ -73,12 +71,7 @@ async function verifyJwt(token: string, env: Env): Promise<Record<string, unknow
 
   const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
   const signature = base64UrlToBytes(parts[2]);
-  const valid = await crypto.subtle.verify(
-    'RSASSA-PKCS1-v1_5',
-    cryptoKey,
-    signature,
-    data,
-  );
+  const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, signature, data);
   if (!valid) throw new Error('Invalid signature');
 
   return payload;
@@ -106,12 +99,25 @@ function objectResponse(object: R2ObjectBody, origin: string, env: Env): Respons
   return new Response(object.body, { headers });
 }
 
+function toStorageItem(object: R2Object): Record<string, unknown> {
+  return {
+    name: object.key,
+    id: object.httpEtag,
+    metadata: {
+      size: object.size,
+      mimetype: object.httpMetadata?.contentType,
+      lastModified: object.uploaded.toISOString(),
+    },
+    created_at: object.uploaded.toISOString(),
+  };
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get('origin') ?? '';
     const cors = corsHeaders(origin, env.ALLOWED_ORIGIN);
 
-    if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
     const key = objectKey(request);
     if (!key) return json({ error: 'Not found' }, 404, cors);
@@ -121,6 +127,20 @@ export default {
 
     try {
       if (request.method === 'GET') {
+        const url = new URL(request.url);
+        if (url.searchParams.get('list') === 'true') {
+          await requireAuth(request, env);
+          const prefix = url.searchParams.get('prefix') ?? '';
+          const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? '1000'), 1), 1000);
+          const listed = await env.STORAGE.list({ prefix, limit });
+          return json({
+            files: [
+              ...listed.objects.map(toStorageItem),
+              ...listed.delimitedPrefixes.map((folder) => ({ name: folder.replace(/\/$/, ''), id: null })),
+            ],
+          }, 200, cors);
+        }
+
         if (!isPublic) await requireAuth(request, env);
         const object = await env.STORAGE.get(storageKey);
         if (!object) return json({ error: 'Not found' }, 404, cors);
@@ -131,20 +151,22 @@ export default {
 
       if (request.method === 'PUT') {
         const contentType = request.headers.get('content-type') ?? 'application/octet-stream';
+        const cacheControl = request.headers.get('cache-control');
         const object = await env.STORAGE.put(storageKey, request.body, {
-          httpMetadata: { contentType },
-        });
-        return json({
-          data: {
-            path: key,
-            etag: object.etag,
+          httpMetadata: {
+            contentType,
+            ...(cacheControl ? { cacheControl } : {}),
           },
-          error: null,
-        }, 200, cors);
+        });
+        return json({ data: { path: key, id: object.etag, etag: object.etag }, error: null }, 200, cors);
       }
 
       if (request.method === 'DELETE') {
-        await env.STORAGE.delete(storageKey);
+        const body = request.headers.get('content-type')?.includes('application/json')
+          ? await request.json() as { paths?: string[] }
+          : null;
+        const paths = body?.paths ?? [storageKey];
+        await Promise.all(paths.map((path) => env.STORAGE.delete(path)));
         return json({ data: null, error: null }, 200, cors);
       }
 
