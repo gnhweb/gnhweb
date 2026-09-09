@@ -1,14 +1,16 @@
 import { createAuthClient } from '@neondatabase/auth';
+import { SupabaseAuthAdapter } from '@neondatabase/auth/vanilla/adapters';
 import { createClient } from '@supabase/supabase-js';
 
 const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 const legacySupabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
 
 const DEFAULT_NEON_AUTH_URL = 'https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth';
-const DEFAULT_NEON_DATA_API_URL = 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb/rest/v1';
+const DEFAULT_NEON_DATA_API_URL = 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb';
 
 const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL || DEFAULT_NEON_AUTH_URL;
-const neonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAULT_NEON_DATA_API_URL;
+const configuredNeonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAULT_NEON_DATA_API_URL;
+const neonDataApiUrl = configuredNeonDataApiUrl.replace(/\/rest\/v1\/?$/, '');
 
 export const neonEnabled = Boolean(neonAuthUrl && neonDataApiUrl);
 
@@ -51,6 +53,7 @@ const legacySupabase = createClient(legacySupabaseUrl, legacySupabaseAnonKey, {
 });
 
 const neonAuth = createAuthClient(neonAuthUrl, {
+  adapter: SupabaseAuthAdapter(),
   allowAnonymous: true,
 });
 
