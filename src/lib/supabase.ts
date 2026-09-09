@@ -3,8 +3,14 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
-const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL as string | undefined;
-const neonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL as string | undefined;
+
+// The URLs below are the verified Neon migration branch endpoints. They are
+// intentionally kept as a migration fallback until Vercel environment
+// variables are attached to the preview/production environments.
+const neonAuthUrl = (import.meta.env.VITE_NEON_AUTH_URL as string | undefined)
+  ?? 'https://ep-fancy-rain-azlj6gwv.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth';
+const neonDataApiUrl = (import.meta.env.VITE_NEON_DATA_API_URL as string | undefined)
+  ?? 'https://ep-fancy-rain-azlj6gwv.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb/rest/v1';
 
 // ── Global safety net (synchronous – runs BEFORE React mounts) ──
 if (typeof window !== 'undefined') {
@@ -48,28 +54,31 @@ const supabaseClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
 });
 
 /**
- * Compatibility client during the migration.
+ * Compatibility facade during the migration.
  *
- * When Neon Auth environment variables are present, only the auth surface is
- * switched to Neon. Existing DB/Storage/Realtime calls intentionally remain
- * on Supabase until their dedicated migration tracks are verified.
- * Without Neon variables, the existing Supabase auth remains available so a
- * partially configured preview cannot be made unusable.
+ * Neon exposes a Supabase-compatible database surface through Data API, so
+ * database reads/writes and RPC calls can move together without changing the
+ * dozens of existing call sites. Storage, Functions, and Realtime remain on
+ * Supabase until their dedicated migration tracks are verified.
  */
-const neonAuth = neonAuthUrl && neonDataApiUrl
-  ? createClient({
-      auth: {
-        adapter: SupabaseAuthAdapter(),
-        url: neonAuthUrl,
-        allowAnonymous: true,
-      },
-      dataApi: { url: neonDataApiUrl },
-    }).auth
-  : null;
+const neonClient = createClient({
+  auth: {
+    adapter: SupabaseAuthAdapter(),
+    url: neonAuthUrl,
+    allowAnonymous: true,
+  },
+  dataApi: { url: neonDataApiUrl },
+});
+
+const neonAuth = neonClient.auth;
 
 export const supabase = new Proxy(supabaseClient, {
   get(target, property, receiver) {
-    if (property === 'auth' && neonAuth) return neonAuth;
+    if (property === 'auth') return neonAuth;
+    if (property === 'from' || property === 'rpc') {
+      const value = neonClient[property];
+      return typeof value === 'function' ? value.bind(neonClient) : value;
+    }
     return Reflect.get(target, property, receiver);
   },
 });
