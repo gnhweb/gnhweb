@@ -4,13 +4,12 @@ import { r2Storage } from '@/lib/r2Storage';
 
 const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
+const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL as string | undefined;
+const neonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL as string | undefined;
 
-// Verified against the Neon migration branch. These remain fallbacks until
-// Vercel environment variables are attached to the deployment environments.
-const neonAuthUrl = (import.meta.env.VITE_NEON_AUTH_URL as string | undefined)
-  ?? 'https://ep-fancy-rain-azlj6gwv.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth';
-const neonDataApiUrl = (import.meta.env.VITE_NEON_DATA_API_URL as string | undefined)
-  ?? 'https://ep-fancy-rain-azlj6gwv.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb/rest/v1';
+if (!neonAuthUrl || !neonDataApiUrl) {
+  throw new Error('Neon 환경변수(VITE_NEON_AUTH_URL, VITE_NEON_DATA_API_URL)가 설정되지 않았습니다.');
+}
 
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
