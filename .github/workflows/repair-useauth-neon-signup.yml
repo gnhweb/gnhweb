@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   repair:
-    if: github.sha == '4843de6278b8ba10497c20a60e9ac71fcf5a5a47'
+    if: github.sha == '5d0a8e09e38f5dd90a5b1d2c8b6085fc837e1d02'
     runs-on: ubuntu-latest
     steps:
       - name: Restore the previous auth hook and apply the minimal Neon signup fix
