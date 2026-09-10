@@ -14,8 +14,12 @@ const json = (body: unknown, status = 200, headers: HeadersInit = {}) =>
     },
   });
 
-function corsHeaders(origin: string, allowedOrigin: string): HeadersInit {
-  const allowOrigin = origin === allowedOrigin ? origin : allowedOrigin;
+function corsHeaders(origin: string, allowedOrigins: string): HeadersInit {
+  const origins = allowedOrigins
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const allowOrigin = origin && origins.includes(origin) ? origin : origins[0] ?? '*';
   return {
     'access-control-allow-origin': allowOrigin,
     'access-control-allow-methods': 'GET,PUT,DELETE,OPTIONS',
