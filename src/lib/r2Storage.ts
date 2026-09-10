@@ -2,6 +2,7 @@ type StorageError = { message: string } | null;
 
 type UploadOptions = {
   contentType?: string;
+  cacheControl?: string;
   upsert?: boolean;
 };
 
@@ -74,12 +75,15 @@ class R2BucketClient {
   constructor(private readonly bucket: string) {}
 
   async upload(path: string, file: File | Blob, options: UploadOptions = {}) {
+    const headers: Record<string, string> = {
+      'content-type': options.contentType ?? file.type ?? 'application/octet-stream',
+      'x-upsert': String(options.upsert ?? false),
+    };
+    if (options.cacheControl) headers['cache-control'] = options.cacheControl;
+
     const response = await request(this.bucket, path, {
       method: 'PUT',
-      headers: {
-        'content-type': options.contentType ?? file.type ?? 'application/octet-stream',
-        'x-upsert': String(options.upsert ?? false),
-      },
+      headers,
       body: file,
     });
 
