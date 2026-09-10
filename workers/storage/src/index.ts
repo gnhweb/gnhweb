@@ -19,7 +19,7 @@ function corsHeaders(origin: string, allowedOrigin: string): HeadersInit {
   return {
     'access-control-allow-origin': allowOrigin,
     'access-control-allow-methods': 'GET,PUT,DELETE,OPTIONS',
-    'access-control-allow-headers': 'Authorization,Content-Type',
+    'access-control-allow-headers': 'Authorization,Content-Type,Cache-Control,X-Upsert',
     'access-control-max-age': '86400',
     vary: 'Origin',
   };
@@ -156,6 +156,13 @@ export default {
       if (request.method === 'PUT') {
         const contentType = request.headers.get('content-type') ?? 'application/octet-stream';
         const cacheControl = request.headers.get('cache-control');
+        const upsert = request.headers.get('x-upsert') === 'true';
+
+        if (!upsert) {
+          const existing = await env.STORAGE.head(storageKey);
+          if (existing) return json({ error: 'The resource already exists' }, 409, cors);
+        }
+
         const object = await env.STORAGE.put(storageKey, request.body, {
           httpMetadata: {
             contentType,
