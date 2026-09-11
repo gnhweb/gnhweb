@@ -116,10 +116,29 @@ export default function MissionsPage() {
     if (!confirm('학생이 올린 인증(사진/내용)을 삭제할까요? 학생이 다시 제출할 수 있는 상태로 되돌아갑니다.')) return;
     setDeletingProofId(assignmentId);
     try {
+      const assignment = assignments.find((item) => item.id === assignmentId);
+      const proofUrl = assignment?.proof_image_url;
       const { error } = await supabase.rpc('reset_mission_proof', { p_assignment_id: Number(assignmentId) });
       if (error) throw error;
+      if (proofUrl) {
+        try {
+          const url = new URL(proofUrl);
+          const marker = '/v1/storage/Public/';
+          const markerIndex = url.pathname.indexOf(marker);
+          if (markerIndex === -1) throw new Error('인증 사진 경로를 확인할 수 없습니다.');
+          const path = decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
+          const { error: storageDeleteErr } = await supabase.storage.from('Public').remove([path]);
+          if (storageDeleteErr) throw storageDeleteErr;
+        } catch (storageErr) {
+          console.error('인증 사진 파일 정리 실패:', storageErr);
+          setError('인증 상태는 초기화되었지만 사진 파일 정리에 실패했습니다. 다시 시도해주세요.');
+        }
+      }
       await loadData();
-    } catch { setError('인증 삭제에 실패했습니다.'); }
+    } catch (err) {
+      console.error('인증 초기화 실패:', err);
+      setError('인증 삭제에 실패했습니다.');
+    }
     setDeletingProofId(null);
   };
 
