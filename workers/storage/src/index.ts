@@ -89,6 +89,10 @@ function isOwnMemoryPath(path: string, userId: string): boolean {
   return path.startsWith(`memories/${userId}/`);
 }
 
+function isOwnNotebookPath(path: string, userId: string): boolean {
+  return path.startsWith(`${userId}/`);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get('origin') ?? '';
@@ -97,6 +101,7 @@ export default {
     const key = objectKey(request);
     if (!key) return json({ error: 'Not found' }, 404, cors);
     const isPublic = key.startsWith('Public/');
+    const bucket = isPublic ? 'Public' : key.split('/')[0];
     const storageKey = isPublic ? key.slice('Public/'.length) : key;
     try {
       if (request.method === 'GET') {
@@ -105,7 +110,8 @@ export default {
           await requireAuth(request, env);
           const prefix = url.searchParams.get('prefix') ?? '';
           const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? '1000'), 1), 1000);
-          const listed = await env.STORAGE.list({ prefix, limit });
+          const listPrefix = bucket === 'notebook-files' && prefix ? `${prefix}` : prefix;
+          const listed = await env.STORAGE.list({ prefix: listPrefix, limit });
           return json({ files: [...listed.objects.map(toStorageItem), ...listed.delimitedPrefixes.map((folder) => ({ name: folder.replace(/\/$/, ''), id: null }))] }, 200, cors);
         }
         if (!isPublic) await requireAuth(request, env);
@@ -129,7 +135,9 @@ export default {
         const userId = typeof claims.sub === 'string' ? claims.sub : '';
         const body = request.headers.get('content-type')?.includes('application/json') ? await request.json() as { paths?: string[] } : null;
         const paths = body?.paths ?? [storageKey];
-        if (!userId || paths.some((path) => !isOwnMemoryPath(path, userId))) return json({ error: 'Forbidden' }, 403, cors);
+        const canDeleteMemory = paths.every((path) => isOwnMemoryPath(path, userId));
+        const canDeleteNotebook = bucket === 'notebook-files' && paths.every((path) => isOwnNotebookPath(path, userId));
+        if (!userId || (!canDeleteMemory && !canDeleteNotebook)) return json({ error: 'Forbidden' }, 403, cors);
         await Promise.all(paths.map((path) => env.STORAGE.delete(path)));
         return json({ data: null, error: null }, 200, cors);
       }
