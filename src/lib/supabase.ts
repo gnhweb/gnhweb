@@ -1,6 +1,7 @@
 import { createAuthClient } from '@neondatabase/auth';
 import { SupabaseAuthAdapter } from '@neondatabase/auth/vanilla/adapters';
 import { createClient } from '@supabase/supabase-js';
+import { r2Storage } from '@/lib/r2Storage';
 
 const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 const legacySupabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
@@ -60,8 +61,9 @@ const neonAuth = createAuthClient(neonAuthUrl, {
 /**
  * Transitional data client:
  * - `.from()` / `.rpc()` use Neon Data API.
- * - storage/functions/realtime remain on the legacy client until those
- *   Supabase services are migrated separately.
+ * - functions/realtime remain on the legacy client until those services
+ *   are migrated separately.
+ * - storage uses the Cloudflare R2 compatibility client.
  */
 const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
   auth: {
@@ -92,7 +94,7 @@ export const supabase = new Proxy(neonDataClient, {
       case 'auth':
         return authClient;
       case 'storage':
-        return legacySupabase.storage;
+        return r2Storage as unknown as typeof legacySupabase.storage;
       case 'functions':
         return legacySupabase.functions;
       case 'channel':
