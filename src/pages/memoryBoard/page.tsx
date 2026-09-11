@@ -143,9 +143,11 @@ export default function MemoryBoard() {
           if (bucketIndex !== -1) storagePaths.push(pathParts.slice(bucketIndex + 1).join('/'));
         } catch { /* ignore malformed url */ }
       }
-      if (storagePaths.length) {
-        try { await supabase.storage.from('Public').remove(storagePaths); } catch { /* ignore storage cleanup errors */ }
+      if (!storagePaths.length) {
+        throw new Error('사진 파일 경로를 확인할 수 없어 삭제를 중단했습니다.');
       }
+      const { error: storageDeleteErr } = await supabase.storage.from('Public').remove(storagePaths);
+      if (storageDeleteErr) throw new Error(`사진 파일 삭제 실패: ${storageDeleteErr.message}`);
       const { error: deleteErr } = await supabase.from('memory_photos').delete().eq('id', photo.id);
       if (deleteErr) throw new Error(`삭제 실패: ${deleteErr.message}`);
       setPhotos(prev => prev.filter(p => p.id !== photo.id));
@@ -263,8 +265,8 @@ export default function MemoryBoard() {
               </div>
             )}
             <div className="flex gap-2">
-              <button onClick={() => { setShowUpload(false); setUploadError(null); }} className="flex-1 py-2.5 rounded-full border border-gray-200 text-sm cursor-pointer">취소</button>
-              <button onClick={handleUpload} disabled={!uploadFile || !uploadTitle.trim() || uploading} className="flex-1 py-2.5 rounded-full bg-rose-500 text-white text-sm font-semibold disabled:opacity-40 cursor-pointer">{uploading ? '업로드 중...' : '올리기'}</button>
+              <button onClick={() => setShowUpload(false)} className="flex-1 py-2.5 rounded-full bg-background-200 text-foreground-700 text-sm font-semibold cursor-pointer">취소</button>
+              <button onClick={handleUpload} disabled={!uploadFile || !uploadTitle.trim() || uploading} className="flex-1 py-2.5 rounded-full bg-rose-500 text-white text-sm font-bold disabled:opacity-50 cursor-pointer">{uploading ? '업로드 중...' : '올리기'}</button>
             </div>
           </div>
         </div>
