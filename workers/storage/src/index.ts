@@ -5,6 +5,8 @@ export interface Env {
   NEON_AUTH_ISSUER?: string;
 }
 
+const DEFAULT_NEON_DATA_API_URL = 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb';
+
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) =>
   new Response(JSON.stringify(body), {
     status,
@@ -93,12 +95,39 @@ function isOwnMissionProofPath(path: string, userId: string): boolean {
   return path.startsWith(`missions/proof/${userId}/`);
 }
 
+function missionProofAssignmentId(path: string): string | null {
+  const match = path.match(/^missions\/proof\/(?:[^/]+\/)?(\d+)_/);
+  return match?.[1] ?? null;
+}
+
 function isOwnNotebookPath(path: string, userId: string): boolean {
   return path.startsWith(`${userId}/`);
 }
 
 function notebookStorageKey(path: string): string {
   return `notebook-files/${path.replace(/^notebook-files\//, '')}`;
+}
+
+async function fetchJson(url: string, authorization: string): Promise<unknown> {
+  const response = await fetch(url, { headers: { authorization, accept: 'application/json' } });
+  if (!response.ok) throw new Error('Data API request failed');
+  return response.json();
+}
+
+async function canManageMissionProof(path: string, userId: string, authorization: string): Promise<boolean> {
+  const assignmentId = missionProofAssignmentId(path);
+  if (!assignmentId) return false;
+  const apiUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/mission_assignments?select=student_id&id=eq.${encodeURIComponent(assignmentId)}&limit=1`;
+  const data = await fetchJson(apiUrl, authorization);
+  const assignment = Array.isArray(data) ? data[0] as { student_id?: unknown } | undefined : undefined;
+  if (typeof assignment?.student_id !== 'string') return false;
+  if (assignment.student_id === userId) return true;
+  const roleUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_roles?select=role&user_id=eq.${encodeURIComponent(userId)}&is_active=eq.true&role=in.(teacher,chief)&limit=1`;
+  const roles = await fetchJson(roleUrl, authorization);
+  return Array.isArray(roles) && roles.some((row) => {
+    const role = row as { role?: unknown };
+    return role.role === 'teacher' || role.role === 'chief';
+  });
 }
 
 export default {
@@ -135,6 +164,7 @@ export default {
         if (!object) return json({ error: 'Not found' }, 404, cors);
         return objectResponse(object, origin, env);
       }
+      const authorization = request.headers.get('authorization');
       const claims = await requireAuth(request, env);
       if (request.method === 'PUT') {
         const contentType = request.headers.get('content-type') ?? 'application/octet-stream';
@@ -152,7 +182,7 @@ export default {
         const body = request.headers.get('content-type')?.includes('application/json') ? await request.json() as { paths?: string[] } : null;
         const paths = body?.paths ?? [storageKey];
         const canDeleteMemory = bucket === 'Public' && paths.every((path) => isOwnMemoryPath(path, userId));
-        const canDeleteMissionProof = bucket === 'Public' && paths.every((path) => isOwnMissionProofPath(path, userId));
+        const canDeleteMissionProof = bucket === 'Public' && authorization ? await Promise.all(paths.map((path) => canManageMissionProof(path, userId, authorization))).then((results) => results.every(Boolean)) : false;
         const canDeleteNotebook = bucket === 'notebook-files' && paths.every((path) => isOwnNotebookPath(path, userId));
         if (!userId || (!canDeleteMemory && !canDeleteMissionProof && !canDeleteNotebook)) return json({ error: 'Forbidden' }, 403, cors);
         const storagePaths = canDeleteNotebook ? paths.map(notebookStorageKey) : paths;
