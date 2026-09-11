@@ -7,7 +7,7 @@ const CORS = {
   "Cache-Control": "no-store",
 };
 
-const GATEWAY = "https://ceearwcfvcbjhmkuuqzv.supabase.co/functions/v1/ai-gateway";
+const GATEWAY = "https://gnhweb-ai-gateway.gemini19840314.workers.dev";
 
 const FALLBACK_DIRECT = `**지금은 상대를 바로 고치려 하기보다, 무슨 일이 벌어졌는지 정확히 확인할 때야.**
 
