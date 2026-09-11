@@ -143,11 +143,14 @@ export default {
     try {
       if (request.method === 'GET') {
         const url = new URL(request.url);
+        const authorization = request.headers.get('authorization');
+        const claims = !isPublic ? await requireAuth(request, env) : null;
+        const userId = typeof claims?.sub === 'string' ? claims.sub : '';
         if (url.searchParams.get('list') === 'true') {
-          await requireAuth(request, env);
+          if (!isPublic && bucket !== 'notebook-files') return json({ error: 'Forbidden' }, 403, cors);
           const prefix = url.searchParams.get('prefix') ?? '';
+          const listPrefix = bucket === 'notebook-files' ? notebookStorageKey(isOwnNotebookPath(prefix, userId) ? prefix : `${userId}/${prefix}`) : prefix;
           const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? '1000'), 1), 1000);
-          const listPrefix = bucket === 'notebook-files' ? notebookStorageKey(prefix || '') : prefix;
           const listed = await env.STORAGE.list({ prefix: listPrefix, limit });
           const files = listed.objects.map((object) => {
             const name = bucket === 'notebook-files' ? object.key.slice('notebook-files/'.length) : object.key;
@@ -159,7 +162,12 @@ export default {
           }));
           return json({ files: [...files, ...folders] }, 200, cors);
         }
-        if (!isPublic) await requireAuth(request, env);
+        if (!isPublic && bucket === 'notebook-files' && (!userId || !isOwnNotebookPath(storageKey, userId))) {
+          return json({ error: 'Forbidden' }, 403, cors);
+        }
+        if (!isPublic && bucket !== 'notebook-files' && authorization && isOwnMissionProofPath(storageKey, userId)) {
+          if (!(await canManageMissionProof(storageKey, userId, authorization))) return json({ error: 'Forbidden' }, 403, cors);
+        }
         const object = await env.STORAGE.get(storageKey);
         if (!object) return json({ error: 'Not found' }, 404, cors);
         return objectResponse(object, origin, env);
