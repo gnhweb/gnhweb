@@ -144,10 +144,10 @@ export default {
       if (request.method === 'GET') {
         const url = new URL(request.url);
         const authorization = request.headers.get('authorization');
-        const claims = !isPublic ? await requireAuth(request, env) : null;
-        const userId = typeof claims?.sub === 'string' ? claims.sub : '';
+        const claims = await requireAuth(request, env);
+        const userId = typeof claims.sub === 'string' ? claims.sub : '';
         if (url.searchParams.get('list') === 'true') {
-          if (!isPublic && bucket !== 'notebook-files') return json({ error: 'Forbidden' }, 403, cors);
+          if (bucket !== 'Public' && bucket !== 'notebook-files') return json({ error: 'Forbidden' }, 403, cors);
           const prefix = url.searchParams.get('prefix') ?? '';
           const listPrefix = bucket === 'notebook-files' ? notebookStorageKey(isOwnNotebookPath(prefix, userId) ? prefix : `${userId}/${prefix}`) : prefix;
           const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? '1000'), 1), 1000);
