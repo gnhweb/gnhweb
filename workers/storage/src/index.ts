@@ -89,6 +89,10 @@ function isOwnMemoryPath(path: string, userId: string): boolean {
   return path.startsWith(`memories/${userId}/`);
 }
 
+function isOwnMissionProofPath(path: string, userId: string): boolean {
+  return path.startsWith(`missions/proof/${userId}/`);
+}
+
 function isOwnNotebookPath(path: string, userId: string): boolean {
   return path.startsWith(`${userId}/`);
 }
@@ -148,8 +152,9 @@ export default {
         const body = request.headers.get('content-type')?.includes('application/json') ? await request.json() as { paths?: string[] } : null;
         const paths = body?.paths ?? [storageKey];
         const canDeleteMemory = bucket === 'Public' && paths.every((path) => isOwnMemoryPath(path, userId));
+        const canDeleteMissionProof = bucket === 'Public' && paths.every((path) => isOwnMissionProofPath(path, userId));
         const canDeleteNotebook = bucket === 'notebook-files' && paths.every((path) => isOwnNotebookPath(path, userId));
-        if (!userId || (!canDeleteMemory && !canDeleteNotebook)) return json({ error: 'Forbidden' }, 403, cors);
+        if (!userId || (!canDeleteMemory && !canDeleteMissionProof && !canDeleteNotebook)) return json({ error: 'Forbidden' }, 403, cors);
         const storagePaths = canDeleteNotebook ? paths.map(notebookStorageKey) : paths;
         await Promise.all(storagePaths.map((path) => env.STORAGE.delete(path)));
         return json({ data: null, error: null }, 200, cors);
