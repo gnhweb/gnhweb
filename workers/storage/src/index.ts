@@ -166,7 +166,12 @@ export default {
       }
       const authorization = request.headers.get('authorization');
       const claims = await requireAuth(request, env);
+      const userId = typeof claims.sub === 'string' ? claims.sub : '';
       if (request.method === 'PUT') {
+        if (bucket !== 'Public' && bucket !== 'notebook-files') return json({ error: 'Forbidden' }, 403, cors);
+        if (bucket === 'notebook-files' && (!userId || !isOwnNotebookPath(storageKey, userId))) {
+          return json({ error: 'Forbidden' }, 403, cors);
+        }
         const contentType = request.headers.get('content-type') ?? 'application/octet-stream';
         const cacheControl = request.headers.get('cache-control');
         const upsert = request.headers.get('x-upsert') === 'true';
@@ -178,7 +183,6 @@ export default {
         return json({ data: { path: key, id: object.etag, etag: object.etag }, error: null }, 200, cors);
       }
       if (request.method === 'DELETE') {
-        const userId = typeof claims.sub === 'string' ? claims.sub : '';
         const body = request.headers.get('content-type')?.includes('application/json') ? await request.json() as { paths?: string[] } : null;
         const paths = body?.paths ?? [storageKey];
         const canDeleteMemory = bucket === 'Public' && paths.every((path) => isOwnMemoryPath(path, userId));
