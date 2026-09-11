@@ -12,10 +12,13 @@ const getAccessToken = async (): Promise<string | null> => {
   return data.session?.access_token ?? null;
 };
 
+const normalizeBucket = (bucket: string) => bucket.toLowerCase() === 'public' ? 'Public' : bucket;
+
 const buildUrl = (bucket: string, path: string, params?: URLSearchParams) => {
   if (!baseUrl) throw new Error('VITE_R2_STORAGE_URL is not configured');
+  const normalizedBucket = normalizeBucket(bucket);
   const encodedPath = path.split('/').filter(Boolean).map((segment) => encodeURIComponent(segment)).join('/');
-  const url = `${baseUrl}/v1/storage/${encodeURIComponent(bucket)}${encodedPath ? `/${encodedPath}` : ''}`;
+  const url = `${baseUrl}/v1/storage/${encodeURIComponent(normalizedBucket)}${encodedPath ? `/${encodedPath}` : ''}`;
   return params?.size ? `${url}?${params.toString()}` : url;
 };
 
@@ -73,4 +76,4 @@ class R2BucketClient {
   }
 }
 
-export const r2Storage = { enabled: Boolean(baseUrl), from(bucket: string) { return new R2BucketClient(bucket); } };
+export const r2Storage = { enabled: Boolean(baseUrl), from(bucket: string) { return new R2BucketClient(normalizeBucket(bucket)); } };
