@@ -147,7 +147,7 @@ export default {
         const userId = typeof claims.sub === 'string' ? claims.sub : '';
         const body = request.headers.get('content-type')?.includes('application/json') ? await request.json() as { paths?: string[] } : null;
         const paths = body?.paths ?? [storageKey];
-        const canDeleteMemory = bucket === 'memories' && paths.every((path) => isOwnMemoryPath(path, userId));
+        const canDeleteMemory = bucket === 'Public' && paths.every((path) => isOwnMemoryPath(path, userId));
         const canDeleteNotebook = bucket === 'notebook-files' && paths.every((path) => isOwnNotebookPath(path, userId));
         if (!userId || (!canDeleteMemory && !canDeleteNotebook)) return json({ error: 'Forbidden' }, 403, cors);
         const storagePaths = canDeleteNotebook ? paths.map(notebookStorageKey) : paths;
