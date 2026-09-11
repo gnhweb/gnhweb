@@ -1,0 +1,16 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "gnhweb-storage",
+  "compatibility_date": "2026-09-09",
+  "main": "src/index.ts",
+  "r2_buckets": [
+    {
+      "binding": "STORAGE",
+      "bucket_name": "gnhweb-storage"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGIN": "https://gnhwebw.pages.dev,https://gnhweb.pages.dev,https://gnhweb.vercel.app",
+    "NEON_JWKS_URL": "https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
+  }
+}
