@@ -95,7 +95,12 @@ function isOwnMissionProofPath(path: string, userId: string): boolean {
   return path.startsWith(`missions/proof/${userId}/`);
 }
 
+function isMissionProofPath(path: string): boolean {
+  return path.startsWith('missions/proof/');
+}
+
 function missionProofAssignmentId(path: string): string | null {
+  if (!isMissionProofPath(path)) return null;
   const match = path.match(/^missions\/proof\/(?:[^/]+\/)?(\d+)_/);
   return match?.[1] ?? null;
 }
@@ -140,6 +145,7 @@ export default {
     const isPublic = key.startsWith('Public/');
     const bucket = isPublic ? 'Public' : key.split('/')[0];
     const storageKey = isPublic ? key.slice('Public/'.length) : key;
+    if (bucket !== 'Public' && bucket !== 'notebook-files') return json({ error: 'Forbidden' }, 403, cors);
     try {
       if (request.method === 'GET') {
         const url = new URL(request.url);
@@ -147,7 +153,6 @@ export default {
         const claims = url.searchParams.get('list') === 'true' || !isPublic ? await requireAuth(request, env) : null;
         const userId = typeof claims?.sub === 'string' ? claims.sub : '';
         if (url.searchParams.get('list') === 'true') {
-          if (bucket !== 'Public' && bucket !== 'notebook-files') return json({ error: 'Forbidden' }, 403, cors);
           const prefix = url.searchParams.get('prefix') ?? '';
           const listPrefix = bucket === 'notebook-files' ? notebookStorageKey(isOwnNotebookPath(prefix, userId) ? prefix : `${userId}/${prefix}`) : prefix;
           const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? '1000'), 1), 1000);
@@ -165,9 +170,6 @@ export default {
         if (!isPublic && bucket === 'notebook-files' && (!userId || !isOwnNotebookPath(storageKey, userId))) {
           return json({ error: 'Forbidden' }, 403, cors);
         }
-        if (!isPublic && bucket !== 'notebook-files' && authorization && isOwnMissionProofPath(storageKey, userId)) {
-          if (!(await canManageMissionProof(storageKey, userId, authorization))) return json({ error: 'Forbidden' }, 403, cors);
-        }
         const object = await env.STORAGE.get(storageKey);
         if (!object) return json({ error: 'Not found' }, 404, cors);
         return objectResponse(object, origin, env);
@@ -176,7 +178,6 @@ export default {
       const claims = await requireAuth(request, env);
       const userId = typeof claims.sub === 'string' ? claims.sub : '';
       if (request.method === 'PUT') {
-        if (bucket !== 'Public' && bucket !== 'notebook-files') return json({ error: 'Forbidden' }, 403, cors);
         if (bucket === 'notebook-files' && (!userId || !isOwnNotebookPath(storageKey, userId))) {
           return json({ error: 'Forbidden' }, 403, cors);
         }
@@ -194,7 +195,9 @@ export default {
         const body = request.headers.get('content-type')?.includes('application/json') ? await request.json() as { paths?: string[] } : null;
         const paths = body?.paths ?? [storageKey];
         const canDeleteMemory = bucket === 'Public' && paths.every((path) => isOwnMemoryPath(path, userId));
-        const canDeleteMissionProof = bucket === 'Public' && authorization ? await Promise.all(paths.map((path) => canManageMissionProof(path, userId, authorization))).then((results) => results.every(Boolean)) : false;
+        const canDeleteMissionProof = bucket === 'Public' && authorization
+          ? paths.every(isMissionProofPath) && await Promise.all(paths.map((path) => canManageMissionProof(path, userId, authorization))).then((results) => results.every(Boolean))
+          : false;
         const canDeleteNotebook = bucket === 'notebook-files' && paths.every((path) => isOwnNotebookPath(path, userId));
         if (!userId || (!canDeleteMemory && !canDeleteMissionProof && !canDeleteNotebook)) return json({ error: 'Forbidden' }, 403, cors);
         const storagePaths = canDeleteNotebook ? paths.map(notebookStorageKey) : paths;
