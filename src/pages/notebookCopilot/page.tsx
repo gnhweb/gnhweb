@@ -232,7 +232,11 @@ export default function NotebookCopilotPage() {
         })
         .select()
         .single();
-      if (insertErr) throw insertErr;
+      if (insertErr) {
+        const { error: cleanupError } = await supabase.storage.from("notebook-files").remove([path]);
+        if (cleanupError) console.error("notebook R2 cleanup failed after DB insert error", cleanupError);
+        throw insertErr;
+      }
 
       if (status === "done") {
         const newSource: PickableSource = { id: `file:${row.id}`, type: "file", title: file.name, date: new Date().toISOString().slice(0, 10), content: extractedText, selected: false };
@@ -257,8 +261,32 @@ export default function NotebookCopilotPage() {
     if (source.type !== "file") return;
     const dbId = source.id.split(":")[1];
     if (!confirm(`"${source.title}" 파일을 삭제할까요?`)) return;
-    const { error } = await supabase.from("notebook_files").delete().eq("id", dbId);
-    if (error) { alert("삭제하지 못했어요."); return; }
+
+    const { data: fileRow, error: fileLookupError } = await supabase
+      .from("notebook_files")
+      .select("file_path")
+      .eq("id", dbId)
+      .single();
+    if (fileLookupError || !fileRow?.file_path) {
+      console.error(fileLookupError);
+      alert("파일 정보를 불러오지 못했어요.");
+      return;
+    }
+
+    const { error: storageError } = await supabase.storage.from("notebook-files").remove([fileRow.file_path]);
+    if (storageError) {
+      console.error(storageError);
+      alert("파일 저장소에서 삭제하지 못했어요. 다시 시도해 주세요.");
+      return;
+    }
+
+    const { error: databaseError } = await supabase.from("notebook_files").delete().eq("id", dbId);
+    if (databaseError) {
+      console.error(databaseError);
+      alert("파일 기록을 삭제하지 못했어요. 다시 시도해 주세요.");
+      return;
+    }
+
     setSources((prev) => prev.filter((s) => s.id !== source.id));
     setSelectedIds((prev) => { const n = new Set(prev); n.delete(source.id); return n; });
   };
