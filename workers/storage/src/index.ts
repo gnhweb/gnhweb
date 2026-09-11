@@ -144,8 +144,8 @@ export default {
       if (request.method === 'GET') {
         const url = new URL(request.url);
         const authorization = request.headers.get('authorization');
-        const claims = await requireAuth(request, env);
-        const userId = typeof claims.sub === 'string' ? claims.sub : '';
+        const claims = url.searchParams.get('list') === 'true' || !isPublic ? await requireAuth(request, env) : null;
+        const userId = typeof claims?.sub === 'string' ? claims.sub : '';
         if (url.searchParams.get('list') === 'true') {
           if (bucket !== 'Public' && bucket !== 'notebook-files') return json({ error: 'Forbidden' }, 403, cors);
           const prefix = url.searchParams.get('prefix') ?? '';
