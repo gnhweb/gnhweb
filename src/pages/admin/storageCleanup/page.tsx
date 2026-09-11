@@ -111,8 +111,36 @@ export default function StorageCleanupPage() {
         }
       });
 
+      // Additional DB-backed references that are not covered by the original cleanup scan.
+      // These paths must stay protected even when they are not otherwise visible in the admin UI.
+      const [missionAssignments, memoryPhotos, storybooks] = await Promise.all([
+        supabase.from('mission_assignments').select('proof_image_url'),
+        supabase.from('memory_photos').select('photo_url, thumb_url'),
+        supabase.from('faith_storybooks').select('photo_url'),
+      ]);
+
+      missionAssignments.data?.forEach((row: { proof_image_url?: string | null }) => {
+        if (row.proof_image_url) referencedUrls.add(row.proof_image_url);
+      });
+      memoryPhotos.data?.forEach((row: { photo_url?: string | null; thumb_url?: string | null }) => {
+        if (row.photo_url) referencedUrls.add(row.photo_url);
+        if (row.thumb_url) referencedUrls.add(row.thumb_url);
+      });
+      storybooks.data?.forEach((row: { photo_url?: string | null }) => {
+        if (row.photo_url) referencedUrls.add(row.photo_url);
+      });
+
+      // Only expose paths that the current R2 Worker authorizes for operational staff.
+      // Personal/member-owned and club-post files remain protected from this bulk cleanup UI.
+      const isCleanupCandidate = (path: string) =>
+        path.startsWith('news/') ||
+        path.startsWith('banners/') ||
+        path.startsWith('club-banners/') ||
+        path.startsWith('missions/proof/');
+
       // 3. Identify orphan files
       const orphans = allStorageFiles.filter(file => {
+        if (!isCleanupCandidate(file.name)) return false;
         const { data } = supabase.storage.from('public').getPublicUrl(file.name);
         return !referencedUrls.has(data.publicUrl);
       });
