@@ -20,10 +20,20 @@ function json(body: unknown, status = 200, extraHeaders: Record<string, string> 
   });
 }
 
+function requiresNeonJwt(pathname: string): boolean {
+  return pathname === '/prayer-relay'
+    || pathname === '/quiz-leaderboard'
+    || pathname === '/streak-tracker'
+    || pathname === '/monthly-champion-snapshot';
+}
+
 export default {
   async fetch(req: Request, env: Record<string, string | undefined>): Promise<Response> {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
     const url = new URL(req.url);
+    if (requiresNeonJwt(url.pathname) && !req.headers.get('authorization')) {
+      return json({ error: 'Unauthorized' }, 401);
+    }
     if (url.pathname === '/prayer-relay') return handlePrayerRelay(req, env);
     if (url.pathname === '/quiz-leaderboard') return handleQuizLeaderboard(req, env);
     if (url.pathname === '/quiz-report') return handleQuizReport(req, env);
