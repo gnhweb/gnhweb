@@ -1,0 +1,136 @@
+type QuizQuestion = {
+  question: string;
+  options: string[];
+  answer: string;
+  explanation: string;
+  type: "ox" | "multiple";
+  difficulty: "easy" | "normal" | "hard";
+  points: number;
+};
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Content-Type": "application/json",
+  "Cache-Control": "no-store",
+};
+
+const difficultyMap: Record<string, string> = { easy: "하", normal: "중", hard: "상" };
+const forbiddenPatterns = [/삼위일체/, /성부.*성자.*성령/, /위격/, /예정론/, /자유의지/, /세대주의/, /은사.*논쟁/, /개혁신학/];
+const storyPatterns = [/이야기/, /비유/, /사건/, /만났/, /싸웠/, /이겼/, /보냈/, /갔/, /왔/, /주었/, /만들었/, /지었/, /낳았/, /결혼/, /전쟁/, /전투/, /도망/, /숨겼/, /던졌/, /던지/, /물리쳤/, /정복/, /건넜/, /열렸/, /꿈/, /환상/, /예언.*했/, /말했/, /물었/, /대답/, /기도.*했/, /찬양/, /울었/, /기뻐/, /잡혔/, /팔렸/, /먹었/, /마셨/, /걸었/, /올랐/, /내려왔/, /죽었/, /살아났/, /헌금/];
+
+function shuffle<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function biased(q: QuizQuestion): boolean {
+  if (q.type === "ox") return false;
+  const answerLen = q.answer.length;
+  const wrong = q.options.filter((option) => option !== q.answer).map((option) => option.length).sort((a, b) => b - a);
+  if (!wrong.length) return false;
+  const second = wrong.length >= 2 ? wrong[1] : wrong[0];
+  const average = wrong.reduce((sum, length) => sum + length, 0) / wrong.length;
+  return (answerLen > wrong[0] && answerLen > second * 1.2) || answerLen > average * 1.4;
+}
+
+function interpretive(q: QuizQuestion): boolean {
+  const text = `${q.question} ${q.explanation || ""}`;
+  return forbiddenPatterns.some((pattern) => pattern.test(text));
+}
+
+function storyCentered(q: QuizQuestion): boolean {
+  return storyPatterns.some((pattern) => pattern.test(q.question));
+}
+
+function selectQuestions(candidates: QuizQuestion[], size: number): QuizQuestion[] {
+  const story = shuffle(candidates.filter(storyCentered));
+  const factual = shuffle(candidates.filter((q) => !storyCentered(q)));
+  const result = [...story.slice(0, Math.min(story.length, Math.ceil(size * 0.7)))];
+  result.push(...factual.slice(0, Math.max(0, size - result.length)));
+  if (result.length < size) {
+    const used = new Set(result.map((q) => q.question.substring(0, 20)));
+    result.push(...shuffle(candidates).filter((q) => !used.has(q.question.substring(0, 20))).slice(0, size - result.length));
+  }
+  return shuffle(result).slice(0, size);
+}
+
+function shuffleOptions(q: QuizQuestion): QuizQuestion {
+  if (q.type === "ox") return q;
+  const options = shuffle(q.options);
+  return { ...q, options, answer: q.answer };
+}
+
+function normalize(row: Record<string, unknown>): QuizQuestion | null {
+  if (typeof row.question !== "string" || !Array.isArray(row.options) || typeof row.answer !== "string" || typeof row.explanation !== "string" || !["ox", "multiple"].includes(String(row.type)) || !["하", "중", "상"].includes(String(row.difficulty))) return null;
+  const options = row.options.filter((option): option is string => typeof option === "string");
+  if (!options.length || !options.includes(row.answer)) return null;
+  const difficulty = row.difficulty as "하" | "중" | "상";
+  return {
+    question: row.question,
+    options,
+    answer: row.answer,
+    explanation: row.explanation,
+    type: row.type as "ox" | "multiple",
+    difficulty: difficulty === "하" ? "easy" : difficulty === "상" ? "hard" : "normal",
+    points: typeof row.points === "number" ? row.points : difficulty === "상" ? 30 : difficulty === "중" ? 20 : 10,
+  };
+}
+
+async function neonSelect(env: Record<string, string | undefined>, difficulty: string): Promise<Record<string, unknown>[]> {
+  const baseUrl = env.NEON_DATA_API_URL?.replace(/\/$/, "");
+  if (!baseUrl) throw new Error("NEON_DATA_API_URL is not configured");
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (env.NEON_DATA_API_KEY) headers.Authorization = `Bearer ${env.NEON_DATA_API_KEY}`;
+  const response = await fetch(`${baseUrl}/quiz_questions?difficulty=eq.${encodeURIComponent(difficulty)}&select=*`, { headers });
+  if (!response.ok) throw new Error(`Neon Data API HTTP ${response.status}`);
+  const data = await response.json();
+  return Array.isArray(data) ? data.filter((row): row is Record<string, unknown> => !!row && typeof row === "object") : [];
+}
+
+export async function handleNimQuiz(req: Request, env: Record<string, string | undefined>): Promise<Response> {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
+  if (req.method !== "POST") return new Response(JSON.stringify({ error: "POST only" }), { status: 405, headers: CORS_HEADERS });
+  try {
+    const body = await req.json() as { difficulty?: unknown; excludeQuestions?: unknown; count?: unknown; source?: unknown };
+    const difficulty = ["easy", "normal", "hard"].includes(String(body.difficulty)) ? String(body.difficulty) : "normal";
+    const exclude = Array.isArray(body.excludeQuestions) ? body.excludeQuestions.filter((value): value is string => typeof value === "string") : [];
+    const size = Math.min(Math.max(Number(body.count) || 10, 1), 30);
+    const excludeSet = new Set(exclude.map((value) => value.substring(0, 20)));
+    const order = [difficultyMap[difficulty] || "중", "중", "하", "상"].filter((value, index, values) => values.indexOf(value) === index);
+
+    let candidates: QuizQuestion[] = [];
+    for (const dbDifficulty of order) {
+      const rows = await neonSelect(env, dbDifficulty);
+      candidates.push(...rows.map(normalize).filter((q): q is QuizQuestion => q !== null).filter((q) => !interpretive(q) && !excludeSet.has(q.question.substring(0, 20))));
+      if (candidates.length >= size * 5) break;
+    }
+
+    const seen = new Set<string>();
+    const deduped = shuffle(candidates).filter((q) => {
+      const key = q.question.substring(0, 20);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (!deduped.length) return new Response(JSON.stringify({ error: "문제은행에 사용 가능한 문제가 없습니다. 관리자에게 문제 추가를 요청해주세요." }), { status: 200, headers: CORS_HEADERS });
+
+    const selected = selectQuestions(deduped, size);
+    const unbiased = selected.filter((q) => !biased(q));
+    const biasedSelected = selected.filter(biased);
+    const used = new Set(selected.map((q) => q.question.substring(0, 20)));
+    const backups = deduped.filter((q) => !used.has(q.question.substring(0, 20)) && !biased(q));
+    const resultPool = [...unbiased, ...shuffle(backups).slice(0, Math.max(0, size - unbiased.length))];
+    if (resultPool.length < size) resultPool.push(...biasedSelected.slice(0, size - resultPool.length));
+    const result = resultPool.slice(0, size).map(shuffleOptions);
+
+    return new Response(JSON.stringify(result), { headers: CORS_HEADERS });
+  } catch (error) {
+    console.error("[nim-quiz]", error);
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "서버 오류" }), { status: 500, headers: CORS_HEADERS });
+  }
+}
