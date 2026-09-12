@@ -102,11 +102,7 @@ jobs:
       - name: POST /nim-mbti smoke test
         run: |
           set -euo pipefail
-          response=$(curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header 'Content-Type: application/json' \
-            --data '{"answers":["1"]}' \
-            'https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-mbti')
+          response=$(curl --fail-with-body --silent --show-error --request POST --header 'Content-Type: application/json' --data '{"answers":["1"]}' 'https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-mbti')
           printf '%s\n' "$response"
           printf '%s' "$response" | grep -q '"character"'
 
@@ -118,9 +114,7 @@ jobs:
       - name: GET /prayer-relay smoke test
         run: |
           set -euo pipefail
-          response=$(curl --fail-with-body --silent --show-error \
-            --request GET \
-            'https://gnhweb-api.gemini19840314.workers.dev/prayer-relay?status=active&limit=1')
+          response=$(curl --fail-with-body --silent --show-error --request GET 'https://gnhweb-api.gemini19840314.workers.dev/prayer-relay?status=active&limit=1')
           printf '%s\n' "$response"
           printf '%s' "$response" | grep -q '"relays"'
 
@@ -132,9 +126,7 @@ jobs:
       - name: GET /quiz-leaderboard smoke test
         run: |
           set -euo pipefail
-          response=$(curl --fail-with-body --silent --show-error \
-            --request GET \
-            'https://gnhweb-api.gemini19840314.workers.dev/quiz-leaderboard?monthly=true&limit=1')
+          response=$(curl --fail-with-body --silent --show-error --request GET 'https://gnhweb-api.gemini19840314.workers.dev/quiz-leaderboard?monthly=true&limit=1')
           printf '%s\n' "$response"
           printf '%s' "$response" | grep -q '"scores"'
 
@@ -146,10 +138,30 @@ jobs:
       - name: POST /quiz-report without auth must be rejected
         run: |
           set -euo pipefail
-          status=$(curl --silent --show-error --output /tmp/quiz-report-response.json --write-out '%{http_code}' \
-            --request POST \
-            --header 'Content-Type: application/json' \
-            --data '{"question_text":"smoke test"}' \
-            'https://gnhweb-api.gemini19840314.workers.dev/quiz-report')
+          status=$(curl --silent --show-error --output /tmp/quiz-report-response.json --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{"question_text":"smoke test"}' 'https://gnhweb-api.gemini19840314.workers.dev/quiz-report')
           cat /tmp/quiz-report-response.json
+          test "$status" = "401"
+
+  verify-streak-tracker:
+    name: Verify gnhweb API /streak-tracker
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    steps:
+      - name: GET /streak-tracker smoke test
+        run: |
+          set -euo pipefail
+          response=$(curl --fail-with-body --silent --show-error --request GET 'https://gnhweb-api.gemini19840314.workers.dev/streak-tracker')
+          printf '%s\n' "$response"
+          printf '%s' "$response" | grep -q '"individual"'
+
+  verify-bible-streak-update:
+    name: Verify gnhweb API /bible-streak-update auth guard
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /bible-streak-update without auth must be rejected
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output /tmp/bible-streak-update-response.json --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{"userId":"smoke-test"}' 'https://gnhweb-api.gemini19840314.workers.dev/bible-streak-update')
+          cat /tmp/bible-streak-update-response.json
           test "$status" = "401"
