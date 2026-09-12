@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabase';
 
 const ENV_VAPID_PUBLIC_KEY = String(import.meta.env.VITE_WEB_PUSH_VAPID_PUBLIC_KEY || '').trim();
+const WEB_PUSH_PUBLIC_KEY_URL = String(
+  import.meta.env.VITE_WEB_PUSH_PUBLIC_KEY_URL || 'https://gnhweb-api.gemini19840314.workers.dev/web-push-public-key',
+).trim();
 let cachedVapidPublicKey = ENV_VAPID_PUBLIC_KEY;
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -30,9 +33,13 @@ async function getVapidPublicKey(): Promise<string> {
   if (cachedVapidPublicKey) return cachedVapidPublicKey;
 
   try {
-    const { data, error } = await supabase.functions.invoke('get-web-push-public-key');
-    if (error) throw error;
-    const publicKey = String((data as { publicKey?: unknown } | null)?.publicKey || '').trim();
+    const response = await fetch(WEB_PUSH_PUBLIC_KEY_URL, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json() as { publicKey?: unknown };
+    const publicKey = String(data.publicKey || '').trim();
     if (publicKey) {
       cachedVapidPublicKey = publicKey;
       return publicKey;
