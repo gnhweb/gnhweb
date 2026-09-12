@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 
+const CLOUDFLARE_API = import.meta.env.VITE_CLOUDFLARE_API_URL || 'https://gnhweb-api.gemini19840314.workers.dev';
+
 export default function Setup() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -112,18 +114,15 @@ export default function Setup() {
     setSubmitting(true);
 
     try {
-      const { data: fnData, error: fnError } = await supabase.functions.invoke('setup-chief', {
-        body: { email, password, name, gender: gender || null },
+      const response = await fetch(`${CLOUDFLARE_API}/setup-chief`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name, gender: gender || null }),
       });
+      const fnData = await response.json().catch(() => null) as { error?: string; success?: boolean } | null;
 
-      if (fnError) {
-        setError(fnError.message || '계정 생성 중 오류가 발생했습니다');
-        setSubmitting(false);
-        return;
-      }
-
-      if (fnData?.error) {
-        setError(fnData.error);
+      if (!response.ok) {
+        setError(fnData?.error || '계정 생성 중 오류가 발생했습니다');
         setSubmitting(false);
         return;
       }
