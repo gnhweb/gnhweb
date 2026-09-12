@@ -35,20 +35,16 @@ type ChannelState = {
 };
 
 const states = new WeakMap<object, ChannelState>();
-const channelTargets = new WeakMap<object, RealtimeChannel>();
 const activeChannels = new Set<RealtimeChannel>();
 const POLL_INTERVAL_MS = 5000;
 
 function rowKey(row: Row): string {
   const id = row.id;
   if (typeof id === 'string' || typeof id === 'number') return String(id);
-
-  const stable = Object.keys(row)
-    .sort()
-    .reduce<Record<string, unknown>>((result, key) => {
-      result[key] = row[key];
-      return result;
-    }, {});
+  const stable = Object.keys(row).sort().reduce<Record<string, unknown>>((result, key) => {
+    result[key] = row[key];
+    return result;
+  }, {});
   return JSON.stringify(stable);
 }
 
@@ -56,22 +52,15 @@ function matchesFilter(row: Row, filter?: string): boolean {
   if (!filter) return true;
   const match = filter.match(/^([^=]+)=eq\.(.*)$/);
   if (!match) return true;
-
   const [, field, expected] = match;
-  const actual = row[field];
-  return String(actual ?? '') === decodeURIComponent(expected);
+  return String(row[field] ?? '') === decodeURIComponent(expected);
 }
 
 function eventMatches(event: Exclude<ChangeEvent, '*'>, expected?: ChangeEvent): boolean {
   return !expected || expected === '*' || expected === event;
 }
 
-function createPayload(
-  eventType: Exclude<ChangeEvent, '*'>,
-  table: string,
-  nextRow: Row,
-  previousRow: Row,
-): RealtimePayload {
+function createPayload(eventType: Exclude<ChangeEvent, '*'>, table: string, nextRow: Row, previousRow: Row): RealtimePayload {
   return {
     schema: 'public',
     table,
@@ -83,42 +72,28 @@ function createPayload(
   };
 }
 
-async function poll(
-  channel: RealtimeChannel,
-  queryRows: (table: string) => Promise<Row[]>,
-): Promise<void> {
+async function poll(channel: RealtimeChannel, queryRows: (table: string) => Promise<Row[]>): Promise<void> {
   const state = states.get(channel);
   if (!state || state.polling || state.subscriptions.length === 0) return;
   state.polling = true;
-
   try {
-    const tables = [...new Set(
-      state.subscriptions
-        .map((subscription) => subscription.filter.table)
-        .filter((table): table is string => Boolean(table)),
-    )];
-
+    const tables = [...new Set(state.subscriptions.map((subscription) => subscription.filter.table).filter((table): table is string => Boolean(table)))];
     for (const table of tables) {
       const rows = await queryRows(table);
       const currentRows = new Map(rows.map((row) => [rowKey(row), row]));
       const previousRows = state.previousRows;
-
       if (!state.initializedTables.has(table)) {
         currentRows.forEach((row, key) => previousRows.set(`${table}:${key}`, row));
         state.initializedTables.add(table);
         continue;
       }
-
       const tablePrevious = new Map<string, Row>();
       previousRows.forEach((row, key) => {
         if (key.startsWith(`${table}:`)) tablePrevious.set(key.slice(table.length + 1), row);
       });
-
       currentRows.forEach((row, key) => {
         const previous = tablePrevious.get(key);
-        const changed = !previous || JSON.stringify(previous) !== JSON.stringify(row);
-        if (!changed) return;
-
+        if (previous && JSON.stringify(previous) === JSON.stringify(row)) return;
         const eventType: Exclude<ChangeEvent, '*'> = previous ? 'UPDATE' : 'INSERT';
         state.subscriptions
           .filter((subscription) => subscription.filter.table === table)
@@ -126,17 +101,14 @@ async function poll(
           .filter((subscription) => matchesFilter(row, subscription.filter.filter) || matchesFilter(previous ?? {}, subscription.filter.filter))
           .forEach((subscription) => subscription.callback(createPayload(eventType, table, row, previous ?? {})));
       });
-
       tablePrevious.forEach((previous, key) => {
         if (currentRows.has(key)) return;
-
         state.subscriptions
           .filter((subscription) => subscription.filter.table === table)
           .filter((subscription) => eventMatches('DELETE', subscription.filter.event))
           .filter((subscription) => matchesFilter(previous, subscription.filter.filter))
           .forEach((subscription) => subscription.callback(createPayload('DELETE', table, {}, previous)));
       });
-
       previousRows.forEach((_row, key) => {
         if (key.startsWith(`${table}:`)) previousRows.delete(key);
       });
@@ -149,10 +121,7 @@ async function poll(
   }
 }
 
-export function createNeonRealtimeChannel(
-  channel: RealtimeChannel,
-  queryRows: (table: string) => Promise<Row[]>,
-): RealtimeChannel {
+export function createNeonRealtimeChannel(channel: RealtimeChannel, queryRows: (table: string) => Promise<Row[]>): RealtimeChannel {
   const state: ChannelState = {
     subscriptions: [],
     previousRows: new Map(),
@@ -160,45 +129,43 @@ export function createNeonRealtimeChannel(
     timer: null,
     polling: false,
   };
-  states.set(channel, state);
-
   const wrapped = new Proxy(channel, {
     get(target, property, receiver) {
       if (property === 'on') {
         return (type: string, filter: unknown, callback: unknown) => {
-          if (type !== 'postgres_changes' || typeof callback !== 'function' || typeof filter !== 'object' || filter === null) {
-            const originalOn = Reflect.get(target, property, receiver);
-            if (typeof originalOn !== 'function') return originalOn;
-            return Reflect.apply(originalOn, target, [type, filter, callback]);
-          }
-
-          state.subscriptions.push({
-            filter: filter as ChangeFilter,
-            callback: callback as (payload: RealtimePayload) => void,
-          });
-
+          if (type !== 'postgres_changes' || typeof callback !== 'function' || typeof filter !== 'object' || filter === null) return wrapped;
+          state.subscriptions.push({ filter: filter as ChangeFilter, callback: callback as (payload: RealtimePayload) => void });
           if (!state.timer) {
-            void poll(target, queryRows);
-            state.timer = setInterval(() => void poll(target, queryRows), POLL_INTERVAL_MS);
+            void poll(wrapped, queryRows);
+            state.timer = setInterval(() => void poll(wrapped, queryRows), POLL_INTERVAL_MS);
           }
-
           return wrapped;
         };
       }
-
-      const value = Reflect.get(target, property, target);
+      if (property === 'subscribe') {
+        return (callback?: (status: string) => void) => {
+          callback?.('SUBSCRIBED');
+          return wrapped;
+        };
+      }
+      if (property === 'unsubscribe') {
+        return () => {
+          disposeNeonRealtimeChannel(wrapped);
+          return Promise.resolve('ok' as const);
+        };
+      }
+      if (property === 'removeAllListeners') return () => wrapped;
+      const value = Reflect.get(target, property, receiver);
       return typeof value === 'function' ? value.bind(target) : value;
     },
   });
-
   states.set(wrapped, state);
-  channelTargets.set(wrapped, channel);
   activeChannels.add(wrapped);
   return wrapped;
 }
 
 export function getNeonRealtimeTarget(channel: RealtimeChannel): RealtimeChannel {
-  return channelTargets.get(channel) ?? channel;
+  return channel;
 }
 
 export function disposeNeonRealtimeChannel(channel: RealtimeChannel): void {
@@ -210,7 +177,6 @@ export function disposeNeonRealtimeChannel(channel: RealtimeChannel): void {
   state.previousRows.clear();
   state.initializedTables.clear();
   states.delete(channel);
-  channelTargets.delete(channel);
   activeChannels.delete(channel);
 }
 
