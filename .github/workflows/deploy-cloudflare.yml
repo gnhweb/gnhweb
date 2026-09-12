@@ -27,6 +27,7 @@ jobs:
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
           wranglerVersion: "4"
           command: deploy --config wrangler.jsonc
 
@@ -40,6 +41,7 @@ jobs:
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
           wranglerVersion: "4"
           workingDirectory: workers/realtime
           command: deploy --config wrangler.jsonc
