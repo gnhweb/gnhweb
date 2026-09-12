@@ -94,20 +94,6 @@ jobs:
           workingDirectory: workers/ai-gateway
           command: deploy --config wrangler.jsonc
 
-  diagnose-neon-anonymous:
-    name: Diagnose Neon Data API anonymous access
-    runs-on: ubuntu-latest
-    steps:
-      - name: Query Neon Data API without JWT
-        run: |
-          set -euo pipefail
-          for table in quiz_scores user_roles bible_streaks prayer_relays club_monthly_champions; do
-            echo "=== $table ==="
-            status=$(curl --silent --show-error --output /tmp/neon-response.json --write-out '%{http_code}' "https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb/rest/v1/${table}?select=*&limit=0")
-            echo "HTTP $status"
-            cat /tmp/neon-response.json
-          done
-
   verify-ai-gateway:
     name: Verify gnhweb AI gateway /nim-mbti POST
     needs: deploy-ai-gateway
@@ -121,30 +107,28 @@ jobs:
           printf '%s' "$response" | grep -q '"character"'
 
   verify-prayer-relay:
-    name: Verify gnhweb API /prayer-relay
+    name: Verify gnhweb API /prayer-relay auth guard
     needs: deploy-api
     runs-on: ubuntu-latest
     steps:
-      - name: GET /prayer-relay smoke test
+      - name: GET /prayer-relay without auth must be rejected
         run: |
           set -euo pipefail
           status=$(curl --silent --show-error --output /tmp/prayer-relay-response.json --write-out '%{http_code}' --request GET 'https://gnhweb-api.gemini19840314.workers.dev/prayer-relay?status=active&limit=1')
           cat /tmp/prayer-relay-response.json
-          test "$status" = "200"
-          grep -q '"relays"' /tmp/prayer-relay-response.json
+          test "$status" = "401"
 
   verify-quiz-leaderboard:
-    name: Verify gnhweb API /quiz-leaderboard
+    name: Verify gnhweb API /quiz-leaderboard auth guard
     needs: deploy-api
     runs-on: ubuntu-latest
     steps:
-      - name: GET /quiz-leaderboard smoke test
+      - name: GET /quiz-leaderboard without auth must be rejected
         run: |
           set -euo pipefail
           status=$(curl --silent --show-error --output /tmp/quiz-leaderboard-response.json --write-out '%{http_code}' --request GET 'https://gnhweb-api.gemini19840314.workers.dev/quiz-leaderboard?monthly=true&limit=1')
           cat /tmp/quiz-leaderboard-response.json
-          test "$status" = "200"
-          grep -q '"scores"' /tmp/quiz-leaderboard-response.json
+          test "$status" = "401"
 
   verify-quiz-report:
     name: Verify gnhweb API /quiz-report auth guard
@@ -159,17 +143,16 @@ jobs:
           test "$status" = "401"
 
   verify-streak-tracker:
-    name: Verify gnhweb API /streak-tracker
+    name: Verify gnhweb API /streak-tracker auth guard
     needs: deploy-api
     runs-on: ubuntu-latest
     steps:
-      - name: GET /streak-tracker smoke test
+      - name: GET /streak-tracker without auth must be rejected
         run: |
           set -euo pipefail
           status=$(curl --silent --show-error --output /tmp/streak-tracker-response.json --write-out '%{http_code}' --request GET 'https://gnhweb-api.gemini19840314.workers.dev/streak-tracker')
           cat /tmp/streak-tracker-response.json
-          test "$status" = "200"
-          grep -q '"individual"' /tmp/streak-tracker-response.json
+          test "$status" = "401"
 
   verify-bible-streak-update:
     name: Verify gnhweb API /bible-streak-update auth guard
@@ -208,14 +191,13 @@ jobs:
           test "$status" = "400"
 
   verify-monthly-champion-snapshot:
-    name: Verify gnhweb API /monthly-champion-snapshot
+    name: Verify gnhweb API /monthly-champion-snapshot auth guard
     needs: deploy-api
     runs-on: ubuntu-latest
     steps:
-      - name: GET /monthly-champion-snapshot list
+      - name: GET /monthly-champion-snapshot without auth must be rejected
         run: |
           set -euo pipefail
           status=$(curl --silent --show-error --output /tmp/monthly-champion-response.json --write-out '%{http_code}' --request GET 'https://gnhweb-api.gemini19840314.workers.dev/monthly-champion-snapshot?mode=list&limit=1')
           cat /tmp/monthly-champion-response.json
-          test "$status" = "200"
-          grep -q '"records"' /tmp/monthly-champion-response.json
+          test "$status" = "401"
