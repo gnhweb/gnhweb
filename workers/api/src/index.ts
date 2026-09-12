@@ -3,7 +3,6 @@ import { handleQuizLeaderboard } from './quizLeaderboardFeature';
 import { handleQuizReport } from './quizReportFeature';
 import { handleStreakTracker } from './streakTrackerFeature';
 import { handleBibleStreakUpdate } from './bibleStreakUpdateFeature';
-import { handleBiblePickV2 } from './biblePickV2Feature';
 import { handleBiblePick } from './biblePickFeature';
 import { handleSetupChief } from './setupChiefFeature';
 
@@ -34,7 +33,6 @@ export default {
     if (url.pathname === '/quiz-report') return handleQuizReport(req, env);
     if (url.pathname === '/streak-tracker') return handleStreakTracker(req, env);
     if (url.pathname === '/bible-streak-update') return handleBibleStreakUpdate(req, env);
-    if (url.pathname === '/bible-pick-v2') return handleBiblePickV2(req, env);
     if (url.pathname === '/bible-pick') return handleBiblePick(req, env);
     if (url.pathname === '/setup-chief') return handleSetupChief(req, env);
 
