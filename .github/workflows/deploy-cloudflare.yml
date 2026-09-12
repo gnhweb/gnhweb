@@ -78,3 +78,19 @@ jobs:
           wranglerVersion: "4"
           workingDirectory: workers/ai-gateway
           command: deploy --config wrangler.jsonc
+
+  verify-ai-gateway:
+    name: Verify gnhweb AI gateway /nim-mbti POST
+    needs: deploy-ai-gateway
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /nim-mbti smoke test
+        run: |
+          set -euo pipefail
+          response=$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"answers":["1"]}' \
+            'https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-mbti')
+          printf '%s\n' "$response"
+          printf '%s' "$response" | grep -q '"character"'
