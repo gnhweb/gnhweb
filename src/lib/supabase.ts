@@ -88,7 +88,7 @@ async function queryNeonRows(table: string): Promise<Record<string, unknown>[]> 
 
 const cloudflareChannels = new Set<CloudflareRealtimeChannel>();
 
-const MIGRATED_CLOUDFLARE_FUNCTIONS = new Set(['meeting-ideas-ai', 'meeting-insight-ai', 'nim-letter']);
+const MIGRATED_CLOUDFLARE_FUNCTIONS = new Set(['meeting-ideas-ai', 'meeting-insight-ai', 'nim-letter', 'nim-coaching']);
 
 const cloudflareFunctions = new Proxy(legacySupabase.functions, {
   get(target, property, receiver) {
@@ -98,7 +98,7 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
         return target.invoke(functionName, options);
       }
 
-      const endpoint = functionName === 'meeting-ideas-ai' ? '/meeting-ideas' : functionName === 'meeting-insight-ai' ? '/meeting-insight' : '/nim-letter';
+      const endpoint = functionName === 'meeting-ideas-ai' ? '/meeting-ideas' : functionName === 'meeting-insight-ai' ? '/meeting-insight' : functionName === 'nim-letter' ? '/nim-letter' : '/nim-coaching';
       try {
         const response = await fetch(`${CLOUDFLARE_AI_GATEWAY}${endpoint}`, {
           method: 'POST',
