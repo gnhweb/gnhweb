@@ -189,3 +189,15 @@ jobs:
           status=$(curl --silent --show-error --output /tmp/setup-chief-response.json --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{}' 'https://gnhweb-api.gemini19840314.workers.dev/setup-chief')
           cat /tmp/setup-chief-response.json
           test "$status" = "400"
+
+  verify-monthly-champion-snapshot:
+    name: Verify gnhweb API /monthly-champion-snapshot
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    steps:
+      - name: GET /monthly-champion-snapshot list
+        run: |
+          set -euo pipefail
+          response=$(curl --fail-with-body --silent --show-error --request GET 'https://gnhweb-api.gemini19840314.workers.dev/monthly-champion-snapshot?mode=list&limit=1')
+          printf '%s\n' "$response"
+          printf '%s' "$response" | grep -q '"records"'
