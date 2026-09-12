@@ -32,7 +32,7 @@ export default {
     if (url.pathname === '/quiz-report') return handleQuizReport(req, env);
     if (url.pathname === '/streak-tracker') return handleStreakTracker(req, env);
     if (url.pathname === '/bible-streak-update') return handleBibleStreakUpdate(req, env);
-    if (url.pathname === '/bible-pick-v2') return handleBiblePickV2(req, env);
+    if (url.pathname === '/bible-pick-v2' || url.pathname === '/bible-pick') return handleBiblePickV2(req, env);
 
     if (url.pathname !== '/web-push-public-key') {
       return json({ error: 'Not Found' }, 404);
