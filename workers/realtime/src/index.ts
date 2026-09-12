@@ -126,7 +126,7 @@ export class RealtimeRoom extends DurableObject<Env> {
     const selectedProtocol = protocolValues.includes('neon-auth') ? 'neon-auth' : undefined;
 
     this.ctx.acceptWebSocket(server, [room, userId]);
-    server.serializeAttachment({ room, userId });
+    server.serializeAttachment({ room, userId, meta: null });
     server.send(JSON.stringify({ type: 'ready', room }));
 
     const headers = selectedProtocol ? { 'Sec-WebSocket-Protocol': selectedProtocol } : undefined;
@@ -143,7 +143,7 @@ export class RealtimeRoom extends DurableObject<Env> {
       return;
     }
 
-    const attachment = ws.deserializeAttachment() as { room?: string; userId?: string } | null;
+    const attachment = ws.deserializeAttachment() as { room?: string; userId?: string; meta?: PresenceMeta | null } | null;
     const userId = attachment?.userId;
     if (!userId) {
       ws.send(JSON.stringify({ type: 'error', error: 'Unauthorized' }));
@@ -157,11 +157,8 @@ export class RealtimeRoom extends DurableObject<Env> {
 
     if (parsed.type === 'presence_track') {
       const meta = parsed.payload && typeof parsed.payload === 'object' ? parsed.payload : {};
-      const envelope = JSON.stringify({ type: 'presence_join', key: userId, meta });
-      for (const peer of this.ctx.getWebSockets()) {
-        if (peer !== ws && peer.readyState === WebSocket.OPEN) peer.send(envelope);
-      }
-      ws.send(JSON.stringify({ type: 'presence_sync', state: { [userId]: [meta] } }));
+      ws.serializeAttachment({ ...attachment, meta });
+      this.broadcastPresenceSync();
       return;
     }
 
@@ -191,6 +188,18 @@ export class RealtimeRoom extends DurableObject<Env> {
   webSocketError(ws: WebSocket): void {
     this.broadcastPresenceLeave(ws);
     ws.close();
+  }
+
+  private broadcastPresenceSync(): void {
+    const state: Record<string, PresenceMeta[]> = {};
+    for (const peer of this.ctx.getWebSockets()) {
+      const attachment = peer.deserializeAttachment() as { userId?: string; meta?: PresenceMeta | null } | null;
+      if (attachment?.userId && attachment.meta) state[attachment.userId] = [attachment.meta];
+    }
+    const envelope = JSON.stringify({ type: 'presence_sync', state });
+    for (const peer of this.ctx.getWebSockets()) {
+      if (peer.readyState === WebSocket.OPEN) peer.send(envelope);
+    }
   }
 
   private broadcastPresenceLeave(ws: WebSocket): void {
