@@ -167,13 +167,34 @@ export class CloudflareRealtimeChannel {
     return this.sendRaw({ type: 'broadcast', event: message.event, payload: message.payload ?? null });
   }
 
-  private sendRaw(message: Record<string, unknown>): Promise<'ok' | 'error'> {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return Promise.resolve('error');
+  private async waitForConnection(): Promise<boolean> {
+    if (this.socket?.readyState === WebSocket.OPEN) return true;
+    if (this.destroyed) return false;
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const settle = (status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED') => {
+        if (settled) return;
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          settled = true;
+          this.subscribeHandlers = this.subscribeHandlers.filter((handler) => handler !== settle);
+          resolve(status === 'SUBSCRIBED');
+        }
+      };
+
+      this.subscribeHandlers.push(settle);
+      if (!this.socket) this.subscribe();
+    });
+  }
+
+  private async sendRaw(message: Record<string, unknown>): Promise<'ok' | 'error'> {
+    if (!(await this.waitForConnection())) return 'error';
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return 'error';
     try {
       this.socket.send(JSON.stringify(message));
-      return Promise.resolve('ok');
+      return 'ok';
     } catch {
-      return Promise.resolve('error');
+      return 'error';
     }
   }
 
