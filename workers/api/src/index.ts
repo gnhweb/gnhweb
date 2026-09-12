@@ -5,6 +5,7 @@ import { handleStreakTracker } from './streakTrackerFeature';
 import { handleBibleStreakUpdate } from './bibleStreakUpdateFeature';
 import { handleBiblePickV2 } from './biblePickV2Feature';
 import { handleBiblePick } from './biblePickFeature';
+import { handleSetupChief } from './setupChiefFeature';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +36,7 @@ export default {
     if (url.pathname === '/bible-streak-update') return handleBibleStreakUpdate(req, env);
     if (url.pathname === '/bible-pick-v2') return handleBiblePickV2(req, env);
     if (url.pathname === '/bible-pick') return handleBiblePick(req, env);
+    if (url.pathname === '/setup-chief') return handleSetupChief(req, env);
 
     if (url.pathname !== '/web-push-public-key') {
       return json({ error: 'Not Found' }, 404);
