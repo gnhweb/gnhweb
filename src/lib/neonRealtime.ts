@@ -160,7 +160,6 @@ export function createNeonRealtimeChannel(
     polling: false,
   };
   states.set(channel, state);
-  activeChannels.add(channel);
 
   const wrapped = new Proxy(channel, {
     get(target, property, receiver) {
