@@ -2,6 +2,7 @@ import { createAuthClient } from '@neondatabase/auth';
 import { SupabaseAuthAdapter } from '@neondatabase/auth/vanilla/adapters';
 import { createClient } from '@supabase/supabase-js';
 import { r2Storage } from '@/lib/r2Storage';
+import { CloudflareRealtimeChannel, isCloudflareGameRoom } from '@/lib/cloudflareRealtime';
 import {
   createNeonRealtimeChannel,
   disposeAllNeonRealtimeChannels,
@@ -69,8 +70,8 @@ const neonAuth = createAuthClient(neonAuthUrl, {
  * - `.from()` / `.rpc()` use Neon Data API.
  * - functions remain on the legacy client until those services are migrated.
  * - storage uses the Cloudflare R2 compatibility client.
- * - `postgres_changes` channels are bridged to Neon polling; broadcast/presence
- *   continue to use the legacy Supabase Realtime transport for game sessions.
+ * - database-change channels are bridged to Neon polling.
+ * - game broadcast/presence channels use Cloudflare Durable Objects when configured.
  */
 const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
   auth: {
@@ -97,6 +98,8 @@ async function queryNeonRows(table: string): Promise<Record<string, unknown>[]> 
   return data.filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null);
 }
 
+const cloudflareChannels = new Set<CloudflareRealtimeChannel>();
+
 /**
  * Keep the existing Supabase-shaped API without mutating the Supabase client.
  * Supabase client service properties such as `functions` are accessor-only,
@@ -112,15 +115,28 @@ export const supabase = new Proxy(neonDataClient, {
       case 'functions':
         return legacySupabase.functions;
       case 'channel':
-        return (name: string, options?: Parameters<typeof legacySupabase.channel>[1]) =>
-          createNeonRealtimeChannel(legacySupabase.channel(name, options), queryNeonRows);
+        return (name: string, options?: Parameters<typeof legacySupabase.channel>[1]) => {
+          if (isCloudflareGameRoom(name)) {
+            const channel = new CloudflareRealtimeChannel(name);
+            cloudflareChannels.add(channel);
+            return channel;
+          }
+          return createNeonRealtimeChannel(legacySupabase.channel(name, options), queryNeonRows);
+        };
       case 'removeChannel':
         return (channel: ReturnType<typeof legacySupabase.channel>) => {
+          if (channel instanceof CloudflareRealtimeChannel) {
+            cloudflareChannels.delete(channel);
+            void channel.unsubscribe();
+            return Promise.resolve('ok' as const);
+          }
           disposeNeonRealtimeChannel(channel);
           return legacySupabase.removeChannel(getNeonRealtimeTarget(channel));
         };
       case 'removeAllChannels':
         return () => {
+          cloudflareChannels.forEach((channel) => void channel.unsubscribe());
+          cloudflareChannels.clear();
           disposeAllNeonRealtimeChannels();
           return legacySupabase.removeAllChannels();
         };
