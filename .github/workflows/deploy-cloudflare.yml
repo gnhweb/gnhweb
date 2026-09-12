@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  VITE_CF_REALTIME_URL: https://gnhweb-realtime.gemini19840314.workers.dev
+
 jobs:
   deploy-site:
     name: Deploy gnhweb site
