@@ -278,10 +278,6 @@ export default function WorshipAttendanceInsights({ profile, compact = false }: 
     }
   }, [reasonCounts, services]);
 
-  useEffect(() => {
-    if (!loading) analyzeReasons();
-  }, [loading, analyzeReasons]);
-
   if (loading) {
     return (
       <div className="rounded-card border border-background-200 bg-background-100 p-5 shadow-card">
@@ -379,7 +375,20 @@ export default function WorshipAttendanceInsights({ profile, compact = false }: 
               <p className="mt-2 text-xs leading-5 text-foreground-500"><span className="font-bold text-foreground-700">돌봄 포인트</span> · {aiAnalysis.care}</p>
             </>
           ) : (
-            <p className="text-sm leading-6 text-foreground-500">최근 예배의 불참 사유가 쌓이면 AI가 주요 흐름을 정리해드립니다.</p>
+            <div>
+              <p className="text-sm leading-6 text-foreground-500">필요할 때 AI 분석을 실행하면 최근 불참 사유의 주요 흐름을 정리해드립니다.</p>
+              {reasonCounts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={analyzeReasons}
+                  disabled={aiLoading}
+                  className="mt-3 min-h-10 rounded-input bg-primary-500 px-3 text-xs font-bold text-background-50 transition-colors hover:bg-primary-600 active:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <i className={`${aiLoading ? 'ri-loader-4-line animate-spin' : 'ri-sparkling-2-line'} mr-1`} />
+                  {aiLoading ? '분석 중...' : 'AI로 분석하기'}
+                </button>
+              )}
+            </div>
           )}
         </div>
 
