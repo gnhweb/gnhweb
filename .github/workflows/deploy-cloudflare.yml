@@ -189,3 +189,15 @@ jobs:
           response=$(curl --fail-with-body --silent --show-error --request POST --header 'Content-Type: application/json' --data '{"userText":"시험 결과가 걱정돼요"}' 'https://gnhweb-api.gemini19840314.workers.dev/bible-pick')
           printf '%s\n' "$response"
           printf '%s' "$response" | grep -q '"verse"'
+
+  verify-setup-chief:
+    name: Verify gnhweb API /setup-chief validation
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /setup-chief with empty body must be rejected
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output /tmp/setup-chief-response.json --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{}' 'https://gnhweb-api.gemini19840314.workers.dev/setup-chief')
+          cat /tmp/setup-chief-response.json
+          test "$status" = "400"
