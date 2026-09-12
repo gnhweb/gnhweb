@@ -1,7 +1,9 @@
+import { handlePrayerRelay } from './prayerRelayFeature';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 function json(body: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
@@ -20,6 +22,8 @@ export default {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
     const url = new URL(req.url);
+    if (url.pathname === '/prayer-relay') return handlePrayerRelay(req, env);
+
     if (url.pathname !== '/web-push-public-key') {
       return json({ error: 'Not Found' }, 404);
     }
