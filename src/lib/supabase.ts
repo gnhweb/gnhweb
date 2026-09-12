@@ -6,6 +6,7 @@ import {
   createNeonRealtimeChannel,
   disposeAllNeonRealtimeChannels,
   disposeNeonRealtimeChannel,
+  getNeonRealtimeTarget,
 } from '@/lib/neonRealtime';
 
 const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
@@ -116,7 +117,7 @@ export const supabase = new Proxy(neonDataClient, {
       case 'removeChannel':
         return (channel: ReturnType<typeof legacySupabase.channel>) => {
           disposeNeonRealtimeChannel(channel);
-          return legacySupabase.removeChannel(channel);
+          return legacySupabase.removeChannel(getNeonRealtimeTarget(channel));
         };
       case 'removeAllChannels':
         return () => {
