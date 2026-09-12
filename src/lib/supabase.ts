@@ -3,12 +3,7 @@ import { SupabaseAuthAdapter } from '@neondatabase/auth/vanilla/adapters';
 import { createClient } from '@supabase/supabase-js';
 import { r2Storage } from '@/lib/r2Storage';
 import { CloudflareRealtimeChannel, isCloudflareGameRoom } from '@/lib/cloudflareRealtime';
-import {
-  createNeonRealtimeChannel,
-  disposeAllNeonRealtimeChannels,
-  disposeNeonRealtimeChannel,
-  getNeonRealtimeTarget,
-} from '@/lib/neonRealtime';
+import { createNeonRealtimeChannel, disposeAllNeonRealtimeChannels, disposeNeonRealtimeChannel } from '@/lib/neonRealtime';
 
 const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 const legacySupabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
@@ -26,17 +21,13 @@ if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event?.reason;
     const msg = typeof reason?.message === 'string' ? reason.message : String(reason ?? '');
-    if (
-      msg.includes('Invalid Refresh Token') ||
-      msg.includes('Refresh Token Not Found') ||
-      msg.includes('AuthSessionMissingError')
-    ) {
+    if (msg.includes('Invalid Refresh Token') || msg.includes('Refresh Token Not Found') || msg.includes('AuthSessionMissingError')) {
       event.preventDefault();
       console.warn('[Auth] Pre-React caught stale auth rejection — cleaning storage:', msg);
       try {
         for (let i = localStorage.length - 1; i >= 0; i--) {
-          const k = localStorage.key(i);
-          if (k && (k.startsWith('sb-') || k.startsWith('neon-'))) localStorage.removeItem(k);
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.startsWith('neon-'))) localStorage.removeItem(key);
         }
       } catch {
         /* localStorage cleanup is always best-effort */
@@ -53,11 +44,6 @@ const legacySupabase = createClient(legacySupabaseUrl, legacySupabaseAnonKey, {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     experimental: { passkey: true },
   },
-  realtime: {
-    params: {
-      eventsPerSecond: 30,
-    },
-  },
 });
 
 const neonAuth = createAuthClient(neonAuthUrl, {
@@ -66,12 +52,13 @@ const neonAuth = createAuthClient(neonAuthUrl, {
 });
 
 /**
- * Transitional data client:
+ * Transitional client:
  * - `.from()` / `.rpc()` use Neon Data API.
- * - functions remain on the legacy client until those services are migrated.
- * - storage uses the Cloudflare R2 compatibility client.
- * - database-change channels are bridged to Neon polling.
- * - game broadcast/presence channels use Cloudflare Durable Objects when configured.
+ * - `auth` uses Neon Auth.
+ * - storage uses Cloudflare R2.
+ * - database-change channels use Neon Data API polling.
+ * - game broadcast/presence channels use Cloudflare Durable Objects.
+ * - `functions` remains on Supabase only for services not yet migrated.
  */
 const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
   auth: {
@@ -100,11 +87,6 @@ async function queryNeonRows(table: string): Promise<Record<string, unknown>[]> 
 
 const cloudflareChannels = new Set<CloudflareRealtimeChannel>();
 
-/**
- * Keep the existing Supabase-shaped API without mutating the Supabase client.
- * Supabase client service properties such as `functions` are accessor-only,
- * so Object.assign() throws when trying to replace them.
- */
 export const supabase = new Proxy(neonDataClient, {
   get(target, property, receiver) {
     switch (property) {
@@ -131,17 +113,17 @@ export const supabase = new Proxy(neonDataClient, {
             return Promise.resolve('ok' as const);
           }
           disposeNeonRealtimeChannel(channel);
-          return legacySupabase.removeChannel(getNeonRealtimeTarget(channel));
+          return Promise.resolve('ok' as const);
         };
       case 'removeAllChannels':
         return () => {
           cloudflareChannels.forEach((channel) => void channel.unsubscribe());
           cloudflareChannels.clear();
           disposeAllNeonRealtimeChannels();
-          return legacySupabase.removeAllChannels();
+          return Promise.resolve('ok' as const);
         };
       case 'realtime':
-        return legacySupabase.realtime;
+        return undefined;
       default:
         return Reflect.get(target, property, receiver);
     }
