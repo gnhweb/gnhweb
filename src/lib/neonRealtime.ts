@@ -35,6 +35,7 @@ type ChannelState = {
 };
 
 const states = new WeakMap<object, ChannelState>();
+const activeChannels = new Set<RealtimeChannel>();
 const POLL_INTERVAL_MS = 5000;
 
 function rowKey(row: Row): string {
@@ -159,6 +160,7 @@ export function createNeonRealtimeChannel(
     polling: false,
   };
   states.set(channel, state);
+  activeChannels.add(channel);
 
   const wrapped = new Proxy(channel, {
     get(target, property, receiver) {
@@ -189,6 +191,7 @@ export function createNeonRealtimeChannel(
   });
 
   states.set(wrapped, state);
+  activeChannels.add(wrapped);
   return wrapped;
 }
 
@@ -201,4 +204,9 @@ export function disposeNeonRealtimeChannel(channel: RealtimeChannel): void {
   state.previousRows.clear();
   state.initializedTables.clear();
   states.delete(channel);
+  activeChannels.delete(channel);
+}
+
+export function disposeAllNeonRealtimeChannels(): void {
+  [...activeChannels].forEach((channel) => disposeNeonRealtimeChannel(channel));
 }
