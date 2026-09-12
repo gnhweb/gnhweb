@@ -1,0 +1,83 @@
+name: Backup Supabase Database
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Dump Supabase database
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+    steps:
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Validate database secret
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL GitHub Secret이 없습니다."
+            exit 1
+          fi
+
+      - name: Backup roles
+        run: |
+          supabase db dump \
+            --db-url "$SUPABASE_DB_URL" \
+            -f roles.sql \
+            --role-only
+
+      - name: Backup schema
+        run: |
+          supabase db dump \
+            --db-url "$SUPABASE_DB_URL" \
+            -f schema.sql
+
+      - name: Backup data
+        run: |
+          supabase db dump \
+            --db-url "$SUPABASE_DB_URL" \
+            -f data.sql \
+            --data-only \
+            --use-copy
+
+      - name: Verify backup files
+        run: |
+          test -s roles.sql
+          test -s schema.sql
+          test -s data.sql
+
+          echo "roles.sql:  $(wc -c < roles.sql) bytes"
+          echo "schema.sql: $(wc -c < schema.sql) bytes"
+          echo "data.sql:   $(wc -c < data.sql) bytes"
+
+      - name: Create backup archive
+        run: |
+          tar -czf supabase-db-backup.tar.gz \
+            roles.sql \
+            schema.sql \
+            data.sql
+
+          sha256sum supabase-db-backup.tar.gz \
+            > supabase-db-backup.sha256
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-db-backup-${{ github.run_id }}
+          path: |
+            roles.sql
+            schema.sql
+            data.sql
+            supabase-db-backup.tar.gz
+            supabase-db-backup.sha256
+          retention-days: 7
