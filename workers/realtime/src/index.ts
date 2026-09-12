@@ -8,11 +8,11 @@ export interface Env {
 }
 
 type Claims = Record<string, unknown>;
-type RoomMessage = {
-  type: 'ping' | 'broadcast';
-  event?: string;
-  payload?: unknown;
-};
+type PresenceMeta = Record<string, unknown>;
+type RoomMessage =
+  | { type: 'ping' }
+  | { type: 'broadcast'; event?: string; payload?: unknown }
+  | { type: 'presence_track'; payload?: PresenceMeta };
 
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) =>
   new Response(JSON.stringify(body), {
@@ -83,10 +83,28 @@ async function verifyJwt(token: string, env: Env): Promise<Claims> {
   return payload;
 }
 
-async function requireAuth(request: Request, env: Env): Promise<Claims> {
+function getWebSocketToken(request: Request): string | null {
   const authorization = request.headers.get('authorization');
-  if (!authorization?.startsWith('Bearer ')) throw new Error('Unauthorized');
-  return verifyJwt(authorization.slice('Bearer '.length).trim(), env);
+  if (authorization?.startsWith('Bearer ')) return authorization.slice('Bearer '.length).trim() || null;
+
+  const protocols = request.headers.get('sec-websocket-protocol');
+  if (!protocols) return null;
+  const values = protocols.split(',').map((value) => value.trim()).filter(Boolean);
+  const tokenIndex = values.indexOf('neon-auth');
+  if (tokenIndex === -1 || !values[tokenIndex + 1]) return null;
+  return values[tokenIndex + 1];
+}
+
+async function requireAuth(request: Request, env: Env): Promise<Claims> {
+  const token = getWebSocketToken(request);
+  if (!token) throw new Error('Unauthorized');
+  return verifyJwt(token, env);
+}
+
+function parseRoom(request: Request): string {
+  const room = new URL(request.url).searchParams.get('room');
+  if (!room || !/^[a-zA-Z0-9:_-]{1,128}$/.test(room)) throw new Error('Invalid room');
+  return room;
 }
 
 export class RealtimeRoom extends DurableObject<Env> {
@@ -96,20 +114,23 @@ export class RealtimeRoom extends DurableObject<Env> {
       return new Response('Expected WebSocket', { status: 426 });
     }
 
-    const room = new URL(request.url).searchParams.get('room');
-    if (!room || !/^[a-zA-Z0-9:_-]{1,128}$/.test(room)) return new Response('Invalid room', { status: 400 });
-
-    const webSocketPair = new WebSocketPair();
-    const [client, server] = Object.values(webSocketPair);
+    const room = parseRoom(request);
     const claims = await requireAuth(request, this.env);
     const userId = typeof claims.sub === 'string' ? claims.sub : '';
     if (!userId) return new Response('Invalid subject', { status: 401 });
+
+    const webSocketPair = new WebSocketPair();
+    const [client, server] = Object.values(webSocketPair);
+    const requestedProtocols = request.headers.get('sec-websocket-protocol') ?? '';
+    const protocolValues = requestedProtocols.split(',').map((value) => value.trim()).filter(Boolean);
+    const selectedProtocol = protocolValues.includes('neon-auth') ? 'neon-auth' : undefined;
 
     this.ctx.acceptWebSocket(server, [room, userId]);
     server.serializeAttachment({ room, userId });
     server.send(JSON.stringify({ type: 'ready', room }));
 
-    return new Response(null, { status: 101, webSocket: client });
+    const headers = selectedProtocol ? { 'Sec-WebSocket-Protocol': selectedProtocol } : undefined;
+    return new Response(null, { status: 101, webSocket: client, headers });
   }
 
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
@@ -122,8 +143,25 @@ export class RealtimeRoom extends DurableObject<Env> {
       return;
     }
 
+    const attachment = ws.deserializeAttachment() as { room?: string; userId?: string } | null;
+    const userId = attachment?.userId;
+    if (!userId) {
+      ws.send(JSON.stringify({ type: 'error', error: 'Unauthorized' }));
+      return;
+    }
+
     if (parsed.type === 'ping') {
       ws.send(JSON.stringify({ type: 'pong' }));
+      return;
+    }
+
+    if (parsed.type === 'presence_track') {
+      const meta = parsed.payload && typeof parsed.payload === 'object' ? parsed.payload : {};
+      const envelope = JSON.stringify({ type: 'presence_join', key: userId, meta });
+      for (const peer of this.ctx.getWebSockets()) {
+        if (peer !== ws && peer.readyState === WebSocket.OPEN) peer.send(envelope);
+      }
+      ws.send(JSON.stringify({ type: 'presence_sync', state: { [userId]: [meta] } }));
       return;
     }
 
@@ -132,11 +170,10 @@ export class RealtimeRoom extends DurableObject<Env> {
       return;
     }
 
-    const attachment = ws.deserializeAttachment() as { room?: string; userId?: string } | null;
     const envelope = JSON.stringify({
       type: 'broadcast',
       room: attachment?.room ?? null,
-      userId: attachment?.userId ?? null,
+      userId,
       event: parsed.event,
       payload: parsed.payload ?? null,
     });
@@ -147,11 +184,22 @@ export class RealtimeRoom extends DurableObject<Env> {
   }
 
   webSocketClose(ws: WebSocket): void {
+    this.broadcastPresenceLeave(ws);
     ws.close();
   }
 
   webSocketError(ws: WebSocket): void {
+    this.broadcastPresenceLeave(ws);
     ws.close();
+  }
+
+  private broadcastPresenceLeave(ws: WebSocket): void {
+    const attachment = ws.deserializeAttachment() as { userId?: string } | null;
+    if (!attachment?.userId) return;
+    const envelope = JSON.stringify({ type: 'presence_leave', key: attachment.userId });
+    for (const peer of this.ctx.getWebSockets()) {
+      if (peer !== ws && peer.readyState === WebSocket.OPEN) peer.send(envelope);
+    }
   }
 }
 
@@ -165,9 +213,9 @@ export default {
     if (url.pathname !== '/v1/realtime') return json({ error: 'Not found' }, 404, cors);
 
     try {
-      await requireAuth(request, env);
-      const room = url.searchParams.get('room');
-      if (!room || !/^[a-zA-Z0-9:_-]{1,128}$/.test(room)) return json({ error: 'Invalid room' }, 400, cors);
+      const claims = await requireAuth(request, env);
+      if (!claims.sub) return json({ error: 'Invalid subject' }, 401, cors);
+      const room = parseRoom(request);
       const id = env.REALTIME_ROOM.idFromName(room);
       return env.REALTIME_ROOM.get(id).fetch(request);
     } catch (error) {
