@@ -1,3 +1,5 @@
+import { handleMeetingIdeas, handleMeetingInsight } from "./meetingFeatures";
+
 // gnhweb AI Gateway — Cloudflare Worker
 // Mirrors the existing Supabase Edge Function gateway contract.
 // API keys must be configured as Cloudflare Worker secrets.
@@ -92,6 +94,9 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
 
 export default {
   async fetch(req:Request,env:Record<string,string|undefined>):Promise<Response>{
+    const pathname = new URL(req.url).pathname.replace(/\/+$/, "");
+    if (pathname === "/meeting-ideas") return handleMeetingIdeas(req, env);
+    if (pathname === "/meeting-insight") return handleMeetingInsight(req);
     if(req.method==="OPTIONS")return new Response("ok",{headers:CORS_HEADERS});
     if(req.method!=="POST")return new Response(JSON.stringify({error:"POST only"}),{status:405,headers:CORS_HEADERS});
     try {
