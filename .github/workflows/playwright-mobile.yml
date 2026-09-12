@@ -8,7 +8,7 @@ on:
 
 env:
   NODE_ENV: development
-  E2E_BASE_URL: https://gnhweb.vercel.app
+  E2E_BASE_URL: https://gnhweb.gemini19840314.workers.dev
 
 jobs:
   mobile-e2e:
