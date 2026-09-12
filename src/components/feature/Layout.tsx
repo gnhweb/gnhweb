@@ -30,8 +30,6 @@ export default function Layout(){
  const passkeyAttemptedRef=useRef<string|null>(null);
  const pinBootCheckedRef=useRef<string|null>(null);
 
-
-
  useEffect(()=>{
    if(loading||!user||!hasPin||pinLocked)return;
    const key=`gnh_pin_session_unlocked:${user.id}`;
@@ -69,5 +67,5 @@ export default function Layout(){
  if(isFullscreen)return <><IosPwaBackButton/><Outlet/></>;
  const showMissionaryAttendanceSummary=location.pathname==='/dashboard'&&profile?.role==='member';
  const showTelegramEnhancer=location.pathname==='/attendance-board'||location.pathname==='/dashboard/attendance';
- return <MobileMenuProvider><div className="min-h-screen bg-background-50"><a href="#main-content" className="skip-link">본문 바로가기</a>{showNavbar&&<Navbar/>}<IosPwaBackButton/>{user&&<DynamicWatermark/>}{user&&!profile&&!loading&&profileError&&<div role="alert" className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-center gap-3"><div className="flex items-center gap-2 text-sm text-amber-700"><i className="ri-error-warning-line" aria-hidden="true"/>{profileError}</div><button onClick={retryProfile} disabled={profileRetrying} className="min-h-10 px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-semibold disabled:opacity-50">{profileRetrying?'재시도 중...':'다시 시도'}</button></div>}{showMissionaryAttendanceSummary&&<DashboardAttendanceSummary/>}{location.pathname==='/'&&<HomeMemoryEnhancer/>}{showTelegramEnhancer&&<AttendanceTelegramEnhancer/>}{isSpecial?special:<Outlet/>}</main>{showNavbar&&<BottomTabBar/>}</div></MobileMenuProvider>;
+ return <MobileMenuProvider><div className="min-h-screen bg-background-50"><a href="#main-content" className="skip-link">본문 바로가기</a>{showNavbar&&<Navbar/>}<IosPwaBackButton/>{user&&<DynamicWatermark/>}{user&&!profile&&!loading&&profileError&&<div role="alert" className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-center gap-3"><div className="flex items-center gap-2 text-sm text-amber-700"><i className="ri-error-warning-line" aria-hidden="true"/>{profileError}</div><button onClick={retryProfile} disabled={profileRetrying} className="min-h-10 px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-semibold disabled:opacity-50">{profileRetrying?'재시도 중...':'다시 시도'}</button></div>}<main id="main-content" tabIndex={-1} className={showNavbar?'max-md:pb-[calc(6rem+env(safe-area-inset-bottom))]':''}>{showMissionaryAttendanceSummary&&<DashboardAttendanceSummary/>}{location.pathname==='/'&&<HomeMemoryEnhancer/>}{showTelegramEnhancer&&<AttendanceTelegramEnhancer/>}{isSpecial?special:<Outlet/>}</main>{showNavbar&&<BottomTabBar/>}</div></MobileMenuProvider>;
 }
