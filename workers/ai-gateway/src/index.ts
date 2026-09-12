@@ -1,5 +1,6 @@
 import { handleMeetingIdeas, handleMeetingInsight } from "./meetingFeatures";
 import { handleNimLetter } from "./nimFeatures";
+import { handleNimCoaching } from "./coachingFeature";
 
 // gnhweb AI Gateway — Cloudflare Worker
 // Mirrors the existing Supabase Edge Function gateway contract.
@@ -99,6 +100,7 @@ export default {
     if (pathname === "/meeting-ideas") return handleMeetingIdeas(req, env);
     if (pathname === "/meeting-insight") return handleMeetingInsight(req);
     if (pathname === "/nim-letter") return handleNimLetter(req);
+    if (pathname === "/nim-coaching") return handleNimCoaching(req, env);
     if(req.method==="OPTIONS")return new Response("ok",{headers:CORS_HEADERS});
     if(req.method!=="POST")return new Response(JSON.stringify({error:"POST only"}),{status:405,headers:CORS_HEADERS});
     try {
