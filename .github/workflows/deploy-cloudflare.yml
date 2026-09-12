@@ -137,3 +137,19 @@ jobs:
             'https://gnhweb-api.gemini19840314.workers.dev/quiz-leaderboard?monthly=true&limit=1')
           printf '%s\n' "$response"
           printf '%s' "$response" | grep -q '"scores"'
+
+  verify-quiz-report:
+    name: Verify gnhweb API /quiz-report auth guard
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /quiz-report without auth must be rejected
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output /tmp/quiz-report-response.json --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"question_text":"smoke test"}' \
+            'https://gnhweb-api.gemini19840314.workers.dev/quiz-report')
+          cat /tmp/quiz-report-response.json
+          test "$status" = "401"
