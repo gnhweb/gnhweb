@@ -114,9 +114,10 @@ jobs:
       - name: GET /prayer-relay smoke test
         run: |
           set -euo pipefail
-          response=$(curl --fail-with-body --silent --show-error --request GET 'https://gnhweb-api.gemini19840314.workers.dev/prayer-relay?status=active&limit=1')
-          printf '%s\n' "$response"
-          printf '%s' "$response" | grep -q '"relays"'
+          status=$(curl --silent --show-error --output /tmp/prayer-relay-response.json --write-out '%{http_code}' --request GET 'https://gnhweb-api.gemini19840314.workers.dev/prayer-relay?status=active&limit=1')
+          cat /tmp/prayer-relay-response.json
+          test "$status" = "200"
+          grep -q '"relays"' /tmp/prayer-relay-response.json
 
   verify-quiz-leaderboard:
     name: Verify gnhweb API /quiz-leaderboard
@@ -126,9 +127,10 @@ jobs:
       - name: GET /quiz-leaderboard smoke test
         run: |
           set -euo pipefail
-          response=$(curl --fail-with-body --silent --show-error --request GET 'https://gnhweb-api.gemini19840314.workers.dev/quiz-leaderboard?monthly=true&limit=1')
-          printf '%s\n' "$response"
-          printf '%s' "$response" | grep -q '"scores"'
+          status=$(curl --silent --show-error --output /tmp/quiz-leaderboard-response.json --write-out '%{http_code}' --request GET 'https://gnhweb-api.gemini19840314.workers.dev/quiz-leaderboard?monthly=true&limit=1')
+          cat /tmp/quiz-leaderboard-response.json
+          test "$status" = "200"
+          grep -q '"scores"' /tmp/quiz-leaderboard-response.json
 
   verify-quiz-report:
     name: Verify gnhweb API /quiz-report auth guard
@@ -150,9 +152,10 @@ jobs:
       - name: GET /streak-tracker smoke test
         run: |
           set -euo pipefail
-          response=$(curl --fail-with-body --silent --show-error --request GET 'https://gnhweb-api.gemini19840314.workers.dev/streak-tracker')
-          printf '%s\n' "$response"
-          printf '%s' "$response" | grep -q '"individual"'
+          status=$(curl --silent --show-error --output /tmp/streak-tracker-response.json --write-out '%{http_code}' --request GET 'https://gnhweb-api.gemini19840314.workers.dev/streak-tracker')
+          cat /tmp/streak-tracker-response.json
+          test "$status" = "200"
+          grep -q '"individual"' /tmp/streak-tracker-response.json
 
   verify-bible-streak-update:
     name: Verify gnhweb API /bible-streak-update auth guard
@@ -198,6 +201,7 @@ jobs:
       - name: GET /monthly-champion-snapshot list
         run: |
           set -euo pipefail
-          response=$(curl --fail-with-body --silent --show-error --request GET 'https://gnhweb-api.gemini19840314.workers.dev/monthly-champion-snapshot?mode=list&limit=1')
-          printf '%s\n' "$response"
-          printf '%s' "$response" | grep -q '"records"'
+          status=$(curl --silent --show-error --output /tmp/monthly-champion-response.json --write-out '%{http_code}' --request GET 'https://gnhweb-api.gemini19840314.workers.dev/monthly-champion-snapshot?mode=list&limit=1')
+          cat /tmp/monthly-champion-response.json
+          test "$status" = "200"
+          grep -q '"records"' /tmp/monthly-champion-response.json
