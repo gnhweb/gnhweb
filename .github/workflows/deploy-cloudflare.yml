@@ -94,6 +94,20 @@ jobs:
           workingDirectory: workers/ai-gateway
           command: deploy --config wrangler.jsonc
 
+  diagnose-neon-anonymous:
+    name: Diagnose Neon Data API anonymous access
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Neon Data API without JWT
+        run: |
+          set -euo pipefail
+          for table in quiz_scores user_roles bible_streaks prayer_relays club_monthly_champions; do
+            echo "=== $table ==="
+            status=$(curl --silent --show-error --output /tmp/neon-response.json --write-out '%{http_code}' "https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb/rest/v1/${table}?select=*&limit=0")
+            echo "HTTP $status"
+            cat /tmp/neon-response.json
+          done
+
   verify-ai-gateway:
     name: Verify gnhweb AI gateway /nim-mbti POST
     needs: deploy-ai-gateway
