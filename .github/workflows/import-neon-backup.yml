@@ -1,0 +1,96 @@
+name: Import Supabase Backup to Neon
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_run_id:
+        description: 'Backup workflow run ID (e.g. 34684915472)'
+        required: true
+        default: '34684915472'
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  import:
+    name: Import public data to Neon
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+
+    steps:
+      - name: Validate Neon secret
+        shell: bash
+        run: |
+          if [ -z "$NEON_DATABASE_URL" ]; then
+            echo "::error::NEON_DATABASE_URL GitHub Secret이 없습니다."
+            exit 1
+          fi
+
+      - name: Download Supabase backup artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p backup
+          gh run download "$BACKUP_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "supabase-db-backup-$BACKUP_RUN_ID" \
+            --dir backup
+
+      - name: Extract backup
+        run: |
+          tar -xzf backup/supabase-db-backup.tar.gz -C backup
+          test -s backup/data.sql
+          test -s backup/schema.sql
+
+      - name: Build public-only data dump
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          src = Path('backup/data.sql').read_text(encoding='utf-8')
+          out = []
+          lines = src.splitlines(keepends=True)
+          i = 0
+          copy_re = re.compile(r'^COPY "public"\."([^"]+)" \((.*)\) FROM stdin;\n$')
+
+          while i < len(lines):
+              m = copy_re.match(lines[i])
+              if m:
+                  out.append(lines[i])
+                  i += 1
+                  while i < len(lines):
+                      out.append(lines[i])
+                      if lines[i].strip() == '\\.':
+                          i += 1
+                          break
+                      i += 1
+                  continue
+
+              if lines[i].startswith('SELECT pg_catalog.setval(\'"public".'):
+                  out.append(lines[i])
+              i += 1
+
+          Path('backup/public-data.sql').write_text(''.join(out), encoding='utf-8')
+          print(f'public-data.sql: {Path("backup/public-data.sql").stat().st_size} bytes')
+          PY
+
+      - name: Import public data
+        run: |
+          psql "$NEON_DATABASE_URL" \
+            --set ON_ERROR_STOP=1 \
+            --single-transaction \
+            --file backup/public-data.sql
+
+      - name: Verify imported row counts
+        run: |
+          psql "$NEON_DATABASE_URL" \
+            --set ON_ERROR_STOP=1 \
+            --tuples-only \
+            --no-align \
+            --command "SELECT count(*) FROM public.user_roles; SELECT count(*) FROM public.notifications; SELECT count(*) FROM public.quotes; SELECT count(*) FROM public.quiz_questions; SELECT count(*) FROM public.prayer_partners; SELECT count(*) FROM public.attendance;"
