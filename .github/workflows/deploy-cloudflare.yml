@@ -2,7 +2,7 @@ name: Deploy Cloudflare
 
 on:
   push:
-    branches: [main, chore/realtime-deploy-verification]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +19,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - name: Install dependencies
         run: npm install --include=dev --no-audit --no-fund
       - name: Build site
@@ -36,13 +35,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install dependencies
-        run: npm install --include=dev --no-audit --no-fund
       - name: Deploy realtime Worker
         uses: cloudflare/wrangler-action@v3
         with:
