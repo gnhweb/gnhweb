@@ -48,3 +48,33 @@ jobs:
           wranglerVersion: "4"
           workingDirectory: workers/realtime
           command: deploy --config wrangler.jsonc
+
+  deploy-storage:
+    name: Deploy gnhweb storage Worker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy storage Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          workingDirectory: workers/storage
+          command: deploy --config wrangler.jsonc
+
+  deploy-ai-gateway:
+    name: Deploy gnhweb AI gateway Worker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy AI gateway Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          workingDirectory: workers/ai-gateway
+          command: deploy --config wrangler.jsonc
