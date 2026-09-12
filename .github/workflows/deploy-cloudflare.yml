@@ -24,9 +24,10 @@ jobs:
       - name: Build site
         run: npm run build
       - name: Deploy site Worker
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          wranglerVersion: "4"
           command: deploy --config wrangler.jsonc
 
   deploy-realtime:
@@ -36,8 +37,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Deploy realtime Worker
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          wranglerVersion: "4"
           workingDirectory: workers/realtime
           command: deploy --config wrangler.jsonc
