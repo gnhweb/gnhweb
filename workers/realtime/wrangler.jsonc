@@ -1,0 +1,24 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "gnhweb-realtime",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-12",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "REALTIME_ROOM",
+        "class_name": "RealtimeRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RealtimeRoom"]
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGIN": "https://gnhwebw.pages.dev,https://gnhweb.pages.dev,https://gnhweb.vercel.app",
+    "NEON_JWKS_URL": "https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
+  }
+}
