@@ -10,6 +10,7 @@ const legacySupabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
 
 const DEFAULT_NEON_AUTH_URL = 'https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth';
 const DEFAULT_NEON_DATA_API_URL = 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb';
+const CLOUDFLARE_AI_GATEWAY = 'https://gnhweb-ai-gateway.gemini19840314.workers.dev';
 
 const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL || DEFAULT_NEON_AUTH_URL;
 const configuredNeonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAULT_NEON_DATA_API_URL;
@@ -58,7 +59,7 @@ const neonAuth = createAuthClient(neonAuthUrl, {
  * - storage uses Cloudflare R2.
  * - database-change channels use Neon Data API polling.
  * - game broadcast/presence channels use Cloudflare Durable Objects.
- * - `functions` remains on Supabase only for services not yet migrated.
+ * - `functions` uses Cloudflare for migrated features and Supabase only for the remaining legacy services.
  */
 const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
   auth: {
@@ -87,6 +88,41 @@ async function queryNeonRows(table: string): Promise<Record<string, unknown>[]> 
 
 const cloudflareChannels = new Set<CloudflareRealtimeChannel>();
 
+const MIGRATED_CLOUDFLARE_FUNCTIONS = new Set(['meeting-ideas-ai', 'meeting-insight-ai']);
+
+const cloudflareFunctions = new Proxy(legacySupabase.functions, {
+  get(target, property, receiver) {
+    if (property !== 'invoke') return Reflect.get(target, property, receiver);
+    return async (functionName: string, options?: { body?: unknown }) => {
+      if (!MIGRATED_CLOUDFLARE_FUNCTIONS.has(functionName)) {
+        return target.invoke(functionName, options);
+      }
+
+      const endpoint = functionName === 'meeting-ideas-ai' ? '/meeting-ideas' : '/meeting-insight';
+      try {
+        const response = await fetch(`${CLOUDFLARE_AI_GATEWAY}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(options?.body ?? {}),
+        });
+        const text = await response.text();
+        let data: unknown = null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch {
+          data = null;
+        }
+        if (!response.ok) {
+          return { data: null, error: new Error(typeof (data as { error?: unknown })?.error === 'string' ? (data as { error: string }).error : `Cloudflare AI request failed: ${response.status}`) };
+        }
+        return { data, error: null };
+      } catch (error) {
+        return { data: null, error: error instanceof Error ? error : new Error(String(error)) };
+      }
+    };
+  },
+});
+
 export const supabase = new Proxy(neonDataClient, {
   get(target, property, receiver) {
     switch (property) {
@@ -95,7 +131,7 @@ export const supabase = new Proxy(neonDataClient, {
       case 'storage':
         return r2Storage as unknown as typeof legacySupabase.storage;
       case 'functions':
-        return legacySupabase.functions;
+        return cloudflareFunctions;
       case 'channel':
         return (name: string, options?: Parameters<typeof legacySupabase.channel>[1]) => {
           if (isCloudflareGameRoom(name)) {
