@@ -45,10 +45,12 @@ async function getVapidPublicKey(): Promise<string> {
       return publicKey;
     }
   } catch (error) {
-    console.error('[webPush] VAPID 공개키 조회 실패:', error);
+    console.error('[webPush] Cloudflare VAPID 공개키 조회 실패:', error);
   }
 
-  return '';
+  // Cloudflare Worker/secret migration is allowed to lag behind the frontend.
+  // Keep the existing build-time key as a safe compatibility fallback.
+  return ENV_VAPID_PUBLIC_KEY;
 }
 
 function isIOSWebView(): boolean {
