@@ -29,6 +29,7 @@ type Subscription = {
 type ChannelState = {
   subscriptions: Subscription[];
   previousRows: Map<string, Row>;
+  initializedTables: Set<string>;
   timer: ReturnType<typeof setInterval> | null;
   polling: boolean;
 };
@@ -89,15 +90,20 @@ async function poll(
   state.polling = true;
 
   try {
-    const tables = [...new Set(state.subscriptions.map((subscription) => subscription.filter.table).filter(Boolean))] as string[];
+    const tables = [...new Set(
+      state.subscriptions
+        .map((subscription) => subscription.filter.table)
+        .filter((table): table is string => Boolean(table)),
+    )];
 
     for (const table of tables) {
       const rows = await queryRows(table);
       const currentRows = new Map(rows.map((row) => [rowKey(row), row]));
       const previousRows = state.previousRows;
 
-      if (previousRows.size === 0) {
+      if (!state.initializedTables.has(table)) {
         currentRows.forEach((row, key) => previousRows.set(`${table}:${key}`, row));
+        state.initializedTables.add(table);
         continue;
       }
 
@@ -148,6 +154,7 @@ export function createNeonRealtimeChannel(
   const state: ChannelState = {
     subscriptions: [],
     previousRows: new Map(),
+    initializedTables: new Set(),
     timer: null,
     polling: false,
   };
@@ -181,6 +188,7 @@ export function createNeonRealtimeChannel(
     },
   });
 
+  states.set(wrapped, state);
   return wrapped;
 }
 
@@ -191,5 +199,6 @@ export function disposeNeonRealtimeChannel(channel: RealtimeChannel): void {
   state.timer = null;
   state.subscriptions = [];
   state.previousRows.clear();
+  state.initializedTables.clear();
   states.delete(channel);
 }
