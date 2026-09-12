@@ -1,6 +1,8 @@
 import { handlePrayerRelay } from './prayerRelayFeature';
 import { handleQuizLeaderboard } from './quizLeaderboardFeature';
 import { handleQuizReport } from './quizReportFeature';
+import { handleStreakTracker } from './streakTrackerFeature';
+import { handleBibleStreakUpdate } from './bibleStreakUpdateFeature';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -27,6 +29,8 @@ export default {
     if (url.pathname === '/prayer-relay') return handlePrayerRelay(req, env);
     if (url.pathname === '/quiz-leaderboard') return handleQuizLeaderboard(req, env);
     if (url.pathname === '/quiz-report') return handleQuizReport(req, env);
+    if (url.pathname === '/streak-tracker') return handleStreakTracker(req, env);
+    if (url.pathname === '/bible-streak-update') return handleBibleStreakUpdate(req, env);
 
     if (url.pathname !== '/web-push-public-key') {
       return json({ error: 'Not Found' }, 404);
@@ -37,12 +41,7 @@ export default {
     }
 
     const publicKey = String(env.WEB_PUSH_VAPID_PUBLIC_KEY || '').trim();
-    if (!publicKey) {
-      return json({ error: 'VAPID public key is not configured' }, 500);
-    }
-
-    return json({ publicKey }, 200, {
-      'Cache-Control': 'public, max-age=3600',
-    });
+    if (!publicKey) return json({ error: 'VAPID public key is not configured' }, 500);
+    return json({ publicKey }, 200, { 'Cache-Control': 'public, max-age=3600' });
   },
 };
