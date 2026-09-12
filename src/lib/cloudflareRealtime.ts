@@ -41,7 +41,6 @@ async function getAccessToken(): Promise<string | null> {
 
 export class CloudflareRealtimeChannel {
   private readonly room: string;
-  private readonly userId: string;
   private socket: WebSocket | null = null;
   private subscribed = false;
   private destroyed = false;
@@ -50,9 +49,8 @@ export class CloudflareRealtimeChannel {
   private readonly presenceHandlers = new Map<string, Set<PresenceHandler>>();
   private subscribeHandlers: SubscribeHandler[] = [];
 
-  constructor(room: string, userId: string) {
+  constructor(room: string) {
     this.room = room;
-    this.userId = userId;
   }
 
   on(
@@ -94,8 +92,6 @@ export class CloudflareRealtimeChannel {
     }
 
     try {
-      // Browser WebSocket cannot set Authorization directly. The token is sent
-      // as a WebSocket subprotocol and validated by the Worker during upgrade.
       const socket = new WebSocket(toWebSocketUrl(baseUrl, this.room), ['neon-auth', token]);
       this.socket = socket;
 
@@ -117,7 +113,7 @@ export class CloudflareRealtimeChannel {
     }
   }
 
-  private notifySubscribe(status: SubscribeHandler extends (status: infer S) => void ? S : never): void {
+  private notifySubscribe(status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'): void {
     this.subscribeHandlers.forEach((handler) => handler(status));
   }
 
