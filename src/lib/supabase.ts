@@ -7,15 +7,12 @@ import { createNeonRealtimeChannel, disposeAllNeonRealtimeChannels, disposeNeonR
 
 const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 const legacySupabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
-
 const DEFAULT_NEON_AUTH_URL = 'https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth';
 const DEFAULT_NEON_DATA_API_URL = 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb';
 const CLOUDFLARE_AI_GATEWAY = 'https://gnhweb-ai-gateway.gemini19840314.workers.dev';
-
 const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL || DEFAULT_NEON_AUTH_URL;
 const configuredNeonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAULT_NEON_DATA_API_URL;
 const neonDataApiUrl = configuredNeonDataApiUrl.replace(/\/rest\/v1\/?$/, '');
-
 export const neonEnabled = Boolean(neonAuthUrl && neonDataApiUrl);
 
 if (typeof window !== 'undefined') {
@@ -25,143 +22,18 @@ if (typeof window !== 'undefined') {
     if (msg.includes('Invalid Refresh Token') || msg.includes('Refresh Token Not Found') || msg.includes('AuthSessionMissingError')) {
       event.preventDefault();
       console.warn('[Auth] Pre-React caught stale auth rejection — cleaning storage:', msg);
-      try {
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith('sb-') || key.startsWith('neon-'))) localStorage.removeItem(key);
-        }
-      } catch {
-        /* localStorage cleanup is always best-effort */
-      }
+      try { for (let i = localStorage.length - 1; i >= 0; i--) { const key = localStorage.key(i); if (key && (key.startsWith('sb-') || key.startsWith('neon-'))) localStorage.removeItem(key); } } catch { /* best-effort */ }
     }
   });
 }
 
-const legacySupabase = createClient(legacySupabaseUrl, legacySupabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    experimental: { passkey: true },
-  },
-});
-
-const neonAuth = createAuthClient(neonAuthUrl, {
-  adapter: SupabaseAuthAdapter(),
-  allowAnonymous: true,
-});
-
-/**
- * Transitional client:
- * - `.from()` / `.rpc()` use Neon Data API.
- * - `auth` uses Neon Auth.
- * - storage uses Cloudflare R2.
- * - database-change channels use Neon Data API polling.
- * - game broadcast/presence channels use Cloudflare Durable Objects.
- * - `functions` uses Cloudflare for migrated features and Supabase only for the remaining legacy services.
- */
-const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false,
-    storage: undefined,
-  },
-  accessToken: async () => {
-    try {
-      return (await neonAuth.getJWTToken?.()) ?? null;
-    } catch {
-      return null;
-    }
-  },
-});
-
+const legacySupabase = createClient(legacySupabaseUrl, legacySupabaseAnonKey, { auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false, storage: typeof window !== 'undefined' ? window.localStorage : undefined, experimental: { passkey: true } } });
+const neonAuth = createAuthClient(neonAuthUrl, { adapter: SupabaseAuthAdapter(), allowAnonymous: true });
+const neonDataClient = createClient(neonDataApiUrl, 'anonymous', { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false, storage: undefined }, accessToken: async () => { try { return (await neonAuth.getJWTToken?.()) ?? null; } catch { return null; } } });
 const authClient = neonAuth as unknown as typeof legacySupabase.auth;
-
-async function queryNeonRows(table: string): Promise<Record<string, unknown>[]> {
-  const { data, error } = await neonDataClient.from(table).select('*');
-  if (error) throw error;
-  if (!Array.isArray(data)) return [];
-  return data.filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null);
-}
-
+async function queryNeonRows(table: string): Promise<Record<string, unknown>[]> { const { data, error } = await neonDataClient.from(table).select('*'); if (error) throw error; if (!Array.isArray(data)) return []; return data.filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null); }
 const cloudflareChannels = new Set<CloudflareRealtimeChannel>();
+const MIGRATED_CLOUDFLARE_FUNCTIONS = new Set(['meeting-ideas-ai', 'meeting-insight-ai', 'nim-letter', 'nim-coaching', 'nim-counseling', 'nim-quiz']);
+const cloudflareFunctions = new Proxy(legacySupabase.functions, { get(target, property, receiver) { if (property !== 'invoke') return Reflect.get(target, property, receiver); return async (functionName: string, options?: { body?: unknown }) => { if (!MIGRATED_CLOUDFLARE_FUNCTIONS.has(functionName)) return target.invoke(functionName, options); const endpoint = functionName === 'meeting-ideas-ai' ? '/meeting-ideas' : functionName === 'meeting-insight-ai' ? '/meeting-insight' : functionName === 'nim-letter' ? '/nim-letter' : functionName === 'nim-coaching' ? '/nim-coaching' : functionName === 'nim-counseling' ? '/nim-counseling' : '/nim-quiz'; try { const response = await fetch(`${CLOUDFLARE_AI_GATEWAY}${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options?.body ?? {}) }); const text = await response.text(); let data: unknown = null; try { data = text ? JSON.parse(text) : null; } catch { data = null; } if (!response.ok) return { data: null, error: new Error(typeof (data as { error?: unknown })?.error === 'string' ? (data as { error: string }).error : `Cloudflare AI request failed: ${response.status}`) }; return { data, error: null }; } catch (error) { return { data: null, error: error instanceof Error ? error : new Error(String(error)) }; } }; } });
 
-const MIGRATED_CLOUDFLARE_FUNCTIONS = new Set(['meeting-ideas-ai', 'meeting-insight-ai', 'nim-letter', 'nim-coaching', 'nim-counseling']);
-
-const cloudflareFunctions = new Proxy(legacySupabase.functions, {
-  get(target, property, receiver) {
-    if (property !== 'invoke') return Reflect.get(target, property, receiver);
-    return async (functionName: string, options?: { body?: unknown }) => {
-      if (!MIGRATED_CLOUDFLARE_FUNCTIONS.has(functionName)) {
-        return target.invoke(functionName, options);
-      }
-
-      const endpoint = functionName === 'meeting-ideas-ai' ? '/meeting-ideas' : functionName === 'meeting-insight-ai' ? '/meeting-insight' : functionName === 'nim-letter' ? '/nim-letter' : functionName === 'nim-coaching' ? '/nim-coaching' : '/nim-counseling';
-      try {
-        const response = await fetch(`${CLOUDFLARE_AI_GATEWAY}${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(options?.body ?? {}),
-        });
-        const text = await response.text();
-        let data: unknown = null;
-        try {
-          data = text ? JSON.parse(text) : null;
-        } catch {
-          data = null;
-        }
-        if (!response.ok) {
-          return { data: null, error: new Error(typeof (data as { error?: unknown })?.error === 'string' ? (data as { error: string }).error : `Cloudflare AI request failed: ${response.status}`) };
-        }
-        return { data, error: null };
-      } catch (error) {
-        return { data: null, error: error instanceof Error ? error : new Error(String(error)) };
-      }
-    };
-  },
-});
-
-export const supabase = new Proxy(neonDataClient, {
-  get(target, property, receiver) {
-    switch (property) {
-      case 'auth':
-        return authClient;
-      case 'storage':
-        return r2Storage as unknown as typeof legacySupabase.storage;
-      case 'functions':
-        return cloudflareFunctions;
-      case 'channel':
-        return (name: string, options?: Parameters<typeof legacySupabase.channel>[1]) => {
-          if (isCloudflareGameRoom(name)) {
-            const channel = new CloudflareRealtimeChannel(name);
-            cloudflareChannels.add(channel);
-            return channel;
-          }
-          return createNeonRealtimeChannel(legacySupabase.channel(name, options), queryNeonRows);
-        };
-      case 'removeChannel':
-        return (channel: ReturnType<typeof legacySupabase.channel>) => {
-          if (channel instanceof CloudflareRealtimeChannel) {
-            cloudflareChannels.delete(channel);
-            void channel.unsubscribe();
-            return Promise.resolve('ok' as const);
-          }
-          disposeNeonRealtimeChannel(channel);
-          return Promise.resolve('ok' as const);
-        };
-      case 'removeAllChannels':
-        return () => {
-          cloudflareChannels.forEach((channel) => void channel.unsubscribe());
-          cloudflareChannels.clear();
-          disposeAllNeonRealtimeChannels();
-          return Promise.resolve('ok' as const);
-        };
-      case 'realtime':
-        return undefined;
-      default:
-        return Reflect.get(target, property, receiver);
-    }
-  },
-}) as typeof legacySupabase;
+export const supabase = new Proxy(neonDataClient, { get(target, property, receiver) { switch (property) { case 'auth': return authClient; case 'storage': return r2Storage as unknown as typeof legacySupabase.storage; case 'functions': return cloudflareFunctions; case 'channel': return (name: string, options?: Parameters<typeof legacySupabase.channel>[1]) => { if (isCloudflareGameRoom(name)) { const channel = new CloudflareRealtimeChannel(name); cloudflareChannels.add(channel); return channel; } return createNeonRealtimeChannel(legacySupabase.channel(name, options), queryNeonRows); }; case 'removeChannel': return (channel: ReturnType<typeof legacySupabase.channel>) => { if (channel instanceof CloudflareRealtimeChannel) { cloudflareChannels.delete(channel); void channel.unsubscribe(); return Promise.resolve('ok' as const); } disposeNeonRealtimeChannel(channel); return Promise.resolve('ok' as const); }; case 'removeAllChannels': return () => { cloudflareChannels.forEach((channel) => void channel.unsubscribe()); cloudflareChannels.clear(); disposeAllNeonRealtimeChannels(); return Promise.resolve('ok' as const); }; case 'realtime': return undefined; default: return Reflect.get(target, property, receiver); } } }) as typeof legacySupabase;
