@@ -1,7 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.E2E_BASE_URL || 'https://gnhweb.vercel.app';
-const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+const baseURL = process.env.E2E_BASE_URL || 'https://gnhweb.gemini19840314.workers.dev';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -26,13 +25,6 @@ export default defineConfig({
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
     serviceWorkers: 'block',
-    ...(bypassSecret
-      ? {
-          extraHTTPHeaders: {
-            'x-vercel-protection-bypass': bypassSecret,
-          },
-        }
-      : {}),
   },
   projects: [
     {
