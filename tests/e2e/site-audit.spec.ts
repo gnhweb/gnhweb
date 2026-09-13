@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
 
-const BASE_URL = process.env.E2E_BASE_URL || 'https://gnhweb.vercel.app';
+const BASE_URL = process.env.E2E_BASE_URL || 'https://gnhweb.gemini19840314.workers.dev';
 const BASE_ORIGIN = new URL(BASE_URL).origin;
 type RoleKey = 'member' | 'mission' | 'teacher' | 'chief' | 'president' | 'assignedTeacher';
 const credentials: Record<RoleKey, { email?: string; password?: string }> = {
