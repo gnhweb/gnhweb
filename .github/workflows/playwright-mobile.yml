@@ -1,14 +1,16 @@
 name: Playwright Mobile E2E
 
 on:
-  push:
-    branches: ['**']
   pull_request:
   workflow_dispatch:
 
 env:
   NODE_ENV: development
   E2E_BASE_URL: https://gnhweb.gemini19840314.workers.dev
+
+concurrency:
+  group: mobile-e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   mobile-e2e:
