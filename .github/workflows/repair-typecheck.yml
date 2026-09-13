@@ -1,3 +1,4 @@
+# one-time repair: applies only the focused type fixes below and then removes itself
 name: One-time typecheck repair
 
 on:
