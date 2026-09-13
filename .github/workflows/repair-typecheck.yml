@@ -1,0 +1,72 @@
+name: One-time typecheck repair
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  repair:
+    if: github.actor == 'gnhweb' || github.actor == 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
+      - name: Apply focused type fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/lib/supabase.ts')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('neonAuth.getJWTToken?.()', 'neonAuth.getJWTToken?.({})')
+          s = s.replace("return async (functionName: string, options?: { body?: unknown; method?: string }) => {", "return async (functionName: string, options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }) => {")
+          s = s.replace("return (channel: ReturnType<typeof legacySupabase.channel>) => {\n          if (channel instanceof CloudflareRealtimeChannel) {\n            cloudflareChannels.delete(channel);\n            void channel.unsubscribe();", "return (channel: unknown) => {\n          if (channel instanceof CloudflareRealtimeChannel) {\n            cloudflareChannels.delete(channel);\n            void channel.unsubscribe();")
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/pages/admin/memoryThumbnails/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("if (!result.ok) {\n        setFailed(prev => [...prev, { id: row.id, reason: result.reason }]);\n      }", "if (!result.ok && 'reason' in result) {\n        setFailed(prev => [...prev, { id: row.id, reason: result.reason }]);\n      }")
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/pages/bibleMbti/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('Object.entries(result.scores ?? {}).map(([key, value], index) =>', 'result.traits.map((trait, index) => [trait.label, trait.value] as const).map(([key, value], index) =>')
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/pages/home/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          target = "      })\n      .catch(() => {});\n  }, []);\n\n  // 브라우저 로컬 시각"
+          replacement = "      }, () => {});\n  }, []);\n\n  // 브라우저 로컬 시각"
+          if target not in s:
+              raise SystemExit('home.tsx target not found')
+          s = s.replace(target, replacement, 1)
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/pages/notebookCopilot/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          import_line = 'const pdfjs: any = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");'
+          if import_line in s:
+              s = s.replace(import_line, 'const pdfjs = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");', 1)
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/types/remote-modules.d.ts')
+          p.parent.mkdir(parents=True, exist_ok=True)
+          p.write_text('''declare module "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs" {\n  interface PdfPage {\n    getTextContent(): Promise<{ items: Array<{ str?: string }> }>;\n  }\n  interface PdfDocument {\n    numPages: number;\n    getPage(pageNumber: number): Promise<PdfPage>;\n  }\n  interface PdfJsModule {\n    GlobalWorkerOptions: { workerSrc: string };\n    getDocument(options: { data: ArrayBuffer }): { promise: Promise<PdfDocument> };\n  }\n  const pdfjs: PdfJsModule;\n  export = pdfjs;\n}\n''', encoding='utf-8')
+          PY
+      - name: Type check
+        run: npm run type-check
+      - name: Commit and remove repair workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/repair-typecheck.yml
+          git add src/lib/supabase.ts src/pages/admin/memoryThumbnails/page.tsx src/pages/bibleMbti/page.tsx src/pages/home/page.tsx src/pages/notebookCopilot/page.tsx src/types/remote-modules.d.ts
+          git commit -m "fix: resolve typecheck errors"
+          git push
