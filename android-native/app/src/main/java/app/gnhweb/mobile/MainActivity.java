@@ -22,7 +22,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
-    private static final String APP_URL = "https://gnhweb.vercel.app/";
+    private static final String APP_URL = "https://gnhweb.gemini19840314.workers.dev/";
     private WebView webView;
     private boolean authenticated = false;
     private boolean promptShowing = false;
