@@ -18,7 +18,7 @@
     }
   ],
   "vars": {
-    "ALLOWED_ORIGIN": "https://gnhwebw.pages.dev,https://gnhweb.pages.dev,https://gnhweb.vercel.app",
+    "ALLOWED_ORIGIN": "https://gnhwebw.pages.dev,https://gnhweb.pages.dev,https://gnhweb.gemini19840314.workers.dev",
     "NEON_JWKS_URL": "https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
   }
 }
