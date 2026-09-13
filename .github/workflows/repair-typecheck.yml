@@ -25,6 +25,8 @@ jobs:
 
           p = Path('src/lib/supabase.ts')
           s = p.read_text(encoding='utf-8')
+          s = s.replace("return (await neonAuth.getJWTToken?.()) ?? null;", "return (await neonAuth.getJWTToken?.(true)) ?? null;")
+          s = s.replace("return async (functionName: string, options?: { body?: unknown; method?: string }) => {", "return async (functionName: string, options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }) => {")
           s = s.replace("return target.invoke(functionName, options);", "return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);")
           s = s.replace("return (channel: ReturnType<typeof legacySupabase.channel>) => {", "return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {")
           p.write_text(s, encoding='utf-8')
@@ -56,7 +58,22 @@ jobs:
 
           p = Path('src/types/remote-modules.d.ts')
           p.parent.mkdir(parents=True, exist_ok=True)
-          p.write_text('''declare module "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs" {\n  interface PdfPage {\n    getTextContent(): Promise<{ items: Array<{ str?: string }> }>;\n  }\n  interface PdfDocument {\n    numPages: number;\n    getPage(pageNumber: number): Promise<PdfPage>;\n  }\n  interface PdfJsModule {\n    GlobalWorkerOptions: { workerSrc: string };\n    getDocument(options: { data: ArrayBuffer }): { promise: Promise<PdfDocument> };\n  }\n  const pdfjs: PdfJsModule;\n  export = pdfjs;\n}\n''', encoding='utf-8')
+          p.write_text('''declare module "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs" {
+  interface PdfPage {
+    getTextContent(): Promise<{ items: Array<{ str?: string }> }>;
+  }
+  interface PdfDocument {
+    numPages: number;
+    getPage(pageNumber: number): Promise<PdfPage>;
+  }
+  interface PdfJsModule {
+    GlobalWorkerOptions: { workerSrc: string };
+    getDocument(options: { data: ArrayBuffer }): { promise: Promise<PdfDocument> };
+  }
+  const pdfjs: PdfJsModule;
+  export = pdfjs;
+}
+''', encoding='utf-8')
           PY
       - name: Type check
         run: npm run type-check
