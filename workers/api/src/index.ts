@@ -7,6 +7,7 @@ import { handleBiblePick } from './biblePickFeature';
 import { handleSetupChief } from './setupChiefFeature';
 import { handleMonthlyChampionSnapshot } from './monthlyChampionSnapshotFeature';
 import { handleWebPush } from './webPushFeature';
+import { processWebPushQueue } from './webPushQueue';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -49,5 +50,10 @@ export default {
     const publicKey = String(env.WEB_PUSH_VAPID_PUBLIC_KEY || '').trim();
     if (!publicKey) return json({ error: 'VAPID public key is not configured' }, 500);
     return json({ publicKey }, 200, { 'Cache-Control': 'public, max-age=3600' });
+  },
+
+  async scheduled(_controller: ScheduledController, env: Record<string, string | undefined>): Promise<void> {
+    const result = await processWebPushQueue(env);
+    console.log('[web-push-queue] processed', result);
   },
 };
