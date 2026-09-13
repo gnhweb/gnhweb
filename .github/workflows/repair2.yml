@@ -15,31 +15,43 @@ jobs:
       - run: npm install --include=dev
       - name: Apply fixes
         run: |
-          python3 -c "from pathlib import Path; p=Path('src/lib/supabase.ts'); s=p.read_text(); s=s.replace(\"return target.invoke(functionName, options);\", \"return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);\"); s=s.replace(\"method === 'GET' || method === 'HEAD'\", \"method === 'GET'\"); s=s.replace(\"return (channel: ReturnType<typeof legacySupabase.channel>) => {\", \"return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {\"); p.write_text(s)"
-          python3 -c "from pathlib import Path; p=Path('src/pages/home/page.tsx'); s=p.read_text(); s=s.replace(\"      })\\n      .catch(() => {});\", \"      }, () => {});\", 1); p.write_text(s)"
-          python3 -c "from pathlib import Path; p=Path('src/pages/notebookCopilot/page.tsx'); s=p.read_text(); s=s.replace('const pdfjs: any = await import(/* @vite-ignore */ \\\"https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs\\\");', 'const pdfjs = await import(/* @vite-ignore */ \\\"https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs\\\");', 1); p.write_text(s)"
-          mkdir -p src/types
-          cat > src/types/remote-modules.d.ts <<'EOF'
-          declare module "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs" {
-            interface PdfPage { getTextContent(): Promise<{ items: Array<{ str?: string }> }>; }
-            interface PdfDocument { numPages: number; getPage(pageNumber: number): Promise<PdfPage>; }
-            interface PdfJsModule { GlobalWorkerOptions: { workerSrc: string }; getDocument(options: { data: ArrayBuffer }): { promise: Promise<PdfDocument> }; }
-            const pdfjs: PdfJsModule;
-            export = pdfjs;
-          }
-          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/lib/supabase.ts')
+          s = p.read_text()
+          s = s.replace("neonAuth.getJWTToken?.()", "neonAuth.getJWTToken?.(true)")
+          s = s.replace("options?: { body?: unknown; method?: string }", "options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }")
+          s = s.replace("return target.invoke(functionName, options);", "return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);")
+          s = s.replace("body: method === 'GET' || method === 'HEAD' ? undefined :", "body: method === 'GET' ? undefined :")
+          s = s.replace(
+              "return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {",
+              "return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {\n          const cloudflareChannel = channel as unknown as CloudflareRealtimeChannel;"
+          )
+          s = s.replace("cloudflareChannels.delete(channel);\n            void channel.unsubscribe();", "cloudflareChannels.delete(cloudflareChannel);\n            void cloudflareChannel.unsubscribe();")
+          p.write_text(s)
+
+          p = Path('src/pages/home/page.tsx')
+          lines = p.read_text().splitlines()
+          for i, line in enumerate(lines):
+              if '.catch(() => {});' in line:
+                  lines[i] = line.replace('.catch(() => {});', '.then(undefined, () => {});')
+                  break
+          p.write_text('\n'.join(lines) + '\n')
+
+          p = Path('src/pages/notebookCopilot/page.tsx')
+          s = p.read_text()
+          s = s.replace(
+              "const pdfjs = await import(/* @vite-ignore */ \"https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs\");",
+              "const pdfjsModuleUrl = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs';\n      const pdfjs = await import(/* @vite-ignore */ pdfjsModuleUrl) as { GlobalWorkerOptions: { workerSrc: string }; getDocument(options: { data: ArrayBuffer }): { promise: Promise<{ numPages: number; getPage(pageNumber: number): Promise<{ getTextContent(): Promise<{ items: Array<{ str?: string }> }> }> }> } };"
+          )
+          p.write_text(s)
+          PY
       - run: npm run type-check
       - name: Commit
-        if: success()
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add src
           git commit -m "fix: resolve typecheck errors" || exit 0
-          git push
-      - name: Remove repair workflows
-        if: success()
-        run: |
-          git rm .github/workflows/repair2.yml .github/workflows/repair-typecheck.yml 2>/dev/null || true
-          git commit -m "chore: remove temporary typecheck repair workflows" || exit 0
           git push
