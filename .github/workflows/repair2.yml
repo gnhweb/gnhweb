@@ -15,7 +15,7 @@ jobs:
       - run: npm install --include=dev
       - name: Apply fixes
         run: |
-          python3 -c "from pathlib import Path; p=Path('src/lib/supabase.ts'); s=p.read_text(); s=s.replace(\"neonAuth.getJWTToken?.()\", \"neonAuth.getJWTToken?.(true)\"); s=s.replace(\"options?: { body?: unknown; method?: string }\", \"options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }\"); s=s.replace(\"return target.invoke(functionName, options);\", \"return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);\"); s=s.replace(\"return (channel: ReturnType<typeof legacySupabase.channel>) => {\", \"return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {\"); p.write_text(s)"
+          python3 -c "from pathlib import Path; p=Path('src/lib/supabase.ts'); s=p.read_text(); s=s.replace(\"return target.invoke(functionName, options);\", \"return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);\"); s=s.replace(\"method === 'GET' || method === 'HEAD'\", \"method === 'GET'\"); s=s.replace(\"return (channel: ReturnType<typeof legacySupabase.channel>) => {\", \"return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {\"); p.write_text(s)"
           python3 -c "from pathlib import Path; p=Path('src/pages/home/page.tsx'); s=p.read_text(); s=s.replace(\"      })\\n      .catch(() => {});\", \"      }, () => {});\", 1); p.write_text(s)"
           python3 -c "from pathlib import Path; p=Path('src/pages/notebookCopilot/page.tsx'); s=p.read_text(); s=s.replace('const pdfjs: any = await import(/* @vite-ignore */ \\\"https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs\\\");', 'const pdfjs = await import(/* @vite-ignore */ \\\"https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs\\\");', 1); p.write_text(s)"
           mkdir -p src/types
@@ -30,9 +30,16 @@ jobs:
           EOF
       - run: npm run type-check
       - name: Commit
+        if: success()
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add src
           git commit -m "fix: resolve typecheck errors" || exit 0
+          git push
+      - name: Remove repair workflows
+        if: success()
+        run: |
+          git rm .github/workflows/repair2.yml .github/workflows/repair-typecheck.yml 2>/dev/null || true
+          git commit -m "chore: remove temporary typecheck repair workflows" || exit 0
           git push
