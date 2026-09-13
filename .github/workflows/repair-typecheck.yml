@@ -25,8 +25,7 @@ jobs:
 
           p = Path('src/lib/supabase.ts')
           s = p.read_text(encoding='utf-8')
-          s = s.replace('neonAuth.getJWTToken?.()', 'neonAuth.getJWTToken?.(true)')
-          s = s.replace("return async (functionName: string, options?: { body?: unknown; method?: string }) => {", "return async (functionName: string, options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' | 'HEAD' }) => {")
+          s = s.replace("return target.invoke(functionName, options);", "return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);")
           s = s.replace("return (channel: ReturnType<typeof legacySupabase.channel>) => {", "return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {")
           p.write_text(s, encoding='utf-8')
 
@@ -44,9 +43,8 @@ jobs:
           s = p.read_text(encoding='utf-8')
           target = "      })\n      .catch(() => {});\n  }, []);\n\n  // 브라우저 로컬 시각"
           replacement = "      }, () => {});\n  }, []);\n\n  // 브라우저 로컬 시각"
-          if target not in s:
-              raise SystemExit('home.tsx target not found')
-          s = s.replace(target, replacement, 1)
+          if target in s:
+              s = s.replace(target, replacement, 1)
           p.write_text(s, encoding='utf-8')
 
           p = Path('src/pages/notebookCopilot/page.tsx')
