@@ -23,7 +23,7 @@ jobs:
           s = p.read_text()
           s = s.replace("neonAuth.getJWTToken?.()", "neonAuth.getJWTToken?.(true)")
           s = s.replace("options?: { body?: unknown; method?: string }", "options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }")
-          s = s.replace("return target.invoke(functionName, options);", "return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);")
+          s = s.replace("target.invoke(functionName, options)", "target.invoke(functionName, options as Parameters<typeof target.invoke>[1])")
           s = s.replace("body: method === 'GET' || method === 'HEAD' ? undefined :", "body: method === 'GET' ? undefined :")
           old = '''      case 'removeChannel':
         return (channel: ReturnType<typeof legacySupabase.channel>) => {
@@ -37,18 +37,22 @@ jobs:
         };'''
           new = '''      case 'removeChannel':
         return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {
-          if (channel instanceof CloudflareRealtimeChannel) {
-            const cloudflareChannel = channel as CloudflareRealtimeChannel;
+          const cloudflareChannel = channel as unknown as CloudflareRealtimeChannel;
+          if (cloudflareChannels.has(cloudflareChannel)) {
             cloudflareChannels.delete(cloudflareChannel);
             void cloudflareChannel.unsubscribe();
             return Promise.resolve('ok' as const);
           }
-          disposeNeonRealtimeChannel(channel);
+          disposeNeonRealtimeChannel(channel as ReturnType<typeof legacySupabase.channel>);
           return Promise.resolve('ok' as const);
         };'''
-          if old not in s:
-              raise SystemExit('removeChannel block not found')
-          s = s.replace(old, new)
+          if old in s:
+              s = s.replace(old, new)
+          else:
+              pattern = r"      case 'removeChannel':[\s\S]*?        };"
+              s, count = re.subn(pattern, new, s, count=1)
+              if count != 1:
+                  raise SystemExit('removeChannel block not found')
           p.write_text(s)
 
           p = Path('src/pages/home/page.tsx')
@@ -60,9 +64,8 @@ jobs:
 
           p = Path('src/pages/notebookCopilot/page.tsx')
           s = p.read_text()
-          pattern = r'const pdfjs = await import\(/\* @vite-ignore \*/ "https://esm\.sh/pdfjs-dist@4\.0\.379/build/pdf\.mjs"\);'
-          replacement = '''const pdfjsModuleUrl = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs';
-          const pdfjs = await import(/* @vite-ignore */ pdfjsModuleUrl) as {
+          old = 'const pdfjs = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");'
+          new = '''type PdfJsModule = {
             GlobalWorkerOptions: { workerSrc: string };
             getDocument(options: { data: ArrayBuffer }): {
               promise: Promise<{
@@ -72,10 +75,16 @@ jobs:
                 }>;
               }>;
             };
-          };'''
-          s, count = re.subn(pattern, replacement, s, count=1)
-          if count != 1:
-              raise SystemExit('pdfjs import target not found')
+          };
+          const loadPdfJs = new Function('url', 'return import(url)') as (url: string) => Promise<PdfJsModule>;
+          const pdfjs = await loadPdfJs('https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs');'''
+          if old in s:
+              s = s.replace(old, new)
+          else:
+              pattern = r'const pdfjs = await import\(/\* @vite-ignore \*/ "https://esm\.sh/pdfjs-dist@4\.0\.379/build/pdf\.mjs"\);'
+              s, count = re.subn(pattern, new, s, count=1)
+              if count != 1:
+                  raise SystemExit('pdfjs import target not found')
           p.write_text(s)
           PY
       - run: npm run type-check
@@ -84,5 +93,6 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add src
-          git commit -m "fix: resolve typecheck errors" || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: resolve typecheck errors"
           git push
