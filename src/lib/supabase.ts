@@ -10,6 +10,7 @@ const DEFAULT_NEON_DATA_API_URL = 'https://ep-empty-surf-az87wypd.apirest.c-3.ap
 const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL || DEFAULT_NEON_DATA_API_URL;
 const legacySupabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY || 'anonymous';
 const CLOUDFLARE_API = import.meta.env.VITE_CLOUDFLARE_API_URL || 'https://gnhweb-api.gemini19840314.workers.dev';
+const CLOUDFLARE_AI_GATEWAY = import.meta.env.VITE_CLOUDFLARE_AI_GATEWAY_URL || 'https://gnhweb-ai-gateway.gemini19840314.workers.dev';
 const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL || DEFAULT_NEON_AUTH_URL;
 const configuredNeonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAULT_NEON_DATA_API_URL;
 const neonDataApiUrl = configuredNeonDataApiUrl.replace(/\/rest\/v1\/?$/, '');
@@ -86,6 +87,16 @@ const MIGRATED_CLOUDFLARE_FUNCTIONS = new Set([
   'monthly-champion-snapshot',
 ]);
 
+const CLOUDFLARE_AI_FUNCTIONS = new Set([
+  'meeting-ideas-ai',
+  'meeting-insight-ai',
+  'nim-letter',
+  'nim-coaching',
+  'nim-counseling',
+  'nim-quiz',
+  'nim-mbti',
+]);
+
 const cloudflareFunctions = new Proxy(legacySupabase.functions, {
   get(target, property, receiver) {
     if (property !== 'invoke') return Reflect.get(target, property, receiver);
@@ -133,7 +144,8 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
         if (jwt) headers.Authorization = `Bearer ${jwt}`;
 
         const method = options?.method || 'POST';
-        const response = await fetch(`${CLOUDFLARE_API}${endpoint}${query}`, {
+        const baseUrl = CLOUDFLARE_AI_FUNCTIONS.has(baseFunctionName) ? CLOUDFLARE_AI_GATEWAY : CLOUDFLARE_API;
+        const response = await fetch(`${baseUrl}${endpoint}${query}`, {
           method,
           headers,
           body: method === 'GET' ? undefined : JSON.stringify(options?.body ?? {}),
