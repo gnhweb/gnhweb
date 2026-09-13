@@ -17,6 +17,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           p = Path('src/lib/supabase.ts')
           s = p.read_text()
@@ -24,27 +25,57 @@ jobs:
           s = s.replace("options?: { body?: unknown; method?: string }", "options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }")
           s = s.replace("return target.invoke(functionName, options);", "return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);")
           s = s.replace("body: method === 'GET' || method === 'HEAD' ? undefined :", "body: method === 'GET' ? undefined :")
-          s = s.replace(
-              "return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {",
-              "return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {\n          const cloudflareChannel = channel as unknown as CloudflareRealtimeChannel;"
-          )
-          s = s.replace("cloudflareChannels.delete(channel);\n            void channel.unsubscribe();", "cloudflareChannels.delete(cloudflareChannel);\n            void cloudflareChannel.unsubscribe();")
+          old = '''      case 'removeChannel':
+        return (channel: ReturnType<typeof legacySupabase.channel>) => {
+          if (channel instanceof CloudflareRealtimeChannel) {
+            cloudflareChannels.delete(channel);
+            void channel.unsubscribe();
+            return Promise.resolve('ok' as const);
+          }
+          disposeNeonRealtimeChannel(channel);
+          return Promise.resolve('ok' as const);
+        };'''
+          new = '''      case 'removeChannel':
+        return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {
+          if (channel instanceof CloudflareRealtimeChannel) {
+            const cloudflareChannel = channel as CloudflareRealtimeChannel;
+            cloudflareChannels.delete(cloudflareChannel);
+            void cloudflareChannel.unsubscribe();
+            return Promise.resolve('ok' as const);
+          }
+          disposeNeonRealtimeChannel(channel);
+          return Promise.resolve('ok' as const);
+        };'''
+          if old not in s:
+              raise SystemExit('removeChannel block not found')
+          s = s.replace(old, new)
           p.write_text(s)
 
           p = Path('src/pages/home/page.tsx')
-          lines = p.read_text().splitlines()
-          for i, line in enumerate(lines):
-              if '.catch(() => {});' in line:
-                  lines[i] = line.replace('.catch(() => {});', '.then(undefined, () => {});')
-                  break
-          p.write_text('\n'.join(lines) + '\n')
+          s = p.read_text()
+          s, count = re.subn(r'\.catch\(\(\) => \{\}\);', '.then(undefined, () => {});', s, count=1)
+          if count != 1:
+              raise SystemExit('home catch target not found')
+          p.write_text(s)
 
           p = Path('src/pages/notebookCopilot/page.tsx')
           s = p.read_text()
-          s = s.replace(
-              "const pdfjs = await import(/* @vite-ignore */ \"https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs\");",
-              "const pdfjsModuleUrl = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs';\n      const pdfjs = await import(/* @vite-ignore */ pdfjsModuleUrl) as { GlobalWorkerOptions: { workerSrc: string }; getDocument(options: { data: ArrayBuffer }): { promise: Promise<{ numPages: number; getPage(pageNumber: number): Promise<{ getTextContent(): Promise<{ items: Array<{ str?: string }> }> }> }> } };"
-          )
+          pattern = r'const pdfjs = await import\(/\* @vite-ignore \*/ "https://esm\.sh/pdfjs-dist@4\.0\.379/build/pdf\.mjs"\);'
+          replacement = '''const pdfjsModuleUrl = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs';
+          const pdfjs = await import(/* @vite-ignore */ pdfjsModuleUrl) as {
+            GlobalWorkerOptions: { workerSrc: string };
+            getDocument(options: { data: ArrayBuffer }): {
+              promise: Promise<{
+                numPages: number;
+                getPage(pageNumber: number): Promise<{
+                  getTextContent(): Promise<{ items: Array<{ str?: string }> }>;
+                }>;
+              }>;
+            };
+          };'''
+          s, count = re.subn(pattern, replacement, s, count=1)
+          if count != 1:
+              raise SystemExit('pdfjs import target not found')
           p.write_text(s)
           PY
       - run: npm run type-check
