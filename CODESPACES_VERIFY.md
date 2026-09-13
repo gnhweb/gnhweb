@@ -25,10 +25,10 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-기본 production 대상은 `https://gnhweb.vercel.app`이며, 다른 대상은 `E2E_BASE_URL`로 변경할 수 있습니다.
+기본 production 대상은 `https://gnhweb.gemini19840314.workers.dev`이며, 다른 대상은 `E2E_BASE_URL`로 변경할 수 있습니다.
 
 ```bash
-E2E_BASE_URL=https://gnhweb.vercel.app npm run test:e2e
+E2E_BASE_URL=https://gnhweb.gemini19840314.workers.dev npm run test:e2e
 ```
 
 ## 주의
