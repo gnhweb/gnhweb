@@ -198,7 +198,11 @@ export default function NotebookCopilotPage() {
         if (lower.endsWith(".txt") || lower.endsWith(".md")) {
           extractedText = await file.text();
         } else if (lower.endsWith(".pdf")) {
-          const pdfjs: any = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");
+const pdfjsModuleUrl = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs';
+          const pdfjs = await import(/* @vite-ignore */ pdfjsModuleUrl) as {
+            GlobalWorkerOptions: { workerSrc: string };
+            getDocument(options: { data: ArrayBuffer }): { promise: Promise<{ numPages: number; getPage(pageNumber: number): Promise<{ getTextContent(): Promise<{ items: Array<{ str?: string }> }> }> }> };
+          };
           pdfjs.GlobalWorkerOptions.workerSrc = "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.mjs";
           const buf = await file.arrayBuffer();
           const doc = await pdfjs.getDocument({ data: buf }).promise;

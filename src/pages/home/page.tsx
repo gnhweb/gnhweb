@@ -407,7 +407,7 @@ export default function Home() {
           setMarathonChampion(null);
         }
       })
-      .catch(() => {});
+      .then(undefined, () => {});
   }, []);
 
   // 브라우저 로컬 시각(=한국 사용자 기준 KST) 기준으로 "지난달"의 [start, end) 자정 경계를 구한다.

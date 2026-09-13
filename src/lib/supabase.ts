@@ -52,7 +52,7 @@ const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
   },
   accessToken: async () => {
     try {
-      return (await neonAuth.getJWTToken?.()) ?? null;
+      return (await neonAuth.getJWTToken?.(true)) ?? null;
     } catch {
       return null;
     }
@@ -90,13 +90,13 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
   get(target, property, receiver) {
     if (property !== 'invoke') return Reflect.get(target, property, receiver);
 
-    return async (functionName: string, options?: { body?: unknown; method?: string }) => {
+    return async (functionName: string, options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }) => {
       const separatorIndex = functionName.indexOf('?');
       const baseFunctionName = separatorIndex >= 0 ? functionName.slice(0, separatorIndex) : functionName;
       const query = separatorIndex >= 0 ? functionName.slice(separatorIndex) : '';
 
       if (!MIGRATED_CLOUDFLARE_FUNCTIONS.has(baseFunctionName)) {
-        return target.invoke(functionName, options);
+        return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);
       }
 
       const endpointMap: Record<string, string> = {
@@ -116,7 +116,7 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
         'monthly-champion-snapshot': '/monthly-champion-snapshot',
       };
       const endpoint = endpointMap[baseFunctionName];
-      if (!endpoint) return target.invoke(functionName, options);
+      if (!endpoint) return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);
 
       try {
         const jwtRequiredFunction = new Set([
@@ -128,7 +128,7 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
           'bible-pick',
           'monthly-champion-snapshot',
         ]).has(baseFunctionName);
-        const jwt = jwtRequiredFunction ? await neonAuth.getJWTToken?.() : null;
+        const jwt = jwtRequiredFunction ? await neonAuth.getJWTToken?.(true) : null;
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (jwt) headers.Authorization = `Bearer ${jwt}`;
 
@@ -136,7 +136,7 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
         const response = await fetch(`${CLOUDFLARE_API}${endpoint}${query}`, {
           method,
           headers,
-          body: method === 'GET' || method === 'HEAD' ? undefined : JSON.stringify(options?.body ?? {}),
+          body: method === 'GET' ? undefined : JSON.stringify(options?.body ?? {}),
         });
         const text = await response.text();
         let data: unknown = null;
@@ -184,13 +184,14 @@ export const supabase = new Proxy(neonDataClient, {
           return createNeonRealtimeChannel(legacySupabase.channel(name, options), queryNeonRows);
         };
       case 'removeChannel':
-        return (channel: ReturnType<typeof legacySupabase.channel>) => {
-          if (channel instanceof CloudflareRealtimeChannel) {
-            cloudflareChannels.delete(channel);
-            void channel.unsubscribe();
+        return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {
+          const cloudflareChannel = channel as unknown as CloudflareRealtimeChannel;
+          if (cloudflareChannels.has(cloudflareChannel)) {
+            cloudflareChannels.delete(cloudflareChannel);
+            void cloudflareChannel.unsubscribe();
             return Promise.resolve('ok' as const);
           }
-          disposeNeonRealtimeChannel(channel);
+          disposeNeonRealtimeChannel(channel as ReturnType<typeof legacySupabase.channel>);
           return Promise.resolve('ok' as const);
         };
       case 'removeAllChannels':
