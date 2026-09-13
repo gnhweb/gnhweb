@@ -6,15 +6,28 @@ declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision?: string | null }>;
 };
 
-// Keep this source revisioned so an already-installed PWA detects the updated
-// service worker when its current app bundle is stale.
-const GNHWEB_SW_REVISION = '20260908-1';
+const GNHWEB_SW_REVISION = '20260913-2';
 void GNHWEB_SW_REVISION;
+
+const LEGACY_SUPABASE_STORAGE_HOST = 'ceearwcfvcbjhmkuuqzv.supabase.co';
+const STORAGE_MIGRATION_URL = 'https://gnhweb-storage-migrate.gemini19840314.workers.dev/v1/legacy-public/';
 
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 clientsClaim();
 self.skipWaiting();
+
+self.addEventListener('fetch', (event) => {
+  const requestUrl = new URL(event.request.url);
+  if (event.request.method !== 'GET' || requestUrl.hostname !== LEGACY_SUPABASE_STORAGE_HOST) return;
+  if (!requestUrl.pathname.startsWith('/storage/v1/object/public/Public/')) return;
+
+  const storagePath = requestUrl.pathname.slice('/storage/v1/object/public/Public/'.length);
+  if (!storagePath) return;
+
+  const targetUrl = `${STORAGE_MIGRATION_URL}${storagePath.split('/').map(encodeURIComponent).join('/')}${requestUrl.search}`;
+  event.respondWith(fetch(targetUrl, { method: 'GET', credentials: 'omit' }));
+});
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;
