@@ -99,7 +99,7 @@ export default function MemoryThumbnailsMigrationPage() {
     for (const row of pending) {
       if (cancelRef.current) break;
       const result = await processOne(row);
-      if (!result.ok) {
+      if (!result.ok && 'reason' in result) {
         setFailed(prev => [...prev, { id: row.id, reason: result.reason }]);
       }
       setDone(prev => prev + 1);
