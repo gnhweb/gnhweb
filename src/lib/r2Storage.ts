@@ -1,10 +1,10 @@
 type StorageError = { message: string } | null;
-
 type UploadOptions = { contentType?: string; cacheControl?: string; upsert?: boolean };
 type StorageFile = { name: string; id: string | null; metadata: { size: number; mimetype?: string; lastModified?: string }; created_at?: string };
 type ListOptions = { limit?: number; sortBy?: { column: 'created_at' | 'name'; order: 'asc' | 'desc' } };
 
-const baseUrl = (import.meta.env.VITE_R2_STORAGE_URL as string | undefined)?.replace(/\/$/, '');
+const DEFAULT_R2_STORAGE_URL = 'https://gnhweb-storage.gemini19840314.workers.dev';
+const baseUrl = ((import.meta.env.VITE_R2_STORAGE_URL as string | undefined) || DEFAULT_R2_STORAGE_URL).replace(/\/$/, '');
 
 const getAccessToken = async (): Promise<string | null> => {
   const auth = (await import('@/lib/neon')).neon.auth;
@@ -15,7 +15,6 @@ const getAccessToken = async (): Promise<string | null> => {
 const normalizeBucket = (bucket: string) => bucket.toLowerCase() === 'public' ? 'Public' : bucket;
 
 const buildUrl = (bucket: string, path: string, params?: URLSearchParams) => {
-  if (!baseUrl) throw new Error('VITE_R2_STORAGE_URL is not configured');
   const normalizedBucket = normalizeBucket(bucket);
   const encodedPath = path.split('/').filter(Boolean).map((segment) => encodeURIComponent(segment)).join('/');
   const url = `${baseUrl}/v1/storage/${encodeURIComponent(normalizedBucket)}${encodedPath ? `/${encodedPath}` : ''}`;
@@ -76,4 +75,4 @@ class R2BucketClient {
   }
 }
 
-export const r2Storage = { enabled: Boolean(baseUrl), from(bucket: string) { return new R2BucketClient(normalizeBucket(bucket)); } };
+export const r2Storage = { enabled: true, from(bucket: string) { return new R2BucketClient(normalizeBucket(bucket)); } };
