@@ -13,68 +13,18 @@ jobs:
         with:
           node-version: 22
       - run: npm install --include=dev
-      - name: Apply fixes
+      - name: Apply exact type fixes
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          p = Path('src/lib/supabase.ts')
-          s = p.read_text()
-          s = s.replace("neonAuth.getJWTToken?.()", "neonAuth.getJWTToken?.(true)")
-          s = s.replace("options?: { body?: unknown; method?: string }", "options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }")
-          s = s.replace("target.invoke(functionName, options)", "target.invoke(functionName, options as Parameters<typeof target.invoke>[1])")
-          s = s.replace("body: method === 'GET' || method === 'HEAD' ? undefined :", "body: method === 'GET' ? undefined :")
-          start = s.find("      case 'removeChannel':")
-          end = s.find("      case 'removeAllChannels':", start)
-          if start < 0 or end < 0:
-              raise SystemExit('removeChannel block not found')
-          block = "\n".join([
-              "      case 'removeChannel':",
-              "        return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {",
-              "          const cloudflareChannel = channel as unknown as CloudflareRealtimeChannel;",
-              "          if (cloudflareChannels.has(cloudflareChannel)) {",
-              "            cloudflareChannels.delete(cloudflareChannel);",
-              "            void cloudflareChannel.unsubscribe();",
-              "            return Promise.resolve('ok' as const);",
-              "          }",
-              "          disposeNeonRealtimeChannel(channel as ReturnType<typeof legacySupabase.channel>);",
-              "          return Promise.resolve('ok' as const);",
-              "        };",
-              "",
-          ])
-          s = s[:start] + block + s[end:]
-          p.write_text(s)
-
-          p = Path('src/pages/home/page.tsx')
-          lines = p.read_text().splitlines()
-          for i, line in enumerate(lines):
-              if '.catch(() => {});' in line:
-                  lines[i] = line.replace('.catch(() => {});', '.then(undefined, () => {});')
-                  break
-          else:
-              raise SystemExit('home promise rejection handler not found')
-          p.write_text('\n'.join(lines) + '\n')
-
-          p = Path('src/pages/notebookCopilot/page.tsx')
-          s = p.read_text()
-          pattern = r'^[ \t]*const pdfjs: any = await import\([^\n]*pdfjs-dist@4\.0\.379/build/pdf\.mjs[^\n]*\);[ \t]*$'
-          replacement = '''          const pdfjsModuleUrl = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs';
-          const pdfjs = await import(/* @vite-ignore */ pdfjsModuleUrl) as {
-            GlobalWorkerOptions: { workerSrc: string };
-            getDocument(options: { data: ArrayBuffer }): { promise: Promise<{ numPages: number; getPage(pageNumber: number): Promise<{ getTextContent(): Promise<{ items: Array<{ str?: string }> }> }> }> };
-          };'''
-          s2, count = re.subn(pattern, replacement, s, count=1, flags=re.MULTILINE)
-          if count != 1:
-              raise SystemExit('pdfjs import target not found')
-          p.write_text(s2)
-          PY
-      - run: npm run type-check
-      - name: Commit
+          python3 -c "from pathlib import Path; p=Path('src/lib/supabase.ts'); s=p.read_text(); s=s.replace(\"neonAuth.getJWTToken?.()\", \"neonAuth.getJWTToken?.(true)\"); s=s.replace(\"options?: { body?: unknown; method?: string }\", \"options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }\"); s=s.replace(\"target.invoke(functionName, options)\", \"target.invoke(functionName, options as Parameters<typeof target.invoke>[1])\"); s=s.replace(\"body: method === 'GET' || method === 'HEAD' ? undefined :\", \"body: method === 'GET' ? undefined :\"); start=s.index(\"      case 'removeChannel':\"); end=s.index(\"      case 'removeAllChannels':\", start); block=\"      case 'removeChannel':\\n        return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {\\n          const cloudflareChannel = channel as unknown as CloudflareRealtimeChannel;\\n          if (cloudflareChannels.has(cloudflareChannel)) {\\n            cloudflareChannels.delete(cloudflareChannel);\\n            void cloudflareChannel.unsubscribe();\\n            return Promise.resolve('ok' as const);\\n          }\\n          disposeNeonRealtimeChannel(channel as ReturnType<typeof legacySupabase.channel>);\\n          return Promise.resolve('ok' as const);\\n        };\\n\"; s=s[:start]+block+s[end:]; p.write_text(s)"
+          python3 -c "from pathlib import Path; p=Path('src/pages/home/page.tsx'); s=p.read_text(); old='.catch(() => {});'; new='.then(undefined, () => {});'; assert old in s; p.write_text(s.replace(old,new,1))"
+          python3 -c "from pathlib import Path; import base64; p=Path('src/pages/notebookCopilot/page.tsx'); s=p.read_text(); old='          const pdfjs: any = await import(/* @vite-ignore */ \"https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs\");'; new=base64.b64decode('Y29uc3QgcGRmanNNb2R1bGVVcmwgPSAnaHR0cHM6Ly9lc20uc2gvcGRmanMtZGlzdEA0LjAuMzc5L2J1aWxkL3BkZi5tanMnOwogICAgICAgICAgY29uc3QgcGRmanMgPSBhd2FpdCBpbXBvcnQoLyogQHZpdGUtaWdub3JlICovIHBkZmpzTW9kdWxlVXJsKSBhcyB7CiAgICAgICAgICAgIEdsb2JhbFdvcmtlck9wdGlvbnM6IHsgd29ya2VyU3JjOiBzdHJpbmcgfTsKICAgICAgICAgICAgZ2V0RG9jdW1lbnQob3B0aW9uczogeyBkYXRhOiBBcnJheUJ1ZmZlciB9KTogeyBwcm9taXNlOiBQcm9taXNlPHsgbnVtUGFnZXM6IG51bWJlcjsgZ2V0UGFnZShwYWdlTnVtYmVyOiBudW1iZXIpOiBQcm9taXNlPHsgZ2V0VGV4dENvbnRlbnQoKTogUHJvbWlzZTx7IGl0ZW1zOiBBcnJheTx7IHN0cj86IHN0cmluZyB9PiB9PiB9PiB9PiB9OwogICAgICAgICAgfTs=').decode(); assert old in s; p.write_text(s.replace(old,new,1))"
+      - name: Type check
+        run: npm run type-check
+      - name: Commit repaired source
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add src
+          git add src/lib/supabase.ts src/pages/home/page.tsx src/pages/notebookCopilot/page.tsx
           git diff --cached --quiet && exit 0
-          git commit -m "fix: resolve typecheck errors"
+          git commit -m "fix: resolve remaining typecheck errors"
           git push
