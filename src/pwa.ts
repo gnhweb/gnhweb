@@ -14,7 +14,7 @@
 
 let currentRegistration: ServiceWorkerRegistration | undefined;
 
-const PWA_VERSION = '20260909-3';
+const PWA_VERSION = '20260913-4';
 const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=${PWA_VERSION}`;
 const RELOAD_KEY = `gnhweb-pwa-reloaded:${PWA_VERSION}`;
 const REGISTERED_VERSION_KEY = 'gnhweb-pwa-registered-version';
