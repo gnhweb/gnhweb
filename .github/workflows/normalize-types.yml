@@ -57,30 +57,33 @@ jobs:
 
           p = Path('src/pages/home/page.tsx')
           s = p.read_text()
-          old = '''        if (ranked.length > 0) {
-          setMarathonChampion(ranked[0]);
-          writeMarathonChampionCache(ranked[0]);
-        } else {
-          setMarathonChampion(null);
-        }
-      })
-      .catch(() => {});'''
-          new = '''        if (ranked.length > 0) {
-          setMarathonChampion(ranked[0]);
-          writeMarathonChampionCache(ranked[0]);
-        } else {
-          setMarathonChampion(null);
-        }
-      })
-      .then(undefined, () => {});'''
+          old = '''      if (data?.topClub && data?.topPlayer) {
+        const result = { topClub: data.topClub, topPlayer: data.topPlayer } as MonthlyChampion;
+        setMonthlyChampion(result);
+        writeQuizLeaderboardCache(result);
+      } else {
+        // 이번 달 데이터가 아직 없으면(=달이 막 바뀐 직후) 지난 달 챔피언을 계속 보여주지 않도록 비움
+        setMonthlyChampion(null);
+      }
+    }).catch(() => {});'''
+          new = '''      if (data?.topClub && data?.topPlayer) {
+        const result = { topClub: data.topClub, topPlayer: data.topPlayer } as MonthlyChampion;
+        setMonthlyChampion(result);
+        writeQuizLeaderboardCache(result);
+      } else {
+        // 이번 달 데이터가 아직 없으면(=달이 막 바뀐 직후) 지난 달 챔피언을 계속 보여주지 않도록 비움
+        setMonthlyChampion(null);
+      }
+    }).then(undefined, () => {});'''
           if old not in s:
-              raise SystemExit('home promise rejection handler not found')
+              raise SystemExit('home quiz promise rejection handler not found')
           p.write_text(s.replace(old, new, 1))
 
           p = Path('src/pages/notebookCopilot/page.tsx')
           s = p.read_text()
-          old = '          const pdfjs: any = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");'
-          new = '''          const pdfjsModuleUrl = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs';
+          if 'pdfjsModuleUrl' not in s:
+              old = '          const pdfjs: any = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");'
+              new = '''          const pdfjsModuleUrl = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs';
           const pdfjs = await import(/* @vite-ignore */ pdfjsModuleUrl) as {
             GlobalWorkerOptions: { workerSrc: string };
             getDocument(options: { data: ArrayBuffer }): {
@@ -92,9 +95,9 @@ jobs:
               }>;
             };
           };'''
-          if old not in s:
-              raise SystemExit('pdfjs import target not found')
-          p.write_text(s.replace(old, new, 1))
+              if old not in s:
+                  raise SystemExit('pdfjs import target not found')
+              p.write_text(s.replace(old, new, 1))
           PY
 
       - name: Type check
