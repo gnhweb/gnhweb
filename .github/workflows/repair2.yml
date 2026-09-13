@@ -56,36 +56,32 @@ jobs:
           p.write_text(s)
 
           p = Path('src/pages/home/page.tsx')
-          s = p.read_text()
-          s, count = re.subn(r'\.catch\(\(\) => \{\}\);', '.then(undefined, () => {});', s, count=1)
-          if count != 1:
-              raise SystemExit('home catch target not found')
-          p.write_text(s)
+          lines = p.read_text().splitlines()
+          for i, line in enumerate(lines):
+              if '.catch(() => {});' in line:
+                  lines[i] = line.replace('.catch(() => {});', '.then(undefined, () => {});')
+                  break
+          p.write_text('\n'.join(lines) + '\n')
 
           p = Path('src/pages/notebookCopilot/page.tsx')
           s = p.read_text()
-          old = 'const pdfjs = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");'
-          new = '''type PdfJsModule = {
+          lines = s.splitlines()
+          replacement = '''      const pdfjsModuleUrl = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs';
+          const pdfjs = await import(/* @vite-ignore */ pdfjsModuleUrl) as {
             GlobalWorkerOptions: { workerSrc: string };
-            getDocument(options: { data: ArrayBuffer }): {
-              promise: Promise<{
-                numPages: number;
-                getPage(pageNumber: number): Promise<{
-                  getTextContent(): Promise<{ items: Array<{ str?: string }> }>;
-                }>;
-              }>;
-            };
-          };
-          const loadPdfJs = new Function('url', 'return import(url)') as (url: string) => Promise<PdfJsModule>;
-          const pdfjs = await loadPdfJs('https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs');'''
-          if old in s:
-              s = s.replace(old, new)
-          else:
-              pattern = r'const pdfjs = await import\(/\* @vite-ignore \*/ "https://esm\.sh/pdfjs-dist@4\.0\.379/build/pdf\.mjs"\);'
-              s, count = re.subn(pattern, new, s, count=1)
-              if count != 1:
-                  raise SystemExit('pdfjs import target not found')
-          p.write_text(s)
+            getDocument(options: { data: ArrayBuffer }): { promise: Promise<{ numPages: number; getPage(pageNumber: number): Promise<{ getTextContent(): Promise<{ items: Array<{ str?: string }> }> }> }> };
+          };'''.splitlines()
+          replaced = False
+          for i, line in enumerate(lines):
+              if 'const pdfjs' in line and 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs' in line:
+                  indent = line[:len(line) - len(line.lstrip())]
+                  replacement = [indent + x.strip() if j > 0 else x for j, x in enumerate(replacement)]
+                  lines[i:i+1] = replacement
+                  replaced = True
+                  break
+          if not replaced:
+              raise SystemExit('pdfjs import target not found')
+          p.write_text('\n'.join(lines) + '\n')
           PY
       - run: npm run type-check
       - name: Commit
