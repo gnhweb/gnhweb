@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   deploy-pages:
-    name: Deploy gnhwebw.pages.dev
+    name: Deploy gnhweb.pages.dev
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -33,7 +33,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: e005fccad53297f6ac5ca4d88472cd59
           wranglerVersion: "4"
-          command: pages deploy out --project-name gnhwebw
+          command: pages deploy out --project-name gnhweb
 
   deploy-storage-migrate:
     name: Deploy storage migration proxy
