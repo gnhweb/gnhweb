@@ -13,9 +13,6 @@ concurrency:
 env:
   VITE_CF_REALTIME_URL: https://gnhweb-realtime.gemini19840314.workers.dev
 
-env:
-  VITE_CF_REALTIME_URL: https://gnhweb-realtime.gemini19840314.workers.dev
-
 jobs:
   deploy-site:
     name: Deploy gnhweb site
@@ -173,8 +170,8 @@ jobs:
 
   verify-bible-pick:
     name: Verify gnhweb API /bible-pick
-    needs: deploy-api
     runs-on: ubuntu-latest
+    needs: deploy-api
     steps:
       - name: POST /bible-pick smoke test
         run: |
@@ -185,8 +182,8 @@ jobs:
 
   verify-setup-chief:
     name: Verify gnhweb API /setup-chief validation
-    needs: deploy-api
     runs-on: ubuntu-latest
+    needs: deploy-api
     steps:
       - name: POST /setup-chief with empty body must be rejected
         run: |
@@ -197,8 +194,8 @@ jobs:
 
   verify-monthly-champion-snapshot:
     name: Verify gnhweb API /monthly-champion-snapshot auth guard
-    needs: deploy-api
     runs-on: ubuntu-latest
+    needs: deploy-api
     steps:
       - name: GET /monthly-champion-snapshot without auth must be rejected
         run: |
