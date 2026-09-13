@@ -1,4 +1,3 @@
-# one-time repair: applies only the focused type fixes below and then removes itself
 name: One-time typecheck repair
 
 on:
@@ -7,82 +6,61 @@ on:
 
 jobs:
   repair:
-    if: github.actor == 'gnhweb' || github.actor == 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
-        run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
-      - name: Apply focused type fixes
+      - run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
+      - name: Apply focused fixes
+        shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           p = Path('src/lib/supabase.ts')
-          s = p.read_text(encoding='utf-8')
+          s = p.read_text()
           s = s.replace("return (await neonAuth.getJWTToken?.()) ?? null;", "return (await neonAuth.getJWTToken?.(true)) ?? null;")
-          s = s.replace("return async (functionName: string, options?: { body?: unknown; method?: string }) => {", "return async (functionName: string, options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }) => {")
+          s = s.replace("options?: { body?: unknown; method?: string }", "options?: { body?: unknown; method?: 'PUT' | 'DELETE' | 'GET' | 'POST' | 'PATCH' }")
           s = s.replace("return target.invoke(functionName, options);", "return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);")
           s = s.replace("return (channel: ReturnType<typeof legacySupabase.channel>) => {", "return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {")
-          p.write_text(s, encoding='utf-8')
-
+          p.write_text(s)
           p = Path('src/pages/admin/memoryThumbnails/page.tsx')
-          s = p.read_text(encoding='utf-8')
+          s = p.read_text()
           s = s.replace("if (!result.ok) {\n        setFailed(prev => [...prev, { id: row.id, reason: result.reason }]);\n      }", "if (!result.ok && 'reason' in result) {\n        setFailed(prev => [...prev, { id: row.id, reason: result.reason }]);\n      }")
-          p.write_text(s, encoding='utf-8')
-
+          p.write_text(s)
           p = Path('src/pages/bibleMbti/page.tsx')
-          s = p.read_text(encoding='utf-8')
+          s = p.read_text()
           s = s.replace('Object.entries(result.scores ?? {}).map(([key, value], index) =>', 'result.traits.map((trait, index) => [trait.label, trait.value] as const).map(([key, value], index) =>')
-          p.write_text(s, encoding='utf-8')
-
+          p.write_text(s)
           p = Path('src/pages/home/page.tsx')
-          s = p.read_text(encoding='utf-8')
-          target = "      })\n      .catch(() => {});\n  }, []);\n\n  // 브라우저 로컬 시각"
-          replacement = "      }, () => {});\n  }, []);\n\n  // 브라우저 로컬 시각"
-          if target in s:
-              s = s.replace(target, replacement, 1)
-          p.write_text(s, encoding='utf-8')
-
+          s = p.read_text()
+          s = s.replace("      })\n      .catch(() => {});\n  }, []);\n\n  // 브라우저 로컬 시각", "      }, () => {});\n  }, []);\n\n  // 브라우저 로컬 시각", 1)
+          p.write_text(s)
           p = Path('src/pages/notebookCopilot/page.tsx')
-          s = p.read_text(encoding='utf-8')
-          import_line = 'const pdfjs: any = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");'
-          if import_line in s:
-              s = s.replace(import_line, 'const pdfjs = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");', 1)
-          p.write_text(s, encoding='utf-8')
-
+          s = p.read_text()
+          s = s.replace('const pdfjs: any = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");', 'const pdfjs = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");', 1)
+          p.write_text(s)
           p = Path('src/types/remote-modules.d.ts')
           p.parent.mkdir(parents=True, exist_ok=True)
           p.write_text('''declare module "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs" {
-  interface PdfPage {
-    getTextContent(): Promise<{ items: Array<{ str?: string }> }>;
-  }
-  interface PdfDocument {
-    numPages: number;
-    getPage(pageNumber: number): Promise<PdfPage>;
-  }
-  interface PdfJsModule {
-    GlobalWorkerOptions: { workerSrc: string };
-    getDocument(options: { data: ArrayBuffer }): { promise: Promise<PdfDocument> };
-  }
+  interface PdfPage { getTextContent(): Promise<{ items: Array<{ str?: string }> }>; }
+  interface PdfDocument { numPages: number; getPage(pageNumber: number): Promise<PdfPage>; }
+  interface PdfJsModule { GlobalWorkerOptions: { workerSrc: string }; getDocument(options: { data: ArrayBuffer }): { promise: Promise<PdfDocument> }; }
   const pdfjs: PdfJsModule;
   export = pdfjs;
 }
-''', encoding='utf-8')
+''')
           PY
-      - name: Type check
-        run: npm run type-check
-      - name: Commit and remove repair workflow
+      - run: npm run type-check
+      - name: Commit fixes and remove workflow
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm .github/workflows/repair-typecheck.yml
           git add src/lib/supabase.ts src/pages/admin/memoryThumbnails/page.tsx src/pages/bibleMbti/page.tsx src/pages/home/page.tsx src/pages/notebookCopilot/page.tsx src/types/remote-modules.d.ts
+          git rm .github/workflows/repair-typecheck.yml
           git commit -m "fix: resolve typecheck errors"
           git push
