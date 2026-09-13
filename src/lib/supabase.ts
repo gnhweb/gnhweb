@@ -5,10 +5,10 @@ import { r2Storage } from '@/lib/r2Storage';
 import { CloudflareRealtimeChannel, isCloudflareGameRoom } from '@/lib/cloudflareRealtime';
 import { createNeonRealtimeChannel, disposeAllNeonRealtimeChannels, disposeNeonRealtimeChannel } from '@/lib/neonRealtime';
 
-const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
-const legacySupabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
 const DEFAULT_NEON_AUTH_URL = 'https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth';
 const DEFAULT_NEON_DATA_API_URL = 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb';
+const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL || DEFAULT_NEON_DATA_API_URL;
+const legacySupabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY || 'anonymous';
 const CLOUDFLARE_API = import.meta.env.VITE_CLOUDFLARE_API_URL || 'https://gnhweb-api.gemini19840314.workers.dev';
 const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL || DEFAULT_NEON_AUTH_URL;
 const configuredNeonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAULT_NEON_DATA_API_URL;
