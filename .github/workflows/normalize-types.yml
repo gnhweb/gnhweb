@@ -31,7 +31,6 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           p = Path('src/lib/supabase.ts')
           s = p.read_text()
@@ -58,15 +57,31 @@ jobs:
 
           p = Path('src/pages/home/page.tsx')
           s = p.read_text()
-          s, count = re.subn(r'\.catch\(\(\) => \{\}\);', '.then(undefined, () => {});', s, count=1)
-          if count != 1:
+          old = '''        if (ranked.length > 0) {
+          setMarathonChampion(ranked[0]);
+          writeMarathonChampionCache(ranked[0]);
+        } else {
+          setMarathonChampion(null);
+        }
+      })
+      .catch(() => {});'''
+          new = '''        if (ranked.length > 0) {
+          setMarathonChampion(ranked[0]);
+          writeMarathonChampionCache(ranked[0]);
+        } else {
+          setMarathonChampion(null);
+        }
+      })
+      .then(undefined, () => {});'''
+          if old not in s:
               raise SystemExit('home promise rejection handler not found')
-          p.write_text(s)
+          p.write_text(s.replace(old, new, 1))
 
           p = Path('src/pages/notebookCopilot/page.tsx')
           s = p.read_text()
-          pattern = r'const pdfjs = await import\(/\* @vite-ignore \*/ "https://esm\.sh/pdfjs-dist@4\.0\.379/build/pdf\.mjs"\);'
-          replacement = '''type PdfJsModule = {
+          old = '          const pdfjs: any = await import(/* @vite-ignore */ "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs");'
+          new = '''          const pdfjsModuleUrl = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs';
+          const pdfjs = await import(/* @vite-ignore */ pdfjsModuleUrl) as {
             GlobalWorkerOptions: { workerSrc: string };
             getDocument(options: { data: ArrayBuffer }): {
               promise: Promise<{
@@ -76,13 +91,10 @@ jobs:
                 }>;
               }>;
             };
-          };
-          const loadPdfJs = new Function('url', 'return import(url)') as (url: string) => Promise<PdfJsModule>;
-          const pdfjs = await loadPdfJs('https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs');'''
-          s, count = re.subn(pattern, replacement, s, count=1)
-          if count != 1:
+          };'''
+          if old not in s:
               raise SystemExit('pdfjs import target not found')
-          p.write_text(s)
+          p.write_text(s.replace(old, new, 1))
           PY
 
       - name: Type check
