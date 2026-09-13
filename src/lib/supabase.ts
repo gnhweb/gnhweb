@@ -193,7 +193,7 @@ export const supabase = new Proxy(neonDataClient, {
             cloudflareChannels.add(channel);
             return channel;
           }
-          return createNeonRealtimeChannel(legacySupabase.channel(name, options), queryNeonRows);
+          return createNeonRealtimeChannel(neonDataClient.channel(name, options), queryNeonRows);
         };
       case 'removeChannel':
         return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {
