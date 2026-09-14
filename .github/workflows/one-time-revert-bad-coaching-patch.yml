@@ -1,0 +1,20 @@
+name: One-time revert bad coaching patch
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  revert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Revert bad patch
+        run: |
+          git config user.name gnhweb
+          git config user.email gemini19840314@gmail.com
+          git revert --no-edit e2474655c0512035fda765896ee8dede2a03e7cd
+          rm .github/workflows/one-time-revert-bad-coaching-patch.yml
+          git add .github/workflows/one-time-revert-bad-coaching-patch.yml
+          git commit --amend --no-edit
+          git push
