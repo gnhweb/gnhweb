@@ -130,27 +130,75 @@ function buildSystemPrompt(tone: "direct" | "empathetic") {
 `;
 }
 
-function buildReviewPrompt(tone: "direct" | "empathetic") {
+function buildDiagnosisPrompt() {
   return `
-너는 강릉학생회의 사명자 성장 코치 답변을 최종 검수하는 편집자다.
-아래의 원래 고민과 초안 답변을 비교해서, 초안의 약점을 찾아 직접 고친 최종 답변만 작성한다.
+너는 강릉학생회의 사명자 성장 코치다. 지금은 답변을 쓰지 말고 '진단 자료'만 만든다.
 
-[검수 기준]
-1. 원래 사용자가 실제로 물은 질문에 첫 부분부터 답하는가?
-2. 초안이 문제의 원인을 너무 쉽게 '소통 부족' 하나로 단정하지 않았는가?
-3. 사용자가 적은 구체적인 사건·행동·조건을 실제 판단에 사용했는가?
-4. 사실과 추측을 구분했는가?
-5. 사용자의 책임과 상대의 책임을 필요에 따라 구분했는가?
-6. 실제로 언제 무엇을 어떻게 할지가 있는가?
-7. 질문에 따라 적절한 접근법을 사용했는가? 매번 같은 리더십 조언을 반복하지 않았는가?
-8. 성경 사례가 있다면 실제 상황과 연결되는가?
-9. 빈 위로나 일반적인 리더십 강의가 답변을 차지하지 않는가?
-10. 초안보다 더 정확하고 구체적이며 자연스러운 답변인가?
+원래 고민을 일반적인 리더십 문제로 바꾸지 말고 다음 JSON만 작성한다.
+{
+  "question": "사용자가 실제로 묻는 질문 1개",
+  "facts": ["글에서 직접 확인되는 사실"],
+  "uncertain": ["확인되지 않은 추측"],
+  "coreProblem": "현재 가장 중요한 문제 1개",
+  "possibleCauses": ["가능한 원인 2~4개"],
+  "strongestCause": "현재 정보에서 가장 근거가 강한 원인",
+  "bestApproach": "이번 질문에 가장 적합한 접근법 1개",
+  "nextAction": "가장 중요한 다음 행동 1개"
+}
 
-초안이 이미 좋은 부분은 유지하되, 약한 부분은 과감하게 다시 쓴다.
-새로운 사실을 지어내지 않는다.
-답변에 검수 과정이나 '초안'이라는 말을 넣지 않는다.
-${tone === "direct" ? "직설적인 판단과 실제 행동을 우선한다." : "공감과 실제 행동을 함께 유지한다."}
+규칙:
+- 원인을 '소통 부족' 하나로 자동 결론 내리지 않는다.
+- 가능한 원인은 실제 글의 근거가 있는 것만 넣는다.
+- 사실과 추측을 분리한다.
+- 사용자의 책임과 상대의 책임이 다르면 진단에 반영한다.
+- 답변 문장, 위로, 성경 구절, 일반적인 리더십 강의는 작성하지 않는다.
+- JSON 외의 문장을 쓰지 않는다.
+`;
+}
+
+function parseDiagnosis(content: string) {
+  const cleaned = content.trim().replace(/^```json\s*/i, "").replace(/\s*```$/i, "");
+  try {
+    const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+    if (
+      typeof parsed.question === "string" &&
+      typeof parsed.coreProblem === "string" &&
+      typeof parsed.strongestCause === "string" &&
+      typeof parsed.bestApproach === "string" &&
+      Array.isArray(parsed.facts) &&
+      Array.isArray(parsed.possibleCauses)
+    ) {
+      return parsed;
+    }
+  } catch {
+    // A failed structured diagnosis should not expose model internals to the user.
+  }
+  return null;
+}
+
+function buildFinalPrompt(tone: "direct" | "empathetic") {
+  return `
+너는 강릉학생회의 사명자 성장 코치다. 아래의 '진단 자료'를 참고하되 그대로 답변으로 옮기지 말고, 원래 고민을 다시 읽어 최종 코칭을 새로 작성한다.
+
+[최종 작성 규칙]
+- 진단 자료보다 원래 고민을 우선한다. 진단이 틀렸거나 과도한 추측이면 수정한다.
+- 사용자가 실제로 물은 질문에 바로 답한다.
+- 진단 자료의 strongestCause를 무조건 채택하지 않는다. 원래 고민의 근거와 다시 대조한다.
+- 가능한 원인 중 이번 상황에서 실제로 중요한 것만 남긴다.
+- 매번 같은 '소통 → 대화 → 확인' 순서를 사용하지 않는다.
+- bestApproach에 맞는 구조를 사용하되, 질문의 성격에 따라 필요하면 다른 구조로 바꾼다.
+- 사용자의 구체적인 사건·행동·조건을 최소 2개 이상 직접 반영한다.
+- 실제로 언제, 누구에게, 무엇을, 어떻게 할지 구체적으로 제시한다.
+- 필요한 경우 실제 대화 문장을 넣는다.
+- 사용자의 책임과 상대의 책임을 구분한다.
+- 성경 사례는 실제 연결이 있을 때만 1개 사용한다.
+- 사실을 새로 만들어내지 않는다.
+- 답변은 자연스러운 해요체로 작성한다.
+- 코칭 과정, 진단 자료, 생성 방식에 대한 설명은 하지 않는다.
+${tone === "direct" ? "- 직설적으로 핵심 판단을 먼저 말하고, 사용자가 고쳐야 할 점은 분명하게 말한다." : "- 공감으로 시작할 수 있지만 위로로 끝내지 말고 실제 판단과 행동으로 이어간다."}
+
+[반복 방지]
+이번 답변의 목적은 '그럴듯한 리더십 답변'이 아니라 이 한 사람의 이 고민에 맞는 판단이다. 이전에 흔히 나오는 문장이나 구조를 복사하지 않는다. 특히 '소통이 부족한 것 같아요', '먼저 대화해보세요', '상대의 입장도 생각해보세요'를 근거 없이 기본 답변으로 사용하지 않는다.
 `;
 }
 
@@ -170,7 +218,7 @@ async function requestGateway(
   if (!response.ok) return null;
   const data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
   const content = data.choices?.[0]?.message?.content;
-  return typeof content === "string" && content.trim().length >= 120 ? content.trim() : null;
+  return typeof content === "string" && content.trim().length >= 40 ? content.trim() : null;
 }
 
 export async function handleNimCoaching(req: Request, _env: Record<string, string | undefined>) {
@@ -187,27 +235,28 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
     const coachingMethod = COACHING_METHODS[Math.floor(Math.random() * COACHING_METHODS.length)];
     const generationNonce = crypto.randomUUID();
 
-    const firstDraft = await requestGateway([
-      { role: "system", content: buildSystemPrompt(tone) },
+    const diagnosisRaw = await requestGateway([
+      { role: "system", content: buildDiagnosisPrompt() },
       {
         role: "user",
-        content: `다음은 강릉학생회 사명자가 실제로 겪고 있는 리더십 고민이다.\n\n먼저 이 글에서 작성자가 실제로 묻는 질문과 가능한 원인을 구분해서 판단한 뒤 답변을 작성해라. 원인을 하나로 단정하기 전에 최소 2개의 가능성을 검토하고, 그중 근거가 가장 강한 것을 중심으로 답하라. 질문을 일반적인 리더십 문제로 바꾸지 마라.\n\n이번 생성의 사고 관점: ${coachingLens}\n이번 답변 방식: ${coachingMethod}\n이번 생성 식별자: ${generationNonce}\n사고 관점과 답변 방식은 최종 답변에 이름 붙여 설명하지 말고 실제 판단과 구성에만 반영하라. 이전 답변에서 흔히 쓰는 일반론을 반복하지 말고, 이번 고민의 구체적 사실에 맞는 다른 판단 경로를 선택하라.\n\n${concern}`,
+        content: `원래 고민:\n${concern}\n\n이번 진단 관점: ${coachingLens}\n이번 진단 식별자: ${generationNonce}`,
       },
-    ]);
+    ], 1800);
 
-    if (!firstDraft) return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
+    const diagnosis = diagnosisRaw ? parseDiagnosis(diagnosisRaw) : null;
 
     const finalDraft = await requestGateway([
-      { role: "system", content: buildReviewPrompt(tone) },
+      { role: "system", content: `${buildSystemPrompt(tone)}\n${buildFinalPrompt(tone)}` },
       {
         role: "user",
-        content: `원래 고민:\n${concern}\n\n초안 답변:\n${firstDraft}\n\n이번 검수의 사고 관점: ${coachingLens}\n이번 답변 방식: ${coachingMethod}\n이번 생성 식별자: ${generationNonce}\n위 초안을 원래 고민에 맞춰 다시 검수하고, 선택된 답변 방식이 실제 최종 답변의 구조와 판단에 드러나도록 더 정확한 원인 판단과 실행 방법이 드러나는 최종 답변으로 고쳐라. 초안의 구조와 문장을 무조건 유지하지 말고 선택된 답변 방식에 맞춰 질문에 가장 적합한 방식으로 다시 구성해라. 특히 초안과 표현·구조·우선순위가 지나치게 같다면 다른 타당한 판단 경로를 선택해 다시 작성하라. 같은 고민이라도 매번 같은 도입·원인·행동 순서를 복사하지 말고, 이번 답변 방식이 요구하는 핵심을 우선하라.`,
+        content: `원래 고민:\n${concern}\n\n진단 자료:\n${diagnosis ? JSON.stringify(diagnosis) : "구조화된 진단을 얻지 못했으므로 원래 고민을 직접 다시 분석한다."}\n\n이번 사고 관점: ${coachingLens}\n이번 답변 방식: ${coachingMethod}\n이번 생성 식별자: ${generationNonce}\n\n위 자료와 원래 고민을 대조한 뒤, 원래 고민에 가장 적합한 새로운 최종 코칭 답변을 작성해라. 진단 자료의 표현을 그대로 복사하지 말고, 실제 판단이 필요한 부분은 다시 생각해서 작성한다.`,
       },
-    ]);
+    ], 3200);
 
-    return json({ advice: finalDraft || firstDraft });
+    if (finalDraft) return json({ advice: finalDraft });
+    return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
   } catch (error) {
     console.error("nim-coaching error", error);
-    return json({ advice: FALLBACK_DIRECT });
+    return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
   }
 }
