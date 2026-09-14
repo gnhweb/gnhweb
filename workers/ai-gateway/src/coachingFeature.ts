@@ -6,6 +6,17 @@ const CORS = {
 };
 
 const FALLBACK_DIRECT = `지금은 이 고민에 대해 단정적인 결론을 내리기보다, 네가 적어준 사실을 기준으로 한 가지씩 확인하는 게 좋아. 상대의 행동과 네가 책임질 부분을 나누고, 오늘 할 수 있는 가장 작은 행동부터 정해봐.\n\nAI 코칭을 일시적으로 완료하지 못했어. 같은 내용을 다시 시도하면 질문에 맞춘 구체적인 코칭을 받을 수 있어.`;
+const COACHING_LENSES = [
+  "원인 추적 관점: 표면적인 갈등보다 역할·기대·정보·역량·시간·책임 구조를 먼저 구분해 진단한다.",
+  "관찰자 관점: 같은 상황을 상대방, 리더, 제3자의 세 시선에서 보고 서로 다른 해석을 비교한다.",
+  "현장 실행 관점: 오늘 실제 학생회 현장에서 바로 적용할 행동과 다음 확인 시점을 중심으로 판단한다.",
+  "책임 경계 관점: 리더가 책임질 부분과 상대가 책임질 부분을 분리하고 둘 중 하나로 몰아가지 않는다.",
+  "반대 가설 관점: 처음 떠오른 원인이 틀렸다고 가정하고 다른 설명이 가능한지 먼저 검증한다.",
+  "성장 관점: 당장의 문제 해결뿐 아니라 이 상황에서 사명자가 배워야 할 리더십 한 가지를 찾는다.",
+  "관계와 기준 관점: 관계를 지키는 것과 기준을 세우는 것을 동시에 놓고 어느 균형이 필요한지 판단한다.",
+  "재발 방지 관점: 이번 일을 해결하는 것에서 끝내지 않고 같은 문제가 반복되지 않을 구조까지 생각한다.",
+];
+
 const FALLBACK_EMPATHETIC = `네가 겪고 있는 상황을 가볍게 넘길 문제는 아니야. 다만 상대의 마음을 추측해서 결론 내리기보다 사실을 확인하고, 네가 바꿀 수 있는 부분부터 하나씩 정해보자.\n\nAI 코칭을 일시적으로 완료하지 못했어. 같은 내용을 다시 시도하면 질문에 맞춘 구체적인 코칭을 받을 수 있어.`;
 
 function json(value: unknown, status = 200) {
@@ -162,11 +173,14 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
     const tone = body.tone === "empathetic" ? "empathetic" : "direct";
     if (!concern) return json({ error: "고민 내용을 입력해주세요." }, 400);
 
+    const coachingLens = COACHING_LENSES[Math.floor(Math.random() * COACHING_LENSES.length)];
+    const generationNonce = crypto.randomUUID();
+
     const firstDraft = await requestGateway([
       { role: "system", content: buildSystemPrompt(tone) },
       {
         role: "user",
-        content: `다음은 강릉학생회 사명자가 실제로 겪고 있는 리더십 고민이다.\n\n먼저 이 글에서 작성자가 실제로 묻는 질문과 가능한 원인을 구분해서 판단한 뒤 답변을 작성해라. 원인을 하나로 단정하기 전에 최소 2개의 가능성을 검토하고, 그중 근거가 가장 강한 것을 중심으로 답하라. 질문을 일반적인 리더십 문제로 바꾸지 마라.\n\n${concern}`,
+        content: `다음은 강릉학생회 사명자가 실제로 겪고 있는 리더십 고민이다.\n\n먼저 이 글에서 작성자가 실제로 묻는 질문과 가능한 원인을 구분해서 판단한 뒤 답변을 작성해라. 원인을 하나로 단정하기 전에 최소 2개의 가능성을 검토하고, 그중 근거가 가장 강한 것을 중심으로 답하라. 질문을 일반적인 리더십 문제로 바꾸지 마라.\n\n이번 생성의 사고 관점: ${coachingLens}\n이번 생성 식별자: ${generationNonce}\n이 관점은 답변에 그대로 이름 붙여 설명하지 말고 실제 판단 방식에만 반영하라. 이전 답변에서 흔히 쓰는 일반론을 반복하지 말고, 이번 고민의 구체적 사실에 맞는 다른 판단 경로를 선택하라.\n\n${concern}`,
       },
     ]);
 
@@ -176,7 +190,7 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
       { role: "system", content: buildReviewPrompt(tone) },
       {
         role: "user",
-        content: `원래 고민:\n${concern}\n\n초안 답변:\n${firstDraft}\n\n위 초안을 원래 고민에 맞춰 다시 검수하고, 더 정확한 원인 판단과 실행 방법이 드러나는 최종 답변으로 고쳐라. 초안의 구조를 무조건 유지하지 말고 질문에 가장 적합한 방식으로 다시 구성해라.`,
+        content: `원래 고민:\n${concern}\n\n초안 답변:\n${firstDraft}\n\n이번 검수의 사고 관점: ${coachingLens}\n이번 생성 식별자: ${generationNonce}\n위 초안을 원래 고민에 맞춰 다시 검수하고, 더 정확한 원인 판단과 실행 방법이 드러나는 최종 답변으로 고쳐라. 초안의 구조와 문장을 무조건 유지하지 말고 질문에 가장 적합한 방식으로 다시 구성해라. 특히 초안과 표현·구조·우선순위가 지나치게 같다면 다른 타당한 판단 경로를 선택해 다시 작성하라.`,
       },
     ]);
 
