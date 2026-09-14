@@ -176,6 +176,7 @@ ${tone === "direct" ? "- 직설적으로 핵심 판단을 먼저 말하고, 사�
 
 async function requestGateway(
   messages: Array<{ role: "system" | "user"; content: string }>,
+  _env: Record<string, string | undefined>,
   maxTokens = 3000,
 ) {
   const controller = new AbortController();
