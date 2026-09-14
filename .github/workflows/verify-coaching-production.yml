@@ -1,0 +1,22 @@
+name: Verify coaching production
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check production coaching endpoint
+        env:
+          URL: https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-coaching
+        run: |
+          set -euo pipefail
+          body='{"concern":"학생회에서 맡은 일을 계속 미루는 학생이 있어요. 여러 번 부탁했는데도 달라지지 않아요.","tone":"direct"}'
+          for i in 1 2 3; do
+            response=$(curl -fsS -X POST "$URL" -H 'content-type: application/json' --data "$body")
+            echo "--- response $i ---"
+            echo "$response"
+            test -n "$response"
+            echo "$response" | grep -Eq 'advice|answer|message'
+          done
