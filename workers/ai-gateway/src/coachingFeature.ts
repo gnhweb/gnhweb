@@ -17,6 +17,15 @@ const COACHING_LENSES = [
   "재발 방지 관점: 이번 일을 해결하는 것에서 끝내지 않고 같은 문제가 반복되지 않을 구조까지 생각한다.",
 ];
 
+const COACHING_METHODS = [
+  "핵심 원인 판별형: 가능한 원인 3개를 짧게 비교하고 가장 근거가 강한 원인 1개를 선택한 뒤, 그 원인을 확인할 사실과 대응을 제시한다.",
+  "대화 설계형: 문제 분석보다 실제 대화 설계가 핵심인 경우로 보고, 첫 문장·핵심 전달·경계선 또는 요청·후속 약속까지 실제 문장으로 구성한다.",
+  "리더 자기점검형: 상대를 고치는 것보다 리더 자신의 판단·지시·위임·확인 방식에서 놓친 점을 먼저 찾고, 고칠 부분과 상대의 책임을 분리한다.",
+  "책임 구조형: 누가 무엇을 책임져야 하는지, 역할과 완료 기준이 어디서 흐려졌는지 분석하고 책임을 다시 세우는 방법을 제시한다.",
+  "현장 행동형: 오늘 또는 다음 모임에서 실제로 무엇을 할지 중심으로 판단하고, 행동 순서와 확인 시점을 가장 구체적으로 제시한다.",
+  "반대 가설형: 처음 떠오르는 해석이 틀렸다고 가정하고 최소 2개의 다른 원인을 비교한 뒤, 현재 정보로 가장 타당한 판단을 선택한다.",
+];
+
 const FALLBACK_EMPATHETIC = `네가 겪고 있는 상황을 가볍게 넘길 문제는 아니야. 다만 상대의 마음을 추측해서 결론 내리기보다 사실을 확인하고, 네가 바꿀 수 있는 부분부터 하나씩 정해보자.\n\nAI 코칭을 일시적으로 완료하지 못했어. 같은 내용을 다시 시도하면 질문에 맞춘 구체적인 코칭을 받을 수 있어.`;
 
 function json(value: unknown, status = 200) {
@@ -174,13 +183,14 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
     if (!concern) return json({ error: "고민 내용을 입력해주세요." }, 400);
 
     const coachingLens = COACHING_LENSES[Math.floor(Math.random() * COACHING_LENSES.length)];
+    const coachingMethod = COACHING_METHODS[Math.floor(Math.random() * COACHING_METHODS.length)];
     const generationNonce = crypto.randomUUID();
 
     const firstDraft = await requestGateway([
       { role: "system", content: buildSystemPrompt(tone) },
       {
         role: "user",
-        content: `다음은 강릉학생회 사명자가 실제로 겪고 있는 리더십 고민이다.\n\n먼저 이 글에서 작성자가 실제로 묻는 질문과 가능한 원인을 구분해서 판단한 뒤 답변을 작성해라. 원인을 하나로 단정하기 전에 최소 2개의 가능성을 검토하고, 그중 근거가 가장 강한 것을 중심으로 답하라. 질문을 일반적인 리더십 문제로 바꾸지 마라.\n\n이번 생성의 사고 관점: ${coachingLens}\n이번 생성 식별자: ${generationNonce}\n이 관점은 답변에 그대로 이름 붙여 설명하지 말고 실제 판단 방식에만 반영하라. 이전 답변에서 흔히 쓰는 일반론을 반복하지 말고, 이번 고민의 구체적 사실에 맞는 다른 판단 경로를 선택하라.\n\n${concern}`,
+        content: `다음은 강릉학생회 사명자가 실제로 겪고 있는 리더십 고민이다.\n\n먼저 이 글에서 작성자가 실제로 묻는 질문과 가능한 원인을 구분해서 판단한 뒤 답변을 작성해라. 원인을 하나로 단정하기 전에 최소 2개의 가능성을 검토하고, 그중 근거가 가장 강한 것을 중심으로 답하라. 질문을 일반적인 리더십 문제로 바꾸지 마라.\n\n이번 생성의 사고 관점: ${coachingLens}\n이번 답변 방식: ${coachingMethod}\n이번 생성 식별자: ${generationNonce}\n사고 관점과 답변 방식은 최종 답변에 이름 붙여 설명하지 말고 실제 판단과 구성에만 반영하라. 이전 답변에서 흔히 쓰는 일반론을 반복하지 말고, 이번 고민의 구체적 사실에 맞는 다른 판단 경로를 선택하라.\n\n${concern}`,
       },
     ]);
 
@@ -190,7 +200,7 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
       { role: "system", content: buildReviewPrompt(tone) },
       {
         role: "user",
-        content: `원래 고민:\n${concern}\n\n초안 답변:\n${firstDraft}\n\n이번 검수의 사고 관점: ${coachingLens}\n이번 생성 식별자: ${generationNonce}\n위 초안을 원래 고민에 맞춰 다시 검수하고, 더 정확한 원인 판단과 실행 방법이 드러나는 최종 답변으로 고쳐라. 초안의 구조와 문장을 무조건 유지하지 말고 질문에 가장 적합한 방식으로 다시 구성해라. 특히 초안과 표현·구조·우선순위가 지나치게 같다면 다른 타당한 판단 경로를 선택해 다시 작성하라.`,
+        content: `원래 고민:\n${concern}\n\n초안 답변:\n${firstDraft}\n\n이번 검수의 사고 관점: ${coachingLens}\n이번 답변 방식: ${coachingMethod}\n이번 생성 식별자: ${generationNonce}\n위 초안을 원래 고민에 맞춰 다시 검수하고, 선택된 답변 방식이 실제 최종 답변의 구조와 판단에 드러나도록 더 정확한 원인 판단과 실행 방법이 드러나는 최종 답변으로 고쳐라. 초안의 구조와 문장을 무조건 유지하지 말고 선택된 답변 방식에 맞춰 질문에 가장 적합한 방식으로 다시 구성해라. 특히 초안과 표현·구조·우선순위가 지나치게 같다면 다른 타당한 판단 경로를 선택해 다시 작성하라. 같은 고민이라도 매번 같은 도입·원인·행동 순서를 복사하지 말고, 이번 답변 방식이 요구하는 핵심을 우선하라.`,
       },
     ]);
 
