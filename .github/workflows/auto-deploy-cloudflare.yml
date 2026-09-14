@@ -108,3 +108,23 @@ jobs:
           response=$(curl --fail-with-body --silent --show-error --request POST --header 'Content-Type: application/json' --data '{"answers":["1"]}' 'https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-mbti')
           printf '%s\n' "$response"
           printf '%s' "$response" | grep -q '"character"'
+      - name: POST /nim-coaching production smoke test
+        run: |
+          set -euo pipefail
+          response_file=$(mktemp)
+          http_code=$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"concern":"학생회에서 맡은 일을 계속 미루는 학생이 있어요. 여러 번 부탁했는데도 달라지지 않아요. 어떻게 지도해야 하나요?","tone":"direct"}' \
+            'https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-coaching')
+          echo "HTTP $http_code"
+          cat "$response_file"
+          test "$http_code" = "200"
+          grep -q '"advice"' "$response_file"
+          advice_length=$(python -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get("advice", "").strip()))' "$response_file")
+          echo "advice_length=$advice_length"
+          test "$advice_length" -ge 120
+          if grep -q 'AI 코칭을 일시적으로 완료하지 못했어' "$response_file"; then
+            echo 'Fallback response detected'
+            exit 1
+          fi
