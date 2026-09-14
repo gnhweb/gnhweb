@@ -12,14 +12,13 @@ jobs:
         shell: bash
         run: |
           set -u
-          payload='{"messages":[{"role":"system","content":"학생회 리더십 코칭을 위한 진단입니다. 사실에 근거해 간단히 답하세요."},{"role":"user","content":"학생회에서 맡은 일을 계속 미루는 학생이 있어요. 여러 번 부탁했는데도 달라지지 않아요. 어떻게 지도해야 하나요?"}],"max_tokens":600}'
           for task in coaching student-council; do
             echo "===== task=$task ====="
             response_file=$(mktemp)
             http_code=$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
               --request POST \
               --header 'Content-Type: application/json' \
-              --data "{\"task\":\"$task\",${payload#\{"}" \
+              --data "{\"task\":\"$task\",\"messages\":[{\"role\":\"system\",\"content\":\"학생회 리더십 코칭을 위한 진단입니다. 사실에 근거해 간단히 답하세요.\"},{\"role\":\"user\",\"content\":\"학생회에서 맡은 일을 계속 미루는 학생이 있어요. 여러 번 부탁했는데도 달라지지 않아요. 어떻게 지도해야 하나요?\"}],\"max_tokens\":600}" \
               'https://gnhweb-ai-gateway.gemini19840314.workers.dev')
             echo "HTTP $http_code"
             cat "$response_file"
