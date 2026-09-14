@@ -1,0 +1,102 @@
+name: One-time coaching independent review patch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Rewrite coaching generation flow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("workers/ai-gateway/src/coachingFeature.ts")
+          text = path.read_text()
+
+          pattern = re.compile(
+              r'    const firstDraft = await requestGateway\(\[.*?\n    return json\(\{ advice: finalDraft \|\| firstDraft \}\);',
+              re.S,
+          )
+
+          replacement = '''    const diagnosis = await requestGateway([
+      {
+        role: "system",
+        content: `너는 강릉학생회 리더십 코칭의 원인 분석가다.
+최종 답변을 쓰지 말고 내부 분석 자료만 만든다.
+사용자의 실제 질문을 1개로 요약하고, 직접 확인되는 사실과 추측을 분리한다.
+가능한 원인을 최소 3개 비교하고 각각의 근거를 적는다.
+그중 가장 가능성이 높은 원인과 그 판단을 뒤집을 수 있는 반대 증거를 적는다.
+마지막으로 이 원인에 맞는 대응 전략을 2개 제안하고 각각의 장단점을 적는다.
+'소통 부족'을 기본 원인으로 사용하지 않는다. 근거가 있을 때만 선택한다.
+JSON 형식으로만 답한다.`
+      },
+      {
+        role: "user",
+        content: `강릉학생회 사명자의 실제 고민을 분석해라.
+이번 생성의 사고 관점: ${coachingLens}
+이번 답변 방식: ${coachingMethod}
+이번 생성 식별자: ${generationNonce}
+
+${concern}`,
+      },
+    ]);
+
+    if (!diagnosis) return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
+
+    const finalDraft = await requestGateway([
+      {
+        role: "system",
+        content: `${buildSystemPrompt(tone)}
+[최종 답변 작성 규칙]
+앞의 분석 자료를 그대로 문장으로 바꾸지 말고, 원래 고민을 다시 읽은 뒤 네가 직접 판단해서 최종 답변을 작성한다.
+분석 자료의 결론이 틀렸다고 판단되면 수정한다.
+매번 같은 원인이나 같은 행동 순서를 사용하지 않는다.
+이번 고민에서 가장 중요한 판단 하나를 첫 부분에 분명히 말한다.
+가능한 원인이 여러 개라면 현재 근거상 가장 강한 원인만 중심에 두고, 다른 원인은 짧게 구분한다.
+실행 방법은 실제 학생회 현장에서 언제, 누구에게, 무엇을, 어떻게 할지 구체적으로 쓴다.
+필요하면 실제 대화 문장을 포함한다.
+질문과 직접 연결되지 않는 일반적인 리더십 조언은 넣지 않는다.`
+      },
+      {
+        role: "user",
+        content: `원래 고민:
+${concern}
+
+독립 분석 자료:
+${diagnosis}
+
+이번 생성의 사고 관점: ${coachingLens}
+이번 답변 방식: ${coachingMethod}
+이번 생성 식별자: ${generationNonce}
+
+독립 분석 자료에 끌려가지 말고 원래 고민을 기준으로 최종 답변을 새로 판단해라. 분석 자료와 초안 답변을 비교하는 방식이 아니라, 분석 자료를 참고용 근거로만 사용해 처음부터 최종 코칭을 구성해라.`
+      },
+    ]);
+
+    return json({ advice: finalDraft || diagnosis });'''
+
+          updated, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit("target coaching generation block not found")
+          path.write_text(updated)
+          PY
+
+      - name: Commit patch and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add workers/ai-gateway/src/coachingFeature.ts
+          git rm .github/workflows/one-time-coaching-independent-review.yml
+          git commit -m "Make coaching final answer independent from draft"
+          git push
