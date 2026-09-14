@@ -37,8 +37,9 @@ function passesQualityGate(content:string,userText:string,task?:string){
  const matchedSpecificWords=specificWords.filter(word=>normalized.includes(word.toLowerCase())).length;
  const directAnswerPattern=/(해야|하는 게|하는것이|하는 것이|추천|권해|좋습니다|좋아요|먼저|바로|이렇게|하지 마|하지 않는|말해보|확인해보|정리해보|시도해보|필요합니다|필요해요|권합니다)/;
  if(task==="coaching"){
-   if(specificWords.length>=2 && matchedSpecificWords===0)return false;
-   if(userText.length>=12 && !directAnswerPattern.test(clean.slice(0,900)))return false;
+   // Coaching is already constrained by its dedicated prompt. Do not reject
+   // otherwise-valid answers just because Korean inflection or phrasing differs
+   // from the user's wording.
    if(clean.length<120)return false;
    return true;
  }
