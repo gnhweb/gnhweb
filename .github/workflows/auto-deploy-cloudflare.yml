@@ -1,6 +1,6 @@
 name: Auto Deploy Cloudflare
 
-# Trigger a fresh production deployment after the coaching provider routing fix.
+# Trigger production deployment for the coaching provider routing fix.
 
 on:
   push:
