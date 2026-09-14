@@ -7,6 +7,7 @@ import { VitePWA } from "vite-plugin-pwa";
 const rawBase = process.env.BASE_PATH || "/";
 const base = rawBase === "/" ? "/" : `/${rawBase.replace(/^\/+|\/+$/g, "")}/`;
 const isPreview = process.env.IS_PREVIEW ? true : false;
+const pwaBuildVersion = process.env.GITHUB_SHA || process.env.CF_PAGES_COMMIT_SHA || "local";
 
 export default defineConfig({
   define: {
@@ -15,6 +16,7 @@ export default defineConfig({
     __READDY_PROJECT_ID__: JSON.stringify(process.env.PROJECT_ID || ""),
     __READDY_VERSION_ID__: JSON.stringify(process.env.VERSION_ID || ""),
     __READDY_AI_DOMAIN__: JSON.stringify(process.env.READDY_AI_DOMAIN || ""),
+    __PWA_BUILD_VERSION__: JSON.stringify(pwaBuildVersion),
   },
   plugins: [
     react(),
