@@ -1,0 +1,30 @@
+name: one-time-coaching-diagnose
+on:
+  push:
+    branches: [main]
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test coaching task
+        run: |
+          set -x
+          curl -sS -w '\nHTTP=%{http_code}\n' -X POST 'https://gnhweb-ai-gateway.gemini19840314.workers.dev' \
+            -H 'Content-Type: application/json' \
+            --data '{"task":"coaching","messages":[{"role":"system","content":"학생회 리더십 코칭 테스트. 구체적이고 실행 가능한 답변을 작성한다."},{"role":"user","content":"학생회에서 맡은 일을 계속 미루는 학생이 있어요. 여러 번 부탁했는데도 달라지지 않아요. 어떻게 지도해야 하나요?"}],"max_tokens":2600}'
+      - name: Test student-council task
+        run: |
+          set -x
+          curl -sS -w '\nHTTP=%{http_code}\n' -X POST 'https://gnhweb-ai-gateway.gemini19840314.workers.dev' \
+            -H 'Content-Type: application/json' \
+            --data '{"task":"student-council","messages":[{"role":"system","content":"학생회 리더십 코칭 테스트. 구체적이고 실행 가능한 답변을 작성한다."},{"role":"user","content":"학생회에서 맡은 일을 계속 미루는 학생이 있어요. 여러 번 부탁했는데도 달라지지 않아요. 어떻게 지도해야 하나요?"}],"max_tokens":2600}'
+      - name: Remove diagnostic workflow
+        if: always()
+        run: |
+          git clone https://github.com/gnhweb/gnhweb.git repo
+          cd repo
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/one-time-coaching-diagnose.yml
+          git commit -m 'chore: remove one-time coaching diagnosis workflow'
+          git push
