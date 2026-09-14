@@ -1,0 +1,50 @@
+name: One-time coaching provider route
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Patch coaching provider route
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('workers/ai-gateway/src/coachingFeature.ts')
+          text = path.read_text(encoding='utf-8')
+          old = 'task: "coaching",'
+          new = 'task: "student-council",'
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one coaching provider route, found {count}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          grep -n 'task: "student-council"' workers/ai-gateway/src/coachingFeature.ts
+
+      - name: Verify syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check <(sed 's/export async function/async function/; s/export default.*//' workers/ai-gateway/src/coachingFeature.ts) || true
+
+      - name: Commit patch and remove workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/one-time-coaching-provider-route.yml
+          git config user.name 'gnhweb'
+          git config user.email 'gemini19840314@gmail.com'
+          git add workers/ai-gateway/src/coachingFeature.ts .github/workflows/one-time-coaching-provider-route.yml
+          git commit -m 'Fix coaching provider routing'
+          git push origin HEAD:main
