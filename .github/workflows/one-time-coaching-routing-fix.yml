@@ -1,0 +1,43 @@
+name: One-time coaching routing fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'Fix coaching routing timeout') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch coaching provider routing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('workers/ai-gateway/src/coachingFeature.ts')
+          s = p.read_text()
+          old = 'const timeout = setTimeout(() => controller.abort(), 15000);'
+          new = 'const timeout = setTimeout(() => controller.abort(), 30000);'
+          if old not in s:
+              raise SystemExit('expected coaching timeout line not found')
+          s = s.replace(old, new, 1)
+          old = 'task: "student-council",'
+          new = 'task: "coaching",'
+          if old not in s:
+              raise SystemExit('expected coaching task routing line not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Commit patch and remove workflow
+        run: |
+          rm .github/workflows/one-time-coaching-routing-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add workers/ai-gateway/src/coachingFeature.ts .github/workflows/one-time-coaching-routing-fix.yml
+          git commit -m "Fix coaching routing timeout"
+          git push
