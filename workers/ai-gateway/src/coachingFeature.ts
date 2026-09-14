@@ -185,7 +185,7 @@ async function requestGateway(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        task: "coaching",
+        task: "student-council",
         messages,
         max_tokens: maxTokens,
       }),
