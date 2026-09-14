@@ -6,15 +6,13 @@
  * `waiting` property error in the production mobile E2E environment while the
  * generated service worker itself is valid.
  *
- * The service worker URL stays stable so deployments do not require a manual
- * PWA version bump. On startup we explicitly ask the browser to check the
- * registered worker for an update; a newly installed worker uses skipWaiting
- * in `sw.ts`, then the page reloads automatically.
+ * The build version is part of the service-worker URL so every deployment gets
+ * a fresh registration URL even when an intermediary caches `sw.js`.
  */
 
 let currentRegistration: ServiceWorkerRegistration | undefined;
 
-const SW_URL = `${import.meta.env.BASE_URL}sw.js`;
+const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=${encodeURIComponent(__PWA_BUILD_VERSION__)}`;
 
 function installRegistrationListeners(registration: ServiceWorkerRegistration) {
   registration.addEventListener('updatefound', () => {
@@ -31,7 +29,7 @@ function installRegistrationListeners(registration: ServiceWorkerRegistration) {
 async function registerOrUpdateServiceWorker() {
   const registration = await navigator.serviceWorker.register(SW_URL, {
     scope: import.meta.env.BASE_URL,
-    updateViaCache: 'imports',
+    updateViaCache: 'none',
   });
 
   currentRegistration = registration;
