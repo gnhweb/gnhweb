@@ -1,0 +1,42 @@
+name: One-time AI fallback timeout
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tighten provider fallback timeouts
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("workers/ai-gateway/src/index.ts")
+          text = path.read_text()
+          old = 'const timeout=setTimeout(()=>controller.abort(),reasoningEffort==="high"?30000:7000);'
+          new = 'const timeoutMs = cfg.name === "gemini" ? (reasoningEffort === "high" ? 15000 : 7000) : 7000; const timeout=setTimeout(()=>controller.abort(),timeoutMs);'
+          if old not in text:
+              raise SystemExit("expected timeout expression not found")
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Deploy AI gateway immediately
+        run: |
+          cd workers/ai-gateway
+          npm ci
+          npx wrangler deploy
+
+      - name: Remove one-time workflow
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/one-time-ai-fallback-timeout.yml
+          git add workers/ai-gateway/src/index.ts
+          git commit -m "Improve AI provider fallback timeout" || exit 0
+          git push
