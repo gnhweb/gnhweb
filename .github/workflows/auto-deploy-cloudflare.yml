@@ -1,0 +1,110 @@
+name: Auto Deploy Cloudflare
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-auto-deploy
+  cancel-in-progress: true
+
+env:
+  VITE_CF_REALTIME_URL: https://gnhweb-realtime.gemini19840314.workers.dev
+
+jobs:
+  deploy-site:
+    name: Deploy gnhweb site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+      - name: Build site
+        run: npm run build
+      - name: Deploy site Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          command: deploy --config wrangler.jsonc
+
+  deploy-realtime:
+    name: Deploy gnhweb realtime Worker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy realtime Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          workingDirectory: workers/realtime
+          command: deploy --config wrangler.jsonc
+
+  deploy-storage:
+    name: Deploy gnhweb storage Worker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy storage Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          workingDirectory: workers/storage
+          command: deploy --config wrangler.jsonc
+
+  deploy-api:
+    name: Deploy gnhweb API Worker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy API Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          workingDirectory: workers/api
+          command: deploy --config wrangler.jsonc
+
+  deploy-ai-gateway:
+    name: Deploy gnhweb AI gateway Worker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy AI gateway Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          workingDirectory: workers/ai-gateway
+          command: deploy --config wrangler.jsonc
+
+  verify-ai-gateway:
+    name: Verify AI gateway
+    needs: deploy-ai-gateway
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /nim-mbti smoke test
+        run: |
+          set -euo pipefail
+          response=$(curl --fail-with-body --silent --show-error --request POST --header 'Content-Type: application/json' --data '{"answers":["1"]}' 'https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-mbti')
+          printf '%s\n' "$response"
+          printf '%s' "$response" | grep -q '"character"'
