@@ -176,23 +176,41 @@ ${tone === "direct" ? "- 직설적으로 핵심 판단을 먼저 말하고, 사�
 
 async function requestGateway(
   messages: Array<{ role: "system" | "user"; content: string }>,
+  env: Record<string, string | undefined>,
   maxTokens = 3000,
 ) {
-  const response = await fetch("https://gnhweb-ai-gateway.gemini19840314.workers.dev", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages,
-      max_tokens: maxTokens,
-    }),
-  });
-  if (!response.ok) return null;
-  const data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
-  const content = data.choices?.[0]?.message?.content;
-  return typeof content === "string" && content.trim().length >= 40 ? content.trim() : null;
+  const apiKey = env.GEMINI_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: (env.GEMINI_MODEL || "gemini-3.8-flash").trim(),
+        messages,
+        max_tokens: maxTokens,
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
+    const content = data.choices?.[0]?.message?.content;
+    return typeof content === "string" && content.trim().length >= 40 ? content.trim() : null;
+  } catch (error) {
+    console.error("[ai-gateway] coaching provider error", error);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
-export async function handleNimCoaching(req: Request, _env: Record<string, string | undefined>) {
+export async function handleNimCoaching(req: Request, env: Record<string, string | undefined>) {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
@@ -212,7 +230,7 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
         role: "user",
         content: `원래 고민:\n${concern}\n\n이번 진단 관점: ${coachingLens}\n이번 진단 식별자: ${generationNonce}`,
       },
-    ], 1800);
+    ], env, 1800);
 
     const diagnosis = diagnosisRaw ? parseDiagnosis(diagnosisRaw) : null;
 
@@ -222,7 +240,7 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
         role: "user",
         content: `원래 고민:\n${concern}\n\n진단 자료:\n${diagnosis ? JSON.stringify(diagnosis) : "구조화된 진단을 얻지 못했으므로 원래 고민을 직접 다시 분석한다."}\n\n이번 사고 관점: ${coachingLens}\n이번 답변 방식: ${coachingMethod}\n이번 생성 식별자: ${generationNonce}\n\n위 자료와 원래 고민을 대조한 뒤, 원래 고민에 가장 적합한 새로운 최종 코칭 답변을 작성해라. 진단 자료의 표현을 그대로 복사하지 말고, 실제 판단이 필요한 부분은 다시 생각해서 작성한다.`,
       },
-    ], 3200);
+    ], env, 3200);
 
     if (finalDraft) return json({ advice: finalDraft });
     return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
