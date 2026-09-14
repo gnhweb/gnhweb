@@ -102,6 +102,7 @@ jobs:
           npm ci
           npx wrangler deploy
 
+      # This workflow removes itself after the one-time production fix.
       - name: Remove one-time workflow
         if: always()
         run: |
