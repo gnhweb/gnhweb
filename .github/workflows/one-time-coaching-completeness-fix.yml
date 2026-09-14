@@ -1,0 +1,47 @@
+name: one-time coaching completeness fix
+on:
+  push:
+    paths:
+      - .github/workflows/one-time-coaching-completeness-fix.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: contains(github.event.head_commit.message, 'one-time coaching completeness fix')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch coaching flow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('workers/ai-gateway/src/coachingFeature.ts')
+          s = p.read_text()
+          old_sig = '''async function requestGateway(\n  messages: Array<{ role: "system" | "user"; content: string }>,\n  maxTokens = 3000,\n) {'''
+          new_sig = '''async function requestGateway(\n  messages: Array<{ role: "system" | "user"; content: string }>,\n  _env: Record<string, string | undefined>,\n  maxTokens = 3000,\n) {'''
+          assert s.count(old_sig) == 1, 'requestGateway signature not found exactly once'
+          s = s.replace(old_sig, new_sig)
+          marker = 'export async function handleNimCoaching(req: Request, env: Record<string, string | undefined>) {'
+          helper = '''function isCompleteCoachingDraft(content: string | null): boolean {\n  if (!content) return false;\n  const clean = content.trim();\n  if (clean.length < 120) return false;\n  if (/(^|\\n)```[^\\n]*$/.test(clean)) return false;\n  if (/[：:]$|[-*|]$|[([{]$/.test(clean)) return false;\n  if (/\\b(시작|예를 들어|다음과 같이|먼저)\\s*[:：]$/.test(clean)) return false;\n  return /[.!?。！？다요죠습니다함]$/.test(clean);\n}\n\n'''
+          assert s.count(marker) == 1, 'handleNimCoaching marker not found exactly once'
+          s = s.replace(marker, helper + marker)
+          old_final = '''    const finalDraft = await requestGateway([\n      { role: "system", content: `${buildSystemPrompt(tone)}\\n${buildFinalPrompt(tone)}` },\n      {\n        role: "user",\n        content: `원래 고민:\\n${concern}\\n\\n진단 자료:\\n${diagnosis ? JSON.stringify(diagnosis) : "구조화된 진단을 얻지 못했으므로 원래 고민을 직접 다시 분석한다."}\\n\\n이번 사고 관점: ${coachingLens}\\n이번 답변 방식: ${coachingMethod}\\n이번 생성 식별자: ${generationNonce}\\n\\n위 자료와 원래 고민을 대조한 뒤, 원래 고민에 가장 적합한 새로운 최종 코칭 답변을 작성해라. 진단 자료의 표현을 그대로 복사하지 말고, 실제 판단이 필요한 부분은 다시 생각해서 작성한다.`,\n      },\n    ], env, 3200);\n\n    if (finalDraft) return json({ advice: finalDraft });'''
+          new_final = '''    const finalMessages = [\n      { role: "system" as const, content: `${buildSystemPrompt(tone)}\\n${buildFinalPrompt(tone)}` },\n      {\n        role: "user" as const,\n        content: `원래 고민:\\n${concern}\\n\\n진단 자료:\\n${diagnosis ? JSON.stringify(diagnosis) : "구조화된 진단을 얻지 못했으므로 원래 고민을 직접 다시 분석한다."}\\n\\n이번 사고 관점: ${coachingLens}\\n이번 답변 방식: ${coachingMethod}\\n이번 생성 식별자: ${generationNonce}\\n\\n위 자료와 원래 고민을 대조한 뒤, 원래 고민에 가장 적합한 새로운 최종 코칭 답변을 작성해라. 진단 자료의 표현을 그대로 복사하지 말고, 실제 판단이 필요한 부분은 다시 생각해서 작성한다. 답변을 중간에 끊지 말고 마지막 문장까지 완결해서 출력해라. 목록이나 대화 예시를 시작했다면 반드시 끝까지 작성한 뒤 자연스러운 문장으로 마무리해라.`,\n      },\n    ];\n\n    let finalDraft = await requestGateway(finalMessages, env, 3200);\n    if (finalDraft && !isCompleteCoachingDraft(finalDraft)) {\n      finalDraft = await requestGateway([\n        ...finalMessages,\n        {\n          role: "user",\n          content: `방금 답변은 중간에서 끝난 것으로 판단된다. 핵심 판단과 실행 방법을 유지하되, 미완성된 목록·문장·대화 예시를 이어서 완결하고 마지막에 자연스러운 문장으로 끝내라. 완성된 답변만 다시 출력해라.`,\n        },\n      ], env, 3200);\n    }\n\n    if (finalDraft && isCompleteCoachingDraft(finalDraft)) return json({ advice: finalDraft });'''
+          assert s.count(old_final) == 1, 'final draft block not found exactly once'
+          s = s.replace(old_final, new_final)
+          p.write_text(s)
+          PY
+          git diff --check
+          npm ci
+          npm run type-check
+          npx wrangler deploy --dry-run --config workers/ai-gateway/wrangler.jsonc
+          git diff -- workers/ai-gateway/src/coachingFeature.ts
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add workers/ai-gateway/src/coachingFeature.ts
+          git commit -m 'fix: prevent coaching answers from ending mid-response'
+          git push
