@@ -179,13 +179,13 @@ async function requestGateway(
   maxTokens = 3000,
 ) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 30000);
   try {
     const response = await fetch("https://gnhweb-ai-gateway.gemini19840314.workers.dev", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        task: "student-council",
+        task: "coaching",
         messages,
         max_tokens: maxTokens,
       }),
