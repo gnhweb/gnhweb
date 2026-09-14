@@ -1,7 +1,8 @@
 name: One-time coaching provider route
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: write
@@ -32,11 +33,16 @@ jobs:
           PY
           grep -n 'task: "student-council"' workers/ai-gateway/src/coachingFeature.ts
 
-      - name: Verify syntax
+      - name: Type check worker source
         shell: bash
         run: |
           set -euo pipefail
-          node --check <(sed 's/export async function/async function/; s/export default.*//' workers/ai-gateway/src/coachingFeature.ts) || true
+          cd workers/ai-gateway
+          if [ -f tsconfig.json ]; then
+            npx --yes tsc --noEmit --pretty false
+          else
+            echo 'No worker tsconfig; source patch check completed.'
+          fi
 
       - name: Commit patch and remove workflow
         shell: bash
