@@ -176,23 +176,16 @@ ${tone === "direct" ? "- 직설적으로 핵심 판단을 먼저 말하고, 사�
 
 async function requestGateway(
   messages: Array<{ role: "system" | "user"; content: string }>,
-  env: Record<string, string | undefined>,
   maxTokens = 3000,
 ) {
-  const apiKey = env.GEMINI_API_KEY?.trim();
-  if (!apiKey) return null;
-
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
   try {
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+    const response = await fetch("https://gnhweb-ai-gateway.gemini19840314.workers.dev", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: (env.GEMINI_MODEL || "gemini-3.8-flash").trim(),
+        task: "student-council",
         messages,
         max_tokens: maxTokens,
       }),
