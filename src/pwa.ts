@@ -6,18 +6,15 @@
  * `waiting` property error in the production mobile E2E environment while the
  * generated service worker itself is valid.
  *
- * Keep registration checks deployment-aware: after a successful registration,
- * subsequent page loads only read the existing registration. A new SW URL is
- * registered once when PWA_VERSION changes. This avoids repeatedly invoking the
- * registration/update path on every navigation while preserving the deployment update flow.
+ * The service worker URL stays stable so deployments do not require a manual
+ * PWA version bump. On startup we explicitly ask the browser to check the
+ * registered worker for an update; a newly installed worker uses skipWaiting
+ * in `sw.ts`, then the page reloads automatically.
  */
 
 let currentRegistration: ServiceWorkerRegistration | undefined;
 
-const PWA_VERSION = '20260913-4';
-const SW_URL = `${import.meta.env.BASE_URL}sw.js?v=${PWA_VERSION}`;
-const RELOAD_KEY = `gnhweb-pwa-reloaded:${PWA_VERSION}`;
-const REGISTERED_VERSION_KEY = 'gnhweb-pwa-registered-version';
+const SW_URL = `${import.meta.env.BASE_URL}sw.js`;
 
 function installRegistrationListeners(registration: ServiceWorkerRegistration) {
   registration.addEventListener('updatefound', () => {
@@ -26,34 +23,12 @@ function installRegistrationListeners(registration: ServiceWorkerRegistration) {
 
     worker.addEventListener('statechange', () => {
       if (worker.state !== 'installed' || !navigator.serviceWorker.controller) return;
-
-      try {
-        if (sessionStorage.getItem(RELOAD_KEY) === '1') return;
-        sessionStorage.setItem(RELOAD_KEY, '1');
-        window.location.reload();
-      } catch {
-        // Storage restrictions must never block application startup.
-      }
+      window.location.reload();
     });
   });
 }
 
-async function registerOrReuseServiceWorker() {
-  const existingRegistration = await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL);
-  const registeredVersion = (() => {
-    try {
-      return localStorage.getItem(REGISTERED_VERSION_KEY);
-    } catch {
-      return null;
-    }
-  })();
-
-  if (existingRegistration && registeredVersion === PWA_VERSION) {
-    currentRegistration = existingRegistration;
-    installRegistrationListeners(currentRegistration);
-    return;
-  }
-
+async function registerOrUpdateServiceWorker() {
   const registration = await navigator.serviceWorker.register(SW_URL, {
     scope: import.meta.env.BASE_URL,
     updateViaCache: 'imports',
@@ -63,14 +38,14 @@ async function registerOrReuseServiceWorker() {
   installRegistrationListeners(currentRegistration);
 
   try {
-    localStorage.setItem(REGISTERED_VERSION_KEY, PWA_VERSION);
+    await currentRegistration.update();
   } catch {
-    // Storage restrictions must never block PWA registration.
+    // A failed update check must never block application startup.
   }
 }
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  void registerOrReuseServiceWorker().catch(() => {
+  void registerOrUpdateServiceWorker().catch(() => {
     // PWA support is optional. Failure must never surface as a console error
     // or block authentication/app startup.
   });
