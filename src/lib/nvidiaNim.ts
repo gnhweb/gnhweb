@@ -92,10 +92,14 @@ export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', exc
 }
 
 export async function generateLeadershipCoaching(concern: string, tone?: 'direct' | 'empathetic'): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('nim-coaching', { body: { concern, tone: tone || 'direct' } });
-  if (error || !data) throw new Error('리더십 코칭을 생성하지 못했어요.');
-  const result = data as { advice?: string };
-  if (result && typeof result.advice === 'string' && result.advice.length > 5) return result.advice;
+  const response = await fetch('https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-coaching', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ concern, tone: tone || 'direct' }),
+  });
+  if (!response.ok) throw new Error('리더십 코칭을 생성하지 못했어요.');
+  const data = await response.json() as { advice?: unknown };
+  if (typeof data.advice === 'string' && data.advice.trim().length > 5) return data.advice;
   throw new Error('코칭 내용을 불러오지 못했어요.');
 }
 
