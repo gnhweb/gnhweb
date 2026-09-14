@@ -1,0 +1,37 @@
+name: One-time coaching provider patch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'Fix coaching provider routing') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch coaching provider routing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('workers/ai-gateway/src/coachingFeature.ts')
+          s = p.read_text()
+          start = s.index('async function requestGateway(')
+          end = s.index('export async function handleNimCoaching', start)
+          replacement = '''async function requestGateway(\n  messages: Array<{ role: "system" | "user"; content: string }>,\n  maxTokens = 3000,\n) {\n  const controller = new AbortController();\n  const timeout = setTimeout(() => controller.abort(), 15000);\n  try {\n    const response = await fetch("https://gnhweb-ai-gateway.gemini19840314.workers.dev", {\n      method: "POST",\n      headers: { "Content-Type": "application/json" },\n      body: JSON.stringify({\n        task: "student-council",\n        messages,\n        max_tokens: maxTokens,\n      }),\n      signal: controller.signal,\n    });\n    if (!response.ok) return null;\n    const data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };\n    const content = data.choices?.[0]?.message?.content;\n    return typeof content === "string" && content.trim().length >= 40 ? content.trim() : null;\n  } catch (error) {\n    console.error("[ai-gateway] coaching provider error", error);\n    return null;\n  } finally {\n    clearTimeout(timeout);\n  }\n}\n\n'''
+          p.write_text(s[:start] + replacement + s[end:])
+          PY
+      - name: Remove one-time workflow and commit
+        run: |
+          rm .github/workflows/one-time-coaching-provider-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add workers/ai-gateway/src/coachingFeature.ts .github/workflows/one-time-coaching-provider-fix.yml
+          git commit -m "Fix coaching provider routing"
+          git push
