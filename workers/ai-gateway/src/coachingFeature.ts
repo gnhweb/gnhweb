@@ -120,60 +120,32 @@ function buildSystemPrompt(tone: "direct" | "empathetic") {
   if (tone === "direct") {
     return `${shared}
 [직설적인 톤]
-핵심 판단을 첫 부분에서 분명하게 말한다. 사용자가 바꿔야 할 부분이 있으면 피하지 않는다. 상대의 책임이 명확하면 그것도 말한다. 단호한 판단 뒤에는 반드시 실행 방법을 제시한다. 공격적이거나 모욕적인 표현은 사용하지 않는다. 친한 선배 사명자가 현실적으로 코칭하는 느낌의 자연스러운 해요체를 사용한다.
+핵심 판단을 첫 부분에서 분명하게 말한다. 사용자가 바꿔야 할 부분이 있으면 피하지 않는다. 상대의 책임이 명확하면 그것도 말한다. 단호한 판단 뒤에는 반드시 실행 방법을 제시한다. 공격적이거나 모욕적인 표현은 사용하지 않는다.
 `;
   }
 
   return `${shared}
-[따뜻하게 공감하는 톤]
-사용자가 왜 답답하고 속상한지 먼저 정확히 짚되 위로로 끝내지 않는다. 공감과 책임을 함께 둔다. 상대의 사정도 살피되 책임이 명확하면 흐리지 않는다. 친한 선배 사명자가 현실적으로 도와주는 느낌의 자연스러운 해요체를 사용한다.
+[공감적인 톤]
+사용자의 감정을 인정하되 위로만 하고 끝내지 않는다. 공감 다음에 상황에 대한 판단과 구체적인 행동을 제시한다.
 `;
 }
 
 function buildDiagnosisPrompt() {
   return `
-너는 강릉학생회의 사명자 성장 코치다. 지금은 답변을 쓰지 말고 '진단 자료'만 만든다.
-
-원래 고민을 일반적인 리더십 문제로 바꾸지 말고 다음 JSON만 작성한다.
-{
-  "question": "사용자가 실제로 묻는 질문 1개",
-  "facts": ["글에서 직접 확인되는 사실"],
-  "uncertain": ["확인되지 않은 추측"],
-  "coreProblem": "현재 가장 중요한 문제 1개",
-  "possibleCauses": ["가능한 원인 2~4개"],
-  "strongestCause": "현재 정보에서 가장 근거가 강한 원인",
-  "bestApproach": "이번 질문에 가장 적합한 접근법 1개",
-  "nextAction": "가장 중요한 다음 행동 1개"
-}
-
-규칙:
-- 원인을 '소통 부족' 하나로 자동 결론 내리지 않는다.
-- 가능한 원인은 실제 글의 근거가 있는 것만 넣는다.
-- 사실과 추측을 분리한다.
-- 사용자의 책임과 상대의 책임이 다르면 진단에 반영한다.
-- 답변 문장, 위로, 성경 구절, 일반적인 리더십 강의는 작성하지 않는다.
-- JSON 외의 문장을 쓰지 않는다.
+너는 강릉학생회의 사명자 성장 코치다. 사용자의 고민을 최종 답변으로 쓰기 전에 내부적으로 진단한다.
+반드시 JSON 객체만 출력한다. 키는 question, facts, assumptions, mainIssue, possibleCauses, strongestCause, bestApproach를 사용한다.
+사실과 추측을 구분하고, 근거 없는 심리 추정을 하지 않는다.
 `;
 }
 
-function parseDiagnosis(content: string) {
-  const cleaned = content.trim().replace(/^```json\s*/i, "").replace(/\s*```$/i, "");
+function parseDiagnosis(raw: string) {
   try {
-    const parsed = JSON.parse(cleaned) as Record<string, unknown>;
-    if (
-      typeof parsed.question === "string" &&
-      typeof parsed.coreProblem === "string" &&
-      typeof parsed.strongestCause === "string" &&
-      typeof parsed.bestApproach === "string" &&
-      Array.isArray(parsed.facts) &&
-      Array.isArray(parsed.possibleCauses)
-    ) {
-      return parsed;
-    }
+    const clean = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(clean) as Record<string, unknown>;
+    return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
-    // A failed structured diagnosis should not expose model internals to the user.
+    return null;
   }
-  return null;
 }
 
 function buildFinalPrompt(tone: "direct" | "empathetic") {
@@ -210,7 +182,6 @@ async function requestGateway(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      task: "coaching",
       messages,
       max_tokens: maxTokens,
     }),
