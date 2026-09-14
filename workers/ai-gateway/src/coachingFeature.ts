@@ -5,8 +5,6 @@ const CORS = {
   "Cache-Control": "no-store",
 };
 
-let envForCoaching: Record<string, string | undefined> = {};
-
 const FALLBACK_DIRECT = `지금은 이 고민에 대해 단정적인 결론을 내리기보다, 네가 적어준 사실을 기준으로 한 가지씩 확인하는 게 좋아. 상대의 행동과 네가 책임질 부분을 나누고, 오늘 할 수 있는 가장 작은 행동부터 정해봐.\n\nAI 코칭을 일시적으로 완료하지 못했어. 같은 내용을 다시 시도하면 질문에 맞춘 구체적인 코칭을 받을 수 있어.`;
 const COACHING_LENSES = [
   "원인 추적 관점: 표면적인 갈등보다 역할·기대·정보·역량·시간·책임 구조를 먼저 구분해 진단한다.",
@@ -172,50 +170,40 @@ function buildFinalPrompt(tone: "direct" | "empathetic") {
 ${tone === "direct" ? "- 직설적으로 핵심 판단을 먼저 말하고, 사용자가 고쳐야 할 점은 분명하게 말한다." : "- 공감으로 시작할 수 있지만 위로로 끝내지 말고 실제 판단과 행동으로 이어간다."}
 
 [반복 방지]
-이번 답변의 목적은 '그럴듯한 리더십 답변'이 아니라 이 한 사람의 이 고민에 맞는 판단이다. 이전에 흔히 나오는 문장이나 구조를 복사하지 않는다. 특히 '소통이 부족한 것 같아요',async function requestGateway(
+이번 답변의 목적은 '그럴듯한 리더십 답변'이 아니라 이 한 사람의 이 고민에 맞는 판단이다. 이전에 흔히 나오는 문장이나 구조를 복사하지 않는다. 특히 '소통이 부족한 것 같아요', '먼저 대화해보세요', '상대의 입장도 생각해보세요'를 근거 없이 기본 답변으로 사용하지 않는다.
+`;
+}
+
+async function requestGateway(
   messages: Array<{ role: "system" | "user"; content: string }>,
   maxTokens = 3000,
 ) {
-  const providers = [
-    { key: "NVIDIA_API_KEY", url: "https://integrate.api.nvidia.com/v1/chat/completions", modelKey: "NVIDIA_GATEWAY_MODEL", model: "google/gemma-4-31b-it" },
-    { key: "GROQ_API_KEY", url: "https://api.groq.com/openai/v1/chat/completions", modelKey: "GROQ_MODEL", model: "openai/gpt-oss-120b" },
-    { key: "DEEPSEEK_API_KEY", url: "https://api.deepseek.com/chat/completions", modelKey: "DEEPSEEK_MODEL", model: "deepseek-v4-flash" },
-    { key: "MISTRAL_API_KEY", url: "https://api.mistral.ai/v1/chat/completions", modelKey: "MISTRAL_MODEL", model: "mistral-large-latest" },
-    { key: "XAI_API_KEY", url: "https://api.x.ai/v1/chat/completions", modelKey: "XAI_MODEL", model: "grok-4.6" },
-    { key: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", modelKey: "OPENROUTER_MODEL", model: "openai/gpt-oss-120b" },
-  ];
-  for (const provider of providers) {
-    const apiKey = envForCoaching[provider.key]?.trim();
-    if (!apiKey) continue;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-    try {
-      const response = await fetch(provider.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: (envForCoaching[provider.modelKey] || provider.model).trim(), messages, max_tokens: maxTokens, temperature: 0.3 }),
-        signal: controller.signal,
-      });
-      if (!response.ok) continue;
-      const data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
-      const content = data.choices?.[0]?.message?.content;
-      if (typeof content === "string" && content.trim()) return content.trim();
-    } catch {
-      // Try the next configured provider.
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-  throw new Error("No coaching provider available");
-}
-
-export async functionally {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    const response = await fetch("https://gnhweb-ai-gateway.gemini19840314.workers.dev", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        task: "coaching",
+        messages,
+        max_tokens: maxTokens,
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
+    const content = data.choices?.[0]?.message?.content;
+    return typeof content === "string" && content.trim().length >= 40 ? content.trim() : null;
+  } catch (error) {
+    console.error("[ai-gateway] coaching provider error", error);
+    return null;
+  } finally {
     clearTimeout(timeout);
   }
 }
 
 export async function handleNimCoaching(req: Request, env: Record<string, string | undefined>) {
-  envForCoaching = env; 
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
