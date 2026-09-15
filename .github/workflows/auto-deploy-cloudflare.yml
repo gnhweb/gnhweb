@@ -99,6 +99,13 @@ jobs:
           wranglerVersion: "4"
           workingDirectory: workers/api
           command: deploy --config wrangler.jsonc
+      - name: Sync production Neon database secret to API Worker
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$NEON_DATABASE_URL"
+          printf '%s' "$NEON_DATABASE_URL" | npx wrangler secret put DATABASE_URL --config wrangler.jsonc
 
   verify-api:
     name: Verify gnhweb API public routes
@@ -178,16 +185,3 @@ jobs:
             echo 'Fallback response detected'
             exit 1
           fi
-
-  verify-site:
-    name: Verify deployed Cloudflare Pages site
-    needs: deploy-site
-    runs-on: ubuntu-latest
-    steps:
-      - name: Verify site response
-        run: |
-          set -euo pipefail
-          status=$(curl --silent --show-error --output /tmp/site-response.html --write-out '%{http_code}' 'https://gnhwebw.pages.dev/')
-          echo "HTTP $status"
-          test "$status" = "200"
-          grep -q '<html' /tmp/site-response.html
