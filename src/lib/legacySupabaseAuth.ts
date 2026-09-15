@@ -59,15 +59,11 @@ export async function verifyLegacySupabasePassword(email: string, password: stri
 }
 
 export async function migrateLegacyAccountPassword(email: string, password: string): Promise<MigrationResult> {
-  if (!legacySupabaseAnonKey) {
-    return { migrated: false, alreadyMigrated: false, error: '기존 인증 서버 연결 정보가 설정되어 있지 않습니다.' };
-  }
-
   try {
     const response = await fetch(migrationEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, anonKey: legacySupabaseAnonKey }),
+      body: JSON.stringify({ email, password }),
     });
 
     let body: { status?: string; error?: string } = {};
