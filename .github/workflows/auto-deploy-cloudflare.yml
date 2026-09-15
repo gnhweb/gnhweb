@@ -76,6 +76,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -107,7 +110,7 @@ jobs:
           set -euo pipefail
           status=$(curl --silent --show-error --output /tmp/account-migration-options.json --write-out '%{http_code}' \
             --request OPTIONS \
-            --header 'Origin: https://gnhweb.pages.dev' \
+            --header 'Origin: https://gnhwebw.pages.dev' \
             --header 'Access-Control-Request-Method: POST' \
             --header 'Access-Control-Request-Headers: content-type' \
             'https://gnhweb-api.gemini19840314.workers.dev/account-password-migration')
@@ -118,7 +121,7 @@ jobs:
           set -euo pipefail
           status=$(curl --silent --show-error --output /tmp/account-migration-post.json --write-out '%{http_code}' \
             --request POST \
-            --header 'Origin: https://gnhweb.pages.dev' \
+            --header 'Origin: https://gnhwebw.pages.dev' \
             --header 'Content-Type: application/json' \
             --data '{}' \
             'https://gnhweb-api.gemini19840314.workers.dev/account-password-migration')
@@ -184,7 +187,7 @@ jobs:
       - name: Verify site response
         run: |
           set -euo pipefail
-          status=$(curl --silent --show-error --output /tmp/site-response.html --write-out '%{http_code}' 'https://gnhweb.pages.dev/')
+          status=$(curl --silent --show-error --output /tmp/site-response.html --write-out '%{http_code}' 'https://gnhwebw.pages.dev/')
           echo "HTTP $status"
           test "$status" = "200"
           grep -q '<html' /tmp/site-response.html
