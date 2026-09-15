@@ -1,0 +1,50 @@
+name: Verify Neon Database Target
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+    steps:
+      - name: Verify database identity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${NEON_DATABASE_URL:-}" ]; then
+            echo "NEON_DATABASE_URL GitHub Secret is not configured."
+            exit 1
+          fi
+
+          PSQL_OUTPUT="$(psql "$NEON_DATABASE_URL" -v ON_ERROR_STOP=1 -At -F $'\t' -c '
+            SELECT
+              current_database(),
+              current_user,
+              current_setting('"'"'server_version'"'"'),
+              (SELECT count(*) FROM neon_auth.account WHERE "providerId" = '"'"'credential'"'"'),
+              (SELECT count(*) FROM neon_auth.account WHERE "providerId" = '"'"'credential'"'"' AND password IS NULL);
+          ')"
+
+          IFS=$'\t' read -r DATABASE_NAME ROLE_NAME SERVER_VERSION CREDENTIAL_ACCOUNTS PENDING_ACCOUNTS <<< "$PSQL_OUTPUT"
+
+          echo "database_name=$DATABASE_NAME"
+          echo "role_name=$ROLE_NAME"
+          echo "server_version=$SERVER_VERSION"
+          echo "credential_accounts=$CREDENTIAL_ACCOUNTS"
+          echo "pending_accounts=$PENDING_ACCOUNTS"
+
+          if [ "$CREDENTIAL_ACCOUNTS" != "40" ]; then
+            echo "Unexpected credential account count; refusing to treat this target as the expected production database."
+            exit 1
+          fi
+
+          if [ "$PENDING_ACCOUNTS" != "38" ]; then
+            echo "Unexpected pending account count; refusing to treat this target as the expected production database."
+            exit 1
+          fi
