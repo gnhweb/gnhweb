@@ -6,6 +6,7 @@ const scrypt = promisify(scryptCallback);
 const DEFAULT_SUPABASE_URL = 'https://ceearwcfvcbjhmkuuqzv.supabase.co';
 const ALLOWED_ORIGINS = new Set([
   'https://gnhweb.vercel.app',
+  'https://gnhweb.pages.dev',
   'https://gnhwebw.pages.dev',
 ]);
 
