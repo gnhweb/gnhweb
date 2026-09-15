@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   patch:
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore: apply account recovery login patch') }}
+    if: "!startsWith(github.event.head_commit.message, 'chore: apply account recovery login patch')"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
