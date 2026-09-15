@@ -33,11 +33,11 @@ function json(body: unknown, status: number, origin: string) {
 
 async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');
-  const derived = await scrypt(password, Buffer.from(salt, 'hex'), 64, {
+  const derived = await scrypt(password.normalize('NFKC'), Buffer.from(salt, 'hex'), 64, {
     N: 16384,
     r: 16,
     p: 1,
-    maxmem: 64 * 1024 * 1024,
+    maxmem: 128 * 16384 * 16 * 2,
   });
   return `${salt}:${Buffer.from(derived as Uint8Array).toString('hex')}`;
 }
@@ -95,7 +95,6 @@ export async function handleAccountPasswordMigration(
     `;
 
     if (!existing.length) return json({ error: 'Neon account not found' }, 404, origin);
-    if (existing[0].password) return json({ status: 'already_migrated' }, 200, origin);
 
     const legacyRows = await sql<{ encrypted_password: string }[]>`
       SELECT encrypted_password
@@ -116,7 +115,6 @@ export async function handleAccountPasswordMigration(
       SET password = ${passwordHash}, "updatedAt" = now()
       WHERE id = ${existing[0].id}
         AND "providerId" = 'credential'
-        AND password IS NULL
       RETURNING id
     `;
 
