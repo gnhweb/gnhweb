@@ -135,6 +135,8 @@ export default function Login() {
           const migration = await migrateLegacyAccountPassword(email, password);
           if (migration.migrated || migration.alreadyMigrated) {
             ({ error: err, user: signedInUser } = await signIn(email, password));
+          } else if (migration.error) {
+            setError(migration.error);
           }
         }
         if (signedInUser) {
