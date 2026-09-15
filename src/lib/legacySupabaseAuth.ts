@@ -5,6 +5,14 @@ type VerificationResult = {
   error?: string;
 };
 
+type MigrationResponseBody = {
+  status?: string;
+  error?: string;
+  legacyStatus?: number;
+  legacyError?: string;
+  legacyErrorDescription?: string;
+};
+
 type MigrationResult = {
   migrated: boolean;
   alreadyMigrated: boolean;
@@ -66,15 +74,25 @@ export async function migrateLegacyAccountPassword(email: string, password: stri
       body: JSON.stringify({ email, password }),
     });
 
-    let body: { status?: string; error?: string } = {};
+    let body: MigrationResponseBody = {};
     try {
-      body = await response.json() as typeof body;
+      body = await response.json() as MigrationResponseBody;
     } catch {
       // handled below as a generic migration failure
     }
 
     if (!response.ok) {
-      return { migrated: false, alreadyMigrated: false, error: body.error || '계정 복구에 실패했습니다.' };
+      const diagnostics = [
+        typeof body.legacyStatus === 'number' ? `status=${body.legacyStatus}` : '',
+        body.legacyError ? `error=${body.legacyError}` : '',
+        body.legacyErrorDescription ? `description=${body.legacyErrorDescription}` : '',
+      ].filter(Boolean).join(', ');
+
+      return {
+        migrated: false,
+        alreadyMigrated: false,
+        error: diagnostics ? `${body.error || '계정 복구에 실패했습니다.'} (${diagnostics})` : (body.error || '계정 복구에 실패했습니다.'),
+      };
     }
 
     return {
