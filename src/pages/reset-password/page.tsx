@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
-import { verifyLegacySupabasePassword } from '@/lib/legacySupabaseAuth';
+import { migrateLegacyAccountPassword } from '@/lib/legacySupabaseAuth';
 
 export default function ResetPassword() {
   const { updatePassword, signOut, resetPassword } = useAuth();
@@ -33,9 +33,9 @@ export default function ResetPassword() {
 
     setSubmitting(true);
     try {
-      const verified = await verifyLegacySupabasePassword(email.trim(), legacyPassword);
-      if (!verified.ok) {
-        setError(verified.error || '기존 비밀번호를 확인하지 못했습니다.');
+      const migration = await migrateLegacyAccountPassword(email.trim(), legacyPassword);
+      if (!migration.migrated && !migration.alreadyMigrated) {
+        setError(migration.error || '기존 비밀번호를 확인하지 못했습니다.');
         return;
       }
 
@@ -168,7 +168,7 @@ export default function ResetPassword() {
               </div>
 
               <div className="p-3 rounded-xl bg-background-50 border border-background-200 text-xs leading-5 text-foreground-600">
-                기존 비밀번호 자체는 저장하지 않습니다. 기존 계정에서 비밀번호가 맞는지만 확인한 뒤 Neon 계정의 재설정 링크를 이메일로 보냅니다. 링크를 열어 <strong className="text-foreground-800">같은 비밀번호를 다시 입력</strong>하면 기존 비밀번호를 그대로 유지할 수 있습니다.
+                기존 비밀번호 자체는 저장하지 않습니다. 기존 비밀번호가 맞는지 확인한 뒤 Neon 계정의 재설정 링크를 이메일로 보냅니다. 링크를 열어 <strong className="text-foreground-800">같은 비밀번호를 다시 입력</strong>하면 기존 비밀번호를 그대로 유지할 수 있습니다.
               </div>
 
               <button
