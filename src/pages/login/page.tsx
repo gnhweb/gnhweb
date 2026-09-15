@@ -6,6 +6,7 @@ import { CLUB_LABELS } from '@/types/auth';
 import type { UserRole, ClubType } from '@/types/auth';
 import { hasSimplePin, setSimplePin, isValidPinFormat } from '@/lib/simplePin';
 import { isPasskeySupported } from '@/lib/passkey';
+import { migrateLegacyAccountPassword } from '@/lib/legacySupabaseAuth';
 
 type Mode = 'login' | 'signup';
 
@@ -129,7 +130,13 @@ export default function Login() {
     setSubmitting(true);
     try {
       if (mode === 'login') {
-        const { error: err, user: signedInUser } = await signIn(email, password);
+        let { error: err, user: signedInUser } = await signIn(email, password);
+        if (!signedInUser && err) {
+          const migration = await migrateLegacyAccountPassword(email, password);
+          if (migration.migrated || migration.alreadyMigrated) {
+            ({ error: err, user: signedInUser } = await signIn(email, password));
+          }
+        }
         if (signedInUser) {
           if (!hasSimplePin(signedInUser.id)) {
             setPinSetupUserId(signedInUser.id);
