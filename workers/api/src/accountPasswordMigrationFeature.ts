@@ -10,16 +10,12 @@ const ALLOWED_ORIGINS = new Set([
   'https://gnhweb.gemini19840314.workers.dev',
 ]);
 
-const BCRYPT_PATTERN = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
-
 type MigrationEnv = Record<string, string | undefined>;
 
 type MigrationBody = {
   email?: unknown;
   password?: unknown;
 };
-
-type LegacyPasswordMap = Record<string, string>;
 
 function headers(origin: string) {
   const result = new Headers({
@@ -44,20 +40,6 @@ async function hashPassword(password: string): Promise<string> {
     maxmem: 64 * 1024 * 1024,
   });
   return `${salt}:${Buffer.from(derived as Uint8Array).toString('hex')}`;
-}
-
-function getLegacyPasswordHash(env: MigrationEnv, email: string): string | null {
-  const raw = String(env.LEGACY_SUPABASE_PASSWORDS || '').trim();
-  if (!raw) return null;
-
-  try {
-    const map = JSON.parse(raw) as unknown;
-    if (!map || typeof map !== 'object' || Array.isArray(map)) return null;
-    const value = (map as LegacyPasswordMap)[email];
-    return typeof value === 'string' && BCRYPT_PATTERN.test(value) ? value : null;
-  } catch {
-    return null;
-  }
 }
 
 async function verifyLegacyPassword(
@@ -115,7 +97,13 @@ export async function handleAccountPasswordMigration(
     if (!existing.length) return json({ error: 'Neon account not found' }, 404, origin);
     if (existing[0].password) return json({ status: 'already_migrated' }, 200, origin);
 
-    const legacyHash = getLegacyPasswordHash(env, email);
+    const legacyRows = await sql<{ encrypted_password: string }[]>`
+      SELECT encrypted_password
+      FROM legacy_migration.supabase_passwords
+      WHERE email = ${email}
+      LIMIT 1
+    `;
+    const legacyHash = legacyRows[0]?.encrypted_password || '';
     if (!legacyHash) return json({ error: 'Legacy password migration is not configured for this account' }, 500, origin);
 
     if (!(await verifyLegacyPassword(sql, legacyHash, password))) {
