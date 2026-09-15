@@ -1,0 +1,131 @@
+import { neon } from '@neondatabase/serverless';
+import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
+import { promisify } from 'node:util';
+
+const scrypt = promisify(scryptCallback);
+const DEFAULT_SUPABASE_URL = 'https://ceearwcfvcbjhmkuuqzv.supabase.co';
+const ALLOWED_ORIGINS = new Set([
+  'https://gnhweb.vercel.app',
+  'https://gnhwebw.pages.dev',
+]);
+
+type MigrationEnv = Record<string, string | undefined>;
+
+type MigrationBody = {
+  email?: unknown;
+  password?: unknown;
+  anonKey?: unknown;
+};
+
+function headers(origin: string) {
+  const result = new Headers({
+    'Cache-Control': 'no-store',
+    'Content-Type': 'application/json',
+    'Vary': 'Origin',
+  });
+  if (ALLOWED_ORIGINS.has(origin)) result.set('Access-Control-Allow-Origin', origin);
+  return result;
+}
+
+function json(body: unknown, status: number, origin: string) {
+  return new Response(JSON.stringify(body), { status, headers: headers(origin) });
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex');
+  const derived = await scrypt(password, Buffer.from(salt, 'hex'), 64, {
+    N: 16384,
+    r: 16,
+    p: 1,
+    maxmem: 64 * 1024 * 1024,
+  });
+  return `${salt}:${Buffer.from(derived as Uint8Array).toString('hex')}`;
+}
+
+async function verifyLegacyPassword(
+  supabaseUrl: string,
+  anonKey: string,
+  email: string,
+  password: string,
+): Promise<boolean> {
+  const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: {
+      apikey: anonKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  return response.ok;
+}
+
+export async function handleAccountPasswordMigration(
+  req: Request,
+  env: MigrationEnv,
+): Promise<Response> {
+  const origin = req.headers.get('Origin') || '';
+
+  if (req.method === 'OPTIONS') {
+    const responseHeaders = headers(origin);
+    responseHeaders.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    responseHeaders.set('Access-Control-Allow-Headers', 'content-type');
+    return new Response(null, { status: 204, headers: responseHeaders });
+  }
+
+  if (req.method !== 'POST') return json({ error: 'Method Not Allowed' }, 405, origin);
+  if (origin && !ALLOWED_ORIGINS.has(origin)) return json({ error: 'Forbidden' }, 403, origin);
+
+  let body: MigrationBody;
+  try {
+    body = await req.json() as MigrationBody;
+  } catch {
+    return json({ error: 'Invalid request' }, 400, origin);
+  }
+
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const password = typeof body.password === 'string' ? body.password : '';
+  const anonKey = typeof body.anonKey === 'string' ? body.anonKey.trim() : '';
+  const databaseUrl = String(env.DATABASE_URL || '').trim();
+  const supabaseUrl = String(env.SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
+
+  if (!email || !password || !anonKey) return json({ error: 'Missing credentials' }, 400, origin);
+  if (!databaseUrl) return json({ error: 'DATABASE_URL is not configured' }, 500, origin);
+
+  try {
+    const legacyValid = await verifyLegacyPassword(supabaseUrl, anonKey, email, password);
+    if (!legacyValid) return json({ error: 'Legacy credentials are invalid' }, 401, origin);
+
+    const sql = neon(databaseUrl);
+    const existing = await sql<{ id: string; password: string | null }[]>`
+      SELECT a.id, a.password
+      FROM neon_auth.account AS a
+      INNER JOIN neon_auth."user" AS u ON u.id = a."userId"
+      WHERE a."providerId" = 'credential'
+        AND lower(u.email) = ${email}
+      LIMIT 1
+    `;
+
+    if (!existing.length) return json({ error: 'Neon account not found' }, 404, origin);
+    if (existing[0].password) return json({ status: 'already_migrated' }, 200, origin);
+
+    const passwordHash = await hashPassword(password);
+    const updated = await sql<{ id: string }[]>`
+      UPDATE neon_auth.account
+      SET password = ${passwordHash}, "updatedAt" = now()
+      WHERE id = ${existing[0].id}
+        AND "providerId" = 'credential'
+        AND password IS NULL
+      RETURNING id
+    `;
+
+    return json(
+      { status: updated.length ? 'migrated' : 'already_migrated' },
+      200,
+      origin,
+    );
+  } catch (error) {
+    console.error('[account-password-migration] error', error);
+    return json({ error: 'Account migration failed' }, 500, origin);
+  }
+}

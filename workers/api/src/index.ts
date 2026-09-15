@@ -7,6 +7,7 @@ import { handleBiblePick } from './biblePickFeature';
 import { handleSetupChief } from './setupChiefFeature';
 import { handleMonthlyChampionSnapshot } from './monthlyChampionSnapshotFeature';
 import { handleWebPush } from './webPushFeature';
+import { handleAccountPasswordMigration } from './accountPasswordMigrationFeature';
 import { processWebPushQueue } from './webPushQueue';
 
 const CORS_HEADERS = {
@@ -45,6 +46,7 @@ export default {
     if (url.pathname === '/setup-chief') return handleSetupChief(req, env);
     if (url.pathname === '/monthly-champion-snapshot') return handleMonthlyChampionSnapshot(req, env);
     if (url.pathname === '/web-push') return handleWebPush(req, env);
+    if (url.pathname === '/account-password-migration') return handleAccountPasswordMigration(req, env);
     if (url.pathname !== '/web-push-public-key') return json({ error: 'Not Found' }, 404);
     if (req.method !== 'GET') return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
     const publicKey = String(env.WEB_PUSH_VAPID_PUBLIC_KEY || '').trim();
