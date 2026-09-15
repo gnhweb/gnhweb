@@ -13,7 +13,8 @@ type MigrationResult = {
 
 const legacySupabaseUrl = String(import.meta.env.VITE_PUBLIC_SUPABASE_URL || '').trim();
 const legacySupabaseAnonKey = String(import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY || '').trim();
-const migrationEndpoint = 'https://gnhweb-api.gemini19840314.workers.dev/account-password-migration';
+const migrationApiUrl = String(import.meta.env.VITE_CLOUDFLARE_API_URL || 'https://gnhweb-api.gemini19840314.workers.dev').trim();
+const migrationEndpoint = `${migrationApiUrl.replace(/\/$/, '')}/account-password-migration`;
 
 let client: ReturnType<typeof createClient> | null = null;
 
