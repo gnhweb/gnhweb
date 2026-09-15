@@ -1,10 +1,12 @@
 name: Auto Deploy Cloudflare
 
-# Trigger production deployment for the coaching provider routing fix.
+# Single production pipeline for Cloudflare Workers.
+# Cloudflare Pages remains the site deployment target; Workers are deployed here.
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,36 +19,12 @@ env:
   VITE_CF_REALTIME_URL: https://gnhweb-realtime.gemini19840314.workers.dev
 
 jobs:
-  deploy-site:
-    name: Deploy gnhweb site
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install dependencies
-        run: npm install --include=dev --no-audit --no-fund
-      - name: Build site
-        run: npm run build
-      - name: Deploy site Worker
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: e005fccad53297f6ac5ca4d88472cd59
-          wranglerVersion: "4"
-          command: deploy --config wrangler.jsonc
-
   deploy-realtime:
     name: Deploy gnhweb realtime Worker
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Deploy realtime Worker
-        uses: cloudflare/wrangler-action@v4
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: e005fccad53297f6ac5ca4d88472cd59
@@ -58,10 +36,8 @@ jobs:
     name: Deploy gnhweb storage Worker
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Deploy storage Worker
-        uses: cloudflare/wrangler-action@v4
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: e005fccad53297f6ac5ca4d88472cd59
@@ -69,14 +45,25 @@ jobs:
           workingDirectory: workers/storage
           command: deploy --config wrangler.jsonc
 
+  deploy-storage-migrate:
+    name: Deploy gnhweb storage migration Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          workingDirectory: workers/storage-migrate
+          command: deploy --config wrangler.jsonc
+
   deploy-api:
     name: Deploy gnhweb API Worker
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Deploy API Worker
-        uses: cloudflare/wrangler-action@v4
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: e005fccad53297f6ac5ca4d88472cd59
@@ -84,14 +71,46 @@ jobs:
           workingDirectory: workers/api
           command: deploy --config wrangler.jsonc
 
+  verify-api:
+    name: Verify gnhweb API public routes
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify account migration CORS preflight
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output /tmp/account-migration-options.json --write-out '%{http_code}' \
+            --request OPTIONS \
+            --header 'Origin: https://gnhweb.pages.dev' \
+            --header 'Access-Control-Request-Method: POST' \
+            --header 'Access-Control-Request-Headers: content-type' \
+            'https://gnhweb-api.gemini19840314.workers.dev/account-password-migration')
+          cat /tmp/account-migration-options.json
+          test "$status" = "204"
+      - name: Verify account migration rejects incomplete requests
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output /tmp/account-migration-post.json --write-out '%{http_code}' \
+            --request POST \
+            --header 'Origin: https://gnhweb.pages.dev' \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            'https://gnhweb-api.gemini19840314.workers.dev/account-password-migration')
+          cat /tmp/account-migration-post.json
+          test "$status" = "400"
+      - name: Verify prayer relay auth guard
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output /tmp/prayer-relay-response.json --write-out '%{http_code}' --request GET 'https://gnhweb-api.gemini19840314.workers.dev/prayer-relay?status=active&limit=1')
+          cat /tmp/prayer-relay-response.json
+          test "$status" = "401"
+
   deploy-ai-gateway:
     name: Deploy gnhweb AI gateway Worker
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Deploy AI gateway Worker
-        uses: cloudflare/wrangler-action@v4
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: e005fccad53297f6ac5ca4d88472cd59
