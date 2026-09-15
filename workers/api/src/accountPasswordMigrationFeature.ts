@@ -33,7 +33,7 @@ function json(body: unknown, status: number, origin: string) {
 
 async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');
-  const derived = await scrypt(password.normalize('NFKC'), Buffer.from(salt, 'hex'), 64, {
+  const derived = await scrypt(password.normalize('NFKC'), Buffer.from(salt, 'utf8'), 64, {
     N: 16384,
     r: 16,
     p: 1,
