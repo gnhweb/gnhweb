@@ -3,13 +3,14 @@ import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
-const DEFAULT_SUPABASE_URL = 'https://ceearwcfvcbjhmkuuqzv.supabase.co';
 const ALLOWED_ORIGINS = new Set([
   'https://gnhweb.vercel.app',
   'https://gnhweb.pages.dev',
   'https://gnhwebw.pages.dev',
   'https://gnhweb.gemini19840314.workers.dev',
 ]);
+
+const BCRYPT_PATTERN = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
 
 type MigrationEnv = Record<string, string | undefined>;
 
@@ -18,11 +19,7 @@ type MigrationBody = {
   password?: unknown;
 };
 
-type LegacyAuthFailure = {
-  status: number;
-  error?: string;
-  errorDescription?: string;
-};
+type LegacyPasswordMap = Record<string, string>;
 
 function headers(origin: string) {
   const result = new Headers({
@@ -49,40 +46,29 @@ async function hashPassword(password: string): Promise<string> {
   return `${salt}:${Buffer.from(derived as Uint8Array).toString('hex')}`;
 }
 
-async function verifyLegacyPassword(
-  supabaseUrl: string,
-  anonKey: string,
-  email: string,
-  password: string,
-): Promise<LegacyAuthFailure | null> {
-  const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: {
-      apikey: anonKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password }),
-  });
+function getLegacyPasswordHash(env: MigrationEnv, email: string): string | null {
+  const raw = String(env.LEGACY_SUPABASE_PASSWORDS || '').trim();
+  if (!raw) return null;
 
-  if (response.ok) return null;
-
-  let error: string | undefined;
-  let errorDescription: string | undefined;
   try {
-    const body = await response.json() as { error?: unknown; error_description?: unknown };
-    if (typeof body.error === 'string') error = body.error;
-    if (typeof body.error_description === 'string') errorDescription = body.error_description;
+    const map = JSON.parse(raw) as unknown;
+    if (!map || typeof map !== 'object' || Array.isArray(map)) return null;
+    const value = (map as LegacyPasswordMap)[email];
+    return typeof value === 'string' && BCRYPT_PATTERN.test(value) ? value : null;
   } catch {
-    // Keep the HTTP status as the safe diagnostic when the response is not JSON.
+    return null;
   }
+}
 
-  console.error('[account-password-migration] legacy auth rejected request', {
-    status: response.status,
-    error,
-    errorDescription,
-  });
-
-  return { status: response.status, error, errorDescription };
+async function verifyLegacyPassword(
+  sql: ReturnType<typeof neon>,
+  legacyHash: string,
+  password: string,
+): Promise<boolean> {
+  const rows = await sql<{ valid: boolean }[]>`
+    SELECT crypt(${password}, ${legacyHash}) = ${legacyHash} AS valid
+  `;
+  return rows[0]?.valid === true;
 }
 
 export async function handleAccountPasswordMigration(
@@ -111,28 +97,11 @@ export async function handleAccountPasswordMigration(
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   const password = typeof body.password === 'string' ? body.password : '';
   const databaseUrl = String(env.DATABASE_URL || '').trim();
-  const supabaseUrl = String(env.SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
-  const anonKey = String(env.SUPABASE_ANON_KEY || '').trim();
 
   if (!email || !password) return json({ error: 'Missing credentials' }, 400, origin);
   if (!databaseUrl) return json({ error: 'DATABASE_URL is not configured' }, 500, origin);
-  if (!anonKey) return json({ error: 'Legacy Supabase verifier is not configured' }, 500, origin);
 
   try {
-    const legacyFailure = await verifyLegacyPassword(supabaseUrl, anonKey, email, password);
-    if (legacyFailure) {
-      return json(
-        {
-          error: 'Legacy credentials are invalid',
-          legacyStatus: legacyFailure.status,
-          legacyError: legacyFailure.error,
-          legacyErrorDescription: legacyFailure.errorDescription,
-        },
-        401,
-        origin,
-      );
-    }
-
     const sql = neon(databaseUrl);
     const existing = await sql<{ id: string; password: string | null }[]>`
       SELECT a.id, a.password
@@ -145,6 +114,13 @@ export async function handleAccountPasswordMigration(
 
     if (!existing.length) return json({ error: 'Neon account not found' }, 404, origin);
     if (existing[0].password) return json({ status: 'already_migrated' }, 200, origin);
+
+    const legacyHash = getLegacyPasswordHash(env, email);
+    if (!legacyHash) return json({ error: 'Legacy password migration is not configured for this account' }, 500, origin);
+
+    if (!(await verifyLegacyPassword(sql, legacyHash, password))) {
+      return json({ error: 'Legacy credentials are invalid' }, 401, origin);
+    }
 
     const passwordHash = await hashPassword(password);
     const updated = await sql<{ id: string }[]>`
