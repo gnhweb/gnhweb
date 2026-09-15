@@ -1,0 +1,153 @@
+name: Import Legacy Auth Hashes to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_run_id:
+        description: 'Supabase backup workflow run ID'
+        required: true
+        default: '34684915472'
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  import:
+    name: Import legacy bcrypt hashes to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+
+    steps:
+      - name: Validate production target before mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${NEON_DATABASE_URL:-}" ]; then
+            echo "::error::NEON_DATABASE_URL GitHub Secret이 없습니다."
+            exit 1
+          fi
+
+          PSQL_OUTPUT="$(psql "$NEON_DATABASE_URL" -v ON_ERROR_STOP=1 -At -F $'\t' -c '
+            SELECT
+              current_database(),
+              current_user,
+              (SELECT count(*) FROM neon_auth.account WHERE "providerId" = '"'"'credential'"'"'),
+              (SELECT count(*) FROM neon_auth.account WHERE "providerId" = '"'"'credential'"'"' AND password IS NULL),
+              (SELECT count(*) FROM neon_auth.account a INNER JOIN neon_auth."user" u ON u.id = a."userId" WHERE a."providerId" = '"'"'credential'"'"' AND u.email IS NOT NULL);
+          ')"
+
+          IFS=$'\t' read -r DATABASE_NAME ROLE_NAME CREDENTIAL_ACCOUNTS PENDING_ACCOUNTS EMAIL_ACCOUNTS <<< "$PSQL_OUTPUT"
+          echo "database_name=$DATABASE_NAME"
+          echo "role_name=$ROLE_NAME"
+          echo "credential_accounts=$CREDENTIAL_ACCOUNTS"
+          echo "pending_accounts=$PENDING_ACCOUNTS"
+          echo "credential_accounts_with_email=$EMAIL_ACCOUNTS"
+
+          if [ "$CREDENTIAL_ACCOUNTS" != "40" ] || [ "$PENDING_ACCOUNTS" != "38" ] || [ "$EMAIL_ACCOUNTS" != "40" ]; then
+            echo "::error::Production target precondition failed; refusing to modify the database."
+            exit 1
+          fi
+
+      - name: Download Supabase backup artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+          gh run download "$BACKUP_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "supabase-db-backup-$BACKUP_RUN_ID" \
+            --dir backup
+
+      - name: Extract backup
+        run: |
+          set -euo pipefail
+          tar -xzf backup/supabase-db-backup.tar.gz -C backup
+          test -s backup/data.sql
+
+      - name: Validate and prepare legacy bcrypt import
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          src = Path('backup/data.sql').read_text(encoding='utf-8')
+          match = re.search(r'^COPY "auth"\."users" \((.*?)\) FROM stdin;\n', src, re.M)
+          if not match:
+              raise SystemExit('auth.users COPY block not found')
+
+          columns = [item.strip('"') for item in match.group(1).split(', ')]
+          email_index = columns.index('email')
+          password_index = columns.index('encrypted_password')
+          end = src.find('\n\\.\n', match.end())
+          if end < 0:
+              raise SystemExit('auth.users COPY terminator not found')
+
+          rows = src[match.end():end].splitlines()
+          values = []
+          bcrypt = re.compile(r'^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$')
+          for row in rows:
+              fields = row.split('\t')
+              if len(fields) <= max(email_index, password_index):
+                  continue
+              email = fields[email_index].strip().lower()
+              password_hash = fields[password_index].strip()
+              if not email or password_hash == r'\\N':
+                  continue
+              if not bcrypt.fullmatch(password_hash):
+                  raise SystemExit('non-bcrypt password hash found in auth.users')
+              values.append((email, password_hash))
+
+          if len(values) != 40:
+              raise SystemExit(f'expected 40 legacy password hashes, found {len(values)}')
+          if len({email for email, _ in values}) != 40:
+              raise SystemExit('duplicate legacy account email found')
+
+          sql_lines = [
+              'CREATE SCHEMA IF NOT EXISTS legacy_migration;',
+              'CREATE TABLE IF NOT EXISTS legacy_migration.supabase_passwords (email text PRIMARY KEY, encrypted_password text NOT NULL);',
+              'TRUNCATE legacy_migration.supabase_passwords;',
+          ]
+          for email, password_hash in values:
+              email_sql = email.replace("'", "''")
+              hash_sql = password_hash.replace("'", "''")
+              sql_lines.append(f"INSERT INTO legacy_migration.supabase_passwords (email, encrypted_password) VALUES ('{email_sql}', '{hash_sql}');")
+          Path('legacy-auth-import.sql').write_text('\n'.join(sql_lines) + '\n', encoding='utf-8')
+          print(f'validated legacy bcrypt accounts: {len(values)}')
+          PY
+
+      - name: Import legacy bcrypt hashes
+        run: |
+          set -euo pipefail
+          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --single-transaction --file legacy-auth-import.sql
+
+      - name: Verify production import and account email match
+        run: |
+          set -euo pipefail
+          psql "$NEON_DATABASE_URL" \
+            --set ON_ERROR_STOP=1 \
+            --tuples-only \
+            --no-align \
+            --command "$(cat <<'SQL'
+          SELECT count(*) FROM legacy_migration.supabase_passwords;
+          SELECT count(*) FROM legacy_migration.supabase_passwords WHERE encrypted_password ~ '^\$2[aby]\$[0-9]{2}\$';
+          SELECT count(*)
+          FROM legacy_migration.supabase_passwords l
+          INNER JOIN neon_auth."user" u ON lower(u.email) = l.email
+          INNER JOIN neon_auth.account a ON a."userId" = u.id AND a."providerId" = 'credential';
+          SELECT count(*) FROM neon_auth.account WHERE "providerId" = 'credential' AND password IS NULL;
+          SELECT crypt('gnhweb-bcrypt-test', crypt('gnhweb-bcrypt-test', gen_salt('bf'))) IS NOT NULL;
+          SQL
+          )"
+
+      - name: Remove sensitive temporary files
+        if: always()
+        run: |
+          rm -f legacy-auth-import.sql
+          rm -rf backup
