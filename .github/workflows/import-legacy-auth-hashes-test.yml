@@ -104,7 +104,7 @@ jobs:
             --set ON_ERROR_STOP=1 \
             --tuples-only \
             --no-align \
-            --command "SELECT count(*) FROM legacy_migration.supabase_passwords; SELECT count(*) FROM legacy_migration.supabase_passwords WHERE encrypted_password ~ '^\\$2[aby]\\$[0-9]{2}\\$'; SELECT crypt('gnhweb-bcrypt-test', crypt('gnhweb-bcrypt-test', gen_salt('bf'))) IS NOT NULL;"
+            --command 'SELECT count(*) FROM legacy_migration.supabase_passwords; SELECT count(*) FROM legacy_migration.supabase_passwords WHERE encrypted_password ~ ''^\$2[aby]\$[0-9]{2}\$''; SELECT crypt(''gnhweb-bcrypt-test'', crypt(''gnhweb-bcrypt-test'', gen_salt(''bf''))) IS NOT NULL;'
 
       - name: Remove sensitive temporary files
         if: always()
