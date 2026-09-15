@@ -32,8 +32,16 @@ function requiresNeonJwt(pathname: string): boolean {
 
 export default {
   async fetch(req: Request, env: Record<string, string | undefined>): Promise<Response> {
-    if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
     const url = new URL(req.url);
+
+    // The account migration endpoint owns its origin-aware CORS handling.
+    // Route it before the generic OPTIONS response so browser preflight reaches
+    // the endpoint-specific Access-Control-Allow-Origin response.
+    if (url.pathname === '/account-password-migration') {
+      return handleAccountPasswordMigration(req, env);
+    }
+
+    if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
     if (requiresNeonJwt(url.pathname) && !req.headers.get('authorization')) {
       return json({ error: 'Unauthorized' }, 401);
     }
@@ -46,7 +54,6 @@ export default {
     if (url.pathname === '/setup-chief') return handleSetupChief(req, env);
     if (url.pathname === '/monthly-champion-snapshot') return handleMonthlyChampionSnapshot(req, env);
     if (url.pathname === '/web-push') return handleWebPush(req, env);
-    if (url.pathname === '/account-password-migration') return handleAccountPasswordMigration(req, env);
     if (url.pathname !== '/web-push-public-key') return json({ error: 'Not Found' }, 404);
     if (req.method !== 'GET') return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
     const publicKey = String(env.WEB_PUSH_VAPID_PUBLIC_KEY || '').trim();
