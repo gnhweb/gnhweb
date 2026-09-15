@@ -8,6 +8,7 @@ const ALLOWED_ORIGINS = new Set([
   'https://gnhweb.vercel.app',
   'https://gnhweb.pages.dev',
   'https://gnhwebw.pages.dev',
+  'https://gnhweb.gemini19840314.workers.dev',
 ]);
 
 type MigrationEnv = Record<string, string | undefined>;
@@ -15,7 +16,6 @@ type MigrationEnv = Record<string, string | undefined>;
 type MigrationBody = {
   email?: unknown;
   password?: unknown;
-  anonKey?: unknown;
 };
 
 function headers(origin: string) {
@@ -86,12 +86,13 @@ export async function handleAccountPasswordMigration(
 
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   const password = typeof body.password === 'string' ? body.password : '';
-  const anonKey = typeof body.anonKey === 'string' ? body.anonKey.trim() : '';
   const databaseUrl = String(env.DATABASE_URL || '').trim();
   const supabaseUrl = String(env.SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
+  const anonKey = String(env.SUPABASE_ANON_KEY || '').trim();
 
-  if (!email || !password || !anonKey) return json({ error: 'Missing credentials' }, 400, origin);
+  if (!email || !password) return json({ error: 'Missing credentials' }, 400, origin);
   if (!databaseUrl) return json({ error: 'DATABASE_URL is not configured' }, 500, origin);
+  if (!anonKey) return json({ error: 'Legacy Supabase verifier is not configured' }, 500, origin);
 
   try {
     const legacyValid = await verifyLegacyPassword(supabaseUrl, anonKey, email, password);
