@@ -18,6 +18,12 @@ type MigrationBody = {
   password?: unknown;
 };
 
+type LegacyAuthFailure = {
+  status: number;
+  error?: string;
+  errorDescription?: string;
+};
+
 function headers(origin: string) {
   const result = new Headers({
     'Cache-Control': 'no-store',
@@ -48,7 +54,7 @@ async function verifyLegacyPassword(
   anonKey: string,
   email: string,
   password: string,
-): Promise<boolean> {
+): Promise<LegacyAuthFailure | null> {
   const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: {
@@ -58,7 +64,25 @@ async function verifyLegacyPassword(
     body: JSON.stringify({ email, password }),
   });
 
-  return response.ok;
+  if (response.ok) return null;
+
+  let error: string | undefined;
+  let errorDescription: string | undefined;
+  try {
+    const body = await response.json() as { error?: unknown; error_description?: unknown };
+    if (typeof body.error === 'string') error = body.error;
+    if (typeof body.error_description === 'string') errorDescription = body.error_description;
+  } catch {
+    // Keep the HTTP status as the safe diagnostic when the response is not JSON.
+  }
+
+  console.error('[account-password-migration] legacy auth rejected request', {
+    status: response.status,
+    error,
+    errorDescription,
+  });
+
+  return { status: response.status, error, errorDescription };
 }
 
 export async function handleAccountPasswordMigration(
@@ -95,8 +119,19 @@ export async function handleAccountPasswordMigration(
   if (!anonKey) return json({ error: 'Legacy Supabase verifier is not configured' }, 500, origin);
 
   try {
-    const legacyValid = await verifyLegacyPassword(supabaseUrl, anonKey, email, password);
-    if (!legacyValid) return json({ error: 'Legacy credentials are invalid' }, 401, origin);
+    const legacyFailure = await verifyLegacyPassword(supabaseUrl, anonKey, email, password);
+    if (legacyFailure) {
+      return json(
+        {
+          error: 'Legacy credentials are invalid',
+          legacyStatus: legacyFailure.status,
+          legacyError: legacyFailure.error,
+          legacyErrorDescription: legacyFailure.errorDescription,
+        },
+        401,
+        origin,
+      );
+    }
 
     const sql = neon(databaseUrl);
     const existing = await sql<{ id: string; password: string | null }[]>`
