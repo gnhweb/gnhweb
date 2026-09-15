@@ -40,9 +40,6 @@ jobs:
           workingDirectory: workers/api
           command: deploy --config wrangler.jsonc
 
-      - name: Apply login recovery patch
-        run: node scripts/account-recovery-login-patch.mjs
-
       - name: Install site dependencies
         run: npm install --include=dev --no-audit --no-fund
 
