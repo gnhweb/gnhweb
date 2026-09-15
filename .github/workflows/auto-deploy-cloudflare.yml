@@ -1,7 +1,7 @@
 name: Auto Deploy Cloudflare
 
-# Single production pipeline for Cloudflare Workers.
-# Cloudflare Pages remains the site deployment target; Workers are deployed here.
+# Single production pipeline: one push to main deploys the site and all
+# production Workers from the exact same commit.
 
 on:
   push:
@@ -19,6 +19,32 @@ env:
   VITE_CF_REALTIME_URL: https://gnhweb-realtime.gemini19840314.workers.dev
 
 jobs:
+  deploy-site:
+    name: Deploy gnhweb Cloudflare Pages site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install site dependencies
+        run: npm install --include=dev --no-audit --no-fund
+      - name: Type-check site
+        run: npm run type-check
+      - name: Lint site
+        run: npm run lint
+      - name: Build site
+        run: npm run build
+        env:
+          VITE_CF_REALTIME_URL: ${{ env.VITE_CF_REALTIME_URL }}
+      - name: Deploy Cloudflare Pages
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          command: pages deploy out --project-name gnhweb
+
   deploy-realtime:
     name: Deploy gnhweb realtime Worker
     runs-on: ubuntu-latest
@@ -149,3 +175,16 @@ jobs:
             echo 'Fallback response detected'
             exit 1
           fi
+
+  verify-site:
+    name: Verify deployed Cloudflare Pages site
+    needs: deploy-site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify site response
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output /tmp/site-response.html --write-out '%{http_code}' 'https://gnhweb.pages.dev/')
+          echo "HTTP $status"
+          test "$status" = "200"
+          grep -q '<html' /tmp/site-response.html
