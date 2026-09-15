@@ -136,7 +136,7 @@ export default function Login() {
           if (migration.migrated || migration.alreadyMigrated) {
             ({ error: err, user: signedInUser } = await signIn(email, password));
           } else if (migration.error) {
-            setError(migration.error);
+            err = migration.error;
           }
         }
         if (signedInUser) {
