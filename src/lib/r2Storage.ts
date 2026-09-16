@@ -21,7 +21,8 @@ const buildUrl = (bucket: string, path: string, params?: URLSearchParams) => {
   // legacy photo-management screens can extract R2 object paths correctly.
   const urlBucket = normalizedBucket === 'Public' ? 'public' : encodeURIComponent(normalizedBucket);
   const url = `${baseUrl}/v1/storage/${urlBucket}${encodedPath ? `/${encodedPath}` : ''}`;
-  return params?.size ? `${url}?${params.toString()}` : url;
+  const query = params?.toString();
+  return query ? `${url}?${query}` : url;
 };
 
 const request = async (bucket: string, path: string, init: RequestInit = {}, requiresAuth = true, params?: URLSearchParams): Promise<Response> => {
