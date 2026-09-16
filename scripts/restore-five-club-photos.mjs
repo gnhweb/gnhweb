@@ -1,3 +1,5 @@
+import { writeFile } from 'node:fs/promises';
+
 const WORKER_BASE = 'https://gnhweb-storage-migrate.gemini19840314.workers.dev/v1/legacy-public/';
 
 const photoKeys = [
@@ -81,5 +83,7 @@ for (let offset = 0; offset < photoKeys.length; offset += batchSize) {
   console.log(`progress=${restored}/${photoKeys.length}`);
 }
 
-console.log(JSON.stringify({ total: photoKeys.length, restored, failed: failures.length, failures }, null, 2));
+const report = { total: photoKeys.length, restored, failed: failures.length, failures };
+await writeFile('restore-five-club-photos-report.json', JSON.stringify(report, null, 2));
+console.log(JSON.stringify(report, null, 2));
 if (failures.length > 0) process.exitCode = 1;
