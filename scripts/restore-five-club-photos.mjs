@@ -56,7 +56,9 @@ for (let offset = 0; offset < photoKeys.length; offset += batchSize) {
   const batch = photoKeys.slice(offset, offset + batchSize);
   const results = await Promise.all(batch.map(async (key) => {
     try {
-      const response = await fetch(`${WORKER_BASE}${key.split('/').map(encodeURIComponent).join('/')}`);
+      const response = await fetch(`${WORKER_BASE}${key.split('/').map(encodeURIComponent).join('/')}`, {
+        signal: AbortSignal.timeout(20_000),
+      });
       const contentType = response.headers.get('content-type') || '';
       if (!response.ok || !contentType.startsWith('image/')) {
         const body = (await response.text()).slice(0, 300);
