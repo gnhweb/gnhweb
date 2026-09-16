@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: restore-five-club-photos
+  cancel-in-progress: true
+
 jobs:
   restore:
     name: Restore five club photo sets
