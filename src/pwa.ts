@@ -21,7 +21,9 @@ function installRegistrationListeners(registration: ServiceWorkerRegistration) {
 
     worker.addEventListener('statechange', () => {
       if (worker.state !== 'installed' || !navigator.serviceWorker.controller) return;
-      window.location.reload();
+      // Do not force a full-page reload when a new service worker is installed.
+      // The app can continue using the current page and pick up the new worker
+      // on the next navigation/reload, avoiding unexpected refresh loops.
     });
   });
 }
