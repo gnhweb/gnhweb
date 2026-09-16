@@ -55,15 +55,25 @@ const failures = [];
 for (let offset = 0; offset < photoKeys.length; offset += batchSize) {
   const batch = photoKeys.slice(offset, offset + batchSize);
   const results = await Promise.all(batch.map(async (key) => {
-    const response = await fetch(`${WORKER_BASE}${key.split('/').map(encodeURIComponent).join('/')}`);
-    const contentType = response.headers.get('content-type') || '';
-    if (!response.ok || !contentType.startsWith('image/')) {
-      const detail = `${response.status} ${contentType}`;
+    try {
+      const response = await fetch(`${WORKER_BASE}${key.split('/').map(encodeURIComponent).join('/')}`);
+      const contentType = response.headers.get('content-type') || '';
+      if (!response.ok || !contentType.startsWith('image/')) {
+        const body = (await response.text()).slice(0, 300);
+        const detail = `${response.status} ${contentType} ${body}`.trim();
+        failures.push({ key, detail });
+        console.error(`restore failed: ${key} -> ${detail}`);
+        return false;
+      }
+      await response.arrayBuffer();
+      console.log(`restored: ${key}`);
+      return true;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
       failures.push({ key, detail });
+      console.error(`restore error: ${key} -> ${detail}`);
       return false;
     }
-    await response.arrayBuffer();
-    return true;
   }));
   restored += results.filter(Boolean).length;
   console.log(`progress=${restored}/${photoKeys.length}`);
