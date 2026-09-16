@@ -1,0 +1,22 @@
+name: Restore five club photos to R2
+
+on:
+  push:
+    branches:
+      - restore-five-club-photos
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    name: Restore five club photo sets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Restore legacy club photos through R2 migration Worker
+        run: node scripts/restore-five-club-photos.mjs
