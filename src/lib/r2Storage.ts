@@ -17,7 +17,10 @@ const normalizeBucket = (bucket: string) => bucket.toLowerCase() === 'public' ? 
 const buildUrl = (bucket: string, path: string, params?: URLSearchParams) => {
   const normalizedBucket = normalizeBucket(bucket);
   const encodedPath = path.split('/').filter(Boolean).map((segment) => encodeURIComponent(segment)).join('/');
-  const url = `${baseUrl}/v1/storage/${encodeURIComponent(normalizedBucket)}${encodedPath ? `/${encodedPath}` : ''}`;
+  // Keep the public bucket segment lowercase so the existing URL-path parser in
+  // legacy photo-management screens can extract R2 object paths correctly.
+  const urlBucket = normalizedBucket === 'Public' ? 'public' : encodeURIComponent(normalizedBucket);
+  const url = `${baseUrl}/v1/storage/${urlBucket}${encodedPath ? `/${encodedPath}` : ''}`;
   return params?.size ? `${url}?${params.toString()}` : url;
 };
 
