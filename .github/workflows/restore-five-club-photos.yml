@@ -3,6 +3,7 @@ name: Restore five club photos to R2
 on:
   push:
     branches:
+      - main
       - restore-five-club-photos
   workflow_dispatch:
 
