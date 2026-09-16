@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: restore-five-club-photos
@@ -24,4 +25,42 @@ jobs:
         with:
           node-version: 22
       - name: Restore legacy club photos through R2 migration Worker
+        id: restore
+        continue-on-error: true
         run: node scripts/restore-five-club-photos.mjs
+      - name: Publish restore diagnostics
+        if: steps.restore.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const report = fs.readFileSync('restore-five-club-photos-report.json', 'utf8');
+            const parsed = JSON.parse(report);
+            const failures = parsed.failures.map((item) => `- \`${item.key}\`: ${item.detail}`).join('\n');
+            const body = [
+              '자동 사진 R2 복구가 실패했습니다.',
+              '',
+              `- total: ${parsed.total}`,
+              `- restored: ${parsed.restored}`,
+              `- failed: ${parsed.failed}`,
+              '',
+              failures || '실패 상세 없음',
+              '',
+              `commit: ${context.sha}`,
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[storage] five-club photo restore failed (${context.sha.slice(0, 7)})`,
+              body,
+            });
+      - name: Upload restore report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: five-club-photo-restore-report
+          path: restore-five-club-photos-report.json
+          if-no-files-found: ignore
+      - name: Fail when photo restore is incomplete
+        if: steps.restore.outcome == 'failure'
+        run: exit 1
