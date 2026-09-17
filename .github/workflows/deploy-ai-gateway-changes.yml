@@ -1,0 +1,45 @@
+name: Deploy AI Gateway Changes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "workers/ai-gateway/**"
+      - ".github/workflows/deploy-ai-gateway-changes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-gateway-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy AI gateway Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          workingDirectory: workers/ai-gateway
+          command: deploy --config wrangler.jsonc
+
+      - name: Verify /nim-quiz
+        run: |
+          set -euo pipefail
+          response_file=$(mktemp)
+          http_code=$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"difficulty":"normal","count":1,"excludeQuestions":[],"source":"site"}' \
+            'https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-quiz')
+          echo "HTTP $http_code"
+          cat "$response_file"
+          test "$http_code" = "200"
+          python -c 'import json,sys; data=json.load(open(sys.argv[1])); assert isinstance(data,list) and len(data)==1' "$response_file"
