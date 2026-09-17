@@ -97,9 +97,11 @@ export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', exc
     .eq('difficulty', QUIZ_DIFFICULTY_KR[requestedDifficulty]);
 
   if (!dbError && dbRows) {
-    const normalized = filterExcludedQuestions(normalizeQuizRows(dbRows, requestedDifficulty), excludeQuestions);
+    const allNormalized = normalizeQuizRows(dbRows, requestedDifficulty);
+    const filtered = filterExcludedQuestions(allNormalized, excludeQuestions);
+    const sourceRows = filtered.length >= 10 ? filtered : allNormalized;
     const unique = new Map<string, QuizQuestion>();
-    for (const question of normalized) {
+    for (const question of sourceRows) {
       const key = question.question.replace(/[\s\p{P}\p{S}]+/gu, '');
       if (!unique.has(key)) unique.set(key, question);
     }
