@@ -397,13 +397,14 @@ export default function ClubDetail() {
     }
   };
 
-  const saveClubDetail = async (updates: Partial<ClubDetailData>) => {
+  const saveClubDetail = async (updates: Partial<ClubDetailData>): Promise<{ success: true } | { success: false; error: string }> => {
     if (!canEditClubDetail) {
-      setError('이 동아리의 정보를 수정할 권한이 없습니다.');
-      return;
+      const message = '이 동아리의 정보를 수정할 권한이 없습니다.';
+      setError(message);
+      return { success: false, error: message };
     }
+
     const newDetail = { ...clubDetail, ...updates };
-    setClubDetail(newDetail);
     setSaving(true);
     try {
       const content = {
@@ -431,9 +432,15 @@ export default function ClubDetail() {
         }, { onConflict: 'club,type' });
 
       if (upsertError) throw upsertError;
+
+      // DB 저장이 성공한 경우에만 로컬 상태를 확정한다.
+      setClubDetail(newDetail);
+      return { success: true };
     } catch (e) {
       console.error('Failed to save club detail:', e);
-      setError('저장 중 오류가 발생했습니다.');
+      const message = e instanceof Error && e.message ? e.message : '저장 중 오류가 발생했습니다.';
+      setError(message);
+      return { success: false, error: message };
     } finally {
       setSaving(false);
     }
@@ -444,6 +451,20 @@ export default function ClubDetail() {
     if (!files || files.length === 0 || !user) return;
     setUploading(true);
     setError(null);
+
+    const uploadedPaths: string[] = [];
+    const removeUploadedFiles = async () => {
+      if (uploadedPaths.length === 0) return;
+      try {
+        const { error: removeError } = await supabase.storage.from('Public').remove(uploadedPaths);
+        if (removeError) {
+          console.error('Failed to rollback uploaded club photos:', removeError);
+        }
+      } catch (removeError) {
+        console.error('Failed to rollback uploaded club photos:', removeError);
+      }
+    };
+
     try {
       const uploadPromises = Array.from(files).map(async (file): Promise<ClubPhoto> => {
         const safeName = `${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
@@ -462,6 +483,7 @@ export default function ClubDetail() {
             cacheControl: '31536000',
           });
         if (displayErr) throw displayErr;
+        uploadedPaths.push(path);
 
         const { error: thumbErr } = await supabase.storage
           .from('Public')
@@ -471,9 +493,11 @@ export default function ClubDetail() {
             cacheControl: '31536000',
           });
         if (thumbErr) {
+          uploadedPaths.push(thumbPath);
           await supabase.storage.from('Public').remove([path]);
           throw thumbErr;
         }
+        uploadedPaths.push(thumbPath);
 
         const url = supabase.storage.from('Public').getPublicUrl(path).data.publicUrl;
         const thumbUrl = supabase.storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
@@ -481,9 +505,19 @@ export default function ClubDetail() {
       });
       const newPhotos = await Promise.all(uploadPromises);
       const updatedPhotos = [...clubDetail.photos, ...newPhotos];
-      await saveClubDetail({ photos: updatedPhotos });
-    } catch {
-      setError('사진 업로드 중 오류가 발생했습니다.');
+      const saveResult = await saveClubDetail({ photos: updatedPhotos });
+
+      if (!saveResult.success) {
+        await removeUploadedFiles();
+        return;
+      }
+    } catch (uploadError) {
+      await removeUploadedFiles();
+      console.error('Failed to upload club photos:', uploadError);
+      const message = uploadError instanceof Error && uploadError.message
+        ? uploadError.message
+        : '사진 업로드 중 오류가 발생했습니다.';
+      setError(message);
     } finally {
       setUploading(false);
       // Reset the file input
