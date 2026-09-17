@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { clubs, clubIcons, type ClubData } from '@/mocks/clubs';
-import ClubBannerManager, { useClubBanner } from '@/components/feature/ClubBannerManager';
 import PhotoLightbox from '@/components/feature/PhotoLightbox';
 import { CategoryChipRow, CategoryChip } from '@/components/base/CategoryChip';
 import { resizeImageFile, thumbFileNameFor } from '@/lib/imageResize';
@@ -143,7 +142,6 @@ export default function ClubDetail() {
   const navigate = useNavigate();
   const { user, profile, secondaryClubs } = useAuth();
   const club: ClubData | undefined = clubs.find(c => c.id === id);
-  const { banner: clubBanner, refresh: refreshBanner } = useClubBanner(id || '');
 
   const [activeTab, setActiveTab] = useState<'info' | 'members' | 'photos' | 'qna'>('info');
   const [loading, setLoading] = useState(true);
@@ -849,7 +847,7 @@ export default function ClubDetail() {
                 </span>
                 <h1 className="font-heading text-2xl md:text-3xl font-bold text-foreground-950 truncate">{club.name}</h1>
               </div>
-              <p className="text-foreground-600 text-sm md:text-base">{club.description}</p>
+              <p className="text-foreground-600 text-sm md:text-base">{(club as ClubData & { shortDescription?: string }).shortDescription}</p>
             </div>
             {canEditClubDetail && (
               <div className="flex items-center gap-2 text-xs text-foreground-500">
@@ -1217,8 +1215,6 @@ export default function ClubDetail() {
           </InfoSection>
         )}
       </div>
-
-      <ClubBannerManager club={club.id} onBannerChange={refreshBanner} />
 
       <AnimatePresence>
         {lightboxIndex !== null && clubDetail.photos[lightboxIndex] && (
