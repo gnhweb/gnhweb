@@ -139,7 +139,8 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
           'bible-pick',
           'monthly-champion-snapshot',
         ]).has(baseFunctionName);
-        const jwt = jwtRequiredFunction ? await neonAuth.getJWTToken?.(true) : null;
+        const quizJwt = baseFunctionName === 'nim-quiz' ? await neonAuth.getJWTToken?.(true) : null;
+        const jwt = jwtRequiredFunction ? await neonAuth.getJWTToken?.(true) : quizJwt;
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (jwt) headers.Authorization = `Bearer ${jwt}`;
 
