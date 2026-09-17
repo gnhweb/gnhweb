@@ -174,7 +174,7 @@ export default function BibleQuiz() {
         const finalScore = score + (isCorrect === true ? (questions[currentQ]?.points || 20) : 0);
         const finalCorrectCount = correctCount + (isCorrect === true ? 1 : 0);
 
-        supabase.functions.invoke('quiz-leaderboard', {
+        const { data: result, error: saveError } = await supabase.functions.invoke('quiz-leaderboard', {
           method: 'POST',
           body: {
             user_id: user.id,
@@ -185,15 +185,15 @@ export default function BibleQuiz() {
             correct_count: finalCorrectCount,
             difficulty,
           },
-        }).then(({ data: result, error: saveError }) => {
-          if (saveError) {
-            console.error('[BibleQuiz] score save failed:', saveError);
-            return;
-          }
-          if (result?.cumulative) {
-            setCumulativeStats(result.cumulative as CumulativeStats);
-          }
-        }).finally(() => setSavingScore(false));
+        });
+
+        if (saveError) {
+          console.error('[BibleQuiz] score save failed:', saveError);
+          setError('퀴즈 기록을 저장하지 못했어요. 잠시 후 다시 확인해주세요.');
+        } else if (result?.cumulative) {
+          setCumulativeStats(result.cumulative as CumulativeStats);
+        }
+        setSavingScore(false);
       }
     }
   };

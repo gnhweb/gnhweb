@@ -119,6 +119,21 @@ export default function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean;
     }
   }, [isOpen, fetchLeaderboard]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const channel = supabase
+      .channel('bible-quiz-leaderboard-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_scores' }, () => {
+        void fetchLeaderboard();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isOpen, fetchLeaderboard]);
+
   const handleReset = async () => {
     if (!window.confirm('전체 리더보드 기록을 초기화할까요? 이 작업은 되돌릴 수 없습니다.')) return;
     setResetting(true);
