@@ -54,10 +54,10 @@ async function hasHeicSignature(source: File | Blob): Promise<boolean> {
 
   try {
     const header = new Uint8Array(await source.slice(4, 12).arrayBuffer());
-    const text = String.fromCharCode(...header);
-    if (text !== 'ftyp') return false;
+    const boxType = String.fromCharCode(...header.slice(0, 4));
+    if (boxType !== 'ftyp') return false;
 
-    const brandBytes = new Uint8Array(await source.slice(8, 16).arrayBuffer());
+    const brandBytes = new Uint8Array(await source.slice(8, 12).arrayBuffer());
     const brand = String.fromCharCode(...brandBytes);
     return ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
   } catch {
