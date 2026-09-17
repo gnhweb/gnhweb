@@ -104,7 +104,8 @@ async function neonSelect(
     {
       headers: {
         Accept: "application/json",
-        ...(env.NEON_DATA_API_KEY ? { Authorization: `Bearer ${env.NEON_DATA_API_KEY}` } : {}),
+        "apikey": env.NEON_DATA_API_KEY?.trim() || "anonymous",
+        ...(env.NEON_DATA_API_KEY?.trim() ? { Authorization: `Bearer ${env.NEON_DATA_API_KEY.trim()}` } : {}),
       },
     },
   );
