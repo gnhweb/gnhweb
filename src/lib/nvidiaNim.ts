@@ -52,6 +52,26 @@ function normalizeQuizRows(rows: unknown[], requestedDifficulty: 'easy' | 'norma
     .filter((q): q is QuizQuestion => q !== null);
 }
 
+function shuffleQuizOptions(question: QuizQuestion): QuizQuestion {
+  if (question.type === 'ox') return question;
+
+  const indexed = question.options.map((option) => ({
+    option,
+    correct: option.replace(/\s+/g, '') === question.answer.replace(/\s+/g, ''),
+  }));
+
+  for (let i = indexed.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indexed[i], indexed[j]] = [indexed[j], indexed[i]];
+  }
+
+  return {
+    ...question,
+    options: indexed.map((item) => item.option),
+    answer: indexed.find((item) => item.correct)?.option || question.answer,
+  };
+}
+
 function filterExcludedQuestions(rows: QuizQuestion[], excludeQuestions: string[]): QuizQuestion[] {
   const excluded = excludeQuestions.map((value) => value.trim().replace(/[\s\p{P}\p{S}]+/gu, '')).filter((value) => value.length >= 8);
   return rows.filter((q) => {
@@ -68,7 +88,7 @@ export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', exc
 
   if (!error && Array.isArray(data)) {
     const normalized = normalizeQuizRows(data, requestedDifficulty);
-    if (normalized.length === 10 && normalized.every((question) => question.difficulty === requestedDifficulty && question.points === QUIZ_POINTS[requestedDifficulty])) return normalized;
+    if (normalized.length === 10 && normalized.every((question) => question.difficulty === requestedDifficulty && question.points === QUIZ_POINTS[requestedDifficulty])) return normalized.map(shuffleQuizOptions);
   }
 
   const { data: dbRows, error: dbError } = await supabase
@@ -84,7 +104,7 @@ export async function fetchQuizData(difficulty?: 'easy' | 'normal' | 'hard', exc
       if (!unique.has(key)) unique.set(key, question);
     }
     const shuffled = [...unique.values()].sort(() => Math.random() - 0.5).slice(0, 10);
-    if (shuffled.length === 10) return shuffled;
+    if (shuffled.length === 10) return shuffled.map(shuffleQuizOptions);
   }
 
   if (error || dbError) throw new Error('퀴즈 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
