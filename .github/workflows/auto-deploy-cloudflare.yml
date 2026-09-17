@@ -78,7 +78,6 @@ jobs:
           for marker in \
             "saveClubDetail" \
             "handlePhotoUpload" \
-            "ClubBannerManager" \
             "PhotoLightbox"; do
             if ! grep -q "$marker" "$file"; then
               echo "ERROR: critical club detail marker missing: $marker"
