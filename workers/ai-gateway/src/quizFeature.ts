@@ -140,31 +140,41 @@ export async function handleNimQuiz(
     const excluded = Array.isArray(body.excludeQuestions) ? body.excludeQuestions.map(String) : [];
 
     const data = await neonSelect(env, requestedDifficulty, req.headers.get("Authorization"));
-    const pool = data
-      .map(normalizeRow)
-      .filter((question) => !isBadQuestion(question) && !isExcluded(question, excluded));
+    const allRows = data.map(normalizeRow);
+    const qualityRows = allRows.filter((question) => !isBadQuestion(question));
+    const preferredRows = qualityRows.filter((question) => !isExcluded(question, excluded));
 
-    const unique = new Map<string, QuizQuestion>();
-    for (const question of pool) {
-      const key = questionKey(question);
-      if (!unique.has(key)) unique.set(key, question);
-    }
+    const uniqueQuestions = (rows: QuizQuestion[]): QuizQuestion[] => {
+      const unique = new Map<string, QuizQuestion>();
+      for (const question of rows) {
+        const key = questionKey(question);
+        if (!unique.has(key)) unique.set(key, question);
+      }
+      return [...unique.values()];
+    };
 
-    const candidates = shuffle([...unique.values()]).sort((a, b) => storyScore(b) - storyScore(a));
+    // Prefer unseen questions, but never block the quiz when the history is
+    // larger than the available pool. Reuse older questions to complete a set.
+    const candidates = [
+      ...shuffle(uniqueQuestions(preferredRows)),
+      ...shuffle(uniqueQuestions(qualityRows.filter((question) => isExcluded(question, excluded)))),
+      ...shuffle(uniqueQuestions(allRows.filter((question) => !isExcluded(question, excluded)))),
+      ...shuffle(uniqueQuestions(allRows.filter((question) => isExcluded(question, excluded)))),
+    ].sort((a, b) => storyScore(b) - storyScore(a));
+
     const selected: QuizQuestion[] = [];
-    const usedOptionSets = new Set<string>();
-
+    const selectedKeys = new Set<string>();
     for (const question of candidates) {
-      const optionKey = optionSetKey(question);
-      if (usedOptionSets.has(optionKey)) continue;
+      const key = questionKey(question);
+      if (selectedKeys.has(key)) continue;
       selected.push(question);
-      usedOptionSets.add(optionKey);
+      selectedKeys.add(key);
       if (selected.length >= count) break;
     }
 
     if (selected.length < count) {
       return new Response(
-        JSON.stringify({ error: `선택한 난이도에서 품질 기준을 통과한 문제가 ${count}개보다 부족합니다.` }),
+        JSON.stringify({ error: `선택한 난이도의 퀴즈 데이터를 충분히 확보하지 못했습니다.` }),
         { status: 422, headers: CORS_HEADERS },
       );
     }
