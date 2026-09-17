@@ -22,17 +22,8 @@ const DEFAULTS = {
   mimeType: 'image/jpeg',
 } satisfies Required<Omit<ResizeOptions, 'maxBytes'>>;
 
-function isHeicFile(source: File | Blob): boolean {
-  const type = source.type.toLowerCase();
-  if (type === 'image/heic' || type === 'image/heif' || type === 'image/heic-sequence' || type === 'image/heif-sequence') {
-    return true;
-  }
-
-  if (source instanceof File) {
-    return /\.(heic|heif)$/i.test(source.name);
-  }
-
-  return false;
+function sourceFileName(source: File | Blob): string {
+  return source instanceof File ? source.name : '';
 }
 
 function sourceDescription(source: File | Blob): string {
@@ -54,8 +45,38 @@ function errorDescription(error: unknown): string {
   }
 }
 
+/**
+ * Android 갤러리/공유 앱 일부는 HEIC 파일을 image/jpeg 또는 .jpg로 잘못 표시한다.
+ * MIME/확장자만 확인하면 createImageBitmap 단계에서 바로 실패하므로 파일 시그니처도 확인한다.
+ */
+async function hasHeicSignature(source: File | Blob): Promise<boolean> {
+  if (source.size < 12) return false;
+
+  try {
+    const header = new Uint8Array(await source.slice(4, 12).arrayBuffer());
+    const text = String.fromCharCode(...header);
+    if (text !== 'ftyp') return false;
+
+    const brandBytes = new Uint8Array(await source.slice(8, 16).arrayBuffer());
+    const brand = String.fromCharCode(...brandBytes);
+    return ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
+  } catch {
+    return false;
+  }
+}
+
+async function isHeicFile(source: File | Blob): Promise<boolean> {
+  const type = source.type.toLowerCase();
+  if (type === 'image/heic' || type === 'image/heif' || type === 'image/heic-sequence' || type === 'image/heif-sequence') {
+    return true;
+  }
+
+  if (/\.(heic|heif)$/i.test(sourceFileName(source))) return true;
+  return hasHeicSignature(source);
+}
+
 async function convertHeicToJpeg(source: File | Blob): Promise<Blob> {
-  if (!isHeicFile(source)) return source;
+  if (!(await isHeicFile(source))) return source;
 
   try {
     const { default: heic2any } = await import('heic2any');
@@ -64,7 +85,11 @@ async function convertHeicToJpeg(source: File | Blob): Promise<Blob> {
       toType: 'image/jpeg',
       quality: 0.88,
     });
-    return Array.isArray(converted) ? converted[0] : converted;
+    const result = Array.isArray(converted) ? converted[0] : converted;
+    if (!(result instanceof Blob) || result.size === 0) {
+      throw new Error('HEIC 변환 결과가 비어 있습니다.');
+    }
+    return result;
   } catch (error) {
     console.error('HEIC/HEIF 이미지 변환 실패:', error);
     throw new Error(`[IMAGE_HEIC_CONVERSION_ERROR] ${sourceDescription(source)} | ${errorDescription(error)}`);
@@ -114,8 +139,7 @@ async function loadDrawable(source: File | Blob): Promise<{ drawable: CanvasImag
 export async function resizeImageFile(source: File | Blob, options: ResizeOptions = {}): Promise<Blob> {
   const { maxDimension, quality, mimeType } = { ...DEFAULTS, ...options };
 
-  let drawableResult: Awaited<ReturnType<typeof loadDrawable>>;
-  drawableResult = await loadDrawable(source);
+  const drawableResult = await loadDrawable(source);
 
   const { drawable, width, height, close } = drawableResult;
   try {
