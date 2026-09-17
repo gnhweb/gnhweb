@@ -849,7 +849,7 @@ export default function ClubDetail() {
                 </span>
                 <h1 className="font-heading text-2xl md:text-3xl font-bold text-foreground-950 truncate">{club.name}</h1>
               </div>
-              <p className="text-foreground-600 text-sm md:text-base">{club.shortDescription}</p>
+              <p className="text-foreground-600 text-sm md:text-base">{club.description}</p>
             </div>
             {canEditClubDetail && (
               <div className="flex items-center gap-2 text-xs text-foreground-500">
@@ -1218,12 +1218,13 @@ export default function ClubDetail() {
         )}
       </div>
 
-      <ClubBannerManager clubId={id || ''} banner={clubBanner} canEdit={canEditClubDetail} onSaved={refreshBanner} />
+      <ClubBannerManager club={club.id} onBannerChange={refreshBanner} />
 
       <AnimatePresence>
         {lightboxIndex !== null && clubDetail.photos[lightboxIndex] && (
           <PhotoLightbox
-            photos={clubDetail.photos}
+            photos={clubDetail.photos.map(p => p.url)}
+            thumbUrls={clubDetail.photos.map(p => p.thumbUrl || p.url)}
             initialIndex={lightboxIndex}
             onClose={() => setLightboxIndex(null)}
           />
