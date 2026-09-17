@@ -1,0 +1,48 @@
+name: One-off fix club detail types
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-off-fix-club-detail-types.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Apply exact type fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/pages/clubs/detail/page.tsx')
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              ("{club.shortDescription}", "{club.description}"),
+              ("<ClubBannerManager clubId={id || ''} banner={clubBanner} canEdit={canEditClubDetail} onSaved={refreshBanner} />", "<ClubBannerManager club={club.id} onBannerChange={refreshBanner} />"),
+              ("<PhotoLightbox\n            photos={clubDetail.photos}\n            initialIndex={lightboxIndex}\n            onClose={() => setLightboxIndex(null)}\n          />", "<PhotoLightbox\n            photos={clubDetail.photos.map(p => p.url)}\n            thumbUrls={clubDetail.photos.map(p => p.thumbUrl || p.url)}\n            initialIndex={lightboxIndex}\n            onClose={() => setLightboxIndex(null)}\n          />"),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'missing expected source pattern: {old[:100]}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Remove one-off workflow
+        run: rm .github/workflows/one-off-fix-club-detail-types.yml
+
+      - name: Commit exact fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/clubs/detail/page.tsx .github/workflows/one-off-fix-club-detail-types.yml
+          git diff --cached --check
+          git commit -m 'fix(club): resolve club detail type errors'
+          git push
