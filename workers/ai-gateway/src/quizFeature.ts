@@ -95,6 +95,7 @@ function normalizeRow(row: Record<string, unknown>): QuizQuestion {
 async function neonSelect(
   env: Record<string, string | undefined>,
   difficulty: string,
+  authorization?: string | null,
 ): Promise<Record<string, unknown>[]> {
   const baseUrl = (env.NEON_DATA_API_URL || DEFAULT_NEON_DATA_API_URL)
     .replace(/\/$/, "")
@@ -106,6 +107,7 @@ async function neonSelect(
         Accept: "application/json",
         "apikey": env.NEON_DATA_API_KEY?.trim() || "anonymous",
         ...(env.NEON_DATA_API_KEY?.trim() ? { Authorization: `Bearer ${env.NEON_DATA_API_KEY.trim()}` } : {}),
+        ...(authorization ? { Authorization: authorization } : {}),
       },
     },
   );
@@ -137,7 +139,7 @@ export async function handleNimQuiz(
     const count = Math.min(Math.max(Number(body.count) || 10, 1), 30);
     const excluded = Array.isArray(body.excludeQuestions) ? body.excludeQuestions.map(String) : [];
 
-    const data = await neonSelect(env, requestedDifficulty);
+    const data = await neonSelect(env, requestedDifficulty, req.headers.get("Authorization"));
     const pool = data
       .map(normalizeRow)
       .filter((question) => !isBadQuestion(question) && !isExcluded(question, excluded));
