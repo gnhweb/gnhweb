@@ -19,8 +19,77 @@ env:
   VITE_CF_REALTIME_URL: https://gnhweb-realtime.gemini19840314.workers.dev
 
 jobs:
+  regression-guard:
+    name: Guard critical pages against accidental regressions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check critical file changes
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+
+          if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "Initial push; diff guard skipped."
+            exit 0
+          fi
+
+          # Large rewrites of critical UI files are blocked by default. This
+          # prevents an accidental whole-file replacement from reaching
+          # production. Intentional large refactors must be explicitly marked
+          # in the commit message with [large-change-approved].
+          check_large_change() {
+            local path="$1"
+            local limit="$2"
+            local stats
+            stats=$(git diff --numstat "$BEFORE_SHA" "$HEAD_SHA" -- "$path" || true)
+            if [ -z "$stats" ]; then
+              return 0
+            fi
+
+            local added deleted total
+            added=$(awk '{sum += $1} END {print sum + 0}' <<< "$stats")
+            deleted=$(awk '{sum += $2} END {print sum + 0}' <<< "$stats")
+            total=$((added + deleted))
+            echo "$path: added=$added deleted=$deleted total=$total limit=$limit"
+
+            if [ "$total" -gt "$limit" ] && [[ "$COMMIT_MESSAGE" != *"[large-change-approved]"* ]]; then
+              echo "ERROR: $path changed by $total lines."
+              echo "For an intentional large refactor, include [large-change-approved] in the commit message."
+              exit 1
+            fi
+          }
+
+          # Club detail is especially sensitive because it contains the detail
+          # UI, Q&A, save flow, and photo handling in one page.
+          check_large_change "src/pages/clubs/detail/page.tsx" 300
+          check_large_change "router/config.tsx" 250
+          check_large_change "src/hooks/useAuth.tsx" 250
+
+      - name: Verify club detail structural invariants
+        run: |
+          set -euo pipefail
+          file="src/pages/clubs/detail/page.tsx"
+          for marker in \
+            "saveClubDetail" \
+            "handlePhotoUpload" \
+            "ClubBannerManager" \
+            "PhotoLightbox"; do
+            if ! grep -q "$marker" "$file"; then
+              echo "ERROR: critical club detail marker missing: $marker"
+              echo "If this is intentional, review the page manually before deployment."
+              exit 1
+            fi
+          done
+
   deploy-site:
     name: Deploy gnhweb Cloudflare Pages site
+    needs: regression-guard
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +116,7 @@ jobs:
 
   deploy-realtime:
     name: Deploy gnhweb realtime Worker
+    needs: regression-guard
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +130,7 @@ jobs:
 
   deploy-storage:
     name: Deploy gnhweb storage Worker
+    needs: regression-guard
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +144,7 @@ jobs:
 
   deploy-storage-migrate:
     name: Deploy gnhweb storage migration Worker
+    needs: regression-guard
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,6 +161,7 @@ jobs:
 
   deploy-api:
     name: Deploy gnhweb API Worker
+    needs: regression-guard
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -147,6 +220,7 @@ jobs:
 
   deploy-ai-gateway:
     name: Deploy gnhweb AI gateway Worker
+    needs: regression-guard
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -168,7 +242,7 @@ jobs:
           set -euo pipefail
           response=$(curl --fail-with-body --silent --show-error --request POST --header 'Content-Type: application/json' --data '{"answers":["1"]}' 'https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-mbti')
           printf '%s\n' "$response"
-          printf '%s' "$response" | grep -q '"character"'
+          printf '%s' "$response" | grep -q '\"character\"'
       - name: POST /nim-coaching production smoke test
         run: |
           set -euo pipefail
@@ -181,7 +255,7 @@ jobs:
           echo "HTTP $http_code"
           cat "$response_file"
           test "$http_code" = "200"
-          grep -q '"advice"' "$response_file"
+          grep -q '\"advice\"' "$response_file"
           advice_length=$(python -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get("advice", "").strip()))' "$response_file")
           echo "advice_length=$advice_length"
           test "$advice_length" -ge 120
