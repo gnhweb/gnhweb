@@ -71,10 +71,6 @@ function normalizeClubPhotos(raw: unknown): ClubPhoto[] {
   }).filter((p): p is ClubPhoto => p !== null);
 }
 
-// 소개 탭의 각 항목을 인스타그램 프로필처럼 "한눈에" 볼 수 있는 카드로 보여준다.
-// 예전에는 항목마다 접혀 있어 하나씩 펼쳐봐야 했지만, 지금은 기본적으로 모두 펼쳐진 채
-// 2열 그리드(모바일은 1열)로 배치해 스크롤 한 번으로 전체 내용이 훑어지도록 한다.
-// 카드 헤더를 눌러 접었다 펼 수 있는 기능 자체는 남겨둔다(원하면 정리해서 볼 수 있게).
 function InfoSection({
   icon,
   iconColor = 'text-foreground-600',
@@ -102,7 +98,6 @@ function InfoSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
-  // 수정 버튼을 눌러 편집 모드로 들어가면(forceOpen) 접혀 있던 항목도 자동으로 펼친다.
   useEffect(() => {
     if (forceOpen) setOpen(true);
   }, [forceOpen]);
@@ -203,7 +198,6 @@ export default function ClubDetail() {
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  // ───── 데이터 로드 ─────
   useEffect(() => {
     if (!club) return;
     loadAllData();
@@ -225,7 +219,6 @@ export default function ClubDetail() {
 
       if (detailData) {
         let rawContent = detailData.content;
-        // content is stored as JSON string in a text column — parse it back
         if (typeof rawContent === 'string') {
           try { rawContent = JSON.parse(rawContent); } catch { rawContent = {}; }
         }
@@ -260,15 +253,6 @@ export default function ClubDetail() {
     }
   };
 
-  // 동아리 명단 로드. 천화래와 청명(CA)은 4대 동아리와 겸직 가능한 특수 동아리라,
-  // user_roles.club(주 소속)만 봐서는 부 소속(user_club_assignments)으로 CA에
-  // 등록된 사람들이 명단에 안 보이는 문제가 있었다 — 두 출처를 합쳐서 보여준다.
-  //
-  // '교사' 표시는 그 사람의 전체 권한(user_roles.role === 'teacher')이 아니라,
-  // 권한관리 탭의 "동아리별 담당 교사 지정"(club_teachers, N:M)에서 실제로
-  // 이 동아리의 담당 교사로 지정되어 있는지를 기준으로 판단한다. 그렇지 않으면
-  // 주 소속만 이 동아리인 교사가 담당 지정 여부와 무관하게 항상 '교사'로 보이는
-  // 문제가 생긴다.
   const loadMembers = async () => {
     const { data: memberData } = await supabase
       .from('user_roles')
@@ -300,16 +284,11 @@ export default function ClubDetail() {
       }
     }
 
-    // 이 동아리에 실제로 "담당 교사"로 지정된 사람 목록 (club_teachers)
     const { data: assignedTeacherRows } = await supabase
       .from('club_teachers')
       .select('teacher_id')
       .eq('club', id);
     const assignedTeacherIds = new Set((assignedTeacherRows || []).map((r: any) => r.teacher_id as string));
-
-    // 교사는 이 동아리의 "담당 교사"로 지정된 경우에만 명단에 포함한다.
-    // 담당 지정이 안 된 교사는(주 소속/부 소속이 이 동아리여도) 명단에서 제외 —
-    // 동아리 명단에는 담당 교사와 학생들만 있어야 하기 때문이다.
     allMemberRows = allMemberRows.filter((m: any) => m.role !== 'teacher' || assignedTeacherIds.has(m.user_id));
 
     if (allMemberRows.length > 0) {
@@ -343,9 +322,6 @@ export default function ClubDetail() {
     }
   };
 
-  // 부장님이 관리 화면에서 CA(천화래와 청명) 겸직을 추가/해제하거나, 관리자가
-  // 권한관리 탭에서 이 동아리의 담당 교사를 지정/해제하면, 이 페이지를
-  // 새로고침하지 않아도 명단이 실시간으로 반영되도록 구독한다.
   useEffect(() => {
     if (!id) return;
 
@@ -420,20 +396,40 @@ export default function ClubDetail() {
         photos: newDetail.photos,
       };
 
-      const { error: upsertError } = await supabase
+      const payload = {
+        club: id,
+        type: 'detail',
+        author_id: user?.id || '',
+        author_name: profile?.name || '',
+        title: `${club?.name || id} 상세 정보`,
+        content: JSON.stringify(content),
+      };
+
+      // production의 club_posts에는 (club,type)을 대상으로 하는 unique constraint가 없다.
+      // 따라서 onConflict: 'club,type' upsert는 사용하지 않고 기존 detail 행을 직접 UPDATE,
+      // 없을 때만 INSERT한다.
+      const { data: existingDetail, error: existingError } = await supabase
         .from('club_posts')
-        .upsert({
-          club: id,
-          type: 'detail',
-          author_id: user?.id || '',
-          author_name: profile?.name || '',
-          title: `${club?.name || id} 상세 정보`,
-          content,
-        }, { onConflict: 'club,type' });
+        .select('id')
+        .eq('club', id)
+        .eq('type', 'detail')
+        .maybeSingle();
 
-      if (upsertError) throw upsertError;
+      if (existingError) throw existingError;
 
-      // DB 저장이 성공한 경우에만 로컬 상태를 확정한다.
+      if (existingDetail?.id) {
+        const { error: updateError } = await supabase
+          .from('club_posts')
+          .update(payload)
+          .eq('id', existingDetail.id);
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('club_posts')
+          .insert(payload);
+        if (insertError) throw insertError;
+      }
+
       setClubDetail(newDetail);
       return { success: true };
     } catch (e) {
@@ -457,9 +453,7 @@ export default function ClubDetail() {
       if (uploadedPaths.length === 0) return;
       try {
         const { error: removeError } = await supabase.storage.from('Public').remove(uploadedPaths);
-        if (removeError) {
-          console.error('Failed to rollback uploaded club photos:', removeError);
-        }
+        if (removeError) console.error('Failed to rollback uploaded club photos:', removeError);
       } catch (removeError) {
         console.error('Failed to rollback uploaded club photos:', removeError);
       }
@@ -520,12 +514,10 @@ export default function ClubDetail() {
       setError(message);
     } finally {
       setUploading(false);
-      // Reset the file input
       if (e.target) e.target.value = '';
     }
   };
 
-  /** Public 버킷 공개 URL에서 스토리지 내부 경로만 뽑아낸다 */
   const storagePathFromUrl = (url: string): string | null => {
     try {
       const urlObj = new URL(url);
@@ -636,7 +628,6 @@ export default function ClubDetail() {
     }
   };
 
-  // 질문 작성자 본인 또는 동아리 사명자만 질문을 수정/삭제할 수 있어요.
   const canManageQnaQuestion = (item: ClubQnA) =>
     isClubLeader || (!!user && !!item.authorId && item.authorId === user.id);
 
@@ -724,7 +715,7 @@ export default function ClubDetail() {
       setEditAnswerText('');
     } catch (e) {
       console.error('Failed to edit answer:', e);
-      setError('답변 수정 중 오류가 발생했습니다.');
+      setError('질문 수정 중 오류가 발생했습니다.');
     } finally {
       setQnaActionLoading(false);
     }
@@ -754,7 +745,6 @@ export default function ClubDetail() {
     }
   };
 
-
   if (!club) {
     return (
       <div className="min-h-screen bg-background-50 flex items-center justify-center">
@@ -770,14 +760,7 @@ export default function ClubDetail() {
     ((profile?.club === id || secondaryClubs.includes(id || '')) &&
      (profile?.role === 'zone_leader' || profile?.role === 'assistant_zone_leader' || profile?.name === club.leaderName));
   const isTeacherOrChief = profile?.role === 'teacher' || profile?.role === 'chief';
-  // Club access: all approved users can view club detail pages.
-  // Non-members need to enter the club password (if set) to access.
   const isClubMember = profile?.club === id || secondaryClubs.includes(id || '') || isTeacherOrChief;
-  // The previous restrictive access check was intentionally removed to allow
-  // any logged-in student to browse club information. Sensitive/private data
-  // is protected at RLS level. Club community page has its own access control.
-
-  // Check if user can actually edit this club (club membership + leadership OR teacher/chief)
   const canEditClubDetail = profile?.role === 'chief' || profile?.role === 'teacher' ||
     ((profile?.club === id || secondaryClubs.includes(id || '')) &&
      (profile?.role === 'zone_leader' || profile?.role === 'assistant_zone_leader' || profile?.name === club.leaderName));
@@ -797,7 +780,6 @@ export default function ClubDetail() {
 
   return (
     <div className="min-h-screen bg-background-50">
-      {/* Hero */}
       <div className="relative aspect-[16/10] md:aspect-[21/7] overflow-hidden">
         {clubBanner?.hero_image_url ? (
           <img src={clubBanner.hero_image_url} alt={club.name} className="w-full h-full object-cover object-top" />
@@ -805,12 +787,9 @@ export default function ClubDetail() {
           <div className={`w-full h-full bg-gradient-to-br ${club.color}`}></div>
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/50"></div>
-
-        {/* 이미지 관리 버튼 — 제목과 겹치지 않도록 우상단에 따로 배치 */}
         <div className="absolute top-3 right-3 md:top-6 md:right-6 z-20">
           <ClubBannerManager club={club.id} onBannerChange={refreshBanner} />
         </div>
-
         <div className="absolute bottom-0 left-0 right-0 p-4 md:p-10">
           <div className="max-w-5xl mx-auto">
             <button onClick={() => navigate('/clubs')} className="flex items-center gap-2 text-white/80 hover:text-white transition-colors mb-2 md:mb-4 text-xs md:text-sm group cursor-pointer">
@@ -838,7 +817,6 @@ export default function ClubDetail() {
           </div>
         )}
 
-        {/* Tabs — 모바일: 공용 카테고리 칩 재사용 */}
         <div className="md:hidden mb-4">
           <CategoryChipRow>
             {(['info', 'members', 'photos', 'qna'] as const).map(tab => (
@@ -850,7 +828,6 @@ export default function ClubDetail() {
           </CategoryChipRow>
         </div>
 
-        {/* Tabs — PC: 기존 필 스타일 유지 */}
         <div className="hidden md:flex items-center gap-1 mb-4 md:mb-6 bg-background-100 rounded-full p-1 overflow-x-auto">
           {(['info', 'members', 'photos', 'qna'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-shrink-0 px-4 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${activeTab === tab ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600 hover:text-foreground-950'}`}>
@@ -864,19 +841,9 @@ export default function ClubDetail() {
           {activeTab === 'info' && (
             <motion.div key="info" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 items-start">
-                {/* 동아리 소개 — 인스타 프로필 소개글처럼 전체 폭으로 항상 펼쳐둔다 */}
-                <InfoSection
-                  icon="ri-file-text-line"
-                  iconColor="text-primary-600"
-                  title="동아리 소개"
-                  wrapperClassName="md:col-span-2"
-                  forceOpen={editingIntro}
-                  headerAction={isClubLeader && !editingIntro && (
-                    <button onClick={() => { setIntroInput(clubDetail.description); setEditingIntro(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap">
-                      <i className="ri-edit-line mr-1"></i>수정
-                    </button>
-                  )}
-                >
+                <InfoSection icon="ri-file-text-line" iconColor="text-primary-600" title="동아리 소개" wrapperClassName="md:col-span-2" forceOpen={editingIntro} headerAction={isClubLeader && !editingIntro && (
+                  <button onClick={() => { setIntroInput(clubDetail.description); setEditingIntro(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap"><i className="ri-edit-line mr-1"></i>수정</button>
+                )}>
                   {editingIntro ? (
                     <div>
                       <textarea value={introInput} onChange={e => setIntroInput(e.target.value)} rows={4} maxLength={500} className="w-full px-4 py-3 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none" />
@@ -889,23 +856,13 @@ export default function ClubDetail() {
                     <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{clubDetail.description}</p>
                   )}
                   <div className="mt-5 pt-4 border-t border-background-200">
-                    <Link to={`/clubs/${club.id}/community`} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-500 text-background-50 text-sm font-medium hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap">
-                      <i className="ri-chat-smile-2-line"></i>소통 공간
-                    </Link>
+                    <Link to={`/clubs/${club.id}/community`} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-500 text-background-50 text-sm font-medium hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap"><i className="ri-chat-smile-2-line"></i>소통 공간</Link>
                   </div>
                 </InfoSection>
 
-                {/* 연습 일정 */}
-                <InfoSection
-                  icon="ri-time-line"
-                  title="연습 일정"
-                  forceOpen={editingSchedule}
-                  headerAction={isClubLeader && !editingSchedule && (
-                    <button onClick={() => { setScheduleInput(clubDetail.schedule); setEditingSchedule(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap">
-                      <i className="ri-edit-line mr-1"></i>수정
-                    </button>
-                  )}
-                >
+                <InfoSection icon="ri-time-line" title="연습 일정" forceOpen={editingSchedule} headerAction={isClubLeader && !editingSchedule && (
+                  <button onClick={() => { setScheduleInput(clubDetail.schedule); setEditingSchedule(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap"><i className="ri-edit-line mr-1"></i>수정</button>
+                )}>
                   {editingSchedule ? (
                     <div>
                       <textarea value={scheduleInput} onChange={e => setScheduleInput(e.target.value)} rows={3} maxLength={200} className="w-full px-4 py-3 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none" />
@@ -919,65 +876,21 @@ export default function ClubDetail() {
                   )}
                 </InfoSection>
 
-                {/* 주요 활동 — 목록이 길어질 수 있어 전체 폭으로 배치 */}
-                <InfoSection
-                  icon="ri-checkbox-multiple-line"
-                  iconColor="text-primary-600"
-                  title="주요 활동"
-                  wrapperClassName="md:col-span-2"
-                  forceOpen={editingActivities}
-                  saving={saving}
-                  headerAction={isClubLeader && !editingActivities && (
-                    <button onClick={() => { setActivitiesInput([...clubDetail.activities]); setEditingActivities(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap">
-                      <i className="ri-edit-line mr-1"></i>수정
-                    </button>
-                  )}
-                >
+                <InfoSection icon="ri-checkbox-multiple-line" iconColor="text-primary-600" title="주요 활동" wrapperClassName="md:col-span-2" forceOpen={editingActivities} saving={saving} headerAction={isClubLeader && !editingActivities && (
+                  <button onClick={() => { setActivitiesInput([...clubDetail.activities]); setEditingActivities(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap"><i className="ri-edit-line mr-1"></i>수정</button>
+                )}>
                   {editingActivities ? (
                     <div>
                       <div className="space-y-2 mb-3">
                         {activitiesInput.map((act, i) => (
                           <div key={i} className="flex items-center gap-2">
-                            <textarea
-                              value={act}
-                              onChange={e => {
-                                const next = [...activitiesInput];
-                                next[i] = e.target.value;
-                                setActivitiesInput(next);
-                              }}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                }
-                              }}
-                              rows={1}
-                              maxLength={200}
-                              className="flex-1 px-3 py-2 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none"
-                            />
-                            <button onClick={() => setActivitiesInput(prev => prev.filter((_, idx) => idx !== i))} className="w-10 h-10 md:w-7 md:h-7 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center hover:bg-rose-200 cursor-pointer flex-shrink-0 self-start mt-1">
-                              <i className="ri-close-line text-sm"></i>
-                            </button>
+                            <textarea value={act} onChange={e => { const next = [...activitiesInput]; next[i] = e.target.value; setActivitiesInput(next); }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) e.preventDefault(); }} rows={1} maxLength={200} className="flex-1 px-3 py-2 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none" />
+                            <button onClick={() => setActivitiesInput(prev => prev.filter((_, idx) => idx !== i))} className="w-10 h-10 md:w-7 md:h-7 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center hover:bg-rose-200 cursor-pointer flex-shrink-0 self-start mt-1"><i className="ri-close-line text-sm"></i></button>
                           </div>
                         ))}
                       </div>
                       <div className="flex items-center gap-2 mb-3">
-                        <textarea
-                          value={newActivityItem}
-                          onChange={e => setNewActivityItem(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              if (newActivityItem.trim()) {
-                                setActivitiesInput(prev => [...prev, newActivityItem.trim()]);
-                                setNewActivityItem('');
-                              }
-                            }
-                          }}
-                          placeholder="새 활동 추가... (Shift+Enter로 줄바꿈, Enter로 추가)"
-                          rows={2}
-                          maxLength={200}
-                          className="flex-1 px-3 py-2 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none"
-                        />
+                        <textarea value={newActivityItem} onChange={e => setNewActivityItem(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (newActivityItem.trim()) { setActivitiesInput(prev => [...prev, newActivityItem.trim()]); setNewActivityItem(''); } } }} placeholder="새 활동 추가... (Shift+Enter로 줄바꿈, Enter로 추가)" rows={2} maxLength={200} className="flex-1 px-3 py-2 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none" />
                         <button onClick={() => { if (newActivityItem.trim()) { setActivitiesInput(prev => [...prev, newActivityItem.trim()]); setNewActivityItem(''); }}} disabled={!newActivityItem.trim()} className="px-3 py-2 rounded-full bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 disabled:opacity-40 cursor-pointer whitespace-nowrap">추가</button>
                       </div>
                       <div className="flex items-center gap-2">
@@ -986,32 +899,13 @@ export default function ClubDetail() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {(clubDetail.activities.length > 0 ? clubDetail.activities : club.activities).map((a, i) => (
-                        <div key={i} className="flex items-start gap-3">
-                          <div className={`w-7 h-7 rounded-lg ${club.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
-                            <i className={`ri-check-line text-sm ${club.iconText}`}></i>
-                          </div>
-                          <span className="text-sm text-foreground-700">{a}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <div className="space-y-3">{(clubDetail.activities.length > 0 ? clubDetail.activities : club.activities).map((a, i) => <div key={i} className="flex items-start gap-3"><div className={`w-7 h-7 rounded-lg ${club.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}><i className={`ri-check-line text-sm ${club.iconText}`}></i></div><span className="text-sm text-foreground-700">{a}</span></div>)}</div>
                   )}
                 </InfoSection>
 
-                {/* 동아리장 한마디 */}
-                <InfoSection
-                  icon="ri-chat-quote-line"
-                  title="동아리장 한마디"
-                  forceOpen={editingQuote || editingLeaderName}
-                  containerClass={`bg-gradient-to-br ${club.color} border-transparent`}
-                  titleClass="text-white"
-                  headerAction={isClubLeader && !editingQuote && !editingLeaderName && (
-                    <button onClick={() => { setQuoteInput(clubDetail.leaderQuote); setEditingQuote(true); }} className="text-xs text-white/80 hover:text-white cursor-pointer whitespace-nowrap">
-                      <i className="ri-edit-line mr-1"></i>수정
-                    </button>
-                  )}
-                >
+                <InfoSection icon="ri-chat-quote-line" title="동아리장 한마디" forceOpen={editingQuote || editingLeaderName} containerClass={`bg-gradient-to-br ${club.color} border-transparent`} titleClass="text-white" headerAction={isClubLeader && !editingQuote && !editingLeaderName && (
+                  <button onClick={() => { setQuoteInput(clubDetail.leaderQuote); setEditingQuote(true); }} className="text-xs text-white/80 hover:text-white cursor-pointer whitespace-nowrap"><i className="ri-edit-line mr-1"></i>수정</button>
+                )}>
                   {editingQuote ? (
                     <div>
                       <textarea value={quoteInput} onChange={e => setQuoteInput(e.target.value)} rows={3} maxLength={200} className="w-full px-4 py-3 text-sm rounded-xl border border-white/30 bg-background-100/10 text-white placeholder-white/50 focus:border-white/50 outline-none resize-none" />
@@ -1024,34 +918,17 @@ export default function ClubDetail() {
                     <div className="text-white">
                       <p className="text-sm leading-relaxed mb-4 italic">{clubDetail.leaderQuote}</p>
                       <div className="flex items-center gap-2 pt-3 border-t border-white/20">
-                        <div className="w-8 h-8 rounded-full bg-background-100/20 flex items-center justify-center">
-                          <i className="ri-user-line text-white text-sm"></i>
-                        </div>
+                        <div className="w-8 h-8 rounded-full bg-background-100/20 flex items-center justify-center"><i className="ri-user-line text-white text-sm"></i></div>
                         {editingLeaderName ? (
                           <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={leaderNameInput}
-                              onChange={e => setLeaderNameInput(e.target.value)}
-                              maxLength={20}
-                              placeholder="동아리장 이름"
-                              className="px-3 py-1 text-sm rounded-lg border border-white/30 bg-background-100/10 text-white placeholder-white/50 focus:border-white/50 outline-none w-32"
-                            />
-                            <button onClick={() => { saveClubDetail({ leaderName: leaderNameInput }); setEditingLeaderName(false); }} className="text-xs text-white/80 hover:text-white cursor-pointer whitespace-nowrap">
-                              <i className="ri-check-line"></i>
-                            </button>
-                            <button onClick={() => setEditingLeaderName(false)} className="text-xs text-white/60 hover:text-white cursor-pointer">
-                              <i className="ri-close-line"></i>
-                            </button>
+                            <input type="text" value={leaderNameInput} onChange={e => setLeaderNameInput(e.target.value)} maxLength={20} placeholder="동아리장 이름" className="px-3 py-1 text-sm rounded-lg border border-white/30 bg-background-100/10 text-white placeholder-white/50 focus:border-white/50 outline-none w-32" />
+                            <button onClick={() => { saveClubDetail({ leaderName: leaderNameInput }); setEditingLeaderName(false); }} className="text-xs text-white/80 hover:text-white cursor-pointer whitespace-nowrap"><i className="ri-check-line"></i></button>
+                            <button onClick={() => setEditingLeaderName(false)} className="text-xs text-white/60 hover:text-white cursor-pointer"><i className="ri-close-line"></i></button>
                           </div>
                         ) : (
                           <>
                             <span className="text-sm font-medium">{clubDetail.leaderName || club.leaderName} (동아리장)</span>
-                            {isClubLeader && (
-                              <button onClick={() => { setLeaderNameInput(clubDetail.leaderName || club.leaderName); setEditingLeaderName(true); }} className="text-white/60 hover:text-white cursor-pointer">
-                                <i className="ri-pencil-line text-xs"></i>
-                              </button>
-                            )}
+                            {isClubLeader && <button onClick={() => { setLeaderNameInput(clubDetail.leaderName || club.leaderName); setEditingLeaderName(true); }} className="text-white/60 hover:text-white cursor-pointer"><i className="ri-pencil-line text-xs"></i></button>}
                           </>
                         )}
                       </div>
@@ -1059,19 +936,9 @@ export default function ClubDetail() {
                   )}
                 </InfoSection>
 
-                {/* 이번 시즌 목표 */}
-                <InfoSection
-                  icon="ri-flag-line"
-                  iconColor="text-amber-600"
-                  title="이번 시즌 목표"
-                  forceOpen={editingGoal}
-                  saving={saving}
-                  headerAction={isClubLeader && !editingGoal && (
-                    <button onClick={() => { setGoalInput(clubDetail.goal); setEditingGoal(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap">
-                      <i className="ri-edit-line mr-1"></i>수정
-                    </button>
-                  )}
-                >
+                <InfoSection icon="ri-flag-line" iconColor="text-amber-600" title="이번 시즌 목표" forceOpen={editingGoal} saving={saving} headerAction={isClubLeader && !editingGoal && (
+                  <button onClick={() => { setGoalInput(clubDetail.goal); setEditingGoal(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap"><i className="ri-edit-line mr-1"></i>수정</button>
+                )}>
                   {editingGoal ? (
                     <div>
                       <textarea value={goalInput} onChange={e => setGoalInput(e.target.value)} rows={2} maxLength={200} className="w-full px-4 py-2.5 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none" />
@@ -1080,24 +947,12 @@ export default function ClubDetail() {
                         <button onClick={handleSaveGoal} className="px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 cursor-pointer whitespace-nowrap">저장</button>
                       </div>
                     </div>
-                  ) : (
-                    <p className="text-sm text-foreground-700 leading-relaxed">{clubDetail.goal}</p>
-                  )}
+                  ) : <p className="text-sm text-foreground-700 leading-relaxed">{clubDetail.goal}</p>}
                 </InfoSection>
 
-                {/* 이번 달 주제 말씀 */}
-                <InfoSection
-                  icon="ri-book-open-line"
-                  iconColor="text-amber-600"
-                  title="이번 달 주제 말씀"
-                  containerClass="bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200"
-                  forceOpen={editingVerse}
-                  headerAction={isClubLeader && !editingVerse && (
-                    <button onClick={() => { setVerseForm({ text: clubDetail.monthlyVerseText, reference: clubDetail.monthlyVerseReference, description: clubDetail.monthlyVerseDescription }); setEditingVerse(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap">
-                      <i className="ri-edit-line mr-1"></i>수정
-                    </button>
-                  )}
-                >
+                <InfoSection icon="ri-book-open-line" iconColor="text-amber-600" title="이번 달 주제 말씀" containerClass="bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200" forceOpen={editingVerse} headerAction={isClubLeader && !editingVerse && (
+                  <button onClick={() => { setVerseForm({ text: clubDetail.monthlyVerseText, reference: clubDetail.monthlyVerseReference, description: clubDetail.monthlyVerseDescription }); setEditingVerse(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap"><i className="ri-edit-line mr-1"></i>수정</button>
+                )}>
                   {editingVerse ? (
                     <div className="space-y-3">
                       <input type="text" value={verseForm.text} onChange={e => setVerseForm(p => ({ ...p, text: e.target.value }))} placeholder="말씀 구절" maxLength={100} className="w-full px-4 py-2.5 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none" />
@@ -1105,20 +960,11 @@ export default function ClubDetail() {
                       <textarea value={verseForm.description} onChange={e => setVerseForm(p => ({ ...p, description: e.target.value }))} placeholder="짧은 설명" rows={2} maxLength={200} className="w-full px-4 py-3 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none" />
                       <div className="flex items-center gap-2">
                         <button onClick={() => setEditingVerse(false)} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
-                        <button onClick={() => {
-                          saveClubDetail({ monthlyVerseText: verseForm.text, monthlyVerseReference: verseForm.reference, monthlyVerseDescription: verseForm.description });
-                          setEditingVerse(false);
-                        }} className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs font-semibold cursor-pointer whitespace-nowrap">저장</button>
+                        <button onClick={() => { saveClubDetail({ monthlyVerseText: verseForm.text, monthlyVerseReference: verseForm.reference, monthlyVerseDescription: verseForm.description }); setEditingVerse(false); }} className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs font-semibold cursor-pointer whitespace-nowrap">저장</button>
                       </div>
                     </div>
                   ) : (
-                    <div>
-                      <p className="text-base font-bold text-amber-800 italic mb-1">"{clubDetail.monthlyVerseText}"</p>
-                      <p className="text-xs text-amber-600 mb-2">— {clubDetail.monthlyVerseReference}</p>
-                      {clubDetail.monthlyVerseDescription && (
-                        <p className="text-sm text-foreground-700 leading-relaxed">{clubDetail.monthlyVerseDescription}</p>
-                      )}
-                    </div>
+                    <div><p className="text-base font-bold text-amber-800 italic mb-1">"{clubDetail.monthlyVerseText}"</p><p className="text-xs text-amber-600 mb-2">— {clubDetail.monthlyVerseReference}</p>{clubDetail.monthlyVerseDescription && <p className="text-sm text-foreground-700 leading-relaxed">{clubDetail.monthlyVerseDescription}</p>}</div>
                   )}
                 </InfoSection>
               </div>
@@ -1130,76 +976,11 @@ export default function ClubDetail() {
               <div className="bg-background-100 border border-background-200 rounded-[20px] p-6">
                 {members.filter(m => m.isBirthdayThisMonth).length > 0 && (
                   <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6">
-                    <div className="flex items-center gap-2 mb-3">
-                      <i className="ri-cake-line text-rose-500 text-lg"></i>
-                      <h2 className="text-sm font-bold text-rose-700">이번 달 생일자</h2>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {members.filter(m => m.isBirthdayThisMonth).map((m, i) => (
-                        <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-full bg-rose-100 border border-rose-200">
-                          <div className={`w-6 h-6 rounded-full ${m.avatarColor} overflow-hidden flex items-center justify-center flex-shrink-0`}>
-                            {m.profileImage ? (
-                              <img
-                                src={m.profileImage}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                }}
-                              />
-                            ) : null}
-                            <span className={`${m.profileImage ? 'hidden' : ''} text-gray-600 flex items-center justify-center w-full h-full`}>
-                              <i className="ri-user-3-line text-[12px]"></i>
-                            </span>
-                          </div>
-                          <span className="text-xs font-semibold text-rose-800">{m.name}</span>
-                          <span className="text-xs text-rose-600">{m.birthday}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <div className="flex items-center gap-2 mb-3"><i className="ri-cake-line text-rose-500 text-lg"></i><h2 className="text-sm font-bold text-rose-700">이번 달 생일자</h2></div>
+                    <div className="flex flex-wrap gap-2">{members.filter(m => m.isBirthdayThisMonth).map((m, i) => <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-full bg-rose-100 border border-rose-200"><div className={`w-6 h-6 rounded-full ${m.avatarColor} overflow-hidden flex items-center justify-center flex-shrink-0`}>{m.profileImage ? <img src={m.profileImage} alt="" className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} /> : null}<span className={`${m.profileImage ? 'hidden' : ''} text-gray-600 flex items-center justify-center w-full h-full`}><i className="ri-user-3-line text-[12px]"></i></span></div><span className="text-xs font-semibold text-rose-800">{m.name}</span><span className="text-xs text-rose-600">{m.birthday}</span></div>)}</div>
                   </div>
                 )}
-                {members.length === 0 ? (
-                  <div className="text-center py-10">
-                    <p className="text-sm text-foreground-600">아직 동아리원이 없어요</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {members.map((m, i) => (
-                      <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-background-50 transition-colors">
-                        <div className={`w-10 h-10 rounded-full ${m.avatarColor} overflow-hidden flex items-center justify-center flex-shrink-0`}>
-                          {m.profileImage ? (
-                            <img
-                              src={m.profileImage}
-                              alt={`${m.name} 프로필`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                              }}
-                            />
-                          ) : null}
-                          <span className={`${m.profileImage ? 'hidden' : ''} text-gray-600 flex items-center justify-center w-full h-full`}>
-                            <i className="ri-user-3-line text-base"></i>
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-foreground-950">
-                            {m.name}
-                            {m.isBirthdayThisMonth && <i className="ri-cake-line text-rose-500 ml-1"></i>}
-                          </p>
-                          <p className="text-xs text-foreground-600">
-                            {m.role}{m.birthday ? ` · ${m.birthday}` : ''}
-                            {m.roleLabel && m.roleLabel !== m.role && (
-                              <span className="text-foreground-400 ml-1">({m.roleLabel})</span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {members.length === 0 ? <div className="text-center py-10"><p className="text-sm text-foreground-600">아직 동아리원이 없어요</p></div> : <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">{members.map((m, i) => <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-background-50 transition-colors"><div className={`w-10 h-10 rounded-full ${m.avatarColor} overflow-hidden flex items-center justify-center flex-shrink-0`}>{m.profileImage ? <img src={m.profileImage} alt={`${m.name} 프로필`} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} /> : null}<span className={`${m.profileImage ? 'hidden' : ''} text-gray-600 flex items-center justify-center w-full h-full`}><i className="ri-user-3-line text-base"></i></span></div><div><p className="text-sm font-semibold text-foreground-950">{m.name}{m.isBirthdayThisMonth && <i className="ri-cake-line text-rose-500 ml-1"></i>}</p><p className="text-xs text-foreground-600">{m.role}{m.birthday ? ` · ${m.birthday}` : ''}{m.roleLabel && m.roleLabel !== m.role && <span className="text-foreground-400 ml-1">({m.roleLabel})</span>}</p></div></div>)}</div>}
               </div>
             </motion.div>
           )}
@@ -1208,213 +989,30 @@ export default function ClubDetail() {
             <motion.div key="photos" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
               <div className="bg-background-100 border border-background-200 rounded-[20px] p-6">
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                  <h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
-                    <i className="ri-camera-line text-rose-600"></i> 동아리 사진
-                    <span className="text-xs text-foreground-500 font-normal">({clubDetail.photos.length}장)</span>
-                  </h2>
+                  <h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2"><i className="ri-camera-line text-rose-600"></i> 동아리 사진 <span className="text-xs text-foreground-500 font-normal">({clubDetail.photos.length}장)</span></h2>
                   <div className="flex items-center gap-2">
-                    {isClubLeader && selectedPhotos.size > 0 && (
-                      <button
-                        onClick={handleBatchDeletePhotos}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 transition-colors cursor-pointer whitespace-nowrap"
-                      >
-                        <i className="ri-delete-bin-line"></i> 선택 삭제 ({selectedPhotos.size})
-                      </button>
-                    )}
-                    {isClubLeader && (
-                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 transition-colors cursor-pointer whitespace-nowrap">
-                        <i className="ri-upload-line"></i> 사진 올리기
-                        <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" disabled={uploading} />
-                      </label>
-                    )}
+                    {isClubLeader && selectedPhotos.size > 0 && <button onClick={handleBatchDeletePhotos} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 transition-colors cursor-pointer whitespace-nowrap"><i className="ri-delete-bin-line"></i> 선택 삭제 ({selectedPhotos.size})</button>}
+                    {isClubLeader && <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 transition-colors cursor-pointer whitespace-nowrap"><i className="ri-upload-line"></i> 사진 올리기<input type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" disabled={uploading} /></label>}
                   </div>
                 </div>
                 {uploading && <p className="text-xs text-foreground-600 mb-3">업로드 중...</p>}
-                {clubDetail.photos.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-14 h-14 rounded-full bg-rose-50 flex items-center justify-center mx-auto mb-3">
-                      <i className="ri-image-line text-2xl text-rose-300"></i>
-                    </div>
-                    <p className="text-sm text-foreground-600">아직 올린 사진이 없어요</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {clubDetail.photos.map((photo, i) => (
-                      <div
-                        key={i}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`동아리 사진 ${i + 1} ${isClubLeader && selectedPhotos.size > 0 ? '선택' : '크게 보기'}`}
-                        onClick={() => {
-                          if (isClubLeader && selectedPhotos.size > 0) togglePhotoSelect(photo.url);
-                          else setLightboxIndex(i);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            if (isClubLeader && selectedPhotos.size > 0) togglePhotoSelect(photo.url);
-                            else setLightboxIndex(i);
-                          }
-                        }}
-                        className={`group relative overflow-hidden rounded-xl bg-background-200 aspect-[4/3] cursor-pointer active:scale-[0.98] transition-transform focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none ${selectedPhotos.has(photo.url) ? 'ring-2 ring-rose-500 ring-offset-2 ring-offset-background-100' : ''}`}
-                      >
-                        <img src={photo.thumbUrl || photo.url} alt={`동아리 사진 ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                        {isClubLeader && (
-                          <>
-                            <div className={`absolute inset-0 transition-colors ${selectedPhotos.has(photo.url) ? 'bg-rose-500/20' : 'bg-transparent group-hover:bg-black/10'}`}></div>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); togglePhotoSelect(photo.url); }}
-                              aria-label="선택"
-                              className={`absolute top-2 left-2 w-10 h-10 md:w-7 md:h-7 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${selectedPhotos.has(photo.url) ? 'bg-rose-500 border-rose-500' : 'border-white bg-black/30 md:opacity-0 md:group-hover:opacity-100'}`}
-                            >
-                              {selectedPhotos.has(photo.url) && <i className="ri-check-line text-white text-[10px]"></i>}
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.url); }}
-                              aria-label="삭제"
-                              className="absolute top-2 right-2 w-10 h-10 md:w-7 md:h-7 rounded-full bg-black/50 text-white flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-rose-500"
-                            >
-                              <i className="ri-close-line text-sm"></i>
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {clubDetail.photos.length === 0 ? <div className="text-center py-12"><div className="w-14 h-14 rounded-full bg-rose-50 flex items-center justify-center mx-auto mb-3"><i className="ri-image-line text-2xl text-rose-300"></i></div><p className="text-sm text-foreground-600">아직 올린 사진이 없어요</p></div> : <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{clubDetail.photos.map((photo, i) => <div key={i} role="button" tabIndex={0} aria-label={`동아리 사진 ${i + 1} ${isClubLeader && selectedPhotos.size > 0 ? '선택' : '크게 보기'}`} onClick={() => { if (isClubLeader && selectedPhotos.size > 0) togglePhotoSelect(photo.url); else setLightboxIndex(i); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (isClubLeader && selectedPhotos.size > 0) togglePhotoSelect(photo.url); else setLightboxIndex(i); } }} className={`group relative overflow-hidden rounded-xl bg-background-200 aspect-[4/3] cursor-pointer active:scale-[0.98] transition-transform focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none ${selectedPhotos.has(photo.url) ? 'ring-2 ring-rose-500 ring-offset-2 ring-offset-background-100' : ''}`}><img src={photo.thumbUrl || photo.url} alt={`동아리 사진 ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />{isClubLeader && <><div className={`absolute inset-0 transition-colors ${selectedPhotos.has(photo.url) ? 'bg-rose-500/20' : 'bg-transparent group-hover:bg-black/10'}`}></div><button onClick={e => { e.stopPropagation(); togglePhotoSelect(photo.url); }} aria-label="선택" className={`absolute top-2 left-2 w-10 h-10 md:w-7 md:h-7 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${selectedPhotos.has(photo.url) ? 'bg-rose-500 border-rose-500' : 'border-white bg-black/30 md:opacity-0 md:group-hover:opacity-100'}`}>{selectedPhotos.has(photo.url) && <i className="ri-check-line text-white text-[10px]"></i>}</button><button onClick={e => { e.stopPropagation(); handleDeletePhoto(photo.url); }} aria-label="삭제" className="absolute top-2 right-2 w-10 h-10 md:w-7 md:h-7 rounded-full bg-black/50 text-white flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-rose-500"><i className="ri-close-line text-sm"></i></button></>}</div>)}</div>}
               </div>
             </motion.div>
           )}
 
           {activeTab === 'qna' && (
             <motion.div key="qna" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              {user && (
-                <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6">
-                  <h2 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
-                    <i className="ri-question-line text-accent-600"></i> 질문하기
-                  </h2>
-                  <textarea value={qnaQuestion} onChange={e => setQnaQuestion(e.target.value)} placeholder={`${club.name}에 대해 궁금한 점을 물어보세요...`} rows={3} maxLength={300} className="w-full px-4 py-3 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-accent-400 outline-none resize-none" />
-                  <div className="flex items-center justify-between mt-2">
-                    <label className="flex items-center gap-1.5 text-xs text-foreground-600 cursor-pointer">
-                      <input type="checkbox" checked={qnaAnon} onChange={e => setQnaAnon(e.target.checked)} className="rounded" />
-                      익명으로 질문하기
-                    </label>
-                    <button
-                      onClick={handleSubmitQuestion}
-                      disabled={!qnaQuestion.trim() || qnaSubmitting}
-                      className="px-4 py-2 rounded-full bg-accent-500 text-background-50 text-sm font-semibold hover:bg-accent-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
-                    >
-                      {qnaSubmitting ? '등록 중...' : '질문 등록'}
-                    </button>
-                  </div>
-                </div>
-              )}
+              {user && <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6"><h2 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2"><i className="ri-question-line text-accent-600"></i> 질문하기</h2><textarea value={qnaQuestion} onChange={e => setQnaQuestion(e.target.value)} placeholder={`${club.name}에 대해 궁금한 점을 물어보세요...`} rows={3} maxLength={300} className="w-full px-4 py-3 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-accent-400 outline-none resize-none" /><div className="flex items-center justify-between mt-2"><label className="flex items-center gap-1.5 text-xs text-foreground-600 cursor-pointer"><input type="checkbox" checked={qnaAnon} onChange={e => setQnaAnon(e.target.checked)} className="rounded" />익명으로 질문하기</label><button onClick={handleSubmitQuestion} disabled={!qnaQuestion.trim() || qnaSubmitting} className="px-4 py-2 rounded-full bg-accent-500 text-background-50 text-sm font-semibold hover:bg-accent-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap">{qnaSubmitting ? '등록 중...' : '질문 등록'}</button></div></div>)}
               <div className="space-y-4">
-                {qnaItems.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-14 h-14 rounded-full bg-accent-50 flex items-center justify-center mx-auto mb-3">
-                      <i className="ri-question-answer-line text-2xl text-accent-300"></i>
-                    </div>
-                    <p className="text-sm text-foreground-600">아직 질문이 없어요</p>
-                  </div>
-                ) : (
-                  qnaItems.map((item, idx) => (
-                    <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(idx * 0.05, 0.3) }} className={`bg-background-100 border rounded-[20px] p-5 ${item.answer ? 'border-emerald-200' : 'border-background-200'}`}>
-                      <div className="flex items-start gap-3 mb-2">
-                        <div className="w-10 h-10 md:w-7 md:h-7 rounded-full bg-accent-100 flex items-center justify-center flex-shrink-0">
-                          <i className="ri-question-mark text-accent-600 text-xs"></i>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-medium text-accent-600">{item.isAnonymous ? '익명' : item.questioner}</span>
-                            <span className="text-xs text-foreground-500">{item.createdAt}</span>
-                            {!item.answer && <span className="inline-flex flex-shrink-0 items-center justify-center min-w-[72px] h-8 px-3 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold whitespace-nowrap">답변 대기</span>}
-                          </div>
-                          {editingQnaId === item.id ? (
-                            <div>
-                              <textarea value={editQnaText} onChange={e => setEditQnaText(e.target.value)} rows={2} maxLength={300} className="w-full px-3 py-2 text-sm rounded-xl border border-accent-300 bg-background-50 focus:border-accent-400 outline-none resize-none" />
-                              <div className="flex items-center gap-2 mt-1.5">
-                                <button onClick={handleCancelEditQuestion} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
-                                <button onClick={() => handleSaveEditQuestion(item.id)} disabled={!editQnaText.trim() || qnaActionLoading} className="px-3 py-1 rounded-full bg-accent-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">저장</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <p className="text-sm text-foreground-800 font-medium leading-relaxed">{item.question}</p>
-                              {canManageQnaQuestion(item) && (
-                                <div className="flex items-center gap-3 mt-1.5">
-                                  <button onClick={() => handleStartEditQuestion(item)} className="text-xs text-foreground-500 hover:text-accent-600 cursor-pointer">수정</button>
-                                  <button onClick={() => handleDeleteQuestion(item.id)} disabled={qnaActionLoading} className="text-xs text-foreground-500 hover:text-red-600 cursor-pointer disabled:opacity-40">삭제</button>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {item.answer ? (
-                        <div className="ml-10 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className="w-5 h-5 rounded-full bg-emerald-200 flex items-center justify-center">
-                              <i className="ri-user-star-line text-emerald-700 text-[10px]"></i>
-                            </div>
-                            <span className="text-xs font-bold text-emerald-700">{item.answerer}</span>
-                          </div>
-                          {editingAnswerId === item.id ? (
-                            <div>
-                              <textarea value={editAnswerText} onChange={e => setEditAnswerText(e.target.value)} rows={2} maxLength={500} className="w-full px-3 py-2 text-sm rounded-xl border border-emerald-300 bg-background-50 focus:border-emerald-400 outline-none resize-none" />
-                              <div className="flex items-center gap-2 mt-1.5">
-                                <button onClick={handleCancelEditAnswer} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
-                                <button onClick={() => handleSaveEditAnswer(item.id)} disabled={!editAnswerText.trim() || qnaActionLoading} className="px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">저장</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <p className="text-sm text-emerald-800 leading-relaxed">{item.answer}</p>
-                              {isClubLeader && (
-                                <div className="flex items-center gap-3 mt-1.5">
-                                  <button onClick={() => handleStartEditAnswer(item)} className="text-xs text-emerald-700/70 hover:text-emerald-700 cursor-pointer">수정</button>
-                                  <button onClick={() => handleDeleteAnswer(item.id)} disabled={qnaActionLoading} className="text-xs text-emerald-700/70 hover:text-red-600 cursor-pointer disabled:opacity-40">삭제</button>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        isClubLeader && (
-                          <div className="ml-10 mt-2">
-                            {answeringQnaId === item.id ? (
-                              <div>
-                                <textarea value={qnaAnswer} onChange={e => setQnaAnswer(e.target.value)} placeholder="답변을 작성해주세요..." rows={2} maxLength={500} className="w-full px-4 py-2.5 text-sm rounded-xl border border-emerald-200 bg-emerald-50 focus:border-emerald-400 outline-none resize-none" />
-                                <div className="flex items-center gap-2 mt-1.5">
-                                  <button onClick={() => { setAnsweringQnaId(null); setQnaAnswer(''); }} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
-                                  <button onClick={() => handleSubmitAnswer(item.id)} disabled={!qnaAnswer.trim()} className="px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">답변 등록</button>
-                                </div>
-                              </div>
-                            ) : (
-                              <button onClick={() => setAnsweringQnaId(item.id)} className="text-xs text-emerald-600 hover:text-emerald-700 cursor-pointer font-medium">
-                                <i className="ri-reply-line mr-1"></i> 답변하기
-                              </button>
-                            )}
-                          </div>
-                        )
-                      )}
-                    </motion.div>
-                  ))
-                )}
+                {qnaItems.length === 0 ? <div className="text-center py-12"><div className="w-14 h-14 rounded-full bg-accent-50 flex items-center justify-center mx-auto mb-3"><i className="ri-question-answer-line text-2xl text-accent-300"></i></div><p className="text-sm text-foreground-600">아직 질문이 없어요</p></div> : qnaItems.map((item, idx) => <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(idx * 0.05, 0.3) }} className={`bg-background-100 border rounded-[20px] p-5 ${item.answer ? 'border-emerald-200' : 'border-background-200'}`}><div className="flex items-start gap-3 mb-2"><div className="w-10 h-10 md:w-7 md:h-7 rounded-full bg-accent-100 flex items-center justify-center flex-shrink-0"><i className="ri-question-mark text-accent-600 text-xs"></i></div><div className="flex-1"><div className="flex items-center gap-2 mb-1"><span className="text-xs font-medium text-accent-600">{item.isAnonymous ? '익명' : item.questioner}</span><span className="text-xs text-foreground-500">{item.createdAt}</span>{!item.answer && <span className="inline-flex flex-shrink-0 items-center justify-center min-w-[72px] h-8 px-3 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold whitespace-nowrap">답변 대기</span>}</div>{editingQnaId === item.id ? <div><textarea value={editQnaText} onChange={e => setEditQnaText(e.target.value)} rows={2} maxLength={300} className="w-full px-3 py-2 text-sm rounded-xl border border-accent-300 bg-background-50 focus:border-accent-400 outline-none resize-none" /><div className="flex items-center gap-2 mt-1.5"><button onClick={handleCancelEditQuestion} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button><button onClick={() => handleSaveEditQuestion(item.id)} disabled={!editQnaText.trim() || qnaActionLoading} className="px-3 py-1 rounded-full bg-accent-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">저장</button></div></div> : <><p className="text-sm text-foreground-800 font-medium leading-relaxed">{item.question}</p>{canManageQnaQuestion(item) && <div className="flex items-center gap-3 mt-1.5"><button onClick={() => handleStartEditQuestion(item)} className="text-xs text-foreground-500 hover:text-accent-600 cursor-pointer">수정</button><button onClick={() => handleDeleteQuestion(item.id)} disabled={qnaActionLoading} className="text-xs text-foreground-500 hover:text-red-600 cursor-pointer disabled:opacity-40">삭제</button></div>}</>}</div></div>{item.answer ? <div className="ml-10 bg-emerald-50 border border-emerald-200 rounded-xl p-4"><div className="flex items-center gap-2 mb-1"><div className="w-5 h-5 rounded-full bg-emerald-200 flex items-center justify-center"><i className="ri-user-star-line text-emerald-700 text-[10px]"></i></div><span className="text-xs font-bold text-emerald-700">{item.answerer}</span></div>{editingAnswerId === item.id ? <div><textarea value={editAnswerText} onChange={e => setEditAnswerText(e.target.value)} rows={2} maxLength={500} className="w-full px-3 py-2 text-sm rounded-xl border border-emerald-300 bg-background-50 focus:border-emerald-400 outline-none resize-none" /><div className="flex items-center gap-2 mt-1.5"><button onClick={handleCancelEditAnswer} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button><button onClick={() => handleSaveEditAnswer(item.id)} disabled={!editAnswerText.trim() || qnaActionLoading} className="px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">저장</button></div></div> : <><p className="text-sm text-emerald-800 leading-relaxed">{item.answer}</p>{isClubLeader && <div className="flex items-center gap-3 mt-1.5"><button onClick={() => handleStartEditAnswer(item)} className="text-xs text-emerald-700/70 hover:text-emerald-700 cursor-pointer">수정</button><button onClick={() => handleDeleteAnswer(item.id)} disabled={qnaActionLoading} className="text-xs text-emerald-700/70 hover:text-red-600 cursor-pointer disabled:opacity-40">삭제</button></div>}</>}</div> : isClubLeader && <div className="ml-10 mt-2">{answeringQnaId === item.id ? <div><textarea value={qnaAnswer} onChange={e => setQnaAnswer(e.target.value)} placeholder="답변을 작성해주세요..." rows={2} maxLength={500} className="w-full px-4 py-2.5 text-sm rounded-xl border border-emerald-200 bg-emerald-50 focus:border-emerald-400 outline-none resize-none" /><div className="flex items-center gap-2 mt-1.5"><button onClick={() => { setAnsweringQnaId(null); setQnaAnswer(''); }} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button><button onClick={() => handleSubmitAnswer(item.id)} disabled={!qnaAnswer.trim()} className="px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">답변 등록</button></div></div> : <button onClick={() => setAnsweringQnaId(item.id)} className="text-xs text-emerald-600 hover:text-emerald-700 cursor-pointer font-medium"><i className="ri-reply-line mr-1"></i> 답변하기</button>}</div>)}</motion.div>)}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {lightboxIndex !== null && (
-        <PhotoLightbox
-          photos={clubDetail.photos.map(p => p.url)}
-          thumbUrls={clubDetail.photos.map(p => p.thumbUrl || p.url)}
-          initialIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-        />
-      )}
+      {lightboxIndex !== null && <PhotoLightbox photos={clubDetail.photos.map(p => p.url)} thumbUrls={clubDetail.photos.map(p => p.thumbUrl || p.url)} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} />}
     </div>
   );
 }
