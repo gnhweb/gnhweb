@@ -171,8 +171,9 @@ export default function BibleQuiz() {
         const currentClub = freshProfile?.club || profile?.club;
         const clubInfo = currentClub && CLUB_COLORS[currentClub] ? CLUB_COLORS[currentClub] : null;
         const clubName = clubInfo?.name || currentClub || '미지정';
-        const finalScore = score + (isCorrect === true ? (questions[currentQ]?.points || 20) : 0);
-        const finalCorrectCount = correctCount + (isCorrect === true ? 1 : 0);
+        // 마지막 답변은 이미 handleAnswer에서 state에 반영됐으므로 여기서 다시 더하지 않는다.
+        const finalScore = score;
+        const finalCorrectCount = correctCount;
 
         // 점수 기록은 이미 Neon Data API로 연결된 supabase 호환 클라이언트를 통해
         // 직접 저장한다. RLS의 "본인 user_id만 INSERT" 정책을 그대로 사용하므로
