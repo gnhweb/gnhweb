@@ -123,7 +123,14 @@ export default function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean;
     if (!isOpen) return;
 
     // 같은 브라우저에서 퀴즈 저장이 완료되면 폴링 주기를 기다리지 않고 즉시 갱신한다.
-    const handleQuizScoreUpdated = () => {
+    const handleQuizScoreUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<LeaderboardData | null>).detail;
+      if (detail?.scores && detail?.clubRanking) {
+        setData(detail);
+        setError('');
+        setLoading(false);
+        return;
+      }
       void fetchLeaderboard();
     };
     window.addEventListener('bible-quiz-score-updated', handleQuizScoreUpdated);
