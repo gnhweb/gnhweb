@@ -251,7 +251,7 @@ async function requestGateway(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        task: "student-council",
+        task: "coaching",
         messages,
         max_tokens: maxTokens,
       }),
@@ -297,10 +297,13 @@ export async function handleNimCoaching(req: Request, env: Record<string, string
       { role: "system" as const, content: `${buildSystemPrompt(tone)}\n${buildFinalPrompt(tone)}` },
       {
         role: "user" as const,
-        content: `원래 고민:\n${concern}\n\n진단 자료:\n${diagnosis ? JSON.stringify(diagnosis) : "구조화된 진단을 얻지 못했으므로 원래 고민을 직접 다시 분석한다."}\n\n이번 사고 관점: ${coachingLens}\n이번 답변 방식: ${coachingMethod}\n이번 생성 식별자: ${generationNonce}\n\n위 자료와 원래 고민을 대조한 뒤, 원래 고민에 가장 적합한 새로운 최종 코칭 답변을 작성해라. 진단 자료의 표현을 그대로 복사하지 말고, 실제 판단이 필요한 부분은 다시 생각해서 작성한다. 성경적 원칙을 실제 판단과 행동에 반영하고, 사명자로서 사용자가 놓친 점과 지금 옳은 행동을 근거가 있을 때 분명히 제시해라.`,
+        content: `진단 자료:\n${diagnosis ? JSON.stringify(diagnosis) : "구조화된 진단을 얻지 못했으므로 원래 고민을 직접 다시 분석한다."}\n\n이번 사고 관점: ${coachingLens}\n이번 답변 방식: ${coachingMethod}\n이번 생성 식별자: ${generationNonce}\n\n위 자료를 참고하되 원래 고민을 다시 읽고, 질문에 직접 답하는 새로운 최종 코칭 답변을 작성해라. 진단 자료의 표현을 그대로 복사하지 말고, 실제 판단이 필요한 부분은 다시 생각해서 작성한다. 성경적 원칙을 실제 판단과 행동에 반영하고, 사명자로서 사용자가 놓친 점과 지금 옳은 행동을 근거가 있을 때 분명히 제시해라.`,
+      },
+      {
+        role: "user" as const,
+        content: `원래 고민:\n${concern}`,
       },
     ];
-
     let finalDraft = await requestGateway(finalMessages, env, 4000);
 
     if (finalDraft && !isCompleteCoachingDraft(finalDraft)) {
