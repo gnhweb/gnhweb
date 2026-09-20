@@ -162,6 +162,26 @@ jobs:
           grep -iq '^access-control-allow-origin: https://gnhwebw.pages.dev' "$headers_file"
           grep -iq '^access-control-allow-methods:.*PUT' "$headers_file"
           grep -iq '^access-control-allow-headers:.*authorization' "$headers_file"
+      - name: Verify actual PUT request returns a CORS-visible auth response
+        run: |
+          set -euo pipefail
+          headers_file=$(mktemp)
+          response_file=$(mktemp)
+          status=$(curl --silent --show-error --dump-header "$headers_file" --output "$response_file" --write-out '%{http_code}' \
+            --request PUT \
+            --header 'Origin: https://gnhwebw.pages.dev' \
+            --header 'Authorization: Bearer invalid-test-token' \
+            --header 'Content-Type: image/jpeg' \
+            --header 'X-Upsert: true' \
+            --data-binary 'storage-cors-put-check' \
+            'https://gnhweb-storage.gemini19840314.workers.dev/v1/storage/public/memories/cors-check.jpg')
+          cat "$response_file"
+          cat "$headers_file"
+          test "$status" = "401"
+          grep -iq '^access-control-allow-origin: https://gnhwebw.pages.dev' "$headers_file"
+          grep -iq '^access-control-allow-methods:.*PUT' "$headers_file"
+          grep -iq '^access-control-allow-headers:.*authorization' "$headers_file"
+
       - name: Verify unknown Pages deployment origin is not blocked by CORS
         run: |
           set -euo pipefail
