@@ -1,3 +1,4 @@
+import { neon } from '@neondatabase/serverless';
 import { requireUserId, updateBibleStreak } from './bibleStreakFeature';
 
 const CORS_HEADERS = {
@@ -19,6 +20,7 @@ const CLUB_NAME_MAP: Record<string, string> = {
 type Env = {
   NEON_JWKS_URL: string;
   NEON_AUTH_ISSUER?: string;
+  DATABASE_URL?: string;
 };
 
 type QuizScore = {
@@ -191,24 +193,28 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
       if (!body.nickname || !body.club_name || body.score === undefined) {
         return json({ error: '필수 항목이 누락되었습니다.' }, 400);
       }
-      const sessionRows = await dataApiRequest<ScoreRow[]>(dataApiUrl('quiz_scores'), userAuthorization, {
-        method: 'POST',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({
-          user_id: userId,
-          nickname: body.nickname,
-          club_name: body.club_name,
-          score: body.score,
-          total_questions: body.total_questions || 8,
-          correct_count: body.correct_count || 0,
-          difficulty: body.difficulty || 'normal',
-          topic: body.topic || null,
-        }),
-      });
-      const userAll = await dataApiRequest<Array<Pick<ScoreRow, 'score' | 'correct_count' | 'total_questions'>>>(
-        dataApiUrl(`quiz_scores?select=score,correct_count,total_questions&user_id=eq.${encodeURIComponent(userId)}`),
-        userAuthorization,
-      );
+      const databaseUrl = String(env.DATABASE_URL || '').trim();
+      if (!databaseUrl) return json({ error: 'DATABASE_URL is not configured' }, 500);
+
+      // API에서 먼저 JWT의 userId를 검증했으므로 점수 저장은 서버 전용 DB 연결로 처리한다.
+      // Data API RLS의 JWT 세션 매핑 문제로 기록이 누락되는 경로를 차단한다.
+      const sql = neon(databaseUrl);
+      const sessionRows = await sql<ScoreRow[]>`
+        INSERT INTO public.quiz_scores (
+          user_id, nickname, club_name, score, total_questions, correct_count, difficulty, topic
+        )
+        VALUES (
+          ${userId}, ${body.nickname}, ${body.club_name}, ${body.score},
+          ${body.total_questions || 8}, ${body.correct_count || 0},
+          ${body.difficulty || 'normal'}, ${body.topic || null}
+        )
+        RETURNING *
+      `;
+      const userAll = await sql<Array<Pick<ScoreRow, 'score' | 'correct_count' | 'total_questions'>>>`
+        SELECT score, correct_count, total_questions
+        FROM public.quiz_scores
+        WHERE user_id = ${userId}
+      `;
       const cumulative = userAll.reduce((acc, row) => ({
         total_score: acc.total_score + (row.score || 0),
         total_correct: acc.total_correct + (row.correct_count || 0),
@@ -220,19 +226,21 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
       }), { total_score: 0, total_correct: 0, total_questions: 0, games_played: 0, accuracy: 0 });
       // 저장 직후 서버에서 같은 인증 컨텍스트로 리더보드 최신 데이터를 확인한다.
       // 클라이언트의 별도 재조회 타이밍에 의존하지 않아 방금 저장한 기록이 즉시 반영된다.
-      const latestRoles = await dataApiRequest<RoleRow[]>(
-        dataApiUrl('user_roles?select=user_id,club&is_active=eq.true'),
-        userAuthorization,
-      );
+      const latestRoles = await sql<RoleRow[]>`
+        SELECT user_id, club
+        FROM public.user_roles
+        WHERE is_active = true
+      `;
       const latestClubMap = new Map<string, string>();
       for (const role of latestRoles) {
         if (role.club) latestClubMap.set(role.user_id, role.club);
       }
 
-      const latestRows = await dataApiRequest<ScoreRow[]>(
-        dataApiUrl('quiz_scores?select=*&order=created_at.desc'),
-        userAuthorization,
-      );
+      const latestRows = await sql<ScoreRow[]>`
+        SELECT *
+        FROM public.quiz_scores
+        ORDER BY created_at DESC
+      `;
       const latestUsers = new Map<string, {
         user_id: string;
         nickname: string;
