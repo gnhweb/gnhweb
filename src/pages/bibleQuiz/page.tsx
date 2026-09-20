@@ -192,7 +192,9 @@ export default function BibleQuiz() {
           setError('퀴즈 기록을 저장하지 못했어요. 잠시 후 다시 확인해주세요.');
         } else {
           // 같은 화면에서 열려 있는 리더보드가 저장 완료 즉시 다시 조회하도록 알린다.
-          window.dispatchEvent(new CustomEvent('bible-quiz-score-updated'));
+          window.dispatchEvent(new CustomEvent('bible-quiz-score-updated', {
+            detail: result?.leaderboard ?? null,
+          }));
           if (result?.cumulative) {
             setCumulativeStats(result.cumulative as CumulativeStats);
           }
