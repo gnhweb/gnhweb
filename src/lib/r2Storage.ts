@@ -43,7 +43,11 @@ const request = async (bucket: string, path: string, init: RequestInit = {}, req
     if (!token) throw new Error('로그인이 필요합니다.');
     headers.set('Authorization', `Bearer ${token}`);
   }
-  const url = buildUrl(bucket, path, params);
+  const requestParams = new URLSearchParams(params);
+  // Version the authenticated Storage endpoint so browsers cannot reuse a
+  // stale CORS preflight cached before the current Storage Worker headers.
+  requestParams.set('cors', '2');
+  const url = buildUrl(bucket, path, requestParams);
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
