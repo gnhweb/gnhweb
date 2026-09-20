@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { clubs, clubIcons, type ClubData } from '@/mocks/clubs';
+import ClubBannerManager, { useClubBanner } from '@/components/feature/ClubBannerManager';
 import PhotoLightbox from '@/components/feature/PhotoLightbox';
 import { CategoryChipRow, CategoryChip } from '@/components/base/CategoryChip';
 import { resizeImageFile, thumbFileNameFor } from '@/lib/imageResize';
@@ -142,6 +143,7 @@ export default function ClubDetail() {
   const navigate = useNavigate();
   const { user, profile, secondaryClubs } = useAuth();
   const club: ClubData | undefined = clubs.find(c => c.id === id);
+  const { banner: clubBanner, refresh: refreshBanner } = useClubBanner(id || '');
 
   const [activeTab, setActiveTab] = useState<'info' | 'members' | 'photos' | 'qna'>('info');
   const [loading, setLoading] = useState(true);
@@ -809,427 +811,639 @@ export default function ClubDetail() {
     if (result.success) setEditingActivities(false);
   };
 
-  if (!club) {
-    return (
-      <div className="min-h-screen bg-background-50 flex items-center justify-center p-6">
-        <div className="text-center">
-          <p className="text-foreground-700 mb-4">동아리를 찾을 수 없습니다.</p>
-          <Link to="/clubs" className="text-primary-700 font-bold hover:underline">동아리 목록으로</Link>
-        </div>
-      </div>
-    );
-  }
+  const handleSaveGoal = async () => {
+    const result = await saveClubDetail({ goal: goalInput.trim() || DEFAULT_GOAL });
+    if (result.success) setEditingGoal(false);
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-foreground-600">
-          <i className="ri-loader-4-line text-3xl animate-spin"></i>
-          <p>동아리 정보를 불러오는 중...</p>
-        </div>
+        <div className="w-8 h-8 rounded-full border-2 border-amber-400 border-t-transparent animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background-50 text-foreground-900">
-      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
-        <div className="mb-6">
-          <Link to="/clubs" className="inline-flex items-center gap-1 text-sm text-foreground-600 hover:text-foreground-900 mb-4">
-            <i className="ri-arrow-left-line"></i>
-            동아리 목록
-          </Link>
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="w-11 h-11 rounded-card bg-primary-100 text-primary-700 flex items-center justify-center flex-shrink-0">
-                  <i className={`${clubIcons[club.id] || 'ri-group-line'} text-xl`}></i>
-                </span>
-                <h1 className="font-heading text-2xl md:text-3xl font-bold text-foreground-950 truncate">{club.name}</h1>
-              </div>
-              <p className="text-foreground-600 text-sm md:text-base">{(club as ClubData & { shortDescription?: string }).shortDescription}</p>
-            </div>
-            {canEditClubDetail && (
-              <div className="flex items-center gap-2 text-xs text-foreground-500">
-                <i className="ri-edit-line"></i>
-                동아리 정보 수정 권한이 있습니다.
-              </div>
-            )}
-          </div>
+    <div className="min-h-screen bg-background-50">
+      {/* Hero */}
+      <div className="relative aspect-[16/10] md:aspect-[21/7] overflow-hidden">
+        {clubBanner?.hero_image_url ? (
+          <img src={clubBanner.hero_image_url} alt={club.name} className="w-full h-full object-cover object-top" />
+        ) : (
+          <div className={`w-full h-full bg-gradient-to-br ${club.color}`}></div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/50"></div>
+
+        {/* 이미지 관리 버튼 — 제목과 겹치지 않도록 우상단에 따로 배치 */}
+        <div className="absolute top-3 right-3 md:top-6 md:right-6 z-20">
+          <ClubBannerManager club={club.id} onBannerChange={refreshBanner} />
         </div>
 
-        {error && (
-          <div className="mb-5 rounded-card border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-800 flex items-start gap-2">
-            <i className="ri-error-warning-line mt-0.5 flex-shrink-0"></i>
-            <span className="break-words">{error}</span>
-            <button type="button" onClick={() => setError(null)} className="ml-auto flex-shrink-0 p-1" aria-label="오류 닫기">
-              <i className="ri-close-line"></i>
+        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-10">
+          <div className="max-w-5xl mx-auto">
+            <button onClick={() => navigate('/clubs')} className="flex items-center gap-2 text-white/80 hover:text-white transition-colors mb-2 md:mb-4 text-xs md:text-sm group cursor-pointer">
+              <i className="ri-arrow-left-line group-hover:-translate-x-1 transition-transform duration-200"></i>
+              동아리 목록
             </button>
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className={`w-10 h-10 md:w-14 md:h-14 rounded-2xl ${club.iconBg} flex items-center justify-center backdrop-blur`}>
+                <i className={`${clubIcons[club.id]} text-xl md:text-3xl ${club.iconText}`}></i>
+              </div>
+              <div>
+                <h1 className="text-lg md:text-4xl font-bold text-white leading-tight">{club.name}</h1>
+                <p className="text-white/80 text-xs md:text-base">{club.subtitle}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 md:py-10 relative z-10 -mt-6 md:mt-0 rounded-t-[28px] md:rounded-none bg-background-50">
+        {error && (
+          <div className="bg-accent-100 border border-accent-200 rounded-[20px] p-4 mb-6">
+            <p className="text-sm text-accent-700 flex items-center gap-2"><i className="ri-error-warning-line"></i>{error}</p>
+            <button onClick={() => { setError(null); loadAllData(); }} className="mt-2 text-xs text-accent-600 underline cursor-pointer">다시 시도</button>
           </div>
         )}
 
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
-          {([
-            ['info', '소개', 'ri-information-line'],
-            ['members', '단원', 'ri-group-line'],
-            ['photos', '사진', 'ri-image-line'],
-            ['qna', '질문', 'ri-question-answer-line'],
-          ] as const).map(([tab, label, icon]) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-chip whitespace-nowrap text-sm font-bold border transition-colors ${
-                activeTab === tab
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-background-100 text-foreground-700 border-background-200 hover:bg-background-200'
-              }`}
-            >
-              <i className={icon}></i>
-              {label}
+        {/* Tabs — 모바일: 공용 카테고리 칩 재사용 */}
+        <div className="md:hidden mb-4">
+          <CategoryChipRow>
+            {(['info', 'members', 'photos', 'qna'] as const).map(tab => (
+              <CategoryChip key={tab} active={activeTab === tab} onClick={() => setActiveTab(tab)}>
+                <i className={`${tab === 'info' ? 'ri-information-line' : tab === 'members' ? 'ri-group-line' : tab === 'photos' ? 'ri-camera-line' : 'ri-question-answer-line'} mr-1`}></i>
+                {tab === 'info' ? '소개' : tab === 'members' ? `명단 (${members.length})` : tab === 'photos' ? `사진 (${clubDetail.photos.length})` : 'QnA'}
+              </CategoryChip>
+            ))}
+          </CategoryChipRow>
+        </div>
+
+        {/* Tabs — PC: 기존 필 스타일 유지 */}
+        <div className="hidden md:flex items-center gap-1 mb-4 md:mb-6 bg-background-100 rounded-full p-1 overflow-x-auto">
+          {(['info', 'members', 'photos', 'qna'] as const).map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-shrink-0 px-4 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${activeTab === tab ? 'bg-background-100 text-foreground-950 shadow-sm' : 'text-foreground-600 hover:text-foreground-950'}`}>
+              <i className={`${tab === 'info' ? 'ri-information-line' : tab === 'members' ? 'ri-group-line' : tab === 'photos' ? 'ri-camera-line' : 'ri-question-answer-line'} mr-1`}></i>
+              {tab === 'info' ? '소개' : tab === 'members' ? `명단 (${members.length})` : tab === 'photos' ? `사진 (${clubDetail.photos.length})` : 'QnA'}
             </button>
           ))}
         </div>
 
-        {activeTab === 'info' && (
-          <div className="space-y-5">
-            <InfoSection icon="ri-book-open-line" title="동아리 소개" saving={saving}>
-              {editingIntro ? (
-                <div className="space-y-3">
-                  <textarea value={introInput} onChange={e => setIntroInput(e.target.value)} rows={5} className="w-full rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" />
-                  <div className="flex gap-2 justify-end">
-                    <button type="button" onClick={() => setEditingIntro(false)} className="px-3 py-2 rounded-input text-sm bg-background-200 text-foreground-700">취소</button>
-                    <button type="button" onClick={handleIntroSave} disabled={saving} className="px-3 py-2 rounded-input text-sm bg-primary-600 text-white disabled:opacity-50">저장</button>
+        <AnimatePresence mode="wait">
+          {activeTab === 'info' && (
+            <motion.div key="info" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 items-start">
+                {/* 동아리 소개 — 인스타 프로필 소개글처럼 전체 폭으로 항상 펼쳐둔다 */}
+                <InfoSection
+                  icon="ri-file-text-line"
+                  iconColor="text-primary-600"
+                  title="동아리 소개"
+                  wrapperClassName="md:col-span-2"
+                  forceOpen={editingIntro}
+                  headerAction={isClubLeader && !editingIntro && (
+                    <button onClick={() => { setIntroInput(clubDetail.description); setEditingIntro(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap">
+                      <i className="ri-edit-line mr-1"></i>수정
+                    </button>
+                  )}
+                >
+                  {editingIntro ? (
+                    <div>
+                      <textarea value={introInput} onChange={e => setIntroInput(e.target.value)} rows={4} maxLength={500} className="w-full px-4 py-3 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none" />
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={() => setEditingIntro(false)} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
+                        <button onClick={() => { saveClubDetail({ description: introInput }); setEditingIntro(false); }} className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs font-semibold cursor-pointer whitespace-nowrap">저장</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{clubDetail.description}</p>
+                  )}
+                  <div className="mt-5 pt-4 border-t border-background-200">
+                    <Link to={`/clubs/${club.id}/community`} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-500 text-background-50 text-sm font-medium hover:bg-primary-600 transition-colors cursor-pointer whitespace-nowrap">
+                      <i className="ri-chat-smile-2-line"></i>소통 공간
+                    </Link>
                   </div>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <p className="whitespace-pre-wrap text-sm md:text-base leading-7 text-foreground-700">{clubDetail.description || '소개가 등록되지 않았습니다.'}</p>
-                  {canEditClubDetail && <button type="button" onClick={() => { setIntroInput(clubDetail.description); setEditingIntro(true); }} className="p-2 rounded-input text-foreground-500 hover:bg-background-200" aria-label="소개 수정"><i className="ri-edit-line"></i></button>}
-                </div>
-              )}
-            </InfoSection>
+                </InfoSection>
 
-            <InfoSection icon="ri-calendar-line" title="연습 일정" saving={saving}>
-              {editingSchedule ? (
-                <div className="space-y-3">
-                  <textarea value={scheduleInput} onChange={e => setScheduleInput(e.target.value)} rows={4} className="w-full rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" />
-                  <div className="flex gap-2 justify-end">
-                    <button type="button" onClick={() => setEditingSchedule(false)} className="px-3 py-2 rounded-input text-sm bg-background-200 text-foreground-700">취소</button>
-                    <button type="button" onClick={handleScheduleSave} disabled={saving} className="px-3 py-2 rounded-input text-sm bg-primary-600 text-white disabled:opacity-50">저장</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <p className="whitespace-pre-wrap text-sm md:text-base leading-7 text-foreground-700">{clubDetail.schedule || '연습 일정이 등록되지 않았습니다.'}</p>
-                  {canEditClubDetail && <button type="button" onClick={() => { setScheduleInput(clubDetail.schedule); setEditingSchedule(true); }} className="p-2 rounded-input text-foreground-500 hover:bg-background-200" aria-label="일정 수정"><i className="ri-edit-line"></i></button>}
-                </div>
-              )}
-            </InfoSection>
+                {/* 연습 일정 */}
+                <InfoSection
+                  icon="ri-time-line"
+                  title="연습 일정"
+                  forceOpen={editingSchedule}
+                  headerAction={isClubLeader && !editingSchedule && (
+                    <button onClick={() => { setScheduleInput(clubDetail.schedule); setEditingSchedule(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap">
+                      <i className="ri-edit-line mr-1"></i>수정
+                    </button>
+                  )}
+                >
+                  {editingSchedule ? (
+                    <div>
+                      <textarea value={scheduleInput} onChange={e => setScheduleInput(e.target.value)} rows={3} maxLength={200} className="w-full px-4 py-3 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none" />
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={() => setEditingSchedule(false)} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
+                        <button onClick={() => { saveClubDetail({ schedule: scheduleInput }); setEditingSchedule(false); }} className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs font-semibold cursor-pointer whitespace-nowrap">저장</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap">{clubDetail.schedule}</p>
+                  )}
+                </InfoSection>
 
-            <InfoSection icon="ri-double-quotes-l" title="동아리장 한마디" saving={saving}>
-              {editingQuote ? (
-                <div className="space-y-3">
-                  <textarea value={quoteInput} onChange={e => setQuoteInput(e.target.value)} rows={4} className="w-full rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" />
-                  <div className="flex gap-2 justify-end">
-                    <button type="button" onClick={() => setEditingQuote(false)} className="px-3 py-2 rounded-input text-sm bg-background-200 text-foreground-700">취소</button>
-                    <button type="button" onClick={handleQuoteSave} disabled={saving} className="px-3 py-2 rounded-input text-sm bg-primary-600 text-white disabled:opacity-50">저장</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-quote whitespace-pre-wrap text-base md:text-lg leading-8 text-foreground-800">{clubDetail.leaderQuote || '동아리장의 한마디가 아직 등록되지 않았습니다.'}</p>
-                  {canEditClubDetail && <button type="button" onClick={() => { setQuoteInput(clubDetail.leaderQuote); setEditingQuote(true); }} className="p-2 rounded-input text-foreground-500 hover:bg-background-200" aria-label="한마디 수정"><i className="ri-edit-line"></i></button>}
-                </div>
-              )}
-            </InfoSection>
+                {/* 주요 활동 — 목록이 길어질 수 있어 전체 폭으로 배치 */}
+                <InfoSection
+                  icon="ri-checkbox-multiple-line"
+                  iconColor="text-primary-600"
+                  title="주요 활동"
+                  wrapperClassName="md:col-span-2"
+                  forceOpen={editingActivities}
+                  saving={saving}
+                  headerAction={isClubLeader && !editingActivities && (
+                    <button onClick={() => { setActivitiesInput([...clubDetail.activities]); setEditingActivities(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap">
+                      <i className="ri-edit-line mr-1"></i>수정
+                    </button>
+                  )}
+                >
+                  {editingActivities ? (
+                    <div>
+                      <div className="space-y-2 mb-3">
+                        {activitiesInput.map((act, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <textarea
+                              value={act}
+                              onChange={e => {
+                                const next = [...activitiesInput];
+                                next[i] = e.target.value;
+                                setActivitiesInput(next);
+                              }}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                }
+                              }}
+                              rows={1}
+                              maxLength={200}
+                              className="flex-1 px-3 py-2 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none"
+                            />
+                            <button onClick={() => setActivitiesInput(prev => prev.filter((_, idx) => idx !== i))} className="w-10 h-10 md:w-7 md:h-7 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center hover:bg-rose-200 cursor-pointer flex-shrink-0 self-start mt-1">
+                              <i className="ri-close-line text-sm"></i>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <textarea
+                          value={newActivityItem}
+                          onChange={e => setNewActivityItem(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              if (newActivityItem.trim()) {
+                                setActivitiesInput(prev => [...prev, newActivityItem.trim()]);
+                                setNewActivityItem('');
+                              }
+                            }
+                          }}
+                          placeholder="새 활동 추가... (Shift+Enter로 줄바꿈, Enter로 추가)"
+                          rows={2}
+                          maxLength={200}
+                          className="flex-1 px-3 py-2 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none"
+                        />
+                        <button onClick={() => { if (newActivityItem.trim()) { setActivitiesInput(prev => [...prev, newActivityItem.trim()]); setNewActivityItem(''); }}} disabled={!newActivityItem.trim()} className="px-3 py-2 rounded-full bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 disabled:opacity-40 cursor-pointer whitespace-nowrap">추가</button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => { setEditingActivities(false); setNewActivityItem(''); }} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
+                        <button onClick={() => { saveClubDetail({ activities: activitiesInput }); setEditingActivities(false); setNewActivityItem(''); }} className="px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 cursor-pointer whitespace-nowrap">저장</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {(clubDetail.activities.length > 0 ? clubDetail.activities : club.activities).map((a, i) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <div className={`w-7 h-7 rounded-lg ${club.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+                            <i className={`ri-check-line text-sm ${club.iconText}`}></i>
+                          </div>
+                          <span className="text-sm text-foreground-700">{a}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </InfoSection>
 
-            <InfoSection icon="ri-user-star-line" title="동아리장" saving={saving}>
-              {editingLeaderName ? (
-                <div className="space-y-3">
-                  <input value={leaderNameInput} onChange={e => setLeaderNameInput(e.target.value)} className="w-full rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" />
-                  <div className="flex gap-2 justify-end">
-                    <button type="button" onClick={() => setEditingLeaderName(false)} className="px-3 py-2 rounded-input text-sm bg-background-200 text-foreground-700">취소</button>
-                    <button type="button" onClick={handleLeaderNameSave} disabled={saving} className="px-3 py-2 rounded-input text-sm bg-primary-600 text-white disabled:opacity-50">저장</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm md:text-base font-bold text-foreground-800">{clubDetail.leaderName || club.leaderName || '미정'}</span>
-                  {canEditClubDetail && <button type="button" onClick={() => { setLeaderNameInput(clubDetail.leaderName); setEditingLeaderName(true); }} className="p-2 rounded-input text-foreground-500 hover:bg-background-200" aria-label="동아리장 수정"><i className="ri-edit-line"></i></button>}
-                </div>
-              )}
-            </InfoSection>
+                {/* 동아리장 한마디 */}
+                <InfoSection
+                  icon="ri-chat-quote-line"
+                  title="동아리장 한마디"
+                  forceOpen={editingQuote || editingLeaderName}
+                  containerClass={`bg-gradient-to-br ${club.color} border-transparent`}
+                  titleClass="text-white"
+                  headerAction={isClubLeader && !editingQuote && !editingLeaderName && (
+                    <button onClick={() => { setQuoteInput(clubDetail.leaderQuote); setEditingQuote(true); }} className="text-xs text-white/80 hover:text-white cursor-pointer whitespace-nowrap">
+                      <i className="ri-edit-line mr-1"></i>수정
+                    </button>
+                  )}
+                >
+                  {editingQuote ? (
+                    <div>
+                      <textarea value={quoteInput} onChange={e => setQuoteInput(e.target.value)} rows={3} maxLength={200} className="w-full px-4 py-3 text-sm rounded-xl border border-white/30 bg-background-100/10 text-white placeholder-white/50 focus:border-white/50 outline-none resize-none" />
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={() => setEditingQuote(false)} className="text-xs text-white/70 hover:text-white cursor-pointer">취소</button>
+                        <button onClick={() => { saveClubDetail({ leaderQuote: quoteInput }); setEditingQuote(false); }} className="px-3 py-1.5 rounded-full bg-background-100/20 text-white text-xs font-semibold hover:bg-background-100/30 cursor-pointer whitespace-nowrap">저장</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-white">
+                      <p className="text-sm leading-relaxed mb-4 italic">{clubDetail.leaderQuote}</p>
+                      <div className="flex items-center gap-2 pt-3 border-t border-white/20">
+                        <div className="w-8 h-8 rounded-full bg-background-100/20 flex items-center justify-center">
+                          <i className="ri-user-line text-white text-sm"></i>
+                        </div>
+                        {editingLeaderName ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={leaderNameInput}
+                              onChange={e => setLeaderNameInput(e.target.value)}
+                              maxLength={20}
+                              placeholder="동아리장 이름"
+                              className="px-3 py-1 text-sm rounded-lg border border-white/30 bg-background-100/10 text-white placeholder-white/50 focus:border-white/50 outline-none w-32"
+                            />
+                            <button onClick={() => { saveClubDetail({ leaderName: leaderNameInput }); setEditingLeaderName(false); }} className="text-xs text-white/80 hover:text-white cursor-pointer whitespace-nowrap">
+                              <i className="ri-check-line"></i>
+                            </button>
+                            <button onClick={() => setEditingLeaderName(false)} className="text-xs text-white/60 hover:text-white cursor-pointer">
+                              <i className="ri-close-line"></i>
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-sm font-medium">{clubDetail.leaderName || club.leaderName} (동아리장)</span>
+                            {isClubLeader && (
+                              <button onClick={() => { setLeaderNameInput(clubDetail.leaderName || club.leaderName); setEditingLeaderName(true); }} className="text-white/60 hover:text-white cursor-pointer">
+                                <i className="ri-pencil-line text-xs"></i>
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </InfoSection>
 
-            <InfoSection icon="ri-target-line" title="이번 달 목표" saving={saving}>
-              {editingGoal ? (
-                <div className="space-y-3">
-                  <textarea value={goalInput} onChange={e => setGoalInput(e.target.value)} rows={4} className="w-full rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" />
-                  <div className="flex gap-2 justify-end">
-                    <button type="button" onClick={() => setEditingGoal(false)} className="px-3 py-2 rounded-input text-sm bg-background-200 text-foreground-700">취소</button>
-                    <button type="button" onClick={handleGoalSave} disabled={saving} className="px-3 py-2 rounded-input text-sm bg-primary-600 text-white disabled:opacity-50">저장</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <p className="whitespace-pre-wrap text-sm md:text-base leading-7 text-foreground-700">{clubDetail.goal}</p>
-                  {canEditClubDetail && <button type="button" onClick={() => { setGoalInput(clubDetail.goal); setEditingGoal(true); }} className="p-2 rounded-input text-foreground-500 hover:bg-background-200" aria-label="목표 수정"><i className="ri-edit-line"></i></button>}
-                </div>
-              )}
-            </InfoSection>
+                {/* 이번 시즌 목표 */}
+                <InfoSection
+                  icon="ri-flag-line"
+                  iconColor="text-amber-600"
+                  title="이번 시즌 목표"
+                  forceOpen={editingGoal}
+                  saving={saving}
+                  headerAction={isClubLeader && !editingGoal && (
+                    <button onClick={() => { setGoalInput(clubDetail.goal); setEditingGoal(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap">
+                      <i className="ri-edit-line mr-1"></i>수정
+                    </button>
+                  )}
+                >
+                  {editingGoal ? (
+                    <div>
+                      <textarea value={goalInput} onChange={e => setGoalInput(e.target.value)} rows={2} maxLength={200} className="w-full px-4 py-2.5 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none" />
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={() => setEditingGoal(false)} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
+                        <button onClick={handleSaveGoal} className="px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 cursor-pointer whitespace-nowrap">저장</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-foreground-700 leading-relaxed">{clubDetail.goal}</p>
+                  )}
+                </InfoSection>
 
-            <InfoSection icon="ri-book-2-line" title="이번 달 말씀" saving={saving}>
-              {editingVerse ? (
-                <div className="space-y-3">
-                  <textarea value={verseForm.text} onChange={e => setVerseForm(prev => ({ ...prev, text: e.target.value }))} rows={4} className="w-full rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" placeholder="말씀" />
-                  <input value={verseForm.reference} onChange={e => setVerseForm(prev => ({ ...prev, reference: e.target.value }))} className="w-full rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" placeholder="성경 구절" />
-                  <textarea value={verseForm.description} onChange={e => setVerseForm(prev => ({ ...prev, description: e.target.value }))} rows={3} className="w-full rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" placeholder="설명" />
-                  <div className="flex gap-2 justify-end">
-                    <button type="button" onClick={() => setEditingVerse(false)} className="px-3 py-2 rounded-input text-sm bg-background-200 text-foreground-700">취소</button>
-                    <button type="button" onClick={handleVerseSave} disabled={saving} className="px-3 py-2 rounded-input text-sm bg-primary-600 text-white disabled:opacity-50">저장</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-quote text-lg md:text-xl leading-8 text-foreground-900">“{clubDetail.monthlyVerseText}”</p>
-                    <p className="mt-2 text-sm font-bold text-primary-700">{clubDetail.monthlyVerseReference}</p>
-                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground-700">{clubDetail.monthlyVerseDescription}</p>
-                  </div>
-                  {canEditClubDetail && <button type="button" onClick={() => { setVerseForm({ text: clubDetail.monthlyVerseText, reference: clubDetail.monthlyVerseReference, description: clubDetail.monthlyVerseDescription }); setEditingVerse(true); }} className="p-2 rounded-input text-foreground-500 hover:bg-background-200" aria-label="말씀 수정"><i className="ri-edit-line"></i></button>}
-                </div>
-              )}
-            </InfoSection>
+                {/* 이번 달 주제 말씀 */}
+                <InfoSection
+                  icon="ri-book-open-line"
+                  iconColor="text-amber-600"
+                  title="이번 달 주제 말씀"
+                  containerClass="bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200"
+                  forceOpen={editingVerse}
+                  headerAction={isClubLeader && !editingVerse && (
+                    <button onClick={() => { setVerseForm({ text: clubDetail.monthlyVerseText, reference: clubDetail.monthlyVerseReference, description: clubDetail.monthlyVerseDescription }); setEditingVerse(true); }} className="text-xs text-primary-600 hover:text-primary-700 cursor-pointer whitespace-nowrap">
+                      <i className="ri-edit-line mr-1"></i>수정
+                    </button>
+                  )}
+                >
+                  {editingVerse ? (
+                    <div className="space-y-3">
+                      <input type="text" value={verseForm.text} onChange={e => setVerseForm(p => ({ ...p, text: e.target.value }))} placeholder="말씀 구절" maxLength={100} className="w-full px-4 py-2.5 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none" />
+                      <input type="text" value={verseForm.reference} onChange={e => setVerseForm(p => ({ ...p, reference: e.target.value }))} placeholder="출처 (예: 신명기 6:5)" maxLength={50} className="w-full px-4 py-2.5 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none" />
+                      <textarea value={verseForm.description} onChange={e => setVerseForm(p => ({ ...p, description: e.target.value }))} placeholder="짧은 설명" rows={2} maxLength={200} className="w-full px-4 py-3 text-sm rounded-xl border border-amber-200 bg-amber-50 focus:border-amber-400 outline-none resize-none" />
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setEditingVerse(false)} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
+                        <button onClick={() => {
+                          saveClubDetail({ monthlyVerseText: verseForm.text, monthlyVerseReference: verseForm.reference, monthlyVerseDescription: verseForm.description });
+                          setEditingVerse(false);
+                        }} className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-xs font-semibold cursor-pointer whitespace-nowrap">저장</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-base font-bold text-amber-800 italic mb-1">"{clubDetail.monthlyVerseText}"</p>
+                      <p className="text-xs text-amber-600 mb-2">— {clubDetail.monthlyVerseReference}</p>
+                      {clubDetail.monthlyVerseDescription && (
+                        <p className="text-sm text-foreground-700 leading-relaxed">{clubDetail.monthlyVerseDescription}</p>
+                      )}
+                    </div>
+                  )}
+                </InfoSection>
+              </div>
+            </motion.div>
+          )}
 
-            <InfoSection icon="ri-list-check-2" title="주요 활동" saving={saving}>
-              {editingActivities ? (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    {activitiesInput.map((item, index) => (
-                      <div key={`${item}-${index}`} className="flex gap-2">
-                        <input value={item} onChange={e => setActivitiesInput(prev => prev.map((v, i) => i === index ? e.target.value : v))} className="flex-1 rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" />
-                        <button type="button" onClick={() => setActivitiesInput(prev => prev.filter((_, i) => i !== index))} className="p-2 rounded-input text-accent-700 hover:bg-accent-50" aria-label="활동 삭제"><i className="ri-delete-bin-line"></i></button>
+          {activeTab === 'members' && (
+            <motion.div key="members" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+              <div className="bg-background-100 border border-background-200 rounded-[20px] p-6">
+                {members.filter(m => m.isBirthdayThisMonth).length > 0 && (
+                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <i className="ri-cake-line text-rose-500 text-lg"></i>
+                      <h2 className="text-sm font-bold text-rose-700">이번 달 생일자</h2>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {members.filter(m => m.isBirthdayThisMonth).map((m, i) => (
+                        <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-full bg-rose-100 border border-rose-200">
+                          <div className={`w-6 h-6 rounded-full ${m.avatarColor} overflow-hidden flex items-center justify-center flex-shrink-0`}>
+                            {m.profileImage ? (
+                              <img
+                                src={m.profileImage}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <span className={`${m.profileImage ? 'hidden' : ''} text-gray-600 flex items-center justify-center w-full h-full`}>
+                              <i className="ri-user-3-line text-[12px]"></i>
+                            </span>
+                          </div>
+                          <span className="text-xs font-semibold text-rose-800">{m.name}</span>
+                          <span className="text-xs text-rose-600">{m.birthday}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {members.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-sm text-foreground-600">아직 동아리원이 없어요</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {members.map((m, i) => (
+                      <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-background-50 transition-colors">
+                        <div className={`w-10 h-10 rounded-full ${m.avatarColor} overflow-hidden flex items-center justify-center flex-shrink-0`}>
+                          {m.profileImage ? (
+                            <img
+                              src={m.profileImage}
+                              alt={`${m.name} 프로필`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <span className={`${m.profileImage ? 'hidden' : ''} text-gray-600 flex items-center justify-center w-full h-full`}>
+                            <i className="ri-user-3-line text-base"></i>
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground-950">
+                            {m.name}
+                            {m.isBirthdayThisMonth && <i className="ri-cake-line text-rose-500 ml-1"></i>}
+                          </p>
+                          <p className="text-xs text-foreground-600">
+                            {m.role}{m.birthday ? ` · ${m.birthday}` : ''}
+                            {m.roleLabel && m.roleLabel !== m.role && (
+                              <span className="text-foreground-400 ml-1">({m.roleLabel})</span>
+                            )}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2">
-                    <input value={newActivityItem} onChange={e => setNewActivityItem(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newActivityItem.trim()) { e.preventDefault(); setActivitiesInput(prev => [...prev, newActivityItem.trim()]); setNewActivityItem(''); } }} className="flex-1 rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" placeholder="활동 추가" />
-                    <button type="button" onClick={() => { if (!newActivityItem.trim()) return; setActivitiesInput(prev => [...prev, newActivityItem.trim()]); setNewActivityItem(''); }} className="px-3 py-2 rounded-input bg-background-200 text-foreground-700 text-sm font-bold">추가</button>
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <button type="button" onClick={() => setEditingActivities(false)} className="px-3 py-2 rounded-input text-sm bg-background-200 text-foreground-700">취소</button>
-                    <button type="button" onClick={handleActivitiesSave} disabled={saving} className="px-3 py-2 rounded-input text-sm bg-primary-600 text-white disabled:opacity-50">저장</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between gap-3">
-                  {clubDetail.activities.length > 0 ? (
-                    <ul className="space-y-2 text-sm md:text-base text-foreground-700 list-disc pl-5">
-                      {clubDetail.activities.map((activity, index) => <li key={`${activity}-${index}`}>{activity}</li>)}
-                    </ul>
-                  ) : <p className="text-sm text-foreground-500">등록된 활동이 없습니다.</p>}
-                  {canEditClubDetail && <button type="button" onClick={() => { setActivitiesInput([...clubDetail.activities]); setEditingActivities(true); }} className="p-2 rounded-input text-foreground-500 hover:bg-background-200" aria-label="활동 수정"><i className="ri-edit-line"></i></button>}
-                </div>
-              )}
-            </InfoSection>
-          </div>
-        )}
-
-        {activeTab === 'members' && (
-          <InfoSection icon="ri-group-line" title={`단원 ${members.length}명`} defaultOpen>
-            {members.length === 0 ? (
-              <p className="text-sm text-foreground-500">등록된 단원이 없습니다.</p>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {members.map((member, index) => (
-                  <div key={`${member.name}-${index}`} className="rounded-card border border-background-200 bg-background-50 p-4 min-w-0">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {member.profileImage ? (
-                        <img src={member.profileImage} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
-                      ) : (
-                        <div className={`w-11 h-11 rounded-full ${member.avatarColor} flex items-center justify-center text-foreground-800 font-bold flex-shrink-0`}>{member.name.slice(0, 1)}</div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-bold text-sm text-foreground-900 truncate">{member.name}</p>
-                        <p className="text-xs text-foreground-500 mt-1">{member.role}</p>
-                      </div>
-                    </div>
-                    {member.birthday && <p className="mt-3 text-xs text-foreground-600">{member.birthday}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </InfoSection>
-        )}
-
-        {activeTab === 'photos' && (
-          <InfoSection
-            icon="ri-image-line"
-            title={`사진 ${clubDetail.photos.length}장`}
-            headerAction={canEditClubDetail ? (
-              <label className={`inline-flex items-center gap-1 px-3 py-2 rounded-chip text-xs font-bold cursor-pointer ${uploading ? 'bg-background-200 text-foreground-400 pointer-events-none' : 'bg-primary-600 text-white'}`}>
-                <i className={uploading ? 'ri-loader-4-line animate-spin' : 'ri-upload-2-line'}></i>
-                {uploading ? '업로드 중' : '사진 추가'}
-                <input type="file" accept="image/*" multiple className="hidden" disabled={uploading} onChange={handlePhotoUpload} />
-              </label>
-            ) : undefined}
-          >
-            {clubDetail.photos.length === 0 ? (
-              <div className="py-12 text-center text-foreground-500">
-                <i className="ri-image-line text-4xl opacity-40"></i>
-                <p className="mt-3 text-sm">등록된 사진이 없습니다.</p>
-                {canEditClubDetail && <p className="mt-1 text-xs text-foreground-400">사진 추가 버튼으로 사진을 올려주세요.</p>}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {canEditClubDetail && selectedPhotos.size > 0 && (
-                  <div className="flex items-center justify-between gap-3 rounded-input bg-background-100 px-3 py-2">
-                    <span className="text-sm font-bold text-foreground-700">{selectedPhotos.size}장 선택</span>
-                    <button type="button" onClick={handleBatchDeletePhotos} className="px-3 py-2 rounded-chip bg-accent-600 text-white text-xs font-bold">선택 삭제</button>
-                  </div>
                 )}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
-                  {clubDetail.photos.map((photo, index) => {
-                    const src = photo.thumbUrl || photo.url;
-                    const selected = selectedPhotos.has(photo.url);
-                    return (
-                      <div key={photo.url} className="relative aspect-square rounded-input overflow-hidden bg-background-200 group">
-                        <button type="button" onClick={() => setLightboxIndex(index)} className="absolute inset-0 z-0" aria-label={`사진 ${index + 1} 보기`}>
-                          <img src={src} alt="" loading="lazy" className="w-full h-full object-cover" />
-                        </button>
-                        {canEditClubDetail && (
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'photos' && (
+            <motion.div key="photos" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+              <div className="bg-background-100 border border-background-200 rounded-[20px] p-6">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <h2 className="text-sm font-bold text-foreground-950 flex items-center gap-2">
+                    <i className="ri-camera-line text-rose-600"></i> 동아리 사진
+                    <span className="text-xs text-foreground-500 font-normal">({clubDetail.photos.length}장)</span>
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    {isClubLeader && selectedPhotos.size > 0 && (
+                      <button
+                        onClick={handleBatchDeletePhotos}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        <i className="ri-delete-bin-line"></i> 선택 삭제 ({selectedPhotos.size})
+                      </button>
+                    )}
+                    {isClubLeader && (
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 transition-colors cursor-pointer whitespace-nowrap">
+                        <i className="ri-upload-line"></i> 사진 올리기
+                        <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" disabled={uploading} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+                {uploading && <p className="text-xs text-foreground-600 mb-3">업로드 중...</p>}
+                {clubDetail.photos.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-14 h-14 rounded-full bg-rose-50 flex items-center justify-center mx-auto mb-3">
+                      <i className="ri-image-line text-2xl text-rose-300"></i>
+                    </div>
+                    <p className="text-sm text-foreground-600">아직 올린 사진이 없어요</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {clubDetail.photos.map((photo, i) => (
+                      <div
+                        key={i}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`동아리 사진 ${i + 1} ${isClubLeader && selectedPhotos.size > 0 ? '선택' : '크게 보기'}`}
+                        onClick={() => {
+                          if (isClubLeader && selectedPhotos.size > 0) togglePhotoSelect(photo.url);
+                          else setLightboxIndex(i);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (isClubLeader && selectedPhotos.size > 0) togglePhotoSelect(photo.url);
+                            else setLightboxIndex(i);
+                          }
+                        }}
+                        className={`group relative overflow-hidden rounded-xl bg-background-200 aspect-[4/3] cursor-pointer active:scale-[0.98] transition-transform focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none ${selectedPhotos.has(photo.url) ? 'ring-2 ring-rose-500 ring-offset-2 ring-offset-background-100' : ''}`}
+                      >
+                        <img src={photo.thumbUrl || photo.url} alt={`동아리 사진 ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                        {isClubLeader && (
                           <>
-                            <button type="button" onClick={() => togglePhotoSelect(photo.url)} className={`absolute top-2 left-2 z-10 w-8 h-8 rounded-full flex items-center justify-center ${selected ? 'bg-primary-600 text-white' : 'bg-background-50/90 text-foreground-700'}`} aria-label={selected ? '선택 해제' : '사진 선택'}>
-                              <i className={selected ? 'ri-check-line' : 'ri-checkbox-blank-circle-line'}></i>
+                            <div className={`absolute inset-0 transition-colors ${selectedPhotos.has(photo.url) ? 'bg-rose-500/20' : 'bg-transparent group-hover:bg-black/10'}`}></div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); togglePhotoSelect(photo.url); }}
+                              aria-label="선택"
+                              className={`absolute top-2 left-2 w-10 h-10 md:w-7 md:h-7 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${selectedPhotos.has(photo.url) ? 'bg-rose-500 border-rose-500' : 'border-white bg-black/30 md:opacity-0 md:group-hover:opacity-100'}`}
+                            >
+                              {selectedPhotos.has(photo.url) && <i className="ri-check-line text-white text-[10px]"></i>}
                             </button>
-                            <button type="button" onClick={() => handleDeletePhoto(photo.url)} className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-background-50/90 text-accent-700 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="사진 삭제">
-                              <i className="ri-delete-bin-line"></i>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.url); }}
+                              aria-label="삭제"
+                              className="absolute top-2 right-2 w-10 h-10 md:w-7 md:h-7 rounded-full bg-black/50 text-white flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-rose-500"
+                            >
+                              <i className="ri-close-line text-sm"></i>
                             </button>
                           </>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </InfoSection>
-        )}
+            </motion.div>
+          )}
 
-        {activeTab === 'qna' && (
-          <InfoSection icon="ri-question-answer-line" title="질문과 답변">
-            <div className="space-y-5">
+          {activeTab === 'qna' && (
+            <motion.div key="qna" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
               {user && (
-                <div className="rounded-card border border-background-200 bg-background-50 p-4">
-                  <textarea value={qnaQuestion} onChange={e => setQnaQuestion(e.target.value)} rows={4} placeholder="동아리에 궁금한 점을 남겨주세요." className="w-full resize-none rounded-input border border-background-300 bg-background-100 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" />
-                  <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <label className="inline-flex items-center gap-2 text-sm text-foreground-700">
-                      <input type="checkbox" checked={qnaAnon} onChange={e => setQnaAnon(e.target.checked)} />
+                <div className="bg-background-100 border border-background-200 rounded-[20px] p-5 mb-6">
+                  <h2 className="text-sm font-bold text-foreground-950 mb-3 flex items-center gap-2">
+                    <i className="ri-question-line text-accent-600"></i> 질문하기
+                  </h2>
+                  <textarea value={qnaQuestion} onChange={e => setQnaQuestion(e.target.value)} placeholder={`${club.name}에 대해 궁금한 점을 물어보세요...`} rows={3} maxLength={300} className="w-full px-4 py-3 text-sm rounded-[13px] border border-background-200 bg-background-50 focus:border-accent-400 outline-none resize-none" />
+                  <div className="flex items-center justify-between mt-2">
+                    <label className="flex items-center gap-1.5 text-xs text-foreground-600 cursor-pointer">
+                      <input type="checkbox" checked={qnaAnon} onChange={e => setQnaAnon(e.target.checked)} className="rounded" />
                       익명으로 질문하기
                     </label>
-                    <button type="button" onClick={handleSubmitQuestion} disabled={!qnaQuestion.trim() || qnaSubmitting} className="px-4 py-2.5 rounded-chip bg-primary-600 text-white text-sm font-bold disabled:opacity-50">
+                    <button
+                      onClick={handleSubmitQuestion}
+                      disabled={!qnaQuestion.trim() || qnaSubmitting}
+                      className="px-4 py-2 rounded-full bg-accent-500 text-background-50 text-sm font-semibold hover:bg-accent-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
+                    >
                       {qnaSubmitting ? '등록 중...' : '질문 등록'}
                     </button>
                   </div>
                 </div>
               )}
-
-              {qnaItems.length === 0 ? (
-                <div className="py-12 text-center text-foreground-500">
-                  <i className="ri-question-answer-line text-4xl opacity-40"></i>
-                  <p className="mt-3 text-sm">아직 질문이 없습니다.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {qnaItems.map(item => (
-                    <div key={item.id} className="rounded-card border border-background-200 bg-background-50 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs text-foreground-500">{item.questioner} · {new Date(item.createdAt).toLocaleDateString('ko-KR')}</p>
+              <div className="space-y-4">
+                {qnaItems.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-14 h-14 rounded-full bg-accent-50 flex items-center justify-center mx-auto mb-3">
+                      <i className="ri-question-answer-line text-2xl text-accent-300"></i>
+                    </div>
+                    <p className="text-sm text-foreground-600">아직 질문이 없어요</p>
+                  </div>
+                ) : (
+                  qnaItems.map((item, idx) => (
+                    <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(idx * 0.05, 0.3) }} className={`bg-background-100 border rounded-[20px] p-5 ${item.answer ? 'border-emerald-200' : 'border-background-200'}`}>
+                      <div className="flex items-start gap-3 mb-2">
+                        <div className="w-10 h-10 md:w-7 md:h-7 rounded-full bg-accent-100 flex items-center justify-center flex-shrink-0">
+                          <i className="ri-question-mark text-accent-600 text-xs"></i>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium text-accent-600">{item.isAnonymous ? '익명' : item.questioner}</span>
+                            <span className="text-xs text-foreground-500">{item.createdAt}</span>
+                            {!item.answer && <span className="inline-flex flex-shrink-0 items-center justify-center min-w-[72px] h-8 px-3 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold whitespace-nowrap">답변 대기</span>}
+                          </div>
                           {editingQnaId === item.id ? (
-                            <div className="mt-2 space-y-2">
-                              <textarea value={editQnaText} onChange={e => setEditQnaText(e.target.value)} rows={3} className="w-full rounded-input border border-background-300 bg-background-100 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" />
-                              <div className="flex gap-2 justify-end">
-                                <button type="button" onClick={handleCancelEditQuestion} className="px-3 py-2 rounded-input text-xs bg-background-200 text-foreground-700">취소</button>
-                                <button type="button" onClick={() => handleSaveEditQuestion(item.id)} disabled={qnaActionLoading || !editQnaText.trim()} className="px-3 py-2 rounded-input text-xs bg-primary-600 text-white disabled:opacity-50">저장</button>
+                            <div>
+                              <textarea value={editQnaText} onChange={e => setEditQnaText(e.target.value)} rows={2} maxLength={300} className="w-full px-3 py-2 text-sm rounded-xl border border-accent-300 bg-background-50 focus:border-accent-400 outline-none resize-none" />
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <button onClick={handleCancelEditQuestion} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
+                                <button onClick={() => handleSaveEditQuestion(item.id)} disabled={!editQnaText.trim() || qnaActionLoading} className="px-3 py-1 rounded-full bg-accent-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">저장</button>
                               </div>
                             </div>
                           ) : (
-                            <p className="mt-2 whitespace-pre-wrap text-sm md:text-base leading-7 text-foreground-800">{item.question}</p>
+                            <>
+                              <p className="text-sm text-foreground-800 font-medium leading-relaxed">{item.question}</p>
+                              {canManageQnaQuestion(item) && (
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <button onClick={() => handleStartEditQuestion(item)} className="text-xs text-foreground-500 hover:text-accent-600 cursor-pointer">수정</button>
+                                  <button onClick={() => handleDeleteQuestion(item.id)} disabled={qnaActionLoading} className="text-xs text-foreground-500 hover:text-red-600 cursor-pointer disabled:opacity-40">삭제</button>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
-                        {canManageQnaQuestion(item) && editingQnaId !== item.id && (
-                          <div className="flex gap-1 flex-shrink-0">
-                            <button type="button" onClick={() => handleStartEditQuestion(item)} className="p-2 rounded-input text-foreground-500 hover:bg-background-200" aria-label="질문 수정"><i className="ri-edit-line"></i></button>
-                            <button type="button" onClick={() => handleDeleteQuestion(item.id)} className="p-2 rounded-input text-accent-700 hover:bg-accent-50" aria-label="질문 삭제"><i className="ri-delete-bin-line"></i></button>
-                          </div>
-                        )}
                       </div>
-
                       {item.answer ? (
-                        <div className="mt-4 rounded-input bg-background-100 p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-bold text-primary-700">답변 · {item.answerer || '운영진'}</p>
-                              {editingAnswerId === item.id ? (
-                                <div className="mt-2 space-y-2">
-                                  <textarea value={editAnswerText} onChange={e => setEditAnswerText(e.target.value)} rows={3} className="w-full rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" />
-                                  <div className="flex gap-2 justify-end">
-                                    <button type="button" onClick={handleCancelEditAnswer} className="px-3 py-2 rounded-input text-xs bg-background-200 text-foreground-700">취소</button>
-                                    <button type="button" onClick={() => handleSaveEditAnswer(item.id)} disabled={qnaActionLoading || !editAnswerText.trim()} className="px-3 py-2 rounded-input text-xs bg-primary-600 text-white disabled:opacity-50">저장</button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground-700">{item.answer}</p>
-                              )}
+                        <div className="ml-10 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-5 h-5 rounded-full bg-emerald-200 flex items-center justify-center">
+                              <i className="ri-user-star-line text-emerald-700 text-[10px]"></i>
                             </div>
-                            {isClubLeader && editingAnswerId !== item.id && (
-                              <div className="flex gap-1 flex-shrink-0">
-                                <button type="button" onClick={() => handleStartEditAnswer(item)} className="p-2 rounded-input text-foreground-500 hover:bg-background-200" aria-label="답변 수정"><i className="ri-edit-line"></i></button>
-                                <button type="button" onClick={() => handleDeleteAnswer(item.id)} className="p-2 rounded-input text-accent-700 hover:bg-accent-50" aria-label="답변 삭제"><i className="ri-delete-bin-line"></i></button>
+                            <span className="text-xs font-bold text-emerald-700">{item.answerer}</span>
+                          </div>
+                          {editingAnswerId === item.id ? (
+                            <div>
+                              <textarea value={editAnswerText} onChange={e => setEditAnswerText(e.target.value)} rows={2} maxLength={500} className="w-full px-3 py-2 text-sm rounded-xl border border-emerald-300 bg-background-50 focus:border-emerald-400 outline-none resize-none" />
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <button onClick={handleCancelEditAnswer} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
+                                <button onClick={() => handleSaveEditAnswer(item.id)} disabled={!editAnswerText.trim() || qnaActionLoading} className="px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">저장</button>
                               </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm text-emerald-800 leading-relaxed">{item.answer}</p>
+                              {isClubLeader && (
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <button onClick={() => handleStartEditAnswer(item)} className="text-xs text-emerald-700/70 hover:text-emerald-700 cursor-pointer">수정</button>
+                                  <button onClick={() => handleDeleteAnswer(item.id)} disabled={qnaActionLoading} className="text-xs text-emerald-700/70 hover:text-red-600 cursor-pointer disabled:opacity-40">삭제</button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ) : (
+                        isClubLeader && (
+                          <div className="ml-10 mt-2">
+                            {answeringQnaId === item.id ? (
+                              <div>
+                                <textarea value={qnaAnswer} onChange={e => setQnaAnswer(e.target.value)} placeholder="답변을 작성해주세요..." rows={2} maxLength={500} className="w-full px-4 py-2.5 text-sm rounded-xl border border-emerald-200 bg-emerald-50 focus:border-emerald-400 outline-none resize-none" />
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  <button onClick={() => { setAnsweringQnaId(null); setQnaAnswer(''); }} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">취소</button>
+                                  <button onClick={() => handleSubmitAnswer(item.id)} disabled={!qnaAnswer.trim()} className="px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap">답변 등록</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button onClick={() => setAnsweringQnaId(item.id)} className="text-xs text-emerald-600 hover:text-emerald-700 cursor-pointer font-medium">
+                                <i className="ri-reply-line mr-1"></i> 답변하기
+                              </button>
                             )}
                           </div>
-                        </div>
-                      ) : isClubLeader && (
-                        answeringQnaId === item.id ? (
-                          <div className="mt-4 space-y-2">
-                            <textarea value={qnaAnswer} onChange={e => setQnaAnswer(e.target.value)} rows={3} className="w-full rounded-input border border-background-300 bg-background-50 p-3 text-sm text-foreground-900 outline-none focus:border-primary-500" placeholder="답변을 입력하세요." />
-                            <div className="flex gap-2 justify-end">
-                              <button type="button" onClick={() => { setAnsweringQnaId(null); setQnaAnswer(''); }} className="px-3 py-2 rounded-input text-xs bg-background-200 text-foreground-700">취소</button>
-                              <button type="button" onClick={() => handleSubmitAnswer(item.id)} disabled={!qnaAnswer.trim()} className="px-3 py-2 rounded-input text-xs bg-primary-600 text-white disabled:opacity-50">답변 저장</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button type="button" onClick={() => setAnsweringQnaId(item.id)} className="mt-4 inline-flex items-center gap-1 px-3 py-2 rounded-chip bg-background-200 text-foreground-700 text-xs font-bold">
-                            <i className="ri-reply-line"></i>
-                            답변하기
-                          </button>
                         )
                       )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </InfoSection>
-        )}
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      <AnimatePresence>
-        {lightboxIndex !== null && clubDetail.photos[lightboxIndex] && (
-          <PhotoLightbox
-            photos={clubDetail.photos.map(p => p.url)}
-            thumbUrls={clubDetail.photos.map(p => p.thumbUrl || p.url)}
-            initialIndex={lightboxIndex}
-            onClose={() => setLightboxIndex(null)}
-          />
-        )}
-      </AnimatePresence>
-
-      <button type="button" onClick={() => navigate('/clubs')} className="fixed bottom-5 right-5 w-12 h-12 rounded-full bg-primary-600 text-white shadow-card-lg flex items-center justify-center md:hidden" aria-label="동아리 목록으로">
-        <i className="ri-arrow-left-line text-xl"></i>
-      </button>
+      {lightboxIndex !== null && (
+        <PhotoLightbox
+          photos={clubDetail.photos.map(p => p.url)}
+          thumbUrls={clubDetail.photos.map(p => p.thumbUrl || p.url)}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>
   );
 }
