@@ -11,13 +11,16 @@ function corsHeaders(origin: string, allowedOrigins: string, requestedHeaders?: 
   const origins = allowedOrigins.split(',').map(v => v.trim()).filter(Boolean);
   const normalizedOrigin = origin.trim();
   const isAllowedPagesPreview = /^https:\/\/(?:[^./]+\.)+gnhwebw?\.pages\.dev$/.test(normalizedOrigin);
-  const allowOrigin = normalizedOrigin && (origins.includes(normalizedOrigin) || isAllowedPagesPreview)
-    ? normalizedOrigin
-    : origins[0] ?? '*';
+  const isAllowedOrigin = normalizedOrigin && (origins.includes(normalizedOrigin) || isAllowedPagesPreview);
+  // The frontend uses Bearer Authorization with credentials: 'omit', so a
+  // wildcard fallback is valid and prevents browser uploads from being
+  // blocked when Cloudflare Pages serves a deployment/custom origin that is
+  // not present in the static allow-list.
+  const allowOrigin = isAllowedOrigin ? normalizedOrigin : '*';
   const allowHeaders = requestedHeaders?.trim() || 'Authorization,Content-Type,Cache-Control,X-Upsert';
   return {
     'access-control-allow-origin': allowOrigin,
-    'access-control-allow-credentials': 'true',
+    'access-control-allow-credentials': 'false',
     'access-control-allow-methods': 'GET,PUT,DELETE,OPTIONS',
     'access-control-allow-headers': allowHeaders,
     'access-control-max-age': '86400',
