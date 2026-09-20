@@ -107,9 +107,7 @@ export default function MemoryBoard() {
       if (displayErr) throw new Error(`사진 업로드 실패: ${displayErr.message}`);
 
       const displayUrl = r2Storage.from('Public').getPublicUrl(displayPath).data.publicUrl;
-      const thumbUrl = usedOriginalFallback
-        ? `${displayUrl}?transform=thumb`
-        : displayUrl;
+      let thumbUrl = `${displayUrl}?transform=thumb`;
 
       if (!usedOriginalFallback && thumbBlob) {
         thumbPath = `memories/${user!.id}/${thumbFileNameFor(safeName)`;
@@ -117,6 +115,7 @@ export default function MemoryBoard() {
           .from('Public')
           .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
         if (thumbErr) throw new Error(`썸네일 업로드 실패: ${thumbErr.message}`);
+        thumbUrl = r2Storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
       }
 
       const finalDisplayUrl = usedOriginalFallback ? `${displayUrl}?transform=display` : displayUrl;
@@ -127,7 +126,7 @@ export default function MemoryBoard() {
           author_id: user!.id,
           author_name: profile.name,
           title: uploadTitle.trim(),
-          photo_url: displayUrl,
+          photo_url: finalDisplayUrl,
           thumb_url: thumbUrl,
           club: profile.club || null,
         });
