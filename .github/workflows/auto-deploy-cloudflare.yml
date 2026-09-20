@@ -141,6 +141,42 @@ jobs:
           workingDirectory: workers/storage
           command: deploy --config wrangler.jsonc
 
+  verify-storage-cors:
+    name: Verify gnhweb storage CORS preflight
+    needs: deploy-storage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Pages origin preflight
+        run: |
+          set -euo pipefail
+          headers_file=$(mktemp)
+          status=$(curl --silent --show-error --dump-header "$headers_file" --output /tmp/storage-options.txt --write-out '%{http_code}' \
+            --request OPTIONS \
+            --header 'Origin: https://gnhwebw.pages.dev' \
+            --header 'Access-Control-Request-Method: PUT' \
+            --header 'Access-Control-Request-Headers: authorization,content-type,x-upsert,cache-control' \
+            'https://gnhweb-storage.gemini19840314.workers.dev/v1/storage/public/memories/cors-check.jpg')
+          cat /tmp/storage-options.txt
+          cat "$headers_file"
+          test "$status" = "204"
+          grep -iq '^access-control-allow-origin: https://gnhwebw.pages.dev' "$headers_file"
+          grep -iq '^access-control-allow-methods:.*PUT' "$headers_file"
+          grep -iq '^access-control-allow-headers:.*authorization' "$headers_file"
+      - name: Verify unknown Pages deployment origin is not blocked by CORS
+        run: |
+          set -euo pipefail
+          headers_file=$(mktemp)
+          status=$(curl --silent --show-error --dump-header "$headers_file" --output /tmp/storage-options-preview.txt --write-out '%{http_code}' \
+            --request OPTIONS \
+            --header 'Origin: https://preview-123.gnhwebw.pages.dev' \
+            --header 'Access-Control-Request-Method: PUT' \
+            --header 'Access-Control-Request-Headers: authorization,content-type,x-upsert' \
+            'https://gnhweb-storage.gemini19840314.workers.dev/v1/storage/public/memories/cors-check.jpg')
+          cat /tmp/storage-options-preview.txt
+          cat "$headers_file"
+          test "$status" = "204"
+          grep -iq '^access-control-allow-origin: https://preview-123.gnhwebw.pages.dev' "$headers_file"
+
   deploy-storage-migrate:
     name: Deploy gnhweb storage migration Worker
     needs: regression-guard
