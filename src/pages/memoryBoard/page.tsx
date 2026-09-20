@@ -110,7 +110,7 @@ export default function MemoryBoard() {
       let thumbUrl = `${displayUrl}?transform=thumb`;
 
       if (!usedOriginalFallback && thumbBlob) {
-        thumbPath = `memories/${user!.id}/${thumbFileNameFor(safeName)`;
+        thumbPath = `memories/${user!.id}/${thumbFileNameFor(safeName)}`;
         const { error: thumbErr } = await r2Storage
           .from('Public')
           .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
