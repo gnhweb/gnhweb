@@ -7,7 +7,24 @@ export interface Env {
 
 const DEFAULT_NEON_DATA_API_URL = 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb';
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...headers } });
-function corsHeaders(origin: string, allowedOrigins: string, requestedHeaders?: string | null): HeadersInit { const origins = allowedOrigins.split(',').map(v => v.trim()).filter(Boolean); const isPagesPreview = /^https:\/\/([a-z0-9-]+\.)?gnhwebw\.pages\.dev$/.test(origin) || /^https:\/\/([a-z0-9-]+\.)?gnhweb\.pages\.dev$/.test(origin); const allowOrigin = origin && (origins.includes(origin) || isPagesPreview) ? origin : '*'; const allowHeaders = requestedHeaders?.trim() || 'Authorization,Content-Type,Cache-Control,X-Upsert'; return { 'access-control-allow-origin': allowOrigin, 'access-control-allow-methods': 'GET,PUT,DELETE,OPTIONS', 'access-control-allow-headers': allowHeaders, 'access-control-max-age': '86400', 'access-control-expose-headers': 'ETag,Content-Type', vary: 'Origin, Access-Control-Request-Headers' }; }
+function corsHeaders(origin: string, allowedOrigins: string, requestedHeaders?: string | null): HeadersInit {
+  const origins = allowedOrigins.split(',').map(v => v.trim()).filter(Boolean);
+  const normalizedOrigin = origin.trim();
+  const isAllowedPagesPreview = /^https:\/\/(?:[^./]+\.)+gnhwebw?\.pages\.dev$/.test(normalizedOrigin);
+  const allowOrigin = normalizedOrigin && (origins.includes(normalizedOrigin) || isAllowedPagesPreview)
+    ? normalizedOrigin
+    : origins[0] ?? '*';
+  const allowHeaders = requestedHeaders?.trim() || 'Authorization,Content-Type,Cache-Control,X-Upsert';
+  return {
+    'access-control-allow-origin': allowOrigin,
+    'access-control-allow-credentials': 'true',
+    'access-control-allow-methods': 'GET,PUT,DELETE,OPTIONS',
+    'access-control-allow-headers': allowHeaders,
+    'access-control-max-age': '86400',
+    'access-control-expose-headers': 'ETag,Content-Type',
+    vary: 'Origin, Access-Control-Request-Headers',
+  };
+}
 function base64UrlToBytes(value: string): Uint8Array { const normalized = value.replace(/-/g, '+').replace(/_/g, '/'); const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='); const binary = atob(padded); return Uint8Array.from(binary, c => c.charCodeAt(0)); }
 function decodeJsonPart(value: string): Record<string, unknown> { return JSON.parse(new TextDecoder().decode(base64UrlToBytes(value))) as Record<string, unknown>; }
 async function verifyJwt(token: string, env: Env): Promise<Record<string, unknown>> { const parts = token.split('.'); if (parts.length !== 3) throw new Error('Invalid token'); const header = decodeJsonPart(parts[0]); const payload = decodeJsonPart(parts[1]); if (header.alg !== 'RS256' || typeof header.kid !== 'string') throw new Error('Unsupported token'); const exp = typeof payload.exp === 'number' ? payload.exp : 0; if (!exp || exp <= Math.floor(Date.now() / 1000)) throw new Error('Expired token'); if (env.NEON_AUTH_ISSUER && payload.iss !== env.NEON_AUTH_ISSUER) throw new Error('Invalid issuer'); const jwksResponse = await fetch(env.NEON_JWKS_URL, { headers: { accept: 'application/json' }, cf: { cacheTtl: 300, cacheEverything: true } }); if (!jwksResponse.ok) throw new Error('JWKS unavailable'); const jwks = await jwksResponse.json() as { keys?: Array<Record<string, unknown>> }; const jwk = jwks.keys?.find(key => key.kid === header.kid && key.kty === 'RSA'); if (!jwk) throw new Error('Signing key not found'); const cryptoKey = await crypto.subtle.importKey('jwk', jwk as JsonWebKey, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']); const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`); const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, base64UrlToBytes(parts[2]), data); if (!valid) throw new Error('Invalid signature'); return payload; }
