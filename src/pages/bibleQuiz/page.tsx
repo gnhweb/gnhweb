@@ -161,14 +161,14 @@ export default function BibleQuiz() {
     } else {
       addToQuestionHistory(questions);
       setShowResult(true);
-      if (user && profile) {
+      if (user) {
         setSavingScore(true);
         const { data: freshProfile } = await supabase
           .from('user_roles')
           .select('club')
           .eq('user_id', user.id)
           .maybeSingle();
-        const currentClub = freshProfile?.club || profile.club;
+        const currentClub = freshProfile?.club || profile?.club;
         const clubInfo = currentClub && CLUB_COLORS[currentClub] ? CLUB_COLORS[currentClub] : null;
         const clubName = clubInfo?.name || currentClub || '미지정';
         const finalScore = score + (isCorrect === true ? (questions[currentQ]?.points || 20) : 0);
@@ -178,7 +178,7 @@ export default function BibleQuiz() {
           method: 'POST',
           body: {
             user_id: user.id,
-            nickname: profile.name || '익명',
+            nickname: profile?.name || '익명',
             club_name: clubName,
             score: finalScore,
             total_questions: questions.length,
@@ -189,7 +189,7 @@ export default function BibleQuiz() {
 
         if (saveError) {
           console.error('[BibleQuiz] score save failed:', saveError);
-          setError('퀴즈 기록을 저장하지 못했어요. 잠시 후 다시 확인해주세요.');
+          setError(`퀴즈 기록을 저장하지 못했어요. ${saveError.message}`);
         } else {
           // 같은 화면에서 열려 있는 리더보드가 저장 완료 즉시 다시 조회하도록 알린다.
           window.dispatchEvent(new CustomEvent('bible-quiz-score-updated', {
