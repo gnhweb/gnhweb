@@ -53,7 +53,7 @@ const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
   },
   accessToken: async () => {
     try {
-      return (await neonAuth.getJWTToken?.(true)) ?? null;
+      return (await neonAuth.getJWTToken?.()) ?? null;
     } catch {
       return null;
     }
@@ -139,8 +139,8 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
           'bible-pick',
           'monthly-champion-snapshot',
         ]).has(baseFunctionName);
-        const quizJwt = baseFunctionName === 'nim-quiz' ? await neonAuth.getJWTToken?.(true) : null;
-        const jwt = jwtRequiredFunction ? await neonAuth.getJWTToken?.(true) : quizJwt;
+        const quizJwt = baseFunctionName === 'nim-quiz' ? await neonAuth.getJWTToken?.() : null;
+        const jwt = jwtRequiredFunction ? await neonAuth.getJWTToken?.() : quizJwt;
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (jwt) headers.Authorization = `Bearer ${jwt}`;
 
