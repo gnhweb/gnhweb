@@ -82,25 +82,44 @@ export default function MemoryBoard() {
     try {
       const safeName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`;
       displayPath = `memories/${user!.id}/${safeName}`;
-      thumbPath = `memories/${user!.id}/${thumbFileNameFor(safeName)}`;
 
-      const [displayBlob, thumbBlob] = await Promise.all([
-        resizeImageFile(uploadFile, { maxDimension: 1280, quality: 0.78, mimeType: 'image/jpeg' }),
-        resizeImageFile(uploadFile, { maxDimension: 480, quality: 0.68, mimeType: 'image/jpeg' }),
-      ]);
+      let displayBlob: Blob = uploadFile;
+      let thumbBlob: Blob | null = null;
+      let usedOriginalFallback = false;
+
+      try {
+        [displayBlob, thumbBlob] = await Promise.all([
+          resizeImageFile(uploadFile, { maxDimension: 1280, quality: 0.78, mimeType: 'image/jpeg' }),
+          resizeImageFile(uploadFile, { maxDimension: 480, quality: 0.68, mimeType: 'image/jpeg' }),
+        ]);
+      } catch (resizeError) {
+        usedOriginalFallback = true;
+        console.warn('브라우저 이미지 디코딩/변환 실패, 원본 업로드 fallback 사용:', resizeError);
+      }
 
       const { error: displayErr } = await r2Storage
         .from('Public')
-        .upload(displayPath, displayBlob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
+        .upload(displayPath, displayBlob, {
+          upsert: true,
+          contentType: uploadFile.type || 'application/octet-stream',
+          cacheControl: '31536000',
+        });
       if (displayErr) throw new Error(`사진 업로드 실패: ${displayErr.message}`);
 
-      const { error: thumbErr } = await r2Storage
-        .from('Public')
-        .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
-      if (thumbErr) throw new Error(`썸네일 업로드 실패: ${thumbErr.message}`);
-
       const displayUrl = r2Storage.from('Public').getPublicUrl(displayPath).data.publicUrl;
-      const thumbUrl = r2Storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
+      const thumbUrl = usedOriginalFallback
+        ? `${displayUrl}?transform=thumb`
+        : displayUrl;
+
+      if (!usedOriginalFallback && thumbBlob) {
+        thumbPath = `memories/${user!.id}/${thumbFileNameFor(safeName)`;
+        const { error: thumbErr } = await r2Storage
+          .from('Public')
+          .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
+        if (thumbErr) throw new Error(`썸네일 업로드 실패: ${thumbErr.message}`);
+      }
+
+      const finalDisplayUrl = usedOriginalFallback ? `${displayUrl}?transform=display` : displayUrl;
 
       const { error: insertErr } = await supabase
         .from('memory_photos')
