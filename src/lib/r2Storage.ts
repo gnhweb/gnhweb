@@ -4,7 +4,18 @@ type StorageFile = { name: string; id: string | null; metadata: { size: number; 
 type ListOptions = { limit?: number; sortBy?: { column: 'created_at' | 'name'; order: 'asc' | 'desc' } };
 
 const DEFAULT_R2_STORAGE_URL = 'https://gnhweb-storage.gemini19840314.workers.dev';
-const baseUrl = ((import.meta.env.VITE_R2_STORAGE_URL as string | undefined) || DEFAULT_R2_STORAGE_URL).replace(/\/$/, '');
+const configuredStorageUrl = (import.meta.env.VITE_R2_STORAGE_URL as string | undefined)?.trim();
+const baseUrl = (() => {
+  if (!configuredStorageUrl) return DEFAULT_R2_STORAGE_URL;
+  try {
+    const url = new URL(configuredStorageUrl);
+    return url.hostname === new URL(DEFAULT_R2_STORAGE_URL).hostname
+      ? configuredStorageUrl.replace(/\/$/, '')
+      : DEFAULT_R2_STORAGE_URL;
+  } catch {
+    return DEFAULT_R2_STORAGE_URL;
+  }
+})();
 
 const getAccessToken = async (): Promise<string | null> => {
   const auth = (await import('@/lib/neon')).neon.auth;
