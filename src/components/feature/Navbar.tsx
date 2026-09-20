@@ -40,6 +40,7 @@ const COMMUNITY_CATEGORY: CategoryGroup = {
     { path: '/prayer-relay', label: '기도 릴레이', icon: 'ri-hand-heart-line' },
     { path: '/missions', label: '작은 사명 관리', icon: 'ri-medal-line' },
     { path: '/missions/wall', label: '사명 인증 게시판', icon: 'ri-gallery-line' },
+    { path: '/memory-board', label: '추억창', icon: 'ri-image-line' },
   ],
 };
 
