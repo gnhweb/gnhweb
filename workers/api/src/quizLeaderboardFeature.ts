@@ -47,6 +47,7 @@ function dataApiUrl(path: string): string {
 async function dataApiRequest<T>(url: string, authorization = '', init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (authorization) headers.set('authorization', authorization);
+  headers.set('apikey', 'anonymous');
   headers.set('accept', 'application/json');
   if (init.body && !headers.has('content-type')) headers.set('content-type', 'application/json');
   const response = await fetch(url, { ...init, headers });
@@ -221,25 +222,23 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
         dataApiUrl(`quiz_scores?select=score,correct_count,total_questions&user_id=eq.${encodeURIComponent(userId)}`),
         userAuthorization,
       );
-      // 저장 직후 서버에서 같은 인증 컨텍스트로 리더보드 최신 데이터를 확인한다.
-      // 클라이언트의 별도 재조회 타이밍에 의존하지 않아 방금 저장한 기록이 즉시 반영된다.
+      // 저장 직후 같은 Data API 경로에서 최신 리더보드를 다시 읽는다.
+      // POST와 GET이 동일한 Neon Data API + JWT 컨텍스트를 사용하도록 맞춘다.
       stage = 'leaderboard-roles';
-      const latestRoles = await sql<RoleRow[]>`
-        SELECT user_id, club
-        FROM public.user_roles
-        WHERE is_active = true
-      `;
+      const latestRoles = await dataApiRequest<RoleRow[]>(
+        dataApiUrl('user_roles?select=user_id,club&is_active=eq.true'),
+        userAuthorization,
+      );
       const latestClubMap = new Map<string, string>();
       for (const role of latestRoles) {
         if (role.club) latestClubMap.set(role.user_id, role.club);
       }
 
       stage = 'leaderboard-scores';
-      const latestRows = await sql<ScoreRow[]>`
-        SELECT *
-        FROM public.quiz_scores
-        ORDER BY created_at DESC
-      `;
+      const latestRows = await dataApiRequest<ScoreRow[]>(
+        dataApiUrl('quiz_scores?select=*&order=created_at.desc'),
+        userAuthorization,
+      );
       const latestUsers = new Map<string, {
         user_id: string;
         nickname: string;
@@ -310,6 +309,14 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
           accuracy: club.total_questions ? Math.round((club.total_correct / club.total_questions) * 100) : 0,
         }))
         .sort((a, b) => b.total_score - a.total_score);
+
+      const cumulative = {
+        total_score: userAll.reduce((sum, row) => sum + (row.score || 0), 0),
+        total_correct: userAll.reduce((sum, row) => sum + (row.correct_count || 0), 0),
+        total_questions: userAll.reduce((sum, row) => sum + (row.total_questions || 0), 0),
+        games_played: userAll.length,
+        best_score: userAll.length ? Math.max(...userAll.map((row) => row.score || 0)) : 0,
+      };
 
       stage = 'streak-update';
       const streak = await updateBibleStreak(userId, userAuthorization);
