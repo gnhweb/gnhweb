@@ -122,6 +122,12 @@ export default function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean;
   useEffect(() => {
     if (!isOpen) return;
 
+    // 같은 브라우저에서 퀴즈 저장이 완료되면 폴링 주기를 기다리지 않고 즉시 갱신한다.
+    const handleQuizScoreUpdated = () => {
+      void fetchLeaderboard();
+    };
+    window.addEventListener('bible-quiz-score-updated', handleQuizScoreUpdated);
+
     const channel = supabase
       .channel('bible-quiz-leaderboard-rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_scores' }, () => {
@@ -130,6 +136,7 @@ export default function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean;
       .subscribe();
 
     return () => {
+      window.removeEventListener('bible-quiz-score-updated', handleQuizScoreUpdated);
       void supabase.removeChannel(channel);
     };
   }, [isOpen, fetchLeaderboard]);
