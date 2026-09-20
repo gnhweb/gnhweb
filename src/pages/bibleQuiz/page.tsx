@@ -174,9 +174,12 @@ export default function BibleQuiz() {
         const finalScore = score + (isCorrect === true ? (questions[currentQ]?.points || 20) : 0);
         const finalCorrectCount = correctCount + (isCorrect === true ? 1 : 0);
 
-        const { data: result, error: saveError } = await supabase.functions.invoke('quiz-leaderboard', {
-          method: 'POST',
-          body: {
+        // 점수 기록은 이미 Neon Data API로 연결된 supabase 호환 클라이언트를 통해
+        // 직접 저장한다. RLS의 "본인 user_id만 INSERT" 정책을 그대로 사용하므로
+        // Cloudflare Worker의 별도 인증 전달 단계 때문에 기록이 누락되지 않게 한다.
+        const { error: saveError } = await supabase
+          .from('quiz_scores')
+          .insert({
             user_id: user.id,
             nickname: profile?.name || '익명',
             club_name: clubName,
@@ -184,19 +187,26 @@ export default function BibleQuiz() {
             total_questions: questions.length,
             correct_count: finalCorrectCount,
             difficulty,
-          },
-        });
+          });
 
         if (saveError) {
           console.error('[BibleQuiz] score save failed:', saveError);
           setError(`퀴즈 기록을 저장하지 못했어요. ${saveError.message}`);
         } else {
-          // 같은 화면에서 열려 있는 리더보드가 저장 완료 즉시 다시 조회하도록 알린다.
+          const { data: leaderboard } = await supabase.functions.invoke('quiz-leaderboard', {
+            method: 'GET',
+          });
+          const { data: updatedCumulative } = await supabase.functions.invoke(
+            `quiz-leaderboard?user_id=${encodeURIComponent(user.id)}`,
+            { method: 'GET' },
+          );
+
+          // 저장 완료 후 현재 화면의 리더보드와 누적 기록을 즉시 갱신한다.
           window.dispatchEvent(new CustomEvent('bible-quiz-score-updated', {
-            detail: result?.leaderboard ?? null,
+            detail: leaderboard ?? null,
           }));
-          if (result?.cumulative) {
-            setCumulativeStats(result.cumulative as CumulativeStats);
+          if (updatedCumulative) {
+            setCumulativeStats(updatedCumulative as CumulativeStats);
           }
         }
         setSavingScore(false);
