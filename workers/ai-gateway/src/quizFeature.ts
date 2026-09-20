@@ -69,14 +69,6 @@ function isBadQuestion(question: QuizQuestion): boolean {
   return false;
 }
 
-function storyScore(question: QuizQuestion): number {
-  const text = question.question;
-  let score = 0;
-  if (/누가|무엇을|어디|왜|어떻게|무슨|몇 명|말했|만났|떠났|도망|구원|구출|죽|태어|낳|갔|왔|지었|먹|마셨|기도|배반|용서|전쟁|기적/.test(text)) score += 3;
-  if (/사건|장면|이야기|본문/.test(text)) score += 1;
-  return score;
-}
-
 function normalizeRow(row: Record<string, unknown>): QuizQuestion {
   const difficulty = String(row.difficulty);
   const points = difficulty === "하" ? 20 : difficulty === "중" ? 50 : difficulty === "상" ? 80 : 20;
@@ -155,12 +147,14 @@ export async function handleNimQuiz(
 
     // Prefer unseen questions, but never block the quiz when the history is
     // larger than the available pool. Reuse older questions to complete a set.
+    // 같은 유형의 문제만 반복되지 않도록 그룹별로 먼저 섞은 뒤,
+    // 아직 풀지 않은 문제를 우선하는 순서만 유지한다.
     const candidates = [
       ...shuffle(uniqueQuestions(preferredRows)),
       ...shuffle(uniqueQuestions(qualityRows.filter((question) => isExcluded(question, excluded)))),
       ...shuffle(uniqueQuestions(allRows.filter((question) => !isExcluded(question, excluded)))),
       ...shuffle(uniqueQuestions(allRows.filter((question) => isExcluded(question, excluded)))),
-    ].sort((a, b) => storyScore(b) - storyScore(a));
+    ];
 
     const selected: QuizQuestion[] = [];
     const selectedKeys = new Set<string>();
