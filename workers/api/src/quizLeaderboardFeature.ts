@@ -87,6 +87,7 @@ function withScoreFilters(params: URLSearchParams): string {
 export async function handleQuizLeaderboard(request: Request, env: Env): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
+  let stage = 'request';
   try {
     const url = new URL(request.url);
     const authorization = request.headers.get('authorization') || '';
@@ -188,17 +189,21 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
     }
 
     if (request.method === 'POST') {
+      stage = 'authentication';
       const { userId, authorization: userAuthorization } = await requireUserId(request, env);
+      stage = 'parse-body';
       const body = await request.json().catch(() => ({})) as Partial<QuizScore>;
       if (!body.nickname || !body.club_name || body.score === undefined) {
         return json({ error: '필수 항목이 누락되었습니다.' }, 400);
       }
+      stage = 'database-connection';
       const databaseUrl = String(env.DATABASE_URL || '').trim();
-      if (!databaseUrl) return json({ error: 'DATABASE_URL is not configured' }, 500);
+      if (!databaseUrl) return json({ error: 'DATABASE_URL is not configured', stage }, 500);
 
       // API에서 먼저 JWT의 userId를 검증했으므로 점수 저장은 서버 전용 DB 연결로 처리한다.
       // Data API RLS의 JWT 세션 매핑 문제로 기록이 누락되는 경로를 차단한다.
       const sql = neon(databaseUrl);
+      stage = 'score-insert';
       const sessionRows = await sql<ScoreRow[]>`
         INSERT INTO public.quiz_scores (
           user_id, nickname, club_name, score, total_questions, correct_count, difficulty, topic
@@ -210,6 +215,7 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
         )
         RETURNING *
       `;
+      stage = 'cumulative-query';
       const userAll = await sql<Array<Pick<ScoreRow, 'score' | 'correct_count' | 'total_questions'>>>`
         SELECT score, correct_count, total_questions
         FROM public.quiz_scores
@@ -226,6 +232,7 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
       }), { total_score: 0, total_correct: 0, total_questions: 0, games_played: 0, accuracy: 0 });
       // 저장 직후 서버에서 같은 인증 컨텍스트로 리더보드 최신 데이터를 확인한다.
       // 클라이언트의 별도 재조회 타이밍에 의존하지 않아 방금 저장한 기록이 즉시 반영된다.
+      stage = 'leaderboard-roles';
       const latestRoles = await sql<RoleRow[]>`
         SELECT user_id, club
         FROM public.user_roles
@@ -236,6 +243,7 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
         if (role.club) latestClubMap.set(role.user_id, role.club);
       }
 
+      stage = 'leaderboard-scores';
       const latestRows = await sql<ScoreRow[]>`
         SELECT *
         FROM public.quiz_scores
@@ -312,6 +320,7 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
         }))
         .sort((a, b) => b.total_score - a.total_score);
 
+      stage = 'streak-update';
       const streak = await updateBibleStreak(userId, userAuthorization);
       return json({
         success: true,
@@ -345,7 +354,7 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
   } catch (error) {
     const message = error instanceof Error ? error.message : '서버 오류';
     const status = message === 'Unauthorized' || message.includes('token') || message.includes('signature') ? 401 : 500;
-    console.error('[quiz-leaderboard] error:', message);
-    return json({ error: message }, status);
+    console.error('[quiz-leaderboard] error:', { stage, message });
+    return json({ error: message, stage }, status);
   }
 }
