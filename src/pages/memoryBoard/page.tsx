@@ -101,7 +101,7 @@ export default function MemoryBoard() {
         .from('Public')
         .upload(displayPath, displayBlob, {
           upsert: true,
-          contentType: uploadFile.type || 'application/octet-stream',
+          contentType: displayBlob.type || uploadFile.type || 'application/octet-stream',
           cacheControl: '31536000',
         });
       if (displayErr) throw new Error(`사진 업로드 실패: ${displayErr.message}`);
