@@ -53,16 +53,19 @@ const request = async (bucket: string, path: string, init: RequestInit = {}, req
       if (attempt === 0) await new Promise(resolve => window.setTimeout(resolve, 350));
     }
   }
-  throw new Error(lastError instanceof TypeError ? '저장소 서버에 연결하지 못했습니다. 네트워크 또는 CORS 설정을 확인해 주세요.' : lastError instanceof Error ? lastError.message : 'Storage request failed');
+  if (lastError instanceof TypeError) {
+    throw new Error(`Storage 네트워크 요청 실패: ${new URL(url).origin} (브라우저 CORS 또는 네트워크 차단 가능성)`);
+  }
+  throw new Error(lastError instanceof Error ? lastError.message : 'Storage request failed');
 };
 
 const parseError = async (response: Response): Promise<StorageError> => {
   if (response.ok) return null;
   try {
     const body = (await response.json()) as { error?: string };
-    return { message: body.error ?? `Storage request failed (${response.status})` };
+    return { message: body.error ?? `Storage request failed (HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''})` };
   } catch {
-    return { message: `Storage request failed (${response.status})` };
+    return { message: `Storage request failed (HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''})` };
   }
 };
 
