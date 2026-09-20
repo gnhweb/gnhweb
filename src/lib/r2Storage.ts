@@ -32,7 +32,17 @@ const request = async (bucket: string, path: string, init: RequestInit = {}, req
     if (!token) throw new Error('로그인이 필요합니다.');
     headers.set('Authorization', `Bearer ${token}`);
   }
-  return fetch(buildUrl(bucket, path, params), { ...init, headers });
+  const url = buildUrl(bucket, path, params);
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await fetch(url, { ...init, headers });
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) await new Promise(resolve => window.setTimeout(resolve, 350));
+    }
+  }
+  throw new Error(lastError instanceof TypeError ? '저장소 서버에 연결하지 못했습니다. 네트워크 또는 CORS 설정을 확인해 주세요.' : lastError instanceof Error ? lastError.message : 'Storage request failed');
 };
 
 const parseError = async (response: Response): Promise<StorageError> => {
