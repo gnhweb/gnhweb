@@ -135,7 +135,11 @@ export default function MemoryBoard() {
       setUploadTitle('');
       setUploadFile(null);
       setShowUpload(false);
-      await loadPhotos();
+      try {
+        await loadPhotos();
+      } catch (refreshError) {
+        console.warn('사진 저장 후 목록 새로고침 실패:', refreshError);
+      }
     } catch (e) {
       const paths = [displayPath, thumbPath].filter((path): path is string => Boolean(path));
       if (paths.length) {
