@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { r2Storage } from '@/lib/r2Storage';
 import { clubs } from '@/mocks/clubs';
 import PhotoLightbox from '@/components/feature/PhotoLightbox';
 import { CategoryChip, CategoryChipRow } from '@/components/base/CategoryChip';
@@ -88,18 +89,18 @@ export default function MemoryBoard() {
         resizeImageFile(uploadFile, { maxDimension: 480, quality: 0.68, mimeType: 'image/jpeg' }),
       ]);
 
-      const { error: displayErr } = await supabase.storage
+      const { error: displayErr } = await r2Storage
         .from('Public')
         .upload(displayPath, displayBlob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
       if (displayErr) throw new Error(`사진 업로드 실패: ${displayErr.message}`);
 
-      const { error: thumbErr } = await supabase.storage
+      const { error: thumbErr } = await r2Storage
         .from('Public')
         .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
       if (thumbErr) throw new Error(`썸네일 업로드 실패: ${thumbErr.message}`);
 
-      const displayUrl = supabase.storage.from('Public').getPublicUrl(displayPath).data.publicUrl;
-      const thumbUrl = supabase.storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
+      const displayUrl = r2Storage.from('Public').getPublicUrl(displayPath).data.publicUrl;
+      const thumbUrl = r2Storage.from('Public').getPublicUrl(thumbPath).data.publicUrl;
 
       const { error: insertErr } = await supabase
         .from('memory_photos')
@@ -120,7 +121,7 @@ export default function MemoryBoard() {
     } catch (e) {
       const paths = [displayPath, thumbPath].filter((path): path is string => Boolean(path));
       if (paths.length) {
-        try { await supabase.storage.from('Public').remove(paths); } catch { /* best-effort cleanup */ }
+        try { await r2Storage.from('Public').remove(paths); } catch { /* best-effort cleanup */ }
       }
       console.error('Upload error:', e);
       const message = e instanceof Error ? e.message : '업로드 중 오류가 발생했습니다.';
@@ -139,14 +140,20 @@ export default function MemoryBoard() {
         try {
           const urlObj = new URL(url);
           const pathParts = urlObj.pathname.split('/');
-          const bucketIndex = pathParts.findIndex(p => p === 'Public');
-          if (bucketIndex !== -1) storagePaths.push(pathParts.slice(bucketIndex + 1).join('/'));
+          const storageMarkerIndex = pathParts.findIndex((part) => part === 'public' || part === 'Public');
+          if (storageMarkerIndex !== -1) {
+            const marker = pathParts[storageMarkerIndex];
+            const v1Index = pathParts.lastIndexOf('storage');
+            const startIndex = marker.toLowerCase() === 'public' ? storageMarkerIndex + 1 : v1Index >= 0 ? storageMarkerIndex + 1 : storageMarkerIndex + 1;
+            const storagePath = pathParts.slice(startIndex).join('/');
+            if (storagePath) storagePaths.push(decodeURIComponent(storagePath));
+          }
         } catch { /* ignore malformed url */ }
       }
       if (!storagePaths.length) {
         throw new Error('사진 파일 경로를 확인할 수 없어 삭제를 중단했습니다.');
       }
-      const { error: storageDeleteErr } = await supabase.storage.from('Public').remove(storagePaths);
+      const { error: storageDeleteErr } = await r2Storage.from('Public').remove(storagePaths);
       if (storageDeleteErr) throw new Error(`사진 파일 삭제 실패: ${storageDeleteErr.message}`);
       const { error: deleteErr } = await supabase.from('memory_photos').delete().eq('id', photo.id);
       if (deleteErr) throw new Error(`삭제 실패: ${deleteErr.message}`);
