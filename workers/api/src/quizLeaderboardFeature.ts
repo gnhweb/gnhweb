@@ -218,8 +218,103 @@ export async function handleQuizLeaderboard(request: Request, env: Env): Promise
           ? Math.round(((acc.total_correct + (row.correct_count || 0)) / (acc.total_questions + (row.total_questions || 0))) * 100)
           : 0,
       }), { total_score: 0, total_correct: 0, total_questions: 0, games_played: 0, accuracy: 0 });
+      // 저장 직후 서버에서 같은 인증 컨텍스트로 리더보드 최신 데이터를 확인한다.
+      // 클라이언트의 별도 재조회 타이밍에 의존하지 않아 방금 저장한 기록이 즉시 반영된다.
+      const latestRoles = await dataApiRequest<RoleRow[]>(
+        dataApiUrl('user_roles?select=user_id,club&is_active=eq.true'),
+        userAuthorization,
+      );
+      const latestClubMap = new Map<string, string>();
+      for (const role of latestRoles) {
+        if (role.club) latestClubMap.set(role.user_id, role.club);
+      }
+
+      const latestRows = await dataApiRequest<ScoreRow[]>(
+        dataApiUrl('quiz_scores?select=*&order=created_at.desc'),
+        userAuthorization,
+      );
+      const latestUsers = new Map<string, {
+        user_id: string;
+        nickname: string;
+        club_name: string;
+        total_score: number;
+        total_correct: number;
+        total_questions: number;
+        games_played: number;
+        best_score: number;
+      }>();
+
+      for (const row of latestRows) {
+        const latestClub = latestClubMap.get(row.user_id);
+        const clubName = latestClub ? (CLUB_NAME_MAP[latestClub] || latestClub) : row.club_name;
+        const existing = latestUsers.get(row.user_id);
+        if (!existing) {
+          latestUsers.set(row.user_id, {
+            user_id: row.user_id,
+            nickname: row.nickname,
+            club_name: clubName || row.club_name,
+            total_score: row.score || 0,
+            total_correct: row.correct_count || 0,
+            total_questions: row.total_questions || 0,
+            games_played: 1,
+            best_score: row.score || 0,
+          });
+        } else {
+          existing.total_score += row.score || 0;
+          existing.total_correct += row.correct_count || 0;
+          existing.total_questions += row.total_questions || 0;
+          existing.games_played += 1;
+          existing.best_score = Math.max(existing.best_score, row.score || 0);
+          if (row.nickname) existing.nickname = row.nickname;
+          existing.club_name = clubName || existing.club_name;
+        }
+      }
+
+      const latestScores = [...latestUsers.values()]
+        .sort((a, b) => b.total_score - a.total_score)
+        .slice(0, 50);
+      const latestClubs = new Map<string, {
+        club_name: string;
+        total_score: number;
+        member_count: number;
+        total_correct: number;
+        total_questions: number;
+      }>();
+      for (const user of latestUsers.values()) {
+        const club = latestClubs.get(user.club_name) || {
+          club_name: user.club_name,
+          total_score: 0,
+          member_count: 0,
+          total_correct: 0,
+          total_questions: 0,
+        };
+        club.total_score += user.total_score;
+        club.member_count += 1;
+        club.total_correct += user.total_correct;
+        club.total_questions += user.total_questions;
+        latestClubs.set(user.club_name, club);
+      }
+      const latestClubRanking = [...latestClubs.values()]
+        .map((club) => ({
+          club_name: club.club_name,
+          total_score: club.total_score,
+          member_count: club.member_count,
+          avg_score: club.member_count ? Math.round(club.total_score / club.member_count) : 0,
+          accuracy: club.total_questions ? Math.round((club.total_correct / club.total_questions) * 100) : 0,
+        }))
+        .sort((a, b) => b.total_score - a.total_score);
+
       const streak = await updateBibleStreak(userId, userAuthorization);
-      return json({ success: true, session: sessionRows[0] || null, cumulative, streak: streak || undefined });
+      return json({
+        success: true,
+        session: sessionRows[0] || null,
+        cumulative,
+        leaderboard: {
+          scores: latestScores,
+          clubRanking: latestClubRanking,
+        },
+        streak: streak || undefined,
+      });
     }
 
     if (request.method === 'DELETE') {
