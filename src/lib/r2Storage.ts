@@ -47,7 +47,7 @@ const request = async (bucket: string, path: string, init: RequestInit = {}, req
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      return await fetch(url, { ...init, headers });
+      return await fetch(url, { ...init, headers, mode: 'cors', credentials: 'omit' });
     } catch (error) {
       lastError = error;
       if (attempt === 0) await new Promise(resolve => window.setTimeout(resolve, 350));
