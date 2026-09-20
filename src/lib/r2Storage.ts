@@ -54,7 +54,13 @@ const request = async (bucket: string, path: string, init: RequestInit = {}, req
     }
   }
   if (lastError instanceof TypeError) {
-    throw new Error(`Storage 네트워크 요청 실패: ${new URL(url).origin} (브라우저 CORS 또는 네트워크 차단 가능성)`);
+    const online = typeof navigator !== 'undefined' ? navigator.onLine : null;
+    const pageOrigin = typeof window !== 'undefined' ? window.location.origin : 'unknown';
+    const detail = lastError.message?.trim();
+    const status = online === false ? '현재 브라우저가 오프라인 상태입니다.' : '브라우저가 Storage 서버의 응답을 받기 전에 요청을 차단했을 가능성이 있습니다.';
+    throw new Error(
+      `Storage 네트워크 요청 실패: ${new URL(url).origin} (페이지: ${pageOrigin}) — ${status}${detail ? ` 원본 오류: ${detail}` : ''}`,
+    );
   }
   throw new Error(lastError instanceof Error ? lastError.message : 'Storage request failed');
 };
