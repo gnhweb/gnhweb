@@ -81,7 +81,7 @@ if (request.method === 'POST') {
     if (typeof formPath !== 'string' || !file || !(file instanceof File)) {
       return json({ error: 'Invalid upload payload' }, 400, cors);
     }
-    const postKey = formPath.replace(/^public\\//, 'Public/');
+    const postKey = formPath.replace(/^public\//, 'Public/');
     if (!postKey.startsWith('Public/')) return json({ error: 'Forbidden' }, 403, cors);
     const postStorageKey = postKey.slice('Public/'.length);
     const canWriteMemory = isOwnMemoryPath(postStorageKey, userId);
@@ -115,7 +115,7 @@ if (request.method === 'POST') {
     } catch {
       return json({ error: 'Invalid delete payload' }, 400, cors);
     }
-    const normalizedPaths = paths.map(path => path.replace(/^public\\//, ''));
+    const normalizedPaths = paths.map(path => path.replace(/^public\//, ''));
     const canDeleteMemory = normalizedPaths.length > 0 && normalizedPaths.every(path => isOwnMemoryPath(path, userId));
     const canDeleteMissionProof = normalizedPaths.length > 0 && normalizedPaths.every(isMissionProofPath) && (await Promise.all(normalizedPaths.map(path => canManageMissionProof(path, userId, `Bearer ${token}`)))).every(Boolean);
     const canDeleteAvatar = normalizedPaths.length > 0 && normalizedPaths.every(path => isOwnAvatarPath(path, userId));
