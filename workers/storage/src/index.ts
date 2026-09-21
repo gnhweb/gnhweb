@@ -149,6 +149,11 @@ if (request.method === 'POST') {
     const canWriteOperational = isOperationalStaffPath(postStorageKey) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
     const canWriteClubPhoto = isClubPhotoPath(postStorageKey) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
     if (!canWriteMemory && !canWriteMissionProof && !canWriteAvatar && !canWriteOperational && !canWriteClubPhoto) {
+      if (postStorageKey.startsWith('memories/')) {
+        const owner = postStorageKey.split('/')[1] ?? '';
+        const claimSuffixes = claimUserIds.map((claimUserId) => claimUserId.slice(-8));
+        return json({ error: `Forbidden: memory owner mismatch (path=${owner.slice(-8)}, claims=${claimSuffixes.join(',') || 'none'})` }, 403, cors);
+      }
       return json({ error: 'Forbidden' }, 403, cors);
     }
     const contentType = typeof form.get('content_type') === 'string'
