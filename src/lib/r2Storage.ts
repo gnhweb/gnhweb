@@ -19,8 +19,11 @@ const baseUrl = (() => {
 
 const getAccessToken = async (): Promise<string | null> => {
   const auth = (await import('@/lib/neon')).neon.auth;
-  const { data } = await auth.getSession();
-  return data.session?.access_token ?? null;
+  try {
+    return (await auth.getJWTToken?.(false)) ?? null;
+  } catch {
+    return null;
+  }
 };
 
 const normalizeBucket = (bucket: string) => bucket.toLowerCase() === 'public' ? 'Public' : bucket;
