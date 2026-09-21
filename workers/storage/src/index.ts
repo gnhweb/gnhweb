@@ -152,13 +152,12 @@ if (request.method === 'POST') {
     const canWriteOperational = isOperationalStaffPath(postStorageKey) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
     const canWriteClubPhoto = isClubPhotoPath(postStorageKey) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
     if (!canWriteMemory && !canWriteMissionProof && !canWriteAvatar && !canWriteOperational && !canWriteClubPhoto) {
-      if (postStorageKey.startsWith('memories/')) {
-        const owner = postStorageKey.split('/')[1] ?? '';
-        return json({
-          error: `Forbidden: memory owner mismatch (path=${owner.slice(-8)}, tokenSub=${userId.slice(-8)})`,
-        }, 403, cors);
-      }
-      return json({ error: 'Forbidden' }, 403, cors);
+      const segments = postStorageKey.split('/').filter(Boolean);
+      const owner = segments[0] === 'memories' ? (segments[1] ?? '') : '';
+      const category = segments[0] ?? '';
+      return json({
+        error: `Forbidden: upload authorization mismatch (category=${category || 'none'}, pathOwner=${owner.slice(-8) || 'none'}, tokenSub=${userId.slice(-8) || 'none'}, memoryMatch=${canWriteMemory}, missionMatch=${canWriteMissionProof}, avatarMatch=${canWriteAvatar}, operationalMatch=${canWriteOperational}, clubPhotoMatch=${canWriteClubPhoto})`,
+      }, 403, cors);
     }
     const contentType = typeof form.get('content_type') === 'string'
       ? String(form.get('content_type'))
