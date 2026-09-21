@@ -129,7 +129,9 @@ if (request.method === 'POST') {
   const token = form.get('access_token');
   if (typeof token !== 'string' || !token) return json({ error: 'Unauthorized' }, 401, cors);
   const claims = await verifyJwt(token, env);
-  const userId = typeof claims.sub === 'string' ? claims.sub : '';
+  const claimUserIds = [claims.sub, claims.user_id, claims.userId, claims.id]
+    .filter((value): value is string => typeof value === 'string' && value.length > 0);
+  const userId = claimUserIds[0] ?? '';
   if (!userId) return json({ error: 'Unauthorized' }, 401, cors);
 
   if (action === 'upload') {
@@ -141,7 +143,7 @@ if (request.method === 'POST') {
     const postKey = formPath.replace(/^public\//, 'Public/');
     if (!postKey.startsWith('Public/')) return json({ error: 'Forbidden' }, 403, cors);
     const postStorageKey = postKey.slice('Public/'.length);
-    const canWriteMemory = isOwnMemoryPath(postStorageKey, userId);
+    const canWriteMemory = claimUserIds.some((claimUserId) => isOwnMemoryPath(postStorageKey, claimUserId));
     const canWriteMissionProof = isMissionProofPath(postStorageKey) && await canManageMissionProof(postStorageKey, userId, `Bearer ${token}`);
     const canWriteAvatar = isOwnAvatarPath(postStorageKey, userId);
     const canWriteOperational = isOperationalStaffPath(postStorageKey) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
