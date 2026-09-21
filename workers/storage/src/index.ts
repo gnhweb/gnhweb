@@ -66,6 +66,70 @@ if (isPublic && transform) {
   return transformedResponse;
 }
 const object = await env.STORAGE.get(storageKey); if (!object) return json({ error: 'Not found' }, 404, cors); return objectResponse(object, origin, env); }
+if (request.method === 'POST') {
+  const form = await request.formData();
+  const action = form.get('action');
+  const token = form.get('access_token');
+  if (typeof token !== 'string' || !token) return json({ error: 'Unauthorized' }, 401, cors);
+  const claims = await verifyJwt(token, env);
+  const userId = typeof claims.sub === 'string' ? claims.sub : '';
+  if (!userId) return json({ error: 'Unauthorized' }, 401, cors);
+
+  if (action === 'upload') {
+    const formPath = form.get('path');
+    const file = form.get('file');
+    if (typeof formPath !== 'string' || !file || !(file instanceof File)) {
+      return json({ error: 'Invalid upload payload' }, 400, cors);
+    }
+    const postKey = formPath.replace(/^public\\//, 'Public/');
+    if (!postKey.startsWith('Public/')) return json({ error: 'Forbidden' }, 403, cors);
+    const postStorageKey = postKey.slice('Public/'.length);
+    const canWriteMemory = isOwnMemoryPath(postStorageKey, userId);
+    const canWriteMissionProof = isMissionProofPath(postStorageKey) && await canManageMissionProof(postStorageKey, userId, `Bearer ${token}`);
+    const canWriteAvatar = isOwnAvatarPath(postStorageKey, userId);
+    const canWriteOperational = isOperationalStaffPath(postStorageKey) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
+    const canWriteClubPhoto = isClubPhotoPath(postStorageKey) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
+    if (!canWriteMemory && !canWriteMissionProof && !canWriteAvatar && !canWriteOperational && !canWriteClubPhoto) {
+      return json({ error: 'Forbidden' }, 403, cors);
+    }
+    const contentType = typeof form.get('content_type') === 'string'
+      ? String(form.get('content_type'))
+      : file.type || 'application/octet-stream';
+    const cacheControl = typeof form.get('cache_control') === 'string' ? String(form.get('cache_control')) : '';
+    const upsert = form.get('upsert') === 'true';
+    if (!upsert && await env.STORAGE.head(postStorageKey)) return json({ error: 'The resource already exists' }, 409, cors);
+    const object = await env.STORAGE.put(postStorageKey, file, {
+      httpMetadata: { contentType, ...(cacheControl ? { cacheControl } : {}) },
+    });
+    return json({ data: { path: formPath, id: object.etag, etag: object.etag }, error: null }, 200, cors);
+  }
+
+  if (action === 'delete') {
+    const pathsValue = form.get('paths');
+    if (typeof pathsValue !== 'string') return json({ error: 'Invalid delete payload' }, 400, cors);
+    let paths: string[];
+    try {
+      const parsed = JSON.parse(pathsValue) as unknown;
+      if (!Array.isArray(parsed) || !parsed.every(path => typeof path === 'string')) return json({ error: 'Invalid delete payload' }, 400, cors);
+      paths = parsed;
+    } catch {
+      return json({ error: 'Invalid delete payload' }, 400, cors);
+    }
+    const normalizedPaths = paths.map(path => path.replace(/^public\\//, ''));
+    const canDeleteMemory = normalizedPaths.length > 0 && normalizedPaths.every(path => isOwnMemoryPath(path, userId));
+    const canDeleteMissionProof = normalizedPaths.length > 0 && normalizedPaths.every(isMissionProofPath) && (await Promise.all(normalizedPaths.map(path => canManageMissionProof(path, userId, `Bearer ${token}`)))).every(Boolean);
+    const canDeleteAvatar = normalizedPaths.length > 0 && normalizedPaths.every(path => isOwnAvatarPath(path, userId));
+    const canDeleteOperational = normalizedPaths.length > 0 && normalizedPaths.every(isOperationalStaffPath) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
+    const canDeleteClubPhoto = normalizedPaths.length > 0 && normalizedPaths.every(isClubPhotoPath) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
+    if (!canDeleteMemory && !canDeleteMissionProof && !canDeleteAvatar && !canDeleteOperational && !canDeleteClubPhoto) {
+      return json({ error: 'Forbidden' }, 403, cors);
+    }
+    await Promise.all(normalizedPaths.map(path => env.STORAGE.delete(path)));
+    return json({ data: null, error: null }, 200, cors);
+  }
+
+  return json({ error: 'Unsupported storage action' }, 400, cors);
+}
 const authorization = request.headers.get('authorization'); const claims = await requireAuth(request, env); const userId = typeof claims.sub === 'string' ? claims.sub : ''; if (request.method === 'PUT') { if (bucket === 'notebook-files' && (!userId || !isOwnNotebookPath(storageKey, userId))) return json({ error: 'Forbidden' }, 403, cors); const contentType = request.headers.get('content-type') ?? 'application/octet-stream'; const cacheControl = request.headers.get('cache-control'); const upsert = request.headers.get('x-upsert') === 'true'; if (!upsert) { const existing = await env.STORAGE.head(storageKey); if (existing) return json({ error: 'The resource already exists' }, 409, cors); } const object = await env.STORAGE.put(storageKey, request.body, { httpMetadata: { contentType, ...(cacheControl ? { cacheControl } : {}) } }); return json({ data: { path: key, id: object.etag, etag: object.etag }, error: null }, 200, cors); }
 if (request.method === 'DELETE') { const body = request.headers.get('content-type')?.includes('application/json') ? await request.json() as { paths?: string[] } : null; const paths = body?.paths ?? [storageKey]; const normalizedPaths = paths.map(path => path.replace(/^public\//, '')); const canDeleteMemory = bucket === 'Public' && normalizedPaths.every(path => isOwnMemoryPath(path, userId)); const canDeleteMissionProof = bucket === 'Public' && normalizedPaths.every(isMissionProofPath) && await Promise.all(normalizedPaths.map(path => canManageMissionProof(path, userId, authorization!))).then(results => results.every(Boolean)); const canDeleteAvatar = bucket === 'Public' && normalizedPaths.every(path => isOwnAvatarPath(path, userId)); const canDeleteOperational = bucket === 'Public' && normalizedPaths.every(isOperationalStaffPath) && await hasOperationalStaffRole(userId, authorization!); const canDeleteClubPhoto = bucket === 'Public' && normalizedPaths.every(isClubPhotoPath) && await hasOperationalStaffRole(userId, authorization!); const canDeleteNotebook = bucket === 'notebook-files' && paths.every(path => isOwnNotebookPath(path, userId)); if (!userId || (!canDeleteMemory && !canDeleteMissionProof && !canDeleteAvatar && !canDeleteOperational && !canDeleteClubPhoto && !canDeleteNotebook)) return json({ error: 'Forbidden' }, 403, cors); const storagePaths = canDeleteNotebook ? paths.map(notebookStorageKey) : normalizedPaths; await Promise.all(storagePaths.map(path => env.STORAGE.delete(path))); return json({ data: null, error: null }, 200, cors); }
 return json({ error: 'Method not allowed' }, 405, cors); } catch (error) { const message = error instanceof Error ? error.message : 'Storage request failed'; const status = message === 'Unauthorized' || message.includes('token') || message.includes('signature') ? 401 : 500; return json({ error: message }, status, cors); } }, } satisfies ExportedHandler<Env>;
