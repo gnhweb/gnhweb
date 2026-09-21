@@ -96,9 +96,18 @@ class R2BucketClient {
   constructor(private readonly bucket: string) {}
 
   async upload(path: string, file: File | Blob, options: UploadOptions = {}) {
-    const headers: Record<string, string> = { 'content-type': options.contentType ?? file.type ?? 'application/octet-stream', 'x-upsert': String(options.upsert ?? false) };
-    if (options.cacheControl) headers['cache-control'] = options.cacheControl;
-    const response = await request(this.bucket, path, { method: 'PUT', headers, body: file });
+    const token = await getAccessToken();
+    if (!token) throw new Error('로그인이 필요합니다.');
+    const form = new FormData();
+    form.set('action', 'upload');
+    form.set('access_token', token);
+    form.set('path', path);
+    form.set('content_type', options.contentType ?? file.type ?? 'application/octet-stream');
+    form.set('upsert', String(options.upsert ?? false));
+    if (options.cacheControl) form.set('cache_control', options.cacheControl);
+    const uploadFile = file instanceof File ? file : new File([file], path.split('/').pop() || 'upload', { type: file.type || options.contentType || 'application/octet-stream' });
+    form.set('file', uploadFile);
+    const response = await request(this.bucket, path, { method: 'POST', body: form });
     const error = await parseError(response);
     if (error) return { data: null, error };
     const data = (await response.json()) as { data: { path: string; id: string; etag: string } };
@@ -108,7 +117,13 @@ class R2BucketClient {
   getPublicUrl(path: string) { return { data: { publicUrl: buildUrl(this.bucket, path) } }; }
 
   async remove(paths: string[]) {
-    const response = await request(this.bucket, '', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ paths }) });
+    const token = await getAccessToken();
+    if (!token) throw new Error('로그인이 필요합니다.');
+    const form = new FormData();
+    form.set('action', 'delete');
+    form.set('access_token', token);
+    form.set('paths', JSON.stringify(paths));
+    const response = await request(this.bucket, '', { method: 'POST', body: form });
     const error = await parseError(response);
     return { data: error ? null : paths.map((path) => ({ name: path })), error };
   }
