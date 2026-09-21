@@ -61,7 +61,20 @@ const request = async (bucket: string, path: string, init: RequestInit = {}, req
     const online = typeof navigator !== 'undefined' ? navigator.onLine : null;
     const pageOrigin = typeof window !== 'undefined' ? window.location.origin : 'unknown';
     const detail = lastError.message?.trim();
-    const status = online === false ? '현재 브라우저가 오프라인 상태입니다.' : '브라우저가 Storage 서버의 응답을 받기 전에 요청을 차단했을 가능성이 있습니다.';
+    let reachability = 'Storage 서버 연결 상태를 확인하지 못했습니다.';
+    try {
+      // Upload/list/remove requests use Authorization + non-simple headers and can
+      // fail during CORS preflight. A plain GET has no custom headers, so it lets
+      // us distinguish "Storage is unreachable" from "authenticated request
+      // was blocked before reaching the Worker".
+      const probe = await fetch(baseUrl, { method: 'GET', mode: 'cors', credentials: 'omit' });
+      reachability = `Storage 서버 응답 확인됨 (HTTP ${probe.status})`;
+    } catch {
+      reachability = 'Storage 서버 자체에 대한 브라우저 연결도 실패했습니다.';
+    }
+    const status = online === false
+      ? '현재 브라우저가 오프라인 상태입니다.'
+      : `브라우저가 Storage 요청을 처리하는 중 차단했을 가능성이 있습니다. ${reachability}`;
     throw new Error(
       `Storage 네트워크 요청 실패: ${new URL(url).origin} (페이지: ${pageOrigin}) — ${status}${detail ? ` 원본 오류: ${detail}` : ''}`,
     );
