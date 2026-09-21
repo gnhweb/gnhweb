@@ -30,7 +30,64 @@ function corsHeaders(origin: string, allowedOrigins: string, requestedHeaders?: 
 }
 function base64UrlToBytes(value: string): Uint8Array { const normalized = value.replace(/-/g, '+').replace(/_/g, '/'); const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='); const binary = atob(padded); return Uint8Array.from(binary, c => c.charCodeAt(0)); }
 function decodeJsonPart(value: string): Record<string, unknown> { return JSON.parse(new TextDecoder().decode(base64UrlToBytes(value))) as Record<string, unknown>; }
-async function verifyJwt(token: string, env: Env): Promise<Record<string, unknown>> { const parts = token.split('.'); if (parts.length !== 3) throw new Error('Invalid token'); const header = decodeJsonPart(parts[0]); const payload = decodeJsonPart(parts[1]); if (header.alg !== 'RS256' || typeof header.kid !== 'string') throw new Error('Unsupported token'); const exp = typeof payload.exp === 'number' ? payload.exp : 0; if (!exp || exp <= Math.floor(Date.now() / 1000)) throw new Error('Expired token'); if (env.NEON_AUTH_ISSUER && payload.iss !== env.NEON_AUTH_ISSUER) throw new Error('Invalid issuer'); const jwksResponse = await fetch(env.NEON_JWKS_URL, { headers: { accept: 'application/json' }, cf: { cacheTtl: 300, cacheEverything: true } }); if (!jwksResponse.ok) throw new Error('JWKS unavailable'); const jwks = await jwksResponse.json() as { keys?: Array<Record<string, unknown>> }; const jwk = jwks.keys?.find(key => key.kid === header.kid && key.kty === 'RSA'); if (!jwk) throw new Error('Signing key not found'); const cryptoKey = await crypto.subtle.importKey('jwk', jwk as JsonWebKey, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']); const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`); const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, base64UrlToBytes(parts[2]), data); if (!valid) throw new Error('Invalid signature'); return payload; }
+async function verifyJwt(token: string, env: Env): Promise<Record<string, unknown>> {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Invalid token');
+  const header = decodeJsonPart(parts[0]);
+  const payload = decodeJsonPart(parts[1]);
+  const alg = typeof header.alg === 'string' ? header.alg : '';
+  const kid = typeof header.kid === 'string' ? header.kid : '';
+  const exp = typeof payload.exp === 'number' ? payload.exp : 0;
+  if (!exp || exp <= Math.floor(Date.now() / 1000)) throw new Error('Expired token');
+  if (env.NEON_AUTH_ISSUER && payload.iss !== env.NEON_AUTH_ISSUER) throw new Error('Invalid issuer');
+  const jwksResponse = await fetch(env.NEON_JWKS_URL, { headers: { accept: 'application/json' }, cf: { cacheTtl: 300, cacheEverything: true } });
+  if (!jwksResponse.ok) throw new Error('JWKS unavailable');
+  const jwks = await jwksResponse.json() as { keys?: Array<Record<string, unknown>> };
+  const candidates = (jwks.keys ?? []).filter(key => {
+    if (typeof key.kid === 'string' && kid && key.kid !== kid) return false;
+    return typeof key.alg !== 'string' || key.alg === alg;
+  });
+  const jwk = candidates.length === 1 ? candidates[0] : candidates.find(key => key.kid === kid);
+  if (!jwk) throw new Error('Signing key not found');
+
+  let importAlgorithm: AlgorithmIdentifier;
+  let verifyAlgorithm: AlgorithmIdentifier;
+  if (alg === 'RS256') {
+    importAlgorithm = { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' };
+    verifyAlgorithm = importAlgorithm;
+  } else if (alg === 'RS384') {
+    importAlgorithm = { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-384' };
+    verifyAlgorithm = importAlgorithm;
+  } else if (alg === 'RS512') {
+    importAlgorithm = { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-512' };
+    verifyAlgorithm = importAlgorithm;
+  } else if (alg === 'PS256') {
+    importAlgorithm = { name: 'RSA-PSS', hash: 'SHA-256' };
+    verifyAlgorithm = { name: 'RSA-PSS', saltLength: 32 };
+  } else if (alg === 'PS384') {
+    importAlgorithm = { name: 'RSA-PSS', hash: 'SHA-384' };
+    verifyAlgorithm = { name: 'RSA-PSS', saltLength: 48 };
+  } else if (alg === 'PS512') {
+    importAlgorithm = { name: 'RSA-PSS', hash: 'SHA-512' };
+    verifyAlgorithm = { name: 'RSA-PSS', saltLength: 64 };
+  } else if (alg === 'ES256' || alg === 'ES384' || alg === 'ES512') {
+    const hash = alg === 'ES256' ? 'SHA-256' : alg === 'ES384' ? 'SHA-384' : 'SHA-512';
+    const namedCurve = alg === 'ES256' ? 'P-256' : alg === 'ES384' ? 'P-384' : 'P-521';
+    importAlgorithm = { name: 'ECDSA', namedCurve };
+    verifyAlgorithm = { name: 'ECDSA', hash };
+  } else if (alg === 'EdDSA') {
+    importAlgorithm = { name: 'Ed25519' };
+    verifyAlgorithm = { name: 'Ed25519' };
+  } else {
+    throw new Error('Unsupported token');
+  }
+
+  const cryptoKey = await crypto.subtle.importKey('jwk', jwk as JsonWebKey, importAlgorithm, false, ['verify']);
+  const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
+  const valid = await crypto.subtle.verify(verifyAlgorithm, cryptoKey, base64UrlToBytes(parts[2]), data);
+  if (!valid) throw new Error('Invalid signature');
+  return payload;
+}
 async function requireAuth(request: Request, env: Env): Promise<Record<string, unknown>> { const authorization = request.headers.get('authorization'); if (!authorization?.startsWith('Bearer ')) throw new Error('Unauthorized'); return verifyJwt(authorization.slice('Bearer '.length).trim(), env); }
 function objectKey(request: Request): string | null { const url = new URL(request.url); const prefix = '/v1/storage/'; if (!url.pathname.startsWith(prefix)) return null; const key = decodeURIComponent(url.pathname.slice(prefix.length)); return key || null; }
 function objectResponse(object: R2ObjectBody, origin: string, env: Env): Response { const headers = new Headers(corsHeaders(origin, env.ALLOWED_ORIGIN)); object.writeHttpMetadata(headers); headers.set('etag', object.httpEtag); headers.set('cache-control', 'public, max-age=31536000, immutable'); return new Response(object.body, { headers }); }
