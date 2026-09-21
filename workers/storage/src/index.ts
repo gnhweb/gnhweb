@@ -102,13 +102,18 @@ function isOperationalStaffPath(path: string): boolean { return path.startsWith(
 function isClubPhotoPath(path: string): boolean { return path.startsWith('club-photos/'); }
 async function fetchJson(url: string, authorization: string): Promise<unknown> { const response = await fetch(url, { headers: { authorization, accept: 'application/json' } }); if (!response.ok) throw new Error('Data API request failed'); return response.json(); }
 async function getCanonicalUserId(authorization: string): Promise<string> {
-  const response = await fetch(`${DEFAULT_NEON_DATA_API_URL}/rest/v1/rpc/current_auth_user_id`, {
+  const response = await fetch(DEFAULT_NEON_DATA_API_URL + '/rest/v1/auth_identity?select=user_id&limit=1', {
     headers: { authorization, accept: 'application/json' },
   });
-  if (!response.ok) throw new Error('Authenticated identity lookup failed');
-  const value = await response.json() as unknown;
-  if (typeof value !== 'string' || !value) throw new Error('Unauthorized');
-  return value;
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error('Authenticated identity lookup failed (' + response.status + ')' + (detail ? ': ' + detail.slice(0, 200) : ''));
+  }
+  const rows = await response.json() as unknown;
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('Authenticated identity lookup returned no user');
+  const userId = (rows[0] as { user_id?: unknown })?.user_id;
+  if (typeof userId !== 'string' || !userId) throw new Error('Authenticated identity lookup returned an invalid user');
+  return userId;
 }
 async function hasOperationalStaffRole(userId: string, authorization: string): Promise<boolean> { const roleUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_roles?select=role&user_id=eq.${encodeURIComponent(userId)}&is_active=eq.true&role=in.(assistant_zone_leader,teacher,chief,president)&limit=1`; const roles = await fetchJson(roleUrl, authorization); return Array.isArray(roles) && roles.some(row => { const role = row as { role?: unknown }; return role.role === 'assistant_zone_leader' || role.role === 'teacher' || role.role === 'chief' || role.role === 'president'; }); }
 async function canManageMissionProof(path: string, userId: string, authorization: string): Promise<boolean> { const assignmentId = missionProofAssignmentId(path); if (!assignmentId) return false; const apiUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/mission_assignments?select=student_id&id=eq.${encodeURIComponent(assignmentId)}&limit=1`; const data = await fetchJson(apiUrl, authorization); const assignment = Array.isArray(data) ? data[0] as { student_id?: unknown } | undefined : undefined; if (typeof assignment?.student_id !== 'string') return false; if (assignment.student_id === userId) return true; const roleUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_roles?select=role&user_id=eq.${encodeURIComponent(userId)}&is_active=eq.true&role=in.(teacher,chief)&limit=1`; const roles = await fetchJson(roleUrl, authorization); return Array.isArray(roles) && roles.some(row => { const role = row as { role?: unknown }; return role.role === 'teacher' || role.role === 'chief'; }); }
