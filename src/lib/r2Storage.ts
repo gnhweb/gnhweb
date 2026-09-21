@@ -107,7 +107,7 @@ class R2BucketClient {
     if (options.cacheControl) form.set('cache_control', options.cacheControl);
     const uploadFile = file instanceof File ? file : new File([file], path.split('/').pop() || 'upload', { type: file.type || options.contentType || 'application/octet-stream' });
     form.set('file', uploadFile);
-    const response = await request(this.bucket, path, { method: 'POST', body: form });
+    const response = await request(this.bucket, path, { method: 'POST', body: form }, false);
     const error = await parseError(response);
     if (error) return { data: null, error };
     const data = (await response.json()) as { data: { path: string; id: string; etag: string } };
@@ -123,7 +123,7 @@ class R2BucketClient {
     form.set('action', 'delete');
     form.set('access_token', token);
     form.set('paths', JSON.stringify(paths));
-    const response = await request(this.bucket, '', { method: 'POST', body: form });
+    const response = await request(this.bucket, '', { method: 'POST', body: form }, false);
     const error = await parseError(response);
     return { data: error ? null : paths.map((path) => ({ name: path })), error };
   }
