@@ -46,32 +46,25 @@ const profiles:Record<Figure,Profile> = {
 
 const figureOrder:Figure[]=['다니엘','요셉','룻','바나바','베드로','느헤미야','에스더','디모데','다윗','마리아','아브라함','모세','여호수아','사무엘','엘리야','이사야','예레미야','바울','요한','마르다'];
 
-const OVERRIDE_SPRITE_INDEX: Partial<Record<Figure, number>> = {
- 요셉: 0,
- 느헤미야: 1,
- 다윗: 2,
- 아브라함: 3,
- 예레미야: 4,
+const CHARACTER_SPRITE_POSITION: Record<Figure,{x:number;y:number}> = {
+ 모세:{x:0,y:0},아브라함:{x:1,y:0},여호수아:{x:2,y:0},다윗:{x:3,y:0},요셉:{x:4,y:0},
+ 룻:{x:0,y:1},에스더:{x:1,y:1},다니엘:{x:2,y:1},바울:{x:3,y:1},베드로:{x:4,y:1},
+ 느헤미야:{x:0,y:2},디모데:{x:1,y:2},바나바:{x:2,y:2},마리아:{x:3,y:2},엘리야:{x:4,y:2},
+ 이사야:{x:0,y:3},예레미야:{x:1,y:3},사무엘:{x:2,y:3},마르다:{x:3,y:3},요한:{x:4,y:3},
 };
 
 function FigureIllustration({name,className}:{name:Figure;className:string}){
- const slugs:Record<Figure,string>={다니엘:'daniel',요셉:'joseph',룻:'ruth',바나바:'barnabas',베드로:'peter',느헤미야:'nehemiah',에스더:'esther',디모데:'timothy',다윗:'david',마리아:'mary',아브라함:'abraham',모세:'moses',여호수아:'joshua',사무엘:'samuel',엘리야:'elijah',이사야:'isaiah',예레미야:'jeremiah',바울:'paul',요한:'john',마르다:'martha'};
- const slug=slugs[name];
- const spriteIndex=OVERRIDE_SPRITE_INDEX[name];
+ const position=CHARACTER_SPRITE_POSITION[name];
  return <div role="img" aria-label={`${name} 성경인물 프로필`} className={`overflow-hidden ${className}`}>
-   {spriteIndex !== undefined ? (
-     <div
-       aria-hidden="true"
-       className="h-full w-full bg-cover bg-no-repeat"
-       style={{
-         backgroundImage: 'url(/bible-mbti/characters-new/illustrated-overrides.webp?v=20260922-3)',
-         backgroundPosition: `${spriteIndex * 25}% 0`,
-         backgroundSize: '500% 100%',
-       }}
-     />
-   ) : (
-     <img src={`/bible-mbti/characters-new/${slug}.svg?v=20260909-5`} alt="" aria-hidden="true" loading="lazy" decoding="async" className="h-full w-full object-contain" />
-   )}
+   <div
+     aria-hidden="true"
+     className="h-full w-full bg-cover bg-no-repeat"
+     style={{
+       backgroundImage: 'url(/bible-mbti/characters-new/image.png?v=20260922-1)',
+       backgroundPosition: `${position.x * 25}% ${position.y * (100 / 3)}%`,
+       backgroundSize: '500% 400%',
+     }}
+   />
  </div>;
 }
 
