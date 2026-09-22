@@ -1026,15 +1026,14 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
               {[
-                { key: 'attended' as const, title: '정시 출석', count: attendedMembers.length, members: attendedMembers, dot: 'bg-emerald-400', iconBg: 'bg-emerald-100', icon: 'ri-check-line', iconText: 'text-emerald-600', card: 'bg-emerald-50/50 border-emerald-100', text: 'text-emerald-700' },
-                { key: 'late' as const, title: '늦참', count: lateMembers.length, members: lateMembers, dot: 'bg-amber-400', iconBg: 'bg-amber-100', icon: 'ri-time-line', iconText: 'text-amber-600', card: 'bg-amber-50/50 border-amber-100', text: 'text-amber-700' },
-                { key: 'absent' as const, title: '불참 신고', count: declaredAbsentMembers.length, members: declaredAbsentMembers, dot: 'bg-orange-400', iconBg: 'bg-orange-100', icon: 'ri-calendar-close-line', iconText: 'text-orange-600', card: 'bg-orange-50/50 border-orange-100', text: 'text-orange-700' },
-                { key: 'no_response' as const, title: '미응답', count: noResponseMembers.length, members: noResponseMembers, dot: 'bg-gray-400', iconBg: 'bg-gray-100', icon: 'ri-question-line', iconText: 'text-gray-600', card: 'bg-gray-50/50 border-gray-200', text: 'text-gray-700' },
+                { key: 'attended' as const, title: '정시 출석', count: attendedMembers.length, members: attendedMembers, dot: 'bg-emerald-400', iconBg: 'bg-emerald-100', card: 'bg-emerald-50/50 border-emerald-100', text: 'text-emerald-700' },
+                { key: 'late' as const, title: '늦참', count: lateMembers.length, members: lateMembers, dot: 'bg-amber-400', iconBg: 'bg-amber-100', card: 'bg-amber-50/50 border-amber-100', text: 'text-amber-700' },
+                { key: 'absent' as const, title: '불참 신고', count: declaredAbsentMembers.length, members: declaredAbsentMembers, dot: 'bg-orange-400', iconBg: 'bg-orange-100', card: 'bg-orange-50/50 border-orange-100', text: 'text-orange-700' },
+                { key: 'no_response' as const, title: '미응답', count: noResponseMembers.length, members: noResponseMembers, dot: 'bg-gray-400', iconBg: 'bg-gray-100', card: 'bg-gray-50/50 border-gray-200', text: 'text-gray-700' },
               ].map((section) => {
                 const isExpanded = expandedSections[section.key];
                 const hasMore = section.members.length > 10;
                 const visibleMembers = isExpanded ? section.members : section.members.slice(0, 10);
-
                 return (
                   <div key={section.key} className="bg-background-50 rounded-2xl p-4 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-3">
@@ -1045,11 +1044,7 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
                         </p>
                       </div>
                       {hasMore && (
-                        <button
-                          type="button"
-                          onClick={() => setExpandedSections((prev) => ({ ...prev, [section.key]: !prev[section.key] }))}
-                          className="inline-flex items-center gap-1 px-2.5 py-2 rounded-input border border-background-300 bg-background-100 text-xs font-semibold text-foreground-700 dark:bg-background-200 dark:border-background-400 dark:text-foreground-800 flex-shrink-0"
-                        >
+                        <button type="button" onClick={() => setExpandedSections((prev) => ({ ...prev, [section.key]: !prev[section.key] }))} className="inline-flex items-center gap-1 px-2.5 py-2 rounded-input border border-background-300 bg-background-100 text-xs font-semibold text-foreground-700 dark:bg-background-200 dark:border-background-400 dark:text-foreground-800 flex-shrink-0">
                           <i className={isExpanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}></i>
                           {isExpanded ? '접기' : '더보기'}
                         </button>
@@ -1060,36 +1055,17 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
                     ) : (
                       <div className="space-y-2">
                         {visibleMembers.map((member, idx) => (
-                          <motion.div
-                            key={member.user_id || idx}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.02 }}
-                            className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border ${section.card}`}
-                          >
+                          <motion.div key={member.user_id || idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.02 }} className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border ${section.card}`}>
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className={`w-7 h-7 rounded-full ${section.iconBg} flex items-center justify-center flex-shrink-0`}>
                                 <span className={`text-xs font-bold ${section.text}`}>{member.name[0]}</span>
                               </div>
                               <span className="text-sm font-medium text-foreground-800 truncate">{member.name}</span>
                             </div>
-                            {section.key === 'late' && member.late_reason && (
-                              <span className="text-[10px] text-amber-700 dark:text-amber-200 truncate max-w-[7rem]" title={member.late_reason}>
-                                {member.late_reason}
-                              </span>
-                            )}
-                            {section.key === 'absent' && member.absence_reason && (
-                              <span className="text-[10px] text-orange-700 dark:text-orange-200 truncate max-w-[7rem]" title={member.absence_reason}>
-                                {member.absence_reason}
-                              </span>
-                            )}
+                            {section.key === 'late' && member.late_reason && <span className="text-[10px] text-amber-700 dark:text-amber-200 truncate max-w-[7rem]" title={member.late_reason}>{member.late_reason}</span>}
+                            {section.key === 'absent' && member.absence_reason && <span className="text-[10px] text-orange-700 dark:text-orange-200 truncate max-w-[7rem]" title={member.absence_reason}>{member.absence_reason}</span>}
                             {(section.key === 'absent' || section.key === 'no_response') && (
-                              <button
-                                type="button"
-                                onClick={() => { window.location.href = 'tg://'; }}
-                                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex-shrink-0"
-                                aria-label={`${member.name} 텔레그램 심방`}
-                              >
+                              <button type="button" onClick={() => { window.location.href = 'tg://'; }} className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex-shrink-0" aria-label={`${member.name} 텔레그램 심방`}>
                                 <i className="ri-telegram-2-fill text-sm"></i>
                               </button>
                             )}
@@ -1097,111 +1073,14 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
                         ))}
                       </div>
                     )}
-                    {hasMore && (
-                      <p className="text-[10px] text-foreground-400 mt-2 text-right">
-                        {isExpanded ? `${section.count}명 전체 표시` : `${section.count - 10}명 더 있음`}
-                      </p>
-                    )}
+                    {hasMore && <p className="text-[10px] text-foreground-400 mt-2 text-right">{isExpanded ? `${section.count}명 전체 표시` : `${section.count - 10}명 더 있음`}</p>}
                   </div>
                 );
               })}
-            </div>          </motion.div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-background-50 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
-                    <i className="ri-calendar-close-line text-orange-600 text-sm"></i>
-                  </div>
-                  <p className="text-sm font-bold text-foreground-800">
-                    불참 신고 <span className="text-orange-600">({declaredAbsentMembers.length})</span>
-                  </p>
-                </div>
-                {declaredAbsentMembers.length === 0 ? (
-                  <p className="text-xs text-foreground-400 text-center py-4">불참 신고한 학생이 없어요</p>
-                ) : (
-                  <div className="space-y-2">
-                    {declaredAbsentMembers.map((member, idx) => (
-                      <motion.div
-                        key={member.user_id || idx}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.03 }}
-                        className="px-3 py-2.5 bg-orange-50/50 border border-orange-100 rounded-xl"
-                      >
-                        <div className="flex items-center gap-2.5 mb-1.5">
-                          <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-bold text-orange-700">{member.name[0]}</span>
-                          </div>
-                          <span className="text-sm font-medium text-foreground-800">{member.name}</span>
-                        </div>
-                        {member.absence_reason && (
-                          <p className="text-xs text-orange-600 pl-9 mb-2">{member.absence_reason}</p>
-                        )}
-                        <div className="flex justify-end">
-                          <button
-                            onClick={() => {
-                              window.location.href = 'tg://';
-                            }}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-100 text-sky-700 text-xs font-medium hover:bg-sky-200 transition-colors cursor-pointer whitespace-nowrap"
-                          >
-                            <i className="ri-telegram-2-fill text-sm"></i>
-                            텔레그램으로 심방하기
-                          </button>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-background-50 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-7 h-7 rounded-lg bg-rose-100 flex items-center justify-center">
-                    <i className="ri-close-line text-rose-600 text-sm"></i>
-                  </div>
-                  <p className="text-sm font-bold text-foreground-800">
-                    미응답 <span className="text-rose-600">({noResponseMembers.length})</span>
-                  </p>
-                </div>
-                {noResponseMembers.length === 0 ? (
-                  <p className="text-xs text-foreground-400 text-center py-4">전원 응답 완료!</p>
-                ) : (
-                  <div className="space-y-2">
-                    {noResponseMembers.map((member, idx) => (
-                      <motion.div
-                        key={member.user_id || idx}
-                        initial={{ opacity: 0, x: 10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.03 }}
-                        className="flex items-center justify-between px-3 py-2 bg-rose-50/50 border border-rose-100 rounded-xl"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-bold text-rose-700">{member.name[0]}</span>
-                          </div>
-                          <span className="text-sm font-medium text-foreground-800">{member.name}</span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            window.location.href = 'tg://';
-                          }}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-100 text-sky-700 text-xs font-medium hover:bg-sky-200 transition-colors cursor-pointer whitespace-nowrap"
-                        >
-                          <i className="ri-telegram-2-fill text-sm"></i>
-                          텔레그램으로 심방하기
-                        </button>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           </motion.div>
         )}
+
       </motion.div>
     </div>
   );
