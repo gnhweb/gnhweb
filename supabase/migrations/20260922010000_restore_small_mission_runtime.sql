@@ -128,7 +128,7 @@ set search_path = public
 as $$
 declare v_status text; v_student uuid;
 begin
-  if auth.uid() is null then raise exception '로그인이 필요해요.'; end if;
+  if NULLIF(auth.user_id(), '')::uuid is null then raise exception '로그인이 필요해요.'; end if;
   if not public.has_any_active_role(array['chief','teacher','president','secretary','treasurer','service_manager','recreation_manager','education_manager','sports_manager','praise_manager','planning_manager','zone_leader']) then
     raise exception '인증 초기화 권한이 없습니다.';
   end if;
