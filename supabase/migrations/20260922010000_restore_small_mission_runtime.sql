@@ -78,7 +78,13 @@ as $$
 declare v_status text; v_student uuid; v_role text;
 begin
   if auth.uid() is null then raise exception '로그인이 필요해요.'; end if;
-  if not public.has_any_active_role(array['service_manager','zone_leader','teacher','chief']) then
+  if not exists (
+    select 1
+    from public.user_roles ur
+    where ur.user_id=auth.uid()
+      and ur.is_active=true
+      and ur.role in ('service_manager','zone_leader','teacher','chief')
+  ) then
     raise exception '작은 사명 인증 검토 권한이 없습니다.';
   end if;
 
