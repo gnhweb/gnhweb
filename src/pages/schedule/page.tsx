@@ -334,7 +334,13 @@ export default function Schedule() {
                             className={`h-1.5 w-1.5 rounded-full ${clubColorClass(clubId)}`}
                             title={clubName(clubId)}
                           />
-                        ))}
+                        ))
+                      {(calendarEventsByDate[d.dateStr] || []).some(event => !event.target_club) && (
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${clubColorClass(null)}`}
+                          title="전체 행사"
+                        />
+                      )}}
                       {(calendarEventsByDate[d.dateStr] || [])
                         .map(event => event.target_club)
                         .filter(
@@ -355,6 +361,10 @@ export default function Schedule() {
                   {club.name}
                 </span>
               ))}
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-foreground-600">
+                <span className={`h-2 w-2 rounded-full ${clubColorClass(null)}`} aria-hidden="true" />
+                전체 행사
+              </span>
               <span className="text-[10px] text-foreground-400">색 점으로 날짜별 동아리 일정을 한눈에 확인할 수 있어요</span>
             </div>
           </div>
