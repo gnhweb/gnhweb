@@ -78,7 +78,7 @@ as $$
 declare v_status text; v_student uuid; v_role text;
 begin
   if NULLIF(auth.user_id(), '')::uuid is null then raise exception '로그인이 필요해요.'; end if;
-  if not public.has_any_active_role(array['service_manager','zone_leader','teacher','chief']) then
+  if not public.has_any_active_role(array['chief','teacher','president','secretary','treasurer','service_manager','recreation_manager','education_manager','sports_manager','praise_manager','planning_manager','zone_leader']) then
     raise exception '작은 사명 인증 검토 권한이 없습니다.';
   end if;
 
@@ -96,8 +96,8 @@ begin
     join public.user_roles ur on ur.user_id=ura.user_id and ur.is_active=true
     where ura.user_id=NULLIF(auth.user_id(), '')::uuid
   ) roles
-  where role in ('service_manager','zone_leader','teacher','chief')
-  order by case role when 'chief' then 1 when 'teacher' then 2 when 'service_manager' then 3 when 'zone_leader' then 4 else 99 end
+  where role in ('chief','teacher','president','secretary','treasurer','service_manager','recreation_manager','education_manager','sports_manager','praise_manager','planning_manager','zone_leader')
+  order by case role when 'chief' then 1 when 'teacher' then 2 when 'president' then 3 when 'secretary' then 3 when 'treasurer' then 3 when 'service_manager' then 3 when 'recreation_manager' then 3 when 'education_manager' then 3 when 'sports_manager' then 3 when 'praise_manager' then 3 when 'planning_manager' then 3 when 'zone_leader' then 4 else 99 end
   limit 1;
 
   if p_action='approve' then
@@ -129,7 +129,7 @@ as $$
 declare v_status text; v_student uuid;
 begin
   if auth.uid() is null then raise exception '로그인이 필요해요.'; end if;
-  if not public.has_any_active_role(array['service_manager','zone_leader','teacher','chief']) then
+  if not public.has_any_active_role(array['chief','teacher','president','secretary','treasurer','service_manager','recreation_manager','education_manager','sports_manager','praise_manager','planning_manager','zone_leader']) then
     raise exception '인증 초기화 권한이 없습니다.';
   end if;
 
