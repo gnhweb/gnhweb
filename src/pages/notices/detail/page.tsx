@@ -49,6 +49,17 @@ export default function NoticeDetail() {
                 { onConflict: 'user_id,notice_id', ignoreDuplicates: true }
               );
 
+            // Reflect the read state locally immediately so browser-back restores the correct NEW state.
+            try {
+              const key = `notice_reads:${user.id}`;
+              const raw = localStorage.getItem(key);
+              const reads: string[] = raw ? JSON.parse(raw) : [];
+              if (!reads.includes(id)) {
+                reads.push(id);
+                localStorage.setItem(key, JSON.stringify(reads));
+              }
+            } catch { /* ignore */ }
+
             if (readError) {
               // Preserve the previous browser-local behavior as a fallback.
               try {
