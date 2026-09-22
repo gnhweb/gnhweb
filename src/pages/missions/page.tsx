@@ -172,7 +172,7 @@ export default function MissionsPage() {
       await loadData();
     } catch (err) {
       console.error('작은 사명 승인 실패:', err);
-      setError(err instanceof Error ? err.message : '승인 처리에 실패했습니다.');
+      setError(err instanceof Error ? err.message : (typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string' ? (err as { message: string }).message : '승인 처리에 실패했습니다.'));
     }
     setApprovingId(null);
   };
@@ -188,7 +188,7 @@ export default function MissionsPage() {
       await loadData();
     } catch (err) {
       console.error('작은 사명 반려 실패:', err);
-      setError(err instanceof Error ? err.message : '반려 처리에 실패했습니다.');
+      setError(err instanceof Error ? err.message : (typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string' ? (err as { message: string }).message : '반려 처리에 실패했습니다.'));
     }
   };
 
