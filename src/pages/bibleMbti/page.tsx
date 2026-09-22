@@ -51,7 +51,7 @@ function CharacterIllustration({ name, className }: { name: string; className?: 
           aria-label={`${name} 성경인물`}
           className="h-full w-full bg-cover bg-no-repeat"
           style={{
-            backgroundImage: 'url(/bible-mbti/characters-new/illustrated-overrides.webp?v=20260922-2)',
+            backgroundImage: 'url(/bible-mbti/characters-new/illustrated-overrides.webp?v=20260922-3)',
             backgroundPosition: `${spriteIndex * 25}% 0`,
             backgroundSize: '500% 100%',
           }}
