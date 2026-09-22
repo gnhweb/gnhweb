@@ -30,25 +30,47 @@ const MBTI_CHARACTER_SLUG: Record<string, string> = {
   이사야: 'isaiah', 예레미야: 'jeremiah', 사무엘: 'samuel', 마르다: 'martha', 요한: 'john',
 };
 
+const MBTI_CHARACTER_SPRITE_INDEX: Record<string, number> = {
+  joseph: 0,
+  nehemiah: 1,
+  david: 2,
+  abraham: 3,
+  jeremiah: 4,
+};
+
 function CharacterIllustration({ name, className }: { name: string; className?: string }) {
   const slug = MBTI_CHARACTER_SLUG[name];
   if (!slug) return <div className={className} aria-hidden="true" />;
 
+  const spriteIndex = MBTI_CHARACTER_SPRITE_INDEX[slug];
+
   return (
     <div role="img" aria-label={`${name} 성경인물 일러스트`} className={`relative overflow-hidden ${className ?? ''}`}>
-      <img
-        src={`/bible-mbti/characters-new/${slug}.svg?v=20260909-4`}
-        alt={`${name} 성경인물`}
-        loading="lazy"
-        decoding="async"
-        className="h-full w-full object-contain"
-        onError={(event) => {
-          const image = event.currentTarget;
-          if (image.dataset.fallback === 'true') return;
-          image.dataset.fallback = 'true';
-          image.src = `/bible-mbti/characters-new/${slug}.svg`;
-        }}
-      />
+      {spriteIndex !== undefined ? (
+        <div
+          aria-label={`${name} 성경인물`}
+          className="h-full w-full bg-cover bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/bible-mbti/characters-new/illustrated-overrides.webp?v=20260922-1)',
+            backgroundPosition: `${spriteIndex * 25}% 0`,
+            backgroundSize: '500% 100%',
+          }}
+        />
+      ) : (
+        <img
+          src={`/bible-mbti/characters-new/${slug}.svg?v=20260909-4`}
+          alt={`${name} 성경인물`}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-contain"
+          onError={(event) => {
+            const image = event.currentTarget;
+            if (image.dataset.fallback === 'true') return;
+            image.dataset.fallback = 'true';
+            image.src = `/bible-mbti/characters-new/${slug}.svg`;
+          }}
+        />
+      )}
     </div>
   );
 }
