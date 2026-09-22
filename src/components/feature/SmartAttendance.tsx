@@ -790,6 +790,12 @@ function StudentAttendanceView({ profile }: { profile: { name: string; club?: st
 function AdminAttendanceView({ profile }: { profile: { name: string; club?: string; user_id: string; role?: string } }) {
   const [clubSummaries, setClubSummaries] = useState<ClubAttendanceSummary[]>([]);
   const [selectedClub, setSelectedClub] = useState<ClubType>('saeullim');
+  const [expandedSections, setExpandedSections] = useState<Record<'attended' | 'late' | 'absent' | 'no_response', boolean>>({
+    attended: false,
+    late: false,
+    absent: false,
+    no_response: false,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -840,12 +846,14 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
             status: record.status,
             user_id: m.user_id,
             absence_reason: record.absence_reason,
+            late_reason: record.late_reason,
           };
         }
         return { name: m.name, status: 'no_response' as const, user_id: m.user_id };
       });
 
       const attendedToday = memberStatuses.filter((m) => m.status === 'attended').length;
+      const lateToday = memberStatuses.filter((m) => m.status === 'late').length;
       const absentDeclared = memberStatuses.filter((m) => m.status === 'absent').length;
       const noResponse = memberStatuses.filter((m) => m.status === 'no_response').length;
       const meta = CLUB_META[clubId];
@@ -859,8 +867,9 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
         clubBg: meta.bg,
         totalMembers,
         attendedToday,
+        lateToday,
         absentToday: absentDeclared,
-        attendanceRate: totalMembers > 0 ? Math.round((attendedToday / totalMembers) * 100) : 0,
+        attendanceRate: totalMembers > 0 ? Math.round(((attendedToday + lateToday) / totalMembers) * 100) : 0,
         memberList: memberStatuses,
       };
     });
@@ -899,16 +908,21 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
     };
   }, [fetchAttendanceData]);
 
+  useEffect(() => {
+    setExpandedSections({ attended: false, late: false, absent: false, no_response: false });
+  }, [selectedClub]);
+
   const overallRate = clubSummaries.length > 0
     ? Math.round(clubSummaries.reduce((s, c) => s + c.attendanceRate * c.totalMembers, 0) / clubSummaries.reduce((s, c) => s + c.totalMembers, 0))
     : 0;
   const totalAttended = clubSummaries.reduce((s, c) => s + c.attendedToday, 0);
   const totalMembers = clubSummaries.reduce((s, c) => s + c.totalMembers, 0);
-  const totalAbsent = clubSummaries.reduce((s, c) => s + c.absentToday, 0);
   const totalDeclaredAbsent = clubSummaries.reduce((s, c) => s + c.memberList.filter((m) => m.status === 'absent').length, 0);
+  const totalNoResponse = clubSummaries.reduce((s, c) => s + c.memberList.filter((m) => m.status === 'no_response').length, 0);
 
   const selectedSummary = clubSummaries.find((c) => c.club === selectedClub);
   const attendedMembers = selectedSummary?.memberList.filter((m) => m.status === 'attended') || [];
+  const lateMembers = selectedSummary?.memberList.filter((m) => m.status === 'late') || [];
   const declaredAbsentMembers = selectedSummary?.memberList.filter((m) => m.status === 'absent') || [];
   const noResponseMembers = selectedSummary?.memberList.filter((m) => m.status === 'no_response') || [];
 
@@ -965,6 +979,10 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
                     출석 {club.attendedToday}
                   </span>
                   <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                    늦참 {club.lateToday}
+                  </span>
+                  <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-orange-400"></span>
                     불참 {clubDeclaredAbsent}
                   </span>
@@ -1001,38 +1019,93 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
               <div className="flex-1">
                 <p className="text-lg font-bold text-foreground-950">{selectedSummary.clubName}</p>
                 <p className="text-xs text-foreground-500">
-                  출석 {attendedMembers.length}명 / 불참 {declaredAbsentMembers.length}명 / 미응답 {noResponseMembers.length}명 · 전체 {selectedSummary.totalMembers}명 · 출석률 {selectedSummary.attendanceRate}%
+                  정시 출석 {attendedMembers.length}명 / 늦참 ${lateMembers.length}명 / 불참 신고 {declaredAbsentMembers.length}명 / 미응답 {noResponseMembers.length}명 · 전체 {selectedSummary.totalMembers}명 · 출석률 {selectedSummary.attendanceRate}%
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-              <div className="bg-background-50 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                    <i className="ri-check-line text-emerald-600 text-sm"></i>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+              {[
+                { key: 'attended' as const, title: '정시 출석', count: attendedMembers.length, members: attendedMembers, dot: 'bg-emerald-400', iconBg: 'bg-emerald-100', icon: 'ri-check-line', iconText: 'text-emerald-600', card: 'bg-emerald-50/50 border-emerald-100', text: 'text-emerald-700' },
+                { key: 'late' as const, title: '늦참', count: lateMembers.length, members: lateMembers, dot: 'bg-amber-400', iconBg: 'bg-amber-100', icon: 'ri-time-line', iconText: 'text-amber-600', card: 'bg-amber-50/50 border-amber-100', text: 'text-amber-700' },
+                { key: 'absent' as const, title: '불참 신고', count: declaredAbsentMembers.length, members: declaredAbsentMembers, dot: 'bg-orange-400', iconBg: 'bg-orange-100', icon: 'ri-calendar-close-line', iconText: 'text-orange-600', card: 'bg-orange-50/50 border-orange-100', text: 'text-orange-700' },
+                { key: 'no_response' as const, title: '미응답', count: noResponseMembers.length, members: noResponseMembers, dot: 'bg-gray-400', iconBg: 'bg-gray-100', icon: 'ri-question-line', iconText: 'text-gray-600', card: 'bg-gray-50/50 border-gray-200', text: 'text-gray-700' },
+              ].map((section) => {
+                const isExpanded = expandedSections[section.key];
+                const hasMore = section.members.length > 10;
+                const visibleMembers = isExpanded ? section.members : section.members.slice(0, 10);
+
+                return (
+                  <div key={section.key} className="bg-background-50 rounded-2xl p-4 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${section.dot}`}></span>
+                        <p className="text-sm font-bold text-foreground-800 truncate">
+                          {section.title} <span className={section.text}>({section.count})</span>
+                        </p>
+                      </div>
+                      {hasMore && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedSections((prev) => ({ ...prev, [section.key]: !prev[section.key] }))}
+                          className="inline-flex items-center gap-1 px-2.5 py-2 rounded-input border border-background-300 bg-background-100 text-xs font-semibold text-foreground-700 dark:bg-background-200 dark:border-background-400 dark:text-foreground-800 flex-shrink-0"
+                        >
+                          <i className={isExpanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}></i>
+                          {isExpanded ? '접기' : '더보기'}
+                        </button>
+                      )}
+                    </div>
+                    {section.count === 0 ? (
+                      <p className="text-xs text-foreground-400 text-center py-4">해당 학생이 없습니다.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {visibleMembers.map((member, idx) => (
+                          <motion.div
+                            key={member.user_id || idx}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.02 }}
+                            className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border ${section.card}`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-7 h-7 rounded-full ${section.iconBg} flex items-center justify-center flex-shrink-0`}>
+                                <span className={`text-xs font-bold ${section.text}`}>{member.name[0]}</span>
+                              </div>
+                              <span className="text-sm font-medium text-foreground-800 truncate">{member.name}</span>
+                            </div>
+                            {section.key === 'late' && member.late_reason && (
+                              <span className="text-[10px] text-amber-700 dark:text-amber-200 truncate max-w-[7rem]" title={member.late_reason}>
+                                {member.late_reason}
+                              </span>
+                            )}
+                            {section.key === 'absent' && member.absence_reason && (
+                              <span className="text-[10px] text-orange-700 dark:text-orange-200 truncate max-w-[7rem]" title={member.absence_reason}>
+                                {member.absence_reason}
+                              </span>
+                            )}
+                            {(section.key === 'absent' || section.key === 'no_response') && (
+                              <button
+                                type="button"
+                                onClick={() => { window.location.href = 'tg://'; }}
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex-shrink-0"
+                                aria-label={`${member.name} 텔레그램 심방`}
+                              >
+                                <i className="ri-telegram-2-fill text-sm"></i>
+                              </button>
+                            )}
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                    {hasMore && (
+                      <p className="text-[10px] text-foreground-400 mt-2 text-right">
+                        {isExpanded ? `${section.count}명 전체 표시` : `${section.count - 10}명 더 있음`}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-sm font-bold text-foreground-800">
-                    출석 <span className="text-emerald-600">({attendedMembers.length})</span>
-                  </p>
-                </div>
-                {attendedMembers.length === 0 ? (
-                  <p className="text-xs text-foreground-400 text-center py-4">아직 출석한 학생이 없어요</p>
-                ) : (
-                  <div className="space-y-2">
-                    {attendedMembers.map((member, idx) => (
-                      <motion.div
-                        key={member.user_id || idx}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.03 }}
-                        className="flex items-center gap-2.5 px-3 py-2 bg-emerald-50/50 border border-emerald-100 rounded-xl"
-                      >
-                        <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-emerald-700">{member.name[0]}</span>
-                        </div>
-                        <span className="text-sm font-medium text-foreground-800">{member.name}</span>
-                      </motion.div>
+                );
+              })}
+            </div>          </motion.div>
                     ))}
                   </div>
                 )}
