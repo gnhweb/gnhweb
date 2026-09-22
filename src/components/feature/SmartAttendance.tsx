@@ -946,7 +946,7 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
           <KpiCard title="전체 출석률" value={`${overallRate}%`} icon="ri-user-heart-line" colorClass="bg-primary-100 text-primary-600" delay={0} />
           <KpiCard title="출석 완료" value={`${totalAttended}/${totalMembers}명`} icon="ri-check-double-line" colorClass="bg-accent-100 text-accent-600" delay={0.08} />
           <KpiCard title="불참 신고" value={`${totalDeclaredAbsent}명`} icon="ri-calendar-close-line" colorClass="bg-orange-100 text-orange-600" delay={0.12} />
-          <KpiCard title="미응답" value={`${totalAbsent}명`} icon="ri-user-unfollow-line" colorClass="bg-rose-100 text-rose-600" delay={0.16} />
+          <KpiCard title="미응답" value={`${totalNoResponse}명`} icon="ri-user-unfollow-line" colorClass="bg-rose-100 text-rose-600" delay={0.16} />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -1019,7 +1019,7 @@ function AdminAttendanceView({ profile }: { profile: { name: string; club?: stri
               <div className="flex-1">
                 <p className="text-lg font-bold text-foreground-950">{selectedSummary.clubName}</p>
                 <p className="text-xs text-foreground-500">
-                  정시 출석 {attendedMembers.length}명 / 늦참 ${lateMembers.length}명 / 불참 신고 {declaredAbsentMembers.length}명 / 미응답 {noResponseMembers.length}명 · 전체 {selectedSummary.totalMembers}명 · 출석률 {selectedSummary.attendanceRate}%
+                  정시 출석 {attendedMembers.length}명 / 늦참 {lateMembers.length}명 / 불참 신고 {declaredAbsentMembers.length}명 / 미응답 {noResponseMembers.length}명 · 전체 {selectedSummary.totalMembers}명 · 출석률 {selectedSummary.attendanceRate}%
                 </p>
               </div>
             </div>
