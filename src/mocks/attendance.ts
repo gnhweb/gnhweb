@@ -7,8 +7,9 @@ export interface AttendanceRecord {
   club: string;
   attendance_date: string;
   checked_in_at: string;
-  status: 'attended' | 'absent';
+  status: 'attended' | 'late' | 'absent';
   absence_reason?: string;
+  late_reason?: string;
 }
 
 export interface ClubAttendanceSummary {
@@ -19,6 +20,7 @@ export interface ClubAttendanceSummary {
   clubBg: string;
   totalMembers: number;
   attendedToday: number;
+  lateToday: number;
   absentToday: number;
   attendanceRate: number;
   memberList: ClubMemberStatus[];
@@ -26,9 +28,10 @@ export interface ClubAttendanceSummary {
 
 export interface ClubMemberStatus {
   name: string;
-  status: 'attended' | 'absent' | 'no_response';
+  status: 'attended' | 'late' | 'absent' | 'no_response';
   user_id: string;
   absence_reason?: string;
+  late_reason?: string;
 }
 
 export const CLUB_META: Record<ClubType, { name: string; icon: string; color: string; bg: string }> = {
