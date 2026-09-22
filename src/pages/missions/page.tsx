@@ -169,7 +169,10 @@ export default function MissionsPage() {
       } catch { /* badge check non-critical */ }
       try { await supabase.from('notifications').insert({ user_id: studentId, type: 'mission_reviewed', title: '작은 사명이 인증됐어요!', message: `${mission?.title || '작은 사명'} 인증이 승인되었습니다.`, is_read: false, link_url: '/missions/board' }); } catch { /* notification non-critical */ }
       await loadData();
-    } catch { setError('승인 처리에 실패했습니다.'); }
+    } catch (err) {
+      console.error('작은 사명 승인 실패:', err);
+      setError(err instanceof Error ? err.message : '승인 처리에 실패했습니다.');
+    }
     setApprovingId(null);
   };
 
@@ -182,7 +185,10 @@ export default function MissionsPage() {
       const assignment = assignments.find(a => a.id === assignmentId); const mission = missions.find(m => m.id === assignment?.mission_id);
       try { await supabase.from('notifications').insert({ user_id: studentId, type: 'mission_reviewed', title: '작은 사명 인증이 반려됐어요', message: `${mission?.title || '작은 사명'} 인증이 반려되었습니다. 사유: ${reason}`, is_read: false, link_url: '/missions/board' }); } catch { /* notification non-critical */ }
       await loadData();
-    } catch { setError('반려 처리에 실패했습니다.'); }
+    } catch (err) {
+      console.error('작은 사명 반려 실패:', err);
+      setError(err instanceof Error ? err.message : '반려 처리에 실패했습니다.');
+    }
   };
 
   const getAssignmentCount = (missionId: string) => assignments.filter(a => a.mission_id === missionId && ['assigned', 'submitted', 'completed'].includes(a.status)).length;
