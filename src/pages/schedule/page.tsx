@@ -334,13 +334,13 @@ export default function Schedule() {
                             className={`h-1.5 w-1.5 rounded-full ${clubColorClass(clubId)}`}
                             title={clubName(clubId)}
                           />
-                        ))
+                        ))}
                       {(calendarEventsByDate[d.dateStr] || []).some(event => !event.target_club) && (
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${clubColorClass(null)}`}
                           title="전체 행사"
                         />
-                      )}}
+                      )}
                       {(calendarEventsByDate[d.dateStr] || [])
                         .map(event => event.target_club)
                         .filter(
