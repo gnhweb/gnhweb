@@ -157,7 +157,7 @@ on public.mission_assignments
 for select to authenticated
 using (
   student_id=auth.uid()
-  or public.has_any_active_role(array['assistant_zone_leader','service_manager','zone_leader','teacher','chief'])
+  or public.has_any_active_role(array['assistant_zone_leader','chief','teacher','president','secretary','treasurer','service_manager','recreation_manager','education_manager','sports_manager','praise_manager','planning_manager','zone_leader'])
 );
 
 drop policy if exists ma_insert_self_claim on public.mission_assignments;
