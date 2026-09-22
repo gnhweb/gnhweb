@@ -77,7 +77,7 @@ set search_path = public
 as $$
 declare v_status text; v_student uuid; v_role text;
 begin
-  if auth.uid() is null then raise exception '로그인이 필요해요.'; end if;
+  if NULLIF(auth.user_id(), '')::uuid is null then raise exception '로그인이 필요해요.'; end if;
   if not public.has_any_active_role(array['service_manager','zone_leader','teacher','chief']) then
     raise exception '작은 사명 인증 검토 권한이 없습니다.';
   end if;
@@ -90,11 +90,11 @@ begin
   select role into v_role
   from (
     select ur.role from public.user_roles ur
-    where ur.user_id=auth.uid() and ur.is_active=true
+    where ur.user_id=NULLIF(auth.user_id(), '')::uuid and ur.is_active=true
     union
     select ura.role from public.user_role_assignments ura
     join public.user_roles ur on ur.user_id=ura.user_id and ur.is_active=true
-    where ura.user_id=auth.uid()
+    where ura.user_id=NULLIF(auth.user_id(), '')::uuid
   ) roles
   where role in ('service_manager','zone_leader','teacher','chief')
   order by case role when 'chief' then 1 when 'teacher' then 2 when 'service_manager' then 3 when 'zone_leader' then 4 else 99 end
@@ -102,12 +102,12 @@ begin
 
   if p_action='approve' then
     update public.mission_assignments
-    set status='completed',reviewed_by=auth.uid(),reviewed_at=now(),completed_at=now(),reject_reason=null
+    set status='completed',reviewed_by=NULLIF(auth.user_id(), '')::uuid,reviewed_at=now(),completed_at=now(),reject_reason=null
     where id=p_assignment_id;
   elsif p_action='reject' then
     if nullif(trim(coalesce(p_reject_reason,'')),'') is null then raise exception '반려 사유를 입력해주세요.'; end if;
     update public.mission_assignments
-    set status='rejected',reviewed_by=auth.uid(),reviewed_at=now(),reject_reason=trim(p_reject_reason),completed_at=null
+    set status='rejected',reviewed_by=NULLIF(auth.user_id(), '')::uuid,reviewed_at=now(),reject_reason=trim(p_reject_reason),completed_at=null
     where id=p_assignment_id;
   else
     raise exception '지원하지 않는 검토 작업입니다.';
