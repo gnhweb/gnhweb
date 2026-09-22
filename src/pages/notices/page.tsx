@@ -20,6 +20,10 @@ export default function Notices(){
  useEffect(()=>{
    if(!user?.id) return;
 
+   const syncReadState = () => setReadIds(localIds(user.id));
+   window.addEventListener('pageshow', syncReadState);
+   window.addEventListener('popstate', syncReadState);
+
    const channel = supabase
      .channel(`notice-reads:${user.id}`)
      .on(
@@ -40,7 +44,11 @@ export default function Notices(){
      )
      .subscribe();
 
-   return () => { supabase.removeChannel(channel); };
+   return () => {
+     window.removeEventListener('pageshow', syncReadState);
+     window.removeEventListener('popstate', syncReadState);
+     supabase.removeChannel(channel);
+   };
  }, [user?.id]);
 
  const formatDate=(s:string)=>formatKoreanDate(s,{year:'numeric',month:'numeric',day:'numeric'}).replace(/ /g,'.');
