@@ -52,6 +52,9 @@ jobs:
           exit 1
 
       - name: Run home memory carousel E2E
+        env:
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
         run: npx playwright test tests/e2e/home-memory-carousel.spec.ts
 
       - name: Upload Playwright report
