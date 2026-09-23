@@ -365,7 +365,6 @@ export default function Home() {
       const { data, error } = await supabase
         .from('memory_photos')
         .select('id, title, thumb_url, photo_url, created_at')
-        .not('thumb_url', 'is', null)
         .order('created_at', { ascending: false })
         .limit(30);
 
