@@ -17,7 +17,6 @@ const PRIVATE_FEATURE_ITEMS: { path: string; label: string; icon: string }[] = [
   { path: '/bible-streak', label: '말씀 스트릭', icon: 'ri-fire-line' },
   { path: '/faith-journal', label: '신앙 일지', icon: 'ri-edit-line' },
   { path: '/bucket-list', label: '버킷리스트', icon: 'ri-todo-line' },
-  { path: '/personal-schedule', label: '개인 일정', icon: 'ri-calendar-check-line' },
   { path: '/year-end-summary', label: '월별 결산', icon: 'ri-calendar-check-line' },
 ];
 
