@@ -27,7 +27,7 @@ interface StudentRecord {
 type AttendanceTab = 'all' | ClubType;
 
 const CLUB_TABS: Array<{ id: AttendanceTab; label: string; shortLabel: string; icon: string; activeClass: string; countClass: string }> = [
-  { id: 'all', label: '전체', shortLabel: '전체', icon: 'ri-group-line', activeClass: 'bg-foreground-950 text-white border-foreground-950 dark:bg-background-950 dark:text-foreground-50 dark:border-background-950', countClass: 'bg-white/15 text-white' },
+  { id: 'all', label: '전체', shortLabel: '전체', icon: 'ri-group-line', activeClass: 'bg-background-950 text-foreground-50 border-background-950 dark:bg-background-950 dark:text-foreground-50 dark:border-background-950', countClass: 'bg-white/15 text-white' },
   { id: 'saeullim', label: '새울림', shortLabel: '새울림', icon: 'ri-music-line', activeClass: 'bg-amber-500 text-white border-amber-500', countClass: 'bg-white/20 text-white' },
   { id: 'cheonjipoong', label: '천지풍', shortLabel: '천지풍', icon: 'ri-flag-line', activeClass: 'bg-emerald-500 text-white border-emerald-500', countClass: 'bg-white/20 text-white' },
   { id: 'cheonjihu', label: '천지후', shortLabel: '천지후', icon: 'ri-heart-pulse-line', activeClass: 'bg-violet-500 text-white border-violet-500', countClass: 'bg-white/20 text-white' },
