@@ -17,8 +17,8 @@ test.describe('production home memory carousel', () => {
 
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
 
-    const memoryLink = page.getByRole('link', { name: '추억창 보러가기', exact: true });
-    await expect(memoryLink).toBeVisible({ timeout: 60_000 });
+    const memoryLink = page.getByRole('link', { name: /^추억창 보러가기/ });
+    await expect(memoryLink).toBeVisible({ timeout: 30_000 });
     await expect(memoryLink).toHaveAttribute('href', '/memory-board');
 
     const memoryHeading = page.getByRole('heading', { name: /우리의 추억을.*다시 만나보세요/s });
