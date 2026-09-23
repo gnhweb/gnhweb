@@ -97,7 +97,6 @@ const PROFILE_FAITH_ITEMS: CategoryItem[] = [
 ];
 const FAITH_CATEGORY: CategoryGroup = { name: '신앙', icon: 'ri-heart-2-line', colorClass: 'primary', items: PROFILE_FAITH_ITEMS };
 const PROFILE_ACTIVITY_ITEMS: CategoryItem[] = [
-  { path: '/personal-schedule', label: '개인 일정', icon: 'ri-calendar-check-line' },
   { path: '/dashboard/attendance', label: '스마트 출석', icon: 'ri-user-heart-line' },
   { path: '/missions/board', label: '작은 사명', icon: 'ri-medal-line' },
 ];
