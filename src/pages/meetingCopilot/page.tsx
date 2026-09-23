@@ -436,7 +436,7 @@ export default function MeetingCopilotPage() {
     setStreaming(false);
   };
 
-  const handleToolAction = (action: 'notice' | 'schedule' | 'report') => {
+  const handleToolAction = (action: 'notice' | 'report') => {
     const title = selectedSources[0]?.title || '회의';
     const summary = selectedSources[0]?.summary || '';
     const lastAiMsg = [...messages].reverse().find(m => m.role === 'assistant');
@@ -446,11 +446,6 @@ export default function MeetingCopilotPage() {
       case 'notice':
         navigate('/notices/write', {
           state: { prefilledTitle: '[회의결과] ' + title, prefilledContent: aiContent ? aiContent.slice(0, 2000) : summary },
-        });
-        break;
-      case 'schedule':
-        navigate('/personal-schedule', {
-          state: { prefilledTitle: title + ' 후속 일정', prefilledDescription: aiContent ? aiContent.slice(0, 500) : summary },
         });
         break;
       case 'report':
@@ -810,12 +805,6 @@ export default function MeetingCopilotPage() {
                     className="flex-1 px-2 py-1.5 rounded-lg text-[10px] font-medium bg-background-100 text-foreground-600 border border-background-200 hover:bg-primary-50 hover:text-primary-700 hover:border-primary-300 transition-all whitespace-nowrap cursor-pointer flex items-center justify-center gap-1"
                   >
                     <i className="ri-megaphone-line"></i>공지 등록
-                  </button>
-                  <button
-                    onClick={() => handleToolAction('schedule')}
-                    className="flex-1 px-2 py-1.5 rounded-lg text-[10px] font-medium bg-background-100 text-foreground-600 border border-background-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-all whitespace-nowrap cursor-pointer flex items-center justify-center gap-1"
-                  >
-                    <i className="ri-calendar-event-line"></i>일정 등록
                   </button>
                   <button
                     onClick={() => handleToolAction('report')}
