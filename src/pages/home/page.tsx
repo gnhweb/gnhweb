@@ -71,6 +71,14 @@ interface NewsItem {
   created_at: string;
 }
 
+interface MemoryPhoto {
+  id: string;
+  title: string;
+  thumb_url: string | null;
+  photo_url: string;
+  created_at: string;
+}
+
 const CLUB_ICON_MAP: Record<string, string> = {
   saeullim: 'ri-music-line',
   cheonjipoong: 'ri-flag-line',
@@ -305,11 +313,13 @@ export default function Home() {
   const [confirmedQuiz, setConfirmedQuiz] = useState<ConfirmedChampion | null>(null);
   const [confirmedMarathon, setConfirmedMarathon] = useState<ConfirmedChampion | null>(null);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [memoryPhotos, setMemoryPhotos] = useState<MemoryPhoto[]>([]);
+  const [memorySlideIndex, setMemorySlideIndex] = useState(0);
+  const [memoryDirection, setMemoryDirection] = useState(0);
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [noticesError, setNoticesError] = useState(false);
   const [schedulesLoading, setSchedulesLoading] = useState(true);
   const [schedulesError, setSchedulesError] = useState(false);
-  const [clubBannerMap, setClubBannerMap] = useState<Record<string, { card_image_url: string | null }>>({}); 
   const isMobile = useIsMobile();
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [attendanceError, setAttendanceError] = useState(false);
@@ -345,6 +355,43 @@ export default function Home() {
   const touchEndX = useRef(0);
   const touchStartY = useRef(0);
   const touchEndY = useRef(0);
+
+  // 추억창 바로가기: 썸네일만 가져온 뒤 매 홈 진입마다 순서를 섞어 보여준다.
+  // 원본 사진은 캐러셀에서 요청하지 않아 홈 화면의 이미지 전송량을 불필요하게 키우지 않는다.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from('memory_photos')
+        .select('id, title, thumb_url, photo_url, created_at')
+        .not('thumb_url', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (cancelled || error || !data?.length) return;
+
+      const photos = [...(data as MemoryPhoto[])];
+      for (let i = photos.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [photos[i], photos[j]] = [photos[j], photos[i]];
+      }
+
+      setMemoryPhotos(photos);
+      setMemorySlideIndex(0);
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (memoryPhotos.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setMemoryDirection(1);
+      setMemorySlideIndex((current) => (current + 1) % memoryPhotos.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [memoryPhotos.length]);
 
   // 오늘의 어록 - DB에서 최신 활성 어록 목록을 가져와 갱신 (하루 1회만 실제 조회, 실패 시 폴백 유지)
   useEffect(() => {
@@ -567,22 +614,6 @@ export default function Home() {
       })
       .catch(() => {});
 
-    // 동아리 배너 이미지 (card)
-    Promise.resolve(
-      supabase
-        .from('club_banners')
-        .select('club, card_image_url')
-    )
-      .then(({ data }) => {
-        if (data) {
-          const map: Record<string, { card_image_url: string | null }> = {};
-          data.forEach((b: { club: string; card_image_url: string | null }) => {
-            map[b.club] = { card_image_url: b.card_image_url };
-          });
-          setClubBannerMap(map);
-        }
-      })
-      .catch(() => {});
   }, []);
 
   // ── 히어로 슬라이드 구성 ──
@@ -1163,18 +1194,13 @@ export default function Home() {
             좁은 카드 폭 때문에 동아리 이름이 중간에 줄바꿈되는 문제가 있었음) */
         <div className="-mx-4 px-4 flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1">
           {clubs.map((club) => {
-            const cb = clubBannerMap[club.id];
             return (
               <Link
                 key={club.id}
                 to={`/clubs/${club.id}`}
                 className="group relative flex-shrink-0 w-[148px] h-[200px] snap-start rounded-[20px] overflow-hidden shadow-card active:scale-[0.97] transition-transform duration-150"
               >
-                {cb?.card_image_url ? (
-                  <img src={cb.card_image_url} alt={club.name} className="absolute inset-0 w-full h-full object-cover object-top" />
-                ) : (
-                  <div className={`absolute inset-0 bg-gradient-to-br ${club.color}`}></div>
-                )}
+                <div className={`absolute inset-0 bg-gradient-to-br ${club.color}`}></div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/5"></div>
                 <div className={`absolute top-2.5 left-2.5 w-7 h-7 rounded-full ${club.iconBg} flex items-center justify-center shadow-card`}>
                   <i className={`${CLUB_ICON_MAP[club.id]} text-xs ${club.iconText}`}></i>
@@ -1207,11 +1233,7 @@ export default function Home() {
             return (
             <Link key={club.id} to={`/clubs/${club.id}`} className="group relative bg-background-100 rounded-2xl border border-background-200 overflow-hidden hover:border-emerald-200 hover:shadow-md transition-all duration-300 cursor-pointer">
               <div className="relative h-32 overflow-hidden">
-                {cb?.card_image_url ? (
-                  <img src={cb.card_image_url} alt={club.name} className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" />
-                ) : (
-                  <div className={`w-full h-full bg-gradient-to-br ${club.color}`}></div>
-                )}
+                <div className={`w-full h-full bg-gradient-to-br ${club.color}`}></div>
                 <div className={`absolute inset-0 bg-gradient-to-b ${club.color} opacity-50 group-hover:opacity-40 transition-opacity`}></div>
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
                 <div className={`absolute top-2.5 left-2.5 w-7 h-7 rounded-lg ${club.iconBg} flex items-center justify-center`}>
@@ -1229,6 +1251,100 @@ export default function Home() {
         )}
       </section>
 
+      {/* ═══ 3.5 추억창 바로가기 ═══ */}
+      <section className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary-100">
+                <i className="ri-image-line text-primary-600 text-sm"></i>
+              </span>
+              추억창
+            </h2>
+            <p className="text-xs text-foreground-500 mt-1 ml-9">우리의 순간을 랜덤으로 만나보세요</p>
+          </div>
+          <Link to="/memory-board" className="text-xs text-primary-600 hover:text-primary-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">
+            전체보기 <i className="ri-arrow-right-s-line text-sm"></i>
+          </Link>
+        </div>
+
+        {memoryPhotos.length > 0 ? (
+          <div className="relative overflow-hidden rounded-card bg-background-100 border border-background-200 shadow-card">
+            <AnimatePresence custom={memoryDirection} initial={false} mode="wait">
+              <motion.div
+                key={memoryPhotos[memorySlideIndex]?.id}
+                custom={memoryDirection}
+                initial={{ opacity: 0, x: memoryDirection >= 0 ? 28 : -28 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: memoryDirection >= 0 ? -28 : 28 }}
+                transition={{ duration: 0.28, ease: 'easeOut' }}
+                className="relative"
+              >
+                <Link to="/memory-board" className="block cursor-pointer">
+                  <div className="relative aspect-[16/8] min-h-[190px] max-h-[420px] overflow-hidden bg-background-200">
+                    <img
+                      src={memoryPhotos[memorySlideIndex].thumb_url || memoryPhotos[memorySlideIndex].photo_url}
+                      alt={memoryPhotos[memorySlideIndex].title || '추억창 사진'}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-foreground-950/75 via-foreground-950/10 to-transparent"></div>
+                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 md:p-6">
+                      <p className="text-[10px] font-bold tracking-[0.12em] text-white/75">MEMORY</p>
+                      <p className="mt-1 text-base sm:text-lg md:text-xl font-bold text-white line-clamp-2">{memoryPhotos[memorySlideIndex].title || '추억창에서 더 많은 사진 보기'}</p>
+                      <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-white/90">
+                        추억창 바로가기 <i className="ri-arrow-right-line"></i>
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+
+                {memoryPhotos.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="이전 추억 사진"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        setMemoryDirection(-1);
+                        setMemorySlideIndex((current) => (current - 1 + memoryPhotos.length) % memoryPhotos.length);
+                      }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-foreground-950/45 text-white backdrop-blur-sm transition-colors hover:bg-foreground-950/65 active:scale-95"
+                    >
+                      <i className="ri-arrow-left-s-line text-xl" aria-hidden="true"></i>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="다음 추억 사진"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        setMemoryDirection(1);
+                        setMemorySlideIndex((current) => (current + 1) % memoryPhotos.length);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-foreground-950/45 text-white backdrop-blur-sm transition-colors hover:bg-foreground-950/65 active:scale-95"
+                    >
+                      <i className="ri-arrow-right-s-line text-xl" aria-hidden="true"></i>
+                    </button>
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-chip bg-foreground-950/40 px-2.5 py-1.5 backdrop-blur-sm">
+                      <span className="text-[10px] font-semibold text-white/90 tabular-nums">
+                        {memorySlideIndex + 1} / {memoryPhotos.length}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        ) : (
+          <Link to="/memory-board" className="flex min-h-[190px] items-center justify-center rounded-card border border-dashed border-primary-200 bg-primary-50/60 px-6 text-center cursor-pointer">
+            <div>
+              <i className="ri-image-line text-3xl text-primary-500"></i>
+              <p className="mt-2 text-sm font-bold text-foreground-800">추억창 바로가기</p>
+              <p className="mt-1 text-xs text-foreground-500">추억창에서 우리의 사진을 만나보세요.</p>
+            </div>
+          </Link>
+        )}
+      </section>
 
       <AnimatePresence>
         {showAwards && (
