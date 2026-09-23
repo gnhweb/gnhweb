@@ -93,7 +93,7 @@ async function neonSelect(
     .replace(/\/$/, "")
     .replace(/\/rest\/v1\/?$/, "") + "/rest/v1";
   const response = await fetch(
-    `${baseUrl}/quiz_questions_curated?difficulty=eq.${encodeURIComponent(difficulty)}&select=id,question,options,answer,explanation,type,difficulty,points`,
+    `${baseUrl}/quiz_questions_curated?difficulty=eq.${encodeURIComponent(difficulty)}&select=id,question,options,answer,explanation,type,difficulty`,
     {
       headers: {
         Accept: "application/json",
