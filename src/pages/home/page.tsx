@@ -313,9 +313,7 @@ export default function Home() {
   const [confirmedQuiz, setConfirmedQuiz] = useState<ConfirmedChampion | null>(null);
   const [confirmedMarathon, setConfirmedMarathon] = useState<ConfirmedChampion | null>(null);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-  const [memoryPhotos, setMemoryPhotos] = useState<MemoryPhoto[]>([]);
-  const [memorySlideIndex, setMemorySlideIndex] = useState(0);
-  const [memoryDirection, setMemoryDirection] = useState(0);
+  const [memoryPhoto, setMemoryPhoto] = useState<MemoryPhoto | null>(null);
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [noticesError, setNoticesError] = useState(false);
   const [schedulesLoading, setSchedulesLoading] = useState(true);
@@ -356,8 +354,8 @@ export default function Home() {
   const touchStartY = useRef(0);
   const touchEndY = useRef(0);
 
-  // 추억창 바로가기: 썸네일만 가져온 뒤 매 홈 진입마다 순서를 섞어 보여준다.
-  // 원본 사진은 캐러셀에서 요청하지 않아 홈 화면의 이미지 전송량을 불필요하게 키우지 않는다.
+  // 추억창 사진은 메인 히어로 캐러셀의 한 슬라이드로 사용한다.
+  // 홈에 들어올 때마다 최근 사진 중 하나를 무작위로 선택한다.
   useEffect(() => {
     let cancelled = false;
 
@@ -370,27 +368,13 @@ export default function Home() {
 
       if (cancelled || error || !data?.length) return;
 
-      const photos = [...(data as MemoryPhoto[])];
-      for (let i = photos.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [photos[i], photos[j]] = [photos[j], photos[i]];
-      }
-
-      setMemoryPhotos(photos);
-      setMemorySlideIndex(0);
+      const photos = data as MemoryPhoto[];
+      const randomPhoto = photos[Math.floor(Math.random() * photos.length)];
+      setMemoryPhoto(randomPhoto);
     })();
 
     return () => { cancelled = true; };
   }, []);
-
-  useEffect(() => {
-    if (memoryPhotos.length <= 1) return;
-    const timer = window.setInterval(() => {
-      setMemoryDirection(1);
-      setMemorySlideIndex((current) => (current + 1) % memoryPhotos.length);
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [memoryPhotos.length]);
 
   // 오늘의 어록 - DB에서 최신 활성 어록 목록을 가져와 갱신 (하루 1회만 실제 조회, 실패 시 폴백 유지)
   useEffect(() => {
@@ -647,6 +631,16 @@ export default function Home() {
           cta: { label: '성경완독 도전하기', path: '/bible-marathon' },
         }]
       : []),
+    ...(memoryPhoto
+      ? [{
+          id: 'memory', type: 'feature' as const,
+          image: memoryPhoto.thumb_url || memoryPhoto.photo_url,
+          badge: '추억창', badgeColor: 'bg-primary-500',
+          title: '우리의 추억을\n다시 만나보세요',
+          subtitle: memoryPhoto.title || '강릉 학생회의 소중한 순간을 만나보세요',
+          cta: { label: '추억창 보러가기', path: '/memory-board' },
+        }]
+      : []),
     {
       id: 'bible-pick', type: 'quiz',
       image: '/hero/bible-pick.svg',
@@ -826,6 +820,7 @@ export default function Home() {
                       champion: 'ri-trophy-line',
                       'champion-quiz': 'ri-trophy-line',
                       'champion-marathon': 'ri-book-open-line',
+                      memory: 'ri-image-line',
                       quiz: 'ri-question-answer-line',
                       qna: 'ri-question-answer-line',
                       'faith-journal': 'ri-edit-line',
@@ -1246,101 +1241,6 @@ export default function Home() {
             );
           })}
         </div>
-        )}
-      </section>
-
-      {/* ═══ 3.5 추억창 바로가기 ═══ */}
-      <section className="max-w-6xl mx-auto px-4 md:px-6 mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-bold text-foreground-950 flex items-center gap-2">
-              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary-100">
-                <i className="ri-image-line text-primary-600 text-sm"></i>
-              </span>
-              추억창
-            </h2>
-            <p className="text-xs text-foreground-500 mt-1 ml-9">우리의 순간을 랜덤으로 만나보세요</p>
-          </div>
-          <Link to="/memory-board" className="text-xs text-primary-600 hover:text-primary-700 font-semibold flex items-center gap-0.5 whitespace-nowrap cursor-pointer">
-            전체보기 <i className="ri-arrow-right-s-line text-sm"></i>
-          </Link>
-        </div>
-
-        {memoryPhotos.length > 0 ? (
-          <div className="relative overflow-hidden rounded-card bg-background-100 border border-background-200 shadow-card">
-            <AnimatePresence custom={memoryDirection} initial={false} mode="wait">
-              <motion.div
-                key={memoryPhotos[memorySlideIndex]?.id}
-                custom={memoryDirection}
-                initial={{ opacity: 0, x: memoryDirection >= 0 ? 28 : -28 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: memoryDirection >= 0 ? -28 : 28 }}
-                transition={{ duration: 0.28, ease: 'easeOut' }}
-                className="relative"
-              >
-                <Link to="/memory-board" className="block cursor-pointer">
-                  <div className="relative aspect-[16/8] min-h-[190px] max-h-[420px] overflow-hidden bg-background-200">
-                    <img
-                      src={memoryPhotos[memorySlideIndex].thumb_url || memoryPhotos[memorySlideIndex].photo_url}
-                      alt={memoryPhotos[memorySlideIndex].title || '추억창 사진'}
-                      className="absolute inset-0 h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-foreground-950/75 via-foreground-950/10 to-transparent"></div>
-                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 md:p-6">
-                      <p className="text-[10px] font-bold tracking-[0.12em] text-white/75">MEMORY</p>
-                      <p className="mt-1 text-base sm:text-lg md:text-xl font-bold text-white line-clamp-2">{memoryPhotos[memorySlideIndex].title || '추억창에서 더 많은 사진 보기'}</p>
-                      <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-white/90">
-                        추억창 바로가기 <i className="ri-arrow-right-line"></i>
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-
-                {memoryPhotos.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label="이전 추억 사진"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        setMemoryDirection(-1);
-                        setMemorySlideIndex((current) => (current - 1 + memoryPhotos.length) % memoryPhotos.length);
-                      }}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-foreground-950/45 text-white backdrop-blur-sm transition-colors hover:bg-foreground-950/65 active:scale-95"
-                    >
-                      <i className="ri-arrow-left-s-line text-xl" aria-hidden="true"></i>
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="다음 추억 사진"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        setMemoryDirection(1);
-                        setMemorySlideIndex((current) => (current + 1) % memoryPhotos.length);
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-foreground-950/45 text-white backdrop-blur-sm transition-colors hover:bg-foreground-950/65 active:scale-95"
-                    >
-                      <i className="ri-arrow-right-s-line text-xl" aria-hidden="true"></i>
-                    </button>
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-chip bg-foreground-950/40 px-2.5 py-1.5 backdrop-blur-sm">
-                      <span className="text-[10px] font-semibold text-white/90 tabular-nums">
-                        {memorySlideIndex + 1} / {memoryPhotos.length}
-                      </span>
-                    </div>
-                  </>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        ) : (
-          <Link to="/memory-board" className="flex min-h-[190px] items-center justify-center rounded-card border border-dashed border-primary-200 bg-primary-50/60 px-6 text-center cursor-pointer">
-            <div>
-              <i className="ri-image-line text-3xl text-primary-500"></i>
-              <p className="mt-2 text-sm font-bold text-foreground-800">추억창 바로가기</p>
-              <p className="mt-1 text-xs text-foreground-500">추억창에서 우리의 사진을 만나보세요.</p>
-            </div>
-          </Link>
         )}
       </section>
 
