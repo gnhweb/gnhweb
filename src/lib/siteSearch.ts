@@ -42,7 +42,6 @@ export const SITE_SEARCH_ITEMS: SiteSearchItem[] = [
   { path: '/faith-journal', label: '신앙 일지', description: '신앙 일지 작성', icon: 'ri-edit-line', group: '나의 기록', keywords: ['신앙', '일지', '기록'] },
   { path: '/repentance-journal', label: '회개 저널', description: '회개와 묵상 기록', icon: 'ri-hand-heart-line', group: '나의 기록', keywords: ['회개', '저널', '신앙'] },
   { path: '/bucket-list', label: '버킷리스트', description: '하고 싶은 일과 목표 관리', icon: 'ri-todo-line', group: '나의 기록', keywords: ['버킷리스트', '목표'] },
-  { path: '/personal-schedule', label: '개인 일정', description: '나의 일정 관리', icon: 'ri-calendar-check-line', group: '나의 기록', keywords: ['개인 일정', '일정', '스케줄'] },
   { path: '/profile', label: '프로필 설정', description: '내 계정과 프로필 관리', icon: 'ri-user-settings-line', group: '내 계정', keywords: ['프로필', '계정', '설정'] },
   { path: '/tools', label: '도구 모음', description: '학생회 도구 한곳에서 보기', icon: 'ri-apps-2-line', group: '기본', keywords: ['도구', '기능', '모음'] },
 ];
