@@ -603,6 +603,16 @@ export default function Home() {
   // 산만하지 않도록 핵심 슬라이드만 남김: 인트로, 이달의 챔피언(있을 때), 말씀뽑기, 성경퀴즈, 동아리 소개.
   // 공지·일정·게시판·신앙일지·출결 등은 바로 아래 섹션과 하단 메뉴에서 이미 확인할 수 있어 배너에서는 제외.
   const heroSlides: HeroSlide[] = [
+    ...(memoryPhoto
+      ? [{
+          id: 'memory', type: 'feature' as const,
+          image: memoryPhoto.thumb_url || memoryPhoto.photo_url,
+          badge: '추억창', badgeColor: 'bg-primary-500',
+          title: '우리의 추억을\n다시 만나보세요',
+          subtitle: memoryPhoto.title || '강릉 학생회의 소중한 순간을 만나보세요',
+          cta: { label: '추억창 보러가기', path: '/memory-board' },
+        }]
+      : []),
     {
       id: 'main', type: 'main',
       image: '/hero/main.svg',
@@ -629,16 +639,6 @@ export default function Home() {
           title: `이달의 성경완독 1위 동아리\n${marathonChampion.label}`,
           subtitle: `${marathonChampion.chapters.toLocaleString()}장 완독 · 실시간 랭킹 진행 중`,
           cta: { label: '성경완독 도전하기', path: '/bible-marathon' },
-        }]
-      : []),
-    ...(memoryPhoto
-      ? [{
-          id: 'memory', type: 'feature' as const,
-          image: memoryPhoto.thumb_url || memoryPhoto.photo_url,
-          badge: '추억창', badgeColor: 'bg-primary-500',
-          title: '우리의 추억을\n다시 만나보세요',
-          subtitle: memoryPhoto.title || '강릉 학생회의 소중한 순간을 만나보세요',
-          cta: { label: '추억창 보러가기', path: '/memory-board' },
         }]
       : []),
     {
