@@ -424,7 +424,7 @@ export default function MeetingCopilotDrawer({ open, onClose, meeting }: Props) 
 
   // ── 실행 자동화 ──
 
-  const handleToolAction = (action: 'notice' | 'schedule' | 'report') => {
+  const handleToolAction = (action: 'notice' | 'report') => {
     const title = meeting?.title || '회의';
     const summary = meeting?.summary || '';
 
@@ -441,16 +441,6 @@ export default function MeetingCopilotDrawer({ open, onClose, meeting }: Props) 
             prefilledTitle: '[회의결과] ' + title,
             prefilledContent: aiContent
               ? aiContent.slice(0, 2000)
-              : summary,
-          },
-        });
-        break;
-      case 'schedule':
-        navigate('/personal-schedule', {
-          state: {
-            prefilledTitle: title + ' 후속 일정',
-            prefilledDescription: aiContent
-              ? aiContent.slice(0, 500)
               : summary,
           },
         });
@@ -709,12 +699,6 @@ export default function MeetingCopilotDrawer({ open, onClose, meeting }: Props) 
                     className="flex-1 px-2 py-1.5 rounded-lg text-[10px] font-medium bg-background-100 text-foreground-600 border border-background-200 hover:bg-primary-50 hover:text-primary-700 hover:border-primary-300 transition-all whitespace-nowrap cursor-pointer flex items-center justify-center gap-1"
                   >
                     <i className="ri-megaphone-line"></i>공지 등록
-                  </button>
-                  <button
-                    onClick={() => handleToolAction('schedule')}
-                    className="flex-1 px-2 py-1.5 rounded-lg text-[10px] font-medium bg-background-100 text-foreground-600 border border-background-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-all whitespace-nowrap cursor-pointer flex items-center justify-center gap-1"
-                  >
-                    <i className="ri-calendar-event-line"></i>일정 등록
                   </button>
                   <button
                     onClick={() => handleToolAction('report')}
