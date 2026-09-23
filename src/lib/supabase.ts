@@ -107,7 +107,7 @@ async function queryNeonRows(
   const { data, error } = await buildQuery(uniqueColumns);
   if (!error) {
     if (!Array.isArray(data)) return [];
-    return data.filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null);
+    return data as unknown as Record<string, unknown>[];
   }
 
   if (!lightweight) throw error;
@@ -117,7 +117,7 @@ async function queryNeonRows(
   const fallback = await buildQuery('*');
   if (fallback.error) throw fallback.error;
   if (!Array.isArray(fallback.data)) return [];
-  return fallback.data.filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null);
+  return fallback.data as unknown as Record<string, unknown>[];
 }
 
 const cloudflareChannels = new Set<CloudflareRealtimeChannel>();
