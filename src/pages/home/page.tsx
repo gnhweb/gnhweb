@@ -569,20 +569,37 @@ export default function Home() {
       .finally(() => setNoticesLoading(false));
 
     // 일정
-    const todayStr = todayKey();
-    Promise.resolve(
-      supabase
-        .from('schedules')
-        .select('id, title, description, event_date, event_time, location, target_club')
-        .gte('event_date', todayStr)
-        .order('event_date', { ascending: true })
-        .limit(30)
-    )
-      .then(({ data }) => {
-        if (data) setSchedules(data);
-      })
-      .catch(() => setSchedulesError(true))
-      .finally(() => setSchedulesLoading(false));
+    // 홈페이지 달력은 일정관리의 schedules 데이터를 그대로 사용한다.
+    // 최초 조회뿐 아니라 추가/수정/삭제도 Realtime으로 즉시 반영한다.
+    const loadSchedules = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('schedules')
+          .select('id, title, description, event_date, event_time, location, target_club')
+          .order('event_date', { ascending: true });
+
+        if (error) throw error;
+        setSchedules(data || []);
+        setSchedulesError(false);
+      } catch {
+        setSchedulesError(true);
+      } finally {
+        setSchedulesLoading(false);
+      }
+    };
+
+    void loadSchedules();
+
+    const scheduleChannel = supabase
+      .channel('home-schedules-rt')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'schedules' },
+        () => {
+          void loadSchedules();
+        },
+      )
+      .subscribe();
 
     // 강학뉴스
     Promise.resolve(
@@ -597,6 +614,9 @@ export default function Home() {
       })
       .catch(() => {});
 
+    return () => {
+      supabase.removeChannel(scheduleChannel);
+    };
   }, []);
 
   // ── 히어로 슬라이드 구성 ──
