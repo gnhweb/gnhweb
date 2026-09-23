@@ -113,6 +113,54 @@ jobs:
           wranglerVersion: "4"
           command: pages deploy out --project-name gnhweb
 
+
+  production-home-e2e:
+    name: Verify production home after Pages deploy
+    needs: deploy-site
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: development
+      E2E_BASE_URL: https://gnhwebw.pages.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install test dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Check production reachability
+        run: |
+          set -euo pipefail
+          for attempt in {1..30}; do
+            status=$(curl -L -s -o /dev/null -w '%{http_code}' "$E2E_BASE_URL")
+            echo "attempt=$attempt status=$status"
+            if [ "$status" -ge 200 ] && [ "$status" -lt 500 ]; then exit 0; fi
+            sleep 10
+          done
+          echo "Production did not become reachable: $E2E_BASE_URL"
+          exit 1
+
+      - name: Verify home memory carousel
+        env:
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+        run: npx playwright test tests/e2e/home-memory-carousel.spec.ts --project=chromium
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-home-memory-carousel-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
   deploy-realtime:
     name: Deploy gnhweb realtime Worker
     needs: regression-guard
