@@ -1229,7 +1229,6 @@ export default function Home() {
         /* 데스크톱: 기존 5열 그리드 유지 */
         <div className="grid md:grid-cols-5 gap-4">
           {clubs.map((club) => {
-            const cb = clubBannerMap[club.id];
             return (
             <Link key={club.id} to={`/clubs/${club.id}`} className="group relative bg-background-100 rounded-2xl border border-background-200 overflow-hidden hover:border-emerald-200 hover:shadow-md transition-all duration-300 cursor-pointer">
               <div className="relative h-32 overflow-hidden">
