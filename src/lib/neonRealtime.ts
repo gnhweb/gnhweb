@@ -24,6 +24,7 @@ type RealtimePayload = {
 type Subscription = {
   filter: ChangeFilter;
   callback: (payload: RealtimePayload) => void;
+  lightweight: boolean;
 };
 
 type ChannelState = {
@@ -36,7 +37,7 @@ type ChannelState = {
 
 const states = new WeakMap<object, ChannelState>();
 const activeChannels = new Set<RealtimeChannel>();
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 15000;
 
 function rowKey(row: Row): string {
   const id = row.id;
@@ -72,14 +73,24 @@ function createPayload(eventType: Exclude<ChangeEvent, '*'>, table: string, next
   };
 }
 
-async function poll(channel: RealtimeChannel, queryRows: (table: string) => Promise<Row[]>): Promise<void> {
+async function poll(channel: RealtimeChannel, queryRows: (table: string, filters: string[], lightweight: boolean) => Promise<Row[]>): Promise<void> {
   const state = states.get(channel);
   if (!state || state.polling || state.subscriptions.length === 0) return;
   state.polling = true;
   try {
-    const tables = [...new Set(state.subscriptions.map((subscription) => subscription.filter.table).filter((table): table is string => Boolean(table)))];
-    for (const table of tables) {
-      const rows = await queryRows(table);
+    const tableSubscriptions = new Map<string, Subscription[]>();
+    state.subscriptions.forEach((subscription) => {
+      const table = subscription.filter.table;
+      if (!table) return;
+      const current = tableSubscriptions.get(table) ?? [];
+      current.push(subscription);
+      tableSubscriptions.set(table, current);
+    });
+
+    for (const [table, subscriptions] of tableSubscriptions) {
+      const filters = [...new Set(subscriptions.map((subscription) => subscription.filter.filter).filter((filter): filter is string => Boolean(filter)))];
+      const lightweight = subscriptions.every((subscription) => subscription.lightweight);
+      const rows = await queryRows(table, filters, lightweight);
       const currentRows = new Map(rows.map((row) => [rowKey(row), row]));
       const previousRows = state.previousRows;
       if (!state.initializedTables.has(table)) {
@@ -121,7 +132,11 @@ async function poll(channel: RealtimeChannel, queryRows: (table: string) => Prom
   }
 }
 
-export function createNeonRealtimeChannel(channel: RealtimeChannel, queryRows: (table: string) => Promise<Row[]>): RealtimeChannel {
+export function createNeonRealtimeChannel(
+  channel: RealtimeChannel,
+  queryRows: (table: string, filters: string[], lightweight: boolean) => Promise<Row[]>,
+  lightweight: boolean,
+): RealtimeChannel {
   const state: ChannelState = {
     subscriptions: [],
     previousRows: new Map(),
@@ -134,10 +149,17 @@ export function createNeonRealtimeChannel(channel: RealtimeChannel, queryRows: (
       if (property === 'on') {
         return (type: string, filter: unknown, callback: unknown) => {
           if (type !== 'postgres_changes' || typeof callback !== 'function' || typeof filter !== 'object' || filter === null) return wrapped;
-          state.subscriptions.push({ filter: filter as ChangeFilter, callback: callback as (payload: RealtimePayload) => void });
+          state.subscriptions.push({
+            filter: filter as ChangeFilter,
+            callback: callback as (payload: RealtimePayload) => void,
+            lightweight,
+          });
           if (!state.timer) {
             void poll(wrapped, queryRows);
-            state.timer = setInterval(() => void poll(wrapped, queryRows), POLL_INTERVAL_MS);
+            state.timer = setInterval(() => {
+              if (typeof document !== 'undefined' && document.hidden) return;
+              void poll(wrapped, queryRows);
+            }, POLL_INTERVAL_MS);
           }
           return wrapped;
         };

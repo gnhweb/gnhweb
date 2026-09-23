@@ -62,11 +62,62 @@ const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
 
 const authClient = neonAuth as unknown as typeof legacySupabase.auth;
 
-async function queryNeonRows(table: string): Promise<Record<string, unknown>[]> {
-  const { data, error } = await neonDataClient.from(table).select('*');
-  if (error) throw error;
-  if (!Array.isArray(data)) return [];
-  return data.filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null);
+const LIGHTWEIGHT_REALTIME_CHANNELS = new Set([
+  'home-quiz-champion-rt',
+  'home-marathon-champion-rt',
+  'home-schedules-rt',
+  'home-attendance-rt',
+  'attendance-realtime-admin',
+  'attendance-locations-realtime',
+]);
+
+function isLightweightRealtimeChannel(name: string): boolean {
+  return LIGHTWEIGHT_REALTIME_CHANNELS.has(name) || name.startsWith('notifications-menu-counts-');
+}
+
+function extractEqFilter(filter?: string): { field: string; value: string } | null {
+  if (!filter) return null;
+  const match = filter.match(/^([A-Za-z_][A-Za-z0-9_]*)=eq\.(.*)$/);
+  if (!match) return null;
+  return { field: match[1], value: decodeURIComponent(match[2]) };
+}
+
+async function queryNeonRows(
+  table: string,
+  filters: string[] = [],
+  lightweight = false,
+): Promise<Record<string, unknown>[]> {
+  const parsedFilters = filters
+    .map(extractEqFilter)
+    .filter((filter): filter is { field: string; value: string } => Boolean(filter));
+
+  const buildQuery = (columns: string) => {
+    let query = neonDataClient.from(table).select(columns);
+    parsedFilters.forEach(({ field, value }) => {
+      query = query.eq(field, value);
+    });
+    return query;
+  };
+
+  const columns = lightweight
+    ? ['id', 'updated_at', ...parsedFilters.map((filter) => filter.field)]
+    : ['*'];
+  const uniqueColumns = [...new Set(columns)].join(',');
+
+  const { data, error } = await buildQuery(uniqueColumns);
+  if (!error) {
+    if (!Array.isArray(data)) return [];
+    return data.filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null);
+  }
+
+  if (!lightweight) throw error;
+
+  // Legacy tables without updated_at keep their existing full-row polling so
+  // UPDATE/DELETE detection remains correct.
+  const fallback = await buildQuery('*');
+  if (fallback.error) throw fallback.error;
+  if (!Array.isArray(fallback.data)) return [];
+  return fallback.data.filter((row): row is Record<string, unknown> => typeof row === 'object' && row !== null);
 }
 
 const cloudflareChannels = new Set<CloudflareRealtimeChannel>();
@@ -194,7 +245,11 @@ export const supabase = new Proxy(neonDataClient, {
             cloudflareChannels.add(channel);
             return channel;
           }
-          return createNeonRealtimeChannel(neonDataClient.channel(name, options), queryNeonRows);
+          return createNeonRealtimeChannel(
+            neonDataClient.channel(name, options),
+            queryNeonRows,
+            isLightweightRealtimeChannel(name),
+          );
         };
       case 'removeChannel':
         return (channel: ReturnType<typeof legacySupabase.channel> | CloudflareRealtimeChannel) => {
