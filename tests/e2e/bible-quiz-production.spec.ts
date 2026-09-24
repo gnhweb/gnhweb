@@ -20,7 +20,7 @@ test.describe('production Bible quiz', () => {
       timeout: 30_000,
     });
 
-    const startButton = page.getByRole('button', { name: '퀴즈 시작하기', exact: true });
+    const startButton = page.getByRole('button', { name: /퀴즈 시작하기/ });
     await expect(startButton).toBeVisible({ timeout: 15_000 });
     await startButton.click();
 
