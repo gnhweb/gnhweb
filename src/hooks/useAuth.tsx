@@ -47,6 +47,32 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const PIN_SETUP_DISMISSED_SESSION_PREFIX = 'gnh_pin_setup_dismissed:';
+
+function isPinSetupDismissedThisSession(userId: string): boolean {
+  try {
+    return sessionStorage.getItem(`${PIN_SETUP_DISMISSED_SESSION_PREFIX}${userId}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markPinSetupDismissedThisSession(userId: string): void {
+  try {
+    sessionStorage.setItem(`${PIN_SETUP_DISMISSED_SESSION_PREFIX}${userId}`, '1');
+  } catch {
+    /* sessionStorage is best-effort */
+  }
+}
+
+function clearPinSetupDismissedThisSession(userId: string): void {
+  try {
+    sessionStorage.removeItem(`${PIN_SETUP_DISMISSED_SESSION_PREFIX}${userId}`);
+  } catch {
+    /* sessionStorage is best-effort */
+  }
+}
+
 /**
  * Thoroughly remove all Supabase auth data from localStorage.
  * Stale refresh tokens are the #1 cause of "Invalid Refresh Token" errors,
@@ -293,7 +319,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setPinSetupNeeded(false);
           } else {
             setPinLocked(false);
-            setPinSetupNeeded(true);
+            setPinSetupNeeded(!isPinSetupDismissedThisSession(currentUser.id));
           }
           fetchProfile(currentUser);
         } else {
@@ -361,7 +387,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const currentUserHasPin = hasSimplePin(currentUser.id);
         setHasPin(currentUserHasPin);
         setPinExplicitLock(currentUser.id, false);
-        setPinSetupNeeded(!currentUserHasPin);
+        setPinSetupNeeded(!currentUserHasPin && !isPinSetupDismissedThisSession(currentUser.id));
         markPinActivity(currentUser.id);
         fetchProfile(currentUser);
       } else {
@@ -452,7 +478,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(signedInUser);
         setLoading(false);
         setProfileError(null);
-        setPinSetupNeeded(!hasSimplePin(signedInUser.id));
+        setPinSetupNeeded(!hasSimplePin(signedInUser.id) && !isPinSetupDismissedThisSession(signedInUser.id));
         fetchProfile(signedInUser);
       }
       return { error: null, user: signedInUser };
@@ -530,7 +556,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPinLocked(false);
     setHasPin(false);
     setPinSetupNeeded(false);
-    if (user) clearPinUnlockSession(user.id);
+    if (user) {
+      clearPinUnlockSession(user.id);
+      clearPinSetupDismissedThisSession(user.id);
+    }
     clearAllAuthStorage();
     await supabase.auth.signOut({ scope: 'local' }).catch(() => { /* already cleaned */ });
 
@@ -643,14 +672,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setHasPin(true);
     setPinExplicitLock(user.id, false);
     setPinSetupNeeded(false);
+    clearPinSetupDismissedThisSession(user.id);
     setPinUnlockExpiration(user.id, Date.now() + getAutoLogoutMinutes(user.id) * 60 * 1000);
     markPinActivity(user.id);
     return { error: null };
   }, [user]);
 
   const dismissPinSetupPrompt = useCallback(() => {
+    if (!user) return;
+    markPinSetupDismissedThisSession(user.id);
     setPinSetupNeeded(false);
-  }, []);
+  }, [user]);
 
   const changePin = useCallback(async (currentPin: string, newPin: string) => {
     if (!user) return { error: '로그인이 필요합니다.' };
