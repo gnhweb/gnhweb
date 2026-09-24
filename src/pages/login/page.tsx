@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { CLUB_LABELS } from '@/types/auth';
 import type { UserRole, ClubType } from '@/types/auth';
-import { hasSimplePin } from '@/lib/simplePin';
 import { isPasskeySupported } from '@/lib/passkey';
 import { migrateLegacyAccountPassword } from '@/lib/legacySupabaseAuth';
 
