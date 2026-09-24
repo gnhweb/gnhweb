@@ -48,14 +48,14 @@ jobs:
             ORDER BY p.oid;
           "
           echo "=== weekly report distribution ==="
-          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align --field-separator=\t' -c "
+          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align -c "
             SELECT club, deleted_at IS NOT NULL AS deleted, status, count(*)
             FROM public.weekly_reports
             GROUP BY club, deleted_at IS NOT NULL, status
             ORDER BY club, deleted, status;
           "
           echo "=== active user roles ==="
-          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align --field-separator=\t' -c "
+          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align -c "
             SELECT role, count(*)
             FROM public.user_roles
             WHERE is_active = true
@@ -63,7 +63,7 @@ jobs:
             ORDER BY role;
           "
           echo "=== teacher club assignments ==="
-          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align --field-separator=\t' -c "
+          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align -c "
             SELECT club, count(*)
             FROM public.club_teachers
             GROUP BY club
