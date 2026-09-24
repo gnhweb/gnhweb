@@ -31,3 +31,10 @@ jobs:
             WHERE schemaname = 'public' AND tablename = 'weekly_reports'
             ORDER BY policyname;
           "
+          echo "=== has_role_at_least definition ==="
+          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align -c "
+            SELECT pg_get_functiondef(p.oid)
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND p.proname = 'has_role_at_least';
+          "
