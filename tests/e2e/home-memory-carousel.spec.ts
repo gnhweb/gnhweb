@@ -14,12 +14,17 @@ test.describe('production home memory carousel', () => {
     await page.locator('button[type="submit"]').first().click();
 
     const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
-    if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) {
-      await skipPin.click();
-    }
+    const dismissPinPrompt = async () => {
+      if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) {
+        await skipPin.click();
+        await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+      }
+    };
 
     await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+    await dismissPinPrompt();
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await dismissPinPrompt();
 
     const memoryLink = page.getByRole('link', { name: /^추억창 보러가기/ });
     await expect(memoryLink).toBeVisible({ timeout: 30_000 });
