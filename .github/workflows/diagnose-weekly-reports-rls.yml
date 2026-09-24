@@ -36,5 +36,14 @@ jobs:
             SELECT pg_get_functiondef(p.oid)
             FROM pg_proc p
             JOIN pg_namespace n ON n.oid = p.pronamespace
-            WHERE n.nspname = 'public' AND p.proname = 'has_role_at_least';
+            WHERE n.nspname = 'public' AND p.proname = 'has_role_at_least'
+            ORDER BY p.oid;
+          "
+          echo "=== public routines referencing role hierarchy ==="
+          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align -c "
+            SELECT routine_name, routine_type
+            FROM information_schema.routines
+            WHERE routine_schema = 'public'
+              AND (routine_definition ILIKE '%has_role_at_least%' OR routine_definition ILIKE '%teacher%')
+            ORDER BY routine_name;
           "
