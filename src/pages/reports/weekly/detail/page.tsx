@@ -64,8 +64,18 @@ export default function WeeklyReportDetail() {
     if (!report) return;
     setDeleting(true);
     try {
-      const { error: deleteError } = await supabase.from('weekly_reports').delete().eq('id', report.id);
+      const { data: deletedRows, error: deleteError } = await supabase
+        .from('weekly_reports')
+        .delete()
+        .eq('id', report.id)
+        .select('id');
+
       if (deleteError) throw deleteError;
+
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('삭제된 보고서가 확인되지 않았습니다. 삭제 권한을 확인해주세요.');
+      }
+
       navigate('/reports/weekly');
     } catch (deleteError) {
       setDeleting(false);
