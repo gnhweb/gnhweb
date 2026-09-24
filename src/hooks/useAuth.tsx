@@ -358,9 +358,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfileError(null);
 
       if (currentUser) {
-        setHasPin(hasSimplePin(currentUser.id));
+        const currentUserHasPin = hasSimplePin(currentUser.id);
+        setHasPin(currentUserHasPin);
         setPinExplicitLock(currentUser.id, false);
-        setPinSetupNeeded(false);
+        setPinSetupNeeded(!currentUserHasPin);
         markPinActivity(currentUser.id);
         fetchProfile(currentUser);
       } else {
@@ -451,6 +452,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(signedInUser);
         setLoading(false);
         setProfileError(null);
+        setPinSetupNeeded(!hasSimplePin(signedInUser.id));
         fetchProfile(signedInUser);
       }
       return { error: null, user: signedInUser };
