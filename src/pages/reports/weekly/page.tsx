@@ -67,6 +67,14 @@ export default function WeeklyReports() {
 
   const getSummary = (report: WeeklyReport) => getAttendanceSummary(report.practice_entries);
 
+  const groupedReports = ALL_CLUBS
+    .map(club => ({
+      club,
+      reports: reports.filter(report => report.club === club),
+    }))
+    .filter(group => group.reports.length > 0);
+
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     const weekEnd = new Date(d);
@@ -168,8 +176,15 @@ export default function WeeklyReports() {
           </div>
         ) : (
           <>
-            <div className="hidden md:block space-y-3">
-              {reports.map((report, i) => (
+            <div className="hidden md:block space-y-8">
+              {groupedReports.map(group => (
+                <section key={group.club}>
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <h2 className="text-base font-bold text-foreground-950">{CLUB_LABELS[group.club]}</h2>
+                    <span className="text-xs text-foreground-500">{group.reports.length}건</span>
+                  </div>
+                  <div className="space-y-3">
+                    {group.reports.map((report, i) => (
                 <motion.div key={report.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: i * 0.05 }}>
                   <Link to={`/reports/weekly/${report.id}`} className="block bg-background-100 border border-background-200 rounded-[20px] p-5 hover:border-background-300/60 transition-all duration-300 cursor-pointer touch-manipulation">
                     <div className="flex items-start justify-between gap-4">
@@ -192,11 +207,21 @@ export default function WeeklyReports() {
                     </div>
                   </Link>
                 </motion.div>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
 
-            <div className="md:hidden space-y-3">
-              {reports.map((report, i) => (
+            <div className="md:hidden space-y-6">
+              {groupedReports.map(group => (
+                <section key={group.club}>
+                  <div className="flex items-center gap-2 mb-2 px-1">
+                    <h2 className="text-sm font-bold text-foreground-950">{CLUB_LABELS[group.club]}</h2>
+                    <span className="text-[11px] text-foreground-500">{group.reports.length}건</span>
+                  </div>
+                  <div className="space-y-3">
+                    {group.reports.map((report, i) => (
                 <motion.div key={`m-${report.id}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.3) }} className="relative z-[1] touch-manipulation">
                   <Link to={`/reports/weekly/${report.id}`} className="relative flex gap-3 bg-background-100 border border-background-200 rounded-[20px] p-4 pl-3 overflow-hidden cursor-pointer touch-manipulation" style={{ WebkitTapHighlightColor: 'transparent' }}>
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${STATUS_BAR[report.status]}`}></div>
@@ -208,6 +233,9 @@ export default function WeeklyReports() {
                     </div>
                   </Link>
                 </motion.div>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           </>
