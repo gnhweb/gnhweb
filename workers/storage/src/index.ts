@@ -100,6 +100,23 @@ function notebookStorageKey(path: string): string { return `notebook-files/${pat
 function isOwnAvatarPath(path: string, userId: string): boolean { return path.startsWith(`avatars/${userId}-`); }
 function isOperationalStaffPath(path: string): boolean { return path.startsWith('news/') || path.startsWith('banners/') || path.startsWith('club-banners/'); }
 function isClubPhotoPath(path: string): boolean { return path.startsWith('club-photos/'); }
+function clubIdFromPostPath(path: string): string | null {
+  const match = path.match(/^club-posts\/([^/]+)\/[^/]+$/);
+  return match?.[1] ? match[1] : null;
+}
+async function hasClubPostWriteAccess(path: string, userId: string, authorization: string): Promise<boolean> {
+  const clubId = clubIdFromPostPath(path);
+  if (!clubId) return false;
+  const roleUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_roles?select=role,club&user_id=eq.${encodeURIComponent(userId)}&is_active=eq.true&limit=1`;
+  const roles = await fetchJson(roleUrl, authorization);
+  if (Array.isArray(roles) && roles.some(row => {
+    const role = row as { role?: unknown; club?: unknown };
+    return role.role === 'chief' || role.role === 'teacher' || role.club === clubId;
+  })) return true;
+  const assignmentUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_club_assignments?select=user_id&user_id=eq.${encodeURIComponent(userId)}&club=eq.${encodeURIComponent(clubId)}&limit=1`;
+  const assignments = await fetchJson(assignmentUrl, authorization);
+  return Array.isArray(assignments) && assignments.length > 0;
+}
 async function fetchJson(url: string, authorization: string): Promise<unknown> { const response = await fetch(url, { headers: { authorization, accept: 'application/json' } }); if (!response.ok) throw new Error('Data API request failed'); return response.json(); }
 function getCanonicalUserId(payload: Record<string, unknown>): string {
   const userId = payload.sub;
@@ -151,7 +168,8 @@ if (request.method === 'POST') {
     const canWriteAvatar = isOwnAvatarPath(postStorageKey, userId);
     const canWriteOperational = isOperationalStaffPath(postStorageKey) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
     const canWriteClubPhoto = isClubPhotoPath(postStorageKey) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
-    if (!canWriteMemory && !canWriteMissionProof && !canWriteAvatar && !canWriteOperational && !canWriteClubPhoto) {
+    const canWriteClubPost = postStorageKey.startsWith('club-posts/') && await hasClubPostWriteAccess(postStorageKey, userId, `Bearer ${token}`);
+    if (!canWriteMemory && !canWriteMissionProof && !canWriteAvatar && !canWriteOperational && !canWriteClubPhoto && !canWriteClubPost) {
       const segments = postStorageKey.split('/').filter(Boolean);
       const owner = segments[0] === 'memories' ? (segments[1] ?? '') : '';
       const category = segments[0] ?? '';
