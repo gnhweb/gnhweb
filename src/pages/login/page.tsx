@@ -532,69 +532,6 @@ export default function Login() {
           </button>
         </div>
       </motion.div>
-
-      {showPinSetup && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-background-100 rounded-2xl p-6 max-w-sm w-full"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
-              <i className="ri-shield-keyhole-line text-2xl text-amber-600"></i>
-            </div>
-            <h2 className="text-lg font-bold text-center text-foreground-950 mb-1">간편 비밀번호 설정</h2>
-            <p className="text-sm text-foreground-600 text-center mb-5">
-              이 기기에서 다음부턴 이메일 없이<br />숫자 비밀번호만으로 빠르게 들어올 수 있어요
-            </p>
-
-            <div className="space-y-3 mb-2">
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={6}
-                value={pinValue}
-                onChange={e => { setPinValue(e.target.value.replace(/\D/g, '')); setPinSetupError(''); }}
-                placeholder="숫자 4~6자리"
-                className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 outline-none text-center tracking-[0.3em] focus:border-amber-400"
-              />
-              <input
-                type="password"
-                inputMode="numeric"
-                maxLength={6}
-                value={pinConfirmValue}
-                onChange={e => { setPinConfirmValue(e.target.value.replace(/\D/g, '')); setPinSetupError(''); }}
-                placeholder="비밀번호 확인"
-                className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-200 outline-none text-center tracking-[0.3em] focus:border-amber-400"
-              />
-            </div>
-
-            {pinSetupError && (
-              <p className="text-xs text-rose-600 text-center mb-3">{pinSetupError}</p>
-            )}
-
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={finishPinSetup}
-                className="flex-1 py-2.5 rounded-full border border-gray-200 text-sm text-foreground-600 cursor-pointer whitespace-nowrap"
-              >
-                나중에 하기
-              </button>
-              <button
-                onClick={handleSavePin}
-                disabled={pinSetupSaving || !pinValue || !pinConfirmValue}
-                className="flex-1 py-2.5 rounded-full bg-amber-500 text-white text-sm font-semibold disabled:opacity-40 cursor-pointer whitespace-nowrap"
-              >
-                {pinSetupSaving ? '저장 중...' : '설정하기'}
-              </button>
-            </div>
-
-            <p className="text-xs text-foreground-400 text-center mt-4">
-              프로필 설정에서 언제든 바꾸거나 해제할 수 있어요
-            </p>
-          </motion.div>
-        </div>
-      )}
     </div>
   );
 }
