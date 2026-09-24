@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
@@ -29,14 +29,10 @@ function getDefaultWeek() {
 export default function WeeklyReportWrite() {
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const prefilled = (location.state as { prefilledContent?: string } | null) || {};
-
   const [weekStart, setWeekStart] = useState(getDefaultWeek());
   const [practiceEntries, setPracticeEntries] = useState<PracticeEntry[]>([]);
   const [totalMembers, setTotalMembers] = useState<number | null>(null);
   const [scheduleSuggestions, setScheduleSuggestions] = useState<ScheduleSuggestion[]>([]);
-  const [progressSummary, setProgressSummary] = useState(prefilled.prefilledContent || '');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
