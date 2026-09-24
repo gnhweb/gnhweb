@@ -8,7 +8,7 @@ import type { ClubType } from '@/types/auth';
 import { STATUS_LABELS, STATUS_COLORS } from '@/mocks/weeklyReports';
 import type { WeeklyReport } from '@/mocks/weeklyReports';
 import { CategoryChip, CategoryChipRow } from '@/components/base/CategoryChip';
-import { createPracticeEntry, getAttendanceSummary, parsePracticeEntries } from '@/lib/weeklyReport';
+import { createPracticeEntry, formatPracticeDate, getAttendanceSummary, parsePracticeEntries } from '@/lib/weeklyReport';
 
 const ALL_CLUBS: ClubType[] = ['saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu', 'cheonhwarae_cheongmyeong'];
 
@@ -75,12 +75,7 @@ export default function WeeklyReports() {
     .filter(group => group.reports.length > 0);
 
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const weekEnd = new Date(d);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    return `${d.getMonth() + 1}.${d.getDate()} ~ ${weekEnd.getMonth() + 1}.${weekEnd.getDate()}`;
-  };
+  const getPracticeDate = (report: WeeklyReport) => report.practice_entries[0]?.practice_date || report.week_start;
 
   if (loading) {
     return (
@@ -190,18 +185,18 @@ export default function WeeklyReports() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-sm font-semibold text-foreground-950">{formatDate(report.week_start)}</span>
+                          <span className="text-sm font-semibold text-foreground-950">{formatPracticeDate(getPracticeDate(report))} 연습</span>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[report.status]}`}>{STATUS_LABELS[report.status]}</span>
                         </div>
                         <p className="text-sm text-foreground-700 line-clamp-2 mb-2">{report.progress_summary}</p>
                         <div className="flex items-center gap-4 text-xs text-foreground-600">
                           <span className="flex items-center gap-1"><i className="ri-user-line"></i>{report.author_name}</span>
-                          <span className="flex items-center gap-1"><i className="ri-team-line"></i>{getSummary(report).practiceCount}회 연습 · 평균 {getSummary(report).averageAttendance}/{report.total_members}명</span>
+                          <span className="flex items-center gap-1"><i className="ri-team-line"></i>출석 {report.attendance_count}/{report.total_members}명</span>
                           <span className="flex items-center gap-1"><i className="ri-building-line"></i>{CLUB_LABELS[report.club]}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-foreground-600">{report.practice_entries.length > 0 && report.total_members > 0 ? Math.round((getSummary(report).averageAttendance / report.total_members) * 100) : 0}%</span>
+                        <span className="text-xs text-foreground-600">{report.total_members > 0 && typeof report.attendance_count === 'number' ? Math.round((report.attendance_count / report.total_members) * 100) : 0}%</span>
                         <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center"><i className="ri-arrow-right-s-line text-primary-500"></i></div>
                       </div>
                     </div>
@@ -227,7 +222,7 @@ export default function WeeklyReports() {
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${STATUS_BAR[report.status]}`}></div>
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ml-1">{report.author_name?.charAt(0) || '?'}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1"><span className="text-sm font-bold text-foreground-950">{formatDate(report.week_start)}</span><span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_COLORS[report.status]}`}>{STATUS_LABELS[report.status]}</span></div>
+                      <div className="flex items-start justify-between gap-2 mb-1"><span className="text-sm font-bold text-foreground-950">{formatPracticeDate(getPracticeDate(report))} 연습</span><span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS_COLORS[report.status]}`}>{STATUS_LABELS[report.status]}</span></div>
                       <p className="text-xs text-foreground-600 line-clamp-1 mb-1.5">{report.progress_summary}</p>
                       <div className="flex items-center gap-3 text-[11px] text-foreground-500"><span>{report.author_name} · {CLUB_LABELS[report.club]}</span><span className="font-semibold text-primary-600">{report.practice_entries.length > 0 && report.total_members > 0 ? Math.round((getSummary(report).averageAttendance / report.total_members) * 100) : 0}%</span></div>
                     </div>
