@@ -1,0 +1,31 @@
+name: Diagnose Weekly Report Role Function
+
+on:
+  push:
+    branches: [diagnose-weekly-reports-rls]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose-role-function:
+    runs-on: ubuntu-latest
+    env:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+    steps:
+      - name: Inspect has_role_at_least
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$NEON_DATABASE_URL"
+          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align -c "
+            SELECT
+              p.oid::regprocedure AS signature,
+              pg_get_functiondef(p.oid)
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public'
+              AND p.proname = 'has_role_at_least';
+          "
