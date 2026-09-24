@@ -66,6 +66,15 @@
     position: static !important;
   }
 
+  /* 입력창을 누른 상태에서도 손가락 드래그가 페이지 세로 스크롤로 전달되도록 한다. */
+  body.keyboard-open:not(.scroll-lock) input,
+  body.keyboard-open:not(.scroll-lock) textarea,
+  body.keyboard-open:not(.scroll-lock) select {
+    touch-action: pan-y;
+    overscroll-behavior-y: auto;
+    scroll-margin-bottom: 35vh;
+  }
+
   html:has(body.keyboard-open:not(.scroll-lock)) {
     overflow-y: auto;
     touch-action: pan-y;
