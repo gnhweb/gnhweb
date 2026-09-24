@@ -62,6 +62,20 @@ jobs:
             GROUP BY role
             ORDER BY role;
           "
+          echo "=== weekly report constraints ==="
+          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align -c "
+            SELECT conname, pg_get_constraintdef(oid)
+            FROM pg_constraint
+            WHERE conrelid = 'public.weekly_reports'::regclass
+            ORDER BY conname;
+          "
+          echo "=== weekly report indexes ==="
+          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align -c "
+            SELECT indexname, indexdef
+            FROM pg_indexes
+            WHERE schemaname = 'public' AND tablename = 'weekly_reports'
+            ORDER BY indexname;
+          "
           echo "=== teacher club assignments ==="
           psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align -c "
             SELECT club, count(*)
