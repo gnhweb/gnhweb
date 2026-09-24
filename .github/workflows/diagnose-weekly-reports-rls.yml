@@ -1,0 +1,31 @@
+name: Diagnose Weekly Reports RLS
+
+on:
+  push:
+    branches: [diagnose-weekly-reports-rls]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    env:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+    steps:
+      - name: Verify Neon target and weekly report policies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$NEON_DATABASE_URL"
+          psql "$NEON_DATABASE_URL" --set ON_ERROR_STOP=1 --tuples-only --no-align --field-separator=$'\t' -c "
+            SELECT
+              policyname,
+              cmd,
+              array_to_string(roles, ','),
+              coalesce(qual, ''),
+              coalesce(with_check, '')
+            FROM pg_policies
+            WHERE schemaname = 'public' AND tablename = 'weekly_reports'
+            ORDER BY policyname;
+          "
