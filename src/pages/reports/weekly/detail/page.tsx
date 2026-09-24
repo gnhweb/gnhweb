@@ -67,7 +67,11 @@ export default function WeeklyReportDetail() {
       const { error: deleteError } = await supabase.from('weekly_reports').delete().eq('id', report.id);
       if (deleteError) throw deleteError;
       navigate('/reports/weekly');
-    } catch { setDeleting(false); setShowDeleteConfirm(false); }
+    } catch (deleteError) {
+      setDeleting(false);
+      setSubmitError(deleteError instanceof Error ? `삭제에 실패했어요: ${deleteError.message}` : '삭제에 실패했어요. 다시 시도해주세요');
+      setShowDeleteConfirm(true);
+    }
   };
 
   const handleSubmit = async () => {
