@@ -139,15 +139,17 @@ export default function ClubCommunity() {
 
     try {
       let imageUrls: string[] = [];
+      const uploadedPaths: string[] = [];
 
       // Upload images first
       if (postImages.length > 0) {
         setUploadingImages(true);
         for (const file of postImages) {
           const ext = file.name.split('.').pop();
-          const path = `club-posts/${clubId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const path = `club-posts/${clubId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
           const { error: uploadErr } = await supabase.storage.from('Public').upload(path, file, { upsert: true, cacheControl: '31536000' });
           if (uploadErr) throw uploadErr;
+          uploadedPaths.push(path);
           const { data: urlData } = supabase.storage.from('Public').getPublicUrl(path);
           imageUrls.push(urlData.publicUrl);
         }
@@ -181,7 +183,11 @@ export default function ClubCommunity() {
       await fetchPosts();
     } catch (e) {
       console.error('Failed to submit post:', e);
-      setError('게시글 등록 중 오류가 발생했습니다.');
+      if (uploadedPaths.length > 0) {
+        const { error: cleanupError } = await supabase.storage.from('Public').remove(uploadedPaths);
+        if (cleanupError) console.warn('게시글 등록 실패 후 이미지 정리도 실패했습니다:', cleanupError);
+      }
+      setError(e instanceof Error && e.message ? e.message : '게시글 등록 중 오류가 발생했습니다.');
     } finally {
       setSubmitting(false);
       setUploadingImages(false);
@@ -191,9 +197,12 @@ export default function ClubCommunity() {
   const extractStoragePath = (publicUrl: string) => {
     try {
       const url = new URL(publicUrl);
-      const marker = '/storage/v1/object/public/Public/';
-      const idx = url.pathname.indexOf(marker);
-      return idx >= 0 ? decodeURIComponent(url.pathname.slice(idx + marker.length)) : null;
+      const legacyMarker = '/storage/v1/object/public/Public/';
+      const legacyIdx = url.pathname.indexOf(legacyMarker);
+      if (legacyIdx >= 0) return decodeURIComponent(url.pathname.slice(legacyIdx + legacyMarker.length));
+      const r2Marker = '/v1/storage/public/';
+      const r2Idx = url.pathname.indexOf(r2Marker);
+      return r2Idx >= 0 ? decodeURIComponent(url.pathname.slice(r2Idx + r2Marker.length)) : null;
     } catch {
       return null;
     }
