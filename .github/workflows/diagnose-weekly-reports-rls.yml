@@ -3,6 +3,8 @@ name: Diagnose Weekly Reports RLS
 on:
   push:
     branches: [diagnose-weekly-reports-rls]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
