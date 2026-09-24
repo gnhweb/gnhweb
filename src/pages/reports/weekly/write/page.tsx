@@ -37,7 +37,6 @@ export default function WeeklyReportWrite() {
   const [totalMembers, setTotalMembers] = useState<number | null>(null);
   const [scheduleSuggestions, setScheduleSuggestions] = useState<ScheduleSuggestion[]>([]);
   const [progressSummary, setProgressSummary] = useState(prefilled.prefilledContent || '');
-  const [specialNotes, setSpecialNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,8 +134,6 @@ export default function WeeklyReportWrite() {
     }
 
     if (status === 'submitted' && summary.completedCount !== practiceEntries.length) return '모든 연습일의 출석을 입력해야 제출할 수 있습니다.';
-    if (progressSummary.length > 500) return '주간 총평은 500자 이내로 작성해주세요.';
-    if (specialNotes.length > 500) return '주간 총 특이사항은 500자 이내로 작성해주세요.';
     return null;
   };
 
@@ -152,44 +149,44 @@ export default function WeeklyReportWrite() {
     setSaving(true);
 
     try {
-      const totalAttendance = practiceEntries.reduce((sum, entry) => sum + (entry.attendance_count || 0), 0);
-      const combinedProgress = progressSummary.trim() || practiceEntries.map((entry) => `${formatPracticeDate(entry.practice_date)}: ${entry.progress_summary.trim()}`).join('\n');
-      const combinedNotes = specialNotes.trim() || practiceEntries.filter((entry) => entry.special_notes.trim()).map((entry) => `${formatPracticeDate(entry.practice_date)}: ${entry.special_notes.trim()}`).join('\n');
+      const reportRows = practiceEntries.map((entry) => ({
+        author_id: profile.user_id,
+        author_name: profile.name,
+        club: profile.club,
+        week_start: weekStart,
+        attendance_count: entry.attendance_count,
+        total_members: totalMembers,
+        progress_summary: entry.progress_summary.trim(),
+        special_notes: entry.special_notes.trim(),
+        practice_entries: [entry],
+        status,
+      }));
 
       const { data: inserted, error: insertError } = await supabase
         .from('weekly_reports')
-        .insert({
-          author_id: profile.user_id,
-          author_name: profile.name,
-          club: profile.club,
-          week_start: weekStart,
-          attendance_count: totalAttendance,
-          total_members: totalMembers,
-          progress_summary: combinedProgress,
-          special_notes: combinedNotes,
-          practice_entries: practiceEntries,
-          status,
-        })
-        .select('id')
-        .single();
+        .insert(reportRows)
+        .select('id');
 
       if (insertError) {
         if (insertError.message.includes('duplicate') || insertError.message.includes('unique')) {
-          setError('이미 이 주차에 작성된 보고서가 있어요. 기존 보고서를 수정해주세요.');
+          setError('이미 같은 보고서가 있어요. 기존 보고서를 수정해주세요.');
         } else {
           setError(insertError.message);
         }
         return;
       }
 
-      if (status === 'submitted') {
-        notifyReportSubmitted({
-          reportType: 'weekly',
-          reportId: (inserted as { id: string } | null)?.id || '',
-          club: profile.club,
-        });
+      if (status === 'submitted' && inserted) {
+        await Promise.all(
+          (inserted as Array<{ id: string }>).map((row) =>
+            notifyReportSubmitted({
+              reportType: 'weekly',
+              reportId: row.id,
+              club: profile.club,
+            }),
+          ),
+        );
       }
-
       navigate('/reports/weekly');
     } catch {
       setError('저장 중 오류가 발생했습니다. 입력한 내용은 그대로 유지되니 다시 시도해주세요.');
@@ -294,8 +291,10 @@ export default function WeeklyReportWrite() {
                 <div className="rounded-xl bg-background-50 border border-background-200 p-4"><p className="text-xs font-semibold text-foreground-800">평균 출석</p><p className="text-2xl font-black text-foreground-800 mt-1">{summary.averageAttendance}<span className="text-sm ml-1">명</span></p></div>
               </div>
 
-              <div><label htmlFor="weekly-summary" className="block text-sm font-semibold text-foreground-900 mb-2">주간 총평 <span className="text-xs font-normal text-foreground-700">({progressSummary.length}/500)</span></label><textarea id="weekly-summary" value={progressSummary} onChange={(e) => setProgressSummary(e.target.value)} maxLength={500} rows={4} placeholder="이번 주 전체적인 활동 흐름과 다음 주에 이어갈 내용을 요약해주세요." className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm resize-none bg-background-50" /></div>
-              <div><label htmlFor="weekly-notes" className="block text-sm font-semibold text-foreground-900 mb-2">주간 총 특이사항 <span className="text-xs font-normal text-foreground-700">({specialNotes.length}/500)</span></label><textarea id="weekly-notes" value={specialNotes} onChange={(e) => setSpecialNotes(e.target.value)} maxLength={500} rows={3} placeholder="여러 연습일을 통틀어 공유할 특이사항이 있다면 적어주세요." className="w-full px-4 py-3 rounded-xl border border-background-200 text-sm resize-none bg-background-50" /></div>
+              <div className="rounded-2xl bg-background-50 border border-background-200 p-4">
+                <p className="text-sm font-semibold text-foreground-900">연습일별로 각각 보고서가 저장됩니다.</p>
+                <p className="text-xs text-foreground-600 mt-1">위에서 선택한 연습일마다 별도의 보고서가 만들어집니다.</p>
+              </div>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button onClick={() => saveReport('draft')} disabled={saving} className="flex-1 sm:flex-none inline-flex justify-center items-center gap-1.5 px-5 py-2.5 rounded-full border border-background-200 text-sm font-medium text-foreground-700 hover:bg-background-100 cursor-pointer disabled:opacity-50"><i className="ri-save-line" />{saving ? '저장 중...' : '임시 저장'}</button>
