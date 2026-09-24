@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { CLUB_LABELS } from '@/types/auth';
 import type { UserRole, ClubType } from '@/types/auth';
-import { hasSimplePin, setSimplePin, isValidPinFormat } from '@/lib/simplePin';
+import { hasSimplePin } from '@/lib/simplePin';
 import { isPasskeySupported } from '@/lib/passkey';
 import { migrateLegacyAccountPassword } from '@/lib/legacySupabaseAuth';
 
@@ -45,44 +45,15 @@ export default function Login() {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const from = (location.state as { from?: string })?.from || '/';
 
-  // 로그인 직후 이 기기에 간편 비밀번호(PIN)가 아직 없으면, 다음부터 이메일 없이
-  // PIN만으로 들어올 수 있도록 설정을 유도한다.
-  const [showPinSetup, setShowPinSetup] = useState(false);
-  const [pinSetupUserId, setPinSetupUserId] = useState<string | null>(null);
-  const [pinValue, setPinValue] = useState('');
-  const [pinConfirmValue, setPinConfirmValue] = useState('');
-  const [pinSetupError, setPinSetupError] = useState('');
-  const [pinSetupSaving, setPinSetupSaving] = useState(false);
-
+  // 로그인 성공 후에는 라우팅을 먼저 완료하고, PIN 안내는 Layout의 공용
+  // PinSetupPrompt가 담당한다. 로그인 페이지에서 별도 모달을 띄우면
+  // 인증 세션과 라우팅이 서로 다른 두 흐름으로 움직여 모바일/E2E에서
+  // /login에 남는 경쟁 상태가 생길 수 있다.
   useEffect(() => {
-    if (user && !showPinSetup) {
+    if (user) {
       navigate(from, { replace: true });
     }
-  }, [user, navigate, from, showPinSetup]);
-
-  const finishPinSetup = () => {
-    setShowPinSetup(false);
-    setPinValue('');
-    setPinConfirmValue('');
-    setPinSetupError('');
-    navigate(from, { replace: true });
-  };
-
-  const handleSavePin = async () => {
-    if (!pinSetupUserId) return;
-    if (!isValidPinFormat(pinValue)) {
-      setPinSetupError('숫자 4~6자리로 입력해주세요');
-      return;
-    }
-    if (pinValue !== pinConfirmValue) {
-      setPinSetupError('입력한 비밀번호가 서로 달라요');
-      return;
-    }
-    setPinSetupSaving(true);
-    await setSimplePin(pinSetupUserId, pinValue);
-    setPinSetupSaving(false);
-    finishPinSetup();
-  };
+  }, [user, navigate, from]);
 
   useEffect(() => {
     async function checkConnection() {
@@ -140,12 +111,7 @@ export default function Login() {
           }
         }
         if (signedInUser) {
-          if (!hasSimplePin(signedInUser.id)) {
-            setPinSetupUserId(signedInUser.id);
-            setShowPinSetup(true);
-          } else {
-            navigate(from, { replace: true });
-          }
+          navigate(from, { replace: true });
         } else {
           setError(err || '로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.');
         }
