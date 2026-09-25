@@ -11,7 +11,7 @@ const legacySupabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL || DEFAULT_NE
 const legacySupabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY || 'anonymous';
 const CLOUDFLARE_API = import.meta.env.VITE_CLOUDFLARE_API_URL || 'https://gnhweb-api.gemini19840314.workers.dev';
 const CLOUDFLARE_AI_GATEWAY = import.meta.env.VITE_CLOUDFLARE_AI_GATEWAY_URL || 'https://gnhweb-ai-gateway.gemini19840314.workers.dev';
-const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL || DEFAULT_NEON_AUTH_URL;
+const neonAuthUrl = import.meta.env.VITE_NEON_AUTH_URL || (import.meta.env.PROD && typeof window !== 'undefined' ? `${window.location.origin}/auth` : DEFAULT_NEON_AUTH_URL);
 const configuredNeonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAULT_NEON_DATA_API_URL;
 const neonDataApiUrl = configuredNeonDataApiUrl.replace(/\/rest\/v1\/?$/, '');
 export const neonEnabled = Boolean(neonAuthUrl && neonDataApiUrl);
