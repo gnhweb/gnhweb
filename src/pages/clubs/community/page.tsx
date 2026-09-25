@@ -137,9 +137,10 @@ export default function ClubCommunity() {
     setSubmitting(true);
     setError('');
 
+    const uploadedPaths: string[] = [];
+
     try {
       let imageUrls: string[] = [];
-      const uploadedPaths: string[] = [];
 
       // Upload images first
       if (postImages.length > 0) {
