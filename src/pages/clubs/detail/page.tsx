@@ -827,7 +827,7 @@ export default function ClubDetail() {
   return (
     <div className="min-h-screen bg-background-50">
       {/* Hero */}
-      <div className="relative aspect-[16/10] md:aspect-[21/7] overflow-hidden">
+      <div className="relative z-20 aspect-[16/10] md:aspect-[21/7] overflow-visible">
         {clubBanner?.hero_image_url ? (
           <img src={clubBanner.hero_image_url} alt={club.name} className="w-full h-full object-cover object-top" />
         ) : (
