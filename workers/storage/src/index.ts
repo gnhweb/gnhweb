@@ -107,13 +107,19 @@ function clubIdFromPostPath(path: string): string | null {
 async function hasClubPostWriteAccess(path: string, userId: string, authorization: string): Promise<boolean> {
   const clubId = clubIdFromPostPath(path);
   if (!clubId) return false;
-  const roleUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_roles?select=role,club&user_id=eq.${encodeURIComponent(userId)}&is_active=eq.true&limit=1`;
+
+  const roleUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_roles?select=role,club&user_id=eq.${encodeURIComponent(userId)}&is_active=eq.true`;
   const roles = await fetchJson(roleUrl, authorization);
   if (Array.isArray(roles) && roles.some(row => {
     const role = row as { role?: unknown; club?: unknown };
-    return role.role === 'chief' || role.role === 'teacher' || role.club === clubId;
-  })) return true;
-  const assignmentUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_club_assignments?select=user_id&user_id=eq.${encodeURIComponent(userId)}&club=eq.${encodeURIComponent(clubId)}&limit=1`;
+    return role.role === 'chief'
+      || role.role === 'teacher'
+      || role.club === clubId;
+  })) {
+    return true;
+  }
+
+  const assignmentUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_club_assignments?select=user_id,club&user_id=eq.${encodeURIComponent(userId)}&club=eq.${encodeURIComponent(clubId)}`;
   const assignments = await fetchJson(assignmentUrl, authorization);
   return Array.isArray(assignments) && assignments.length > 0;
 }
