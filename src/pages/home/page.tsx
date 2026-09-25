@@ -1044,29 +1044,61 @@ export default function Home() {
                   const hasEvent = d.events.length > 0;
                   const isSelected = selectedDate === d.dateStr;
                   const isHovered = hoveredDate === d.dateStr;
+                  const clubIds = Array.from(
+                    new Set(
+                      d.events
+                        .map(event => event.target_club)
+                        .filter((clubId): clubId is string => Boolean(clubId)),
+                    ),
+                  );
+                  const hasGeneralEvent = d.events.some(event => !event.target_club);
                   return (
                     <div key={i} className="relative">
                       <button
                         onClick={() => { if (d.isCurrentMonth && d.dateStr) setSelectedDate(isSelected ? null : d.dateStr); }}
                         onMouseEnter={() => { if (hasEvent && d.isCurrentMonth) setHoveredDate(d.dateStr); }}
                         onMouseLeave={() => setHoveredDate(null)}
-                        className={`relative w-full text-center py-1.5 text-xs rounded-lg transition-colors ${!d.isCurrentMonth ? 'text-foreground-300 cursor-default' : d.isToday ? 'bg-primary-500 text-white font-bold rounded-full' : hasEvent ? 'cursor-pointer hover:bg-secondary-50' : 'cursor-pointer hover:bg-background-100'} ${isSelected && !d.isToday ? 'bg-secondary-100 text-secondary-700 font-bold rounded-full' : ''} ${d.isCurrentMonth ? '' : ''}`}
+                        className="relative flex min-h-11 w-full flex-col items-center justify-center py-1 cursor-pointer disabled:cursor-default"
+                        disabled={!d.isCurrentMonth}
                       >
-                        {d.day}
-                        {hasEvent && !d.isToday && !isSelected && (
-                          <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex max-w-[24px] items-center justify-center gap-0.5 overflow-hidden" aria-label="이 날짜의 동아리 일정">
-                            {Array.from(new Set(d.events.map(event => event.target_club).filter((clubId): clubId is string => Boolean(clubId))))
-                              .slice(0, 3)
-                              .map(clubId => (
-                                <span key={clubId} className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${getClubCalendarDotClass(clubId)}`} title={clubs.find(club => club.id === clubId)?.name || clubId} />
-                              ))}
-                            {Array.from(new Set(d.events.map(event => event.target_club).filter((clubId): clubId is string => Boolean(clubId)))).length > 3 && (
+                        <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-medium transition-all ${
+                          isSelected
+                            ? 'bg-gradient-to-br from-primary-500 to-accent-500 text-white font-bold'
+                            : d.isToday
+                              ? 'bg-primary-100 text-primary-700 font-bold'
+                              : d.isCurrentMonth
+                                ? 'text-foreground-800'
+                                : 'text-foreground-300'
+                        }`}>
+                          {d.day}
+                        </span>
+                        {hasEvent && d.isCurrentMonth && (
+                          <span
+                            className="absolute bottom-0 flex max-w-[32px] items-center justify-center gap-0.5 overflow-hidden"
+                            aria-label="이 날짜의 일정"
+                          >
+                            {clubIds.slice(0, 3).map(clubId => (
+                              <span
+                                key={clubId}
+                                className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${getClubCalendarDotClass(clubId)}`}
+                                title={clubs.find(club => club.id === clubId)?.name || clubId}
+                              />
+                            ))}
+                            {hasGeneralEvent && (
+                              <span
+                                className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${getClubCalendarDotClass(null)}`}
+                                title="전체 행사"
+                              />
+                            )}
+                            {clubIds.length > 3 && (
                               <span className="text-[7px] font-bold leading-none text-foreground-500">+</span>
                             )}
                           </span>
                         )}
                       </button>
-                      {/* Hover tooltip */}
+                    </div>
+                  );
+                })}                      {/* Hover tooltip */}
                       {isHovered && hasEvent && !isSelected && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-20 bg-foreground-950 text-background-50 text-[10px] rounded-lg px-2 py-1.5 shadow-lg whitespace-nowrap max-w-[160px] truncate pointer-events-none">
                           {d.events[0].title}
