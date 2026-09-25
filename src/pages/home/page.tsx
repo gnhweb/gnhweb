@@ -1096,14 +1096,11 @@ export default function Home() {
                           </span>
                         )}
                       </button>
-                    </div>
-                  );
-                })}                      {/* Hover tooltip */}
                       {isHovered && hasEvent && !isSelected && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-20 bg-foreground-950 text-background-50 text-[10px] rounded-lg px-2 py-1.5 shadow-lg whitespace-nowrap max-w-[160px] truncate pointer-events-none">
                           {d.events[0].title}
                           {d.events.length > 1 && <span className="text-foreground-400 ml-1">+{d.events.length - 1}</span>}
-                          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-foreground-950"></div>
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-transparent border-t-4 border-t-foreground-950"></div>
                         </div>
                       )}
                     </div>
