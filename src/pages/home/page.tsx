@@ -1061,11 +1061,11 @@ export default function Home() {
                         className="relative flex min-h-11 w-full flex-col items-center justify-center py-1 cursor-pointer disabled:cursor-default"
                         disabled={!d.isCurrentMonth}
                       >
-                        <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-medium transition-all ${
-                          isSelected
-                            ? 'bg-gradient-to-br from-primary-500 to-accent-500 text-white font-bold'
-                            : d.isToday
-                              ? 'bg-primary-100 text-primary-700 font-bold'
+                        <span className={`relative z-0 w-7 h-7 flex items-center justify-center rounded-full text-xs font-medium transition-all ${
+                          d.isToday
+                            ? 'bg-primary-100 text-primary-700 font-bold ring-1 ring-primary-300 dark:bg-primary-900/40 dark:text-primary-200 dark:ring-primary-700'
+                            : isSelected
+                              ? 'bg-gradient-to-br from-primary-500 to-accent-500 text-white font-bold'
                               : d.isCurrentMonth
                                 ? 'text-foreground-800'
                                 : 'text-foreground-300'
@@ -1074,7 +1074,7 @@ export default function Home() {
                         </span>
                         {hasEvent && d.isCurrentMonth && (
                           <span
-                            className="absolute bottom-0 flex max-w-[32px] items-center justify-center gap-0.5 overflow-hidden"
+                            className="absolute bottom-0 z-10 flex min-h-1.5 max-w-[36px] items-center justify-center gap-0.5 overflow-hidden rounded-full bg-background-100/80 px-0.5 dark:bg-background-900/80"
                             aria-label="이 날짜의 일정"
                           >
                             {clubIds.slice(0, 3).map(clubId => (
@@ -1086,12 +1086,12 @@ export default function Home() {
                             ))}
                             {hasGeneralEvent && (
                               <span
-                                className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${getClubCalendarDotClass(null)}`}
+                                className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-foreground-700 dark:bg-foreground-200"
                                 title="전체 행사"
                               />
                             )}
-                            {clubIds.length > 3 && (
-                              <span className="text-[7px] font-bold leading-none text-foreground-500">+</span>
+                            {(clubIds.length + (hasGeneralEvent ? 1 : 0)) > 3 && (
+                              <span className="text-[7px] font-bold leading-none text-foreground-600 dark:text-foreground-300">+</span>
                             )}
                           </span>
                         )}
