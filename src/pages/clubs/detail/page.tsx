@@ -859,7 +859,7 @@ export default function ClubDetail() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 md:py-10 relative z-10 -mt-6 md:mt-0 rounded-t-[28px] md:rounded-none bg-background-50">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 md:py-10 relative z-10 mt-0 md:mt-0 rounded-t-[28px] md:rounded-none bg-background-50">
         {error && (
           <div className="bg-accent-100 border border-accent-200 rounded-[20px] p-4 mb-6">
             <p className="text-sm text-accent-700 flex items-center gap-2"><i className="ri-error-warning-line"></i>{error}</p>
