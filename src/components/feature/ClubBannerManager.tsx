@@ -196,7 +196,7 @@ export default function ClubBannerManager({ club, onBannerChange }: ClubBannerMa
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.97 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-full mt-2 w-72 bg-background-100 rounded-2xl shadow-xl border border-background-200 p-4 z-30 text-left"
+              className="absolute right-0 top-full mt-2 w-72 max-h-[min(70dvh,28rem)] overflow-y-auto overscroll-contain bg-background-100 rounded-2xl shadow-xl border border-background-200 p-4 z-30 text-left"
             >
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-foreground-950">동아리 이미지 관리</h3>
