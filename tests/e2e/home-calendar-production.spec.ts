@@ -93,12 +93,12 @@ test.describe('production home calendar', () => {
 
     const dayButton = calendar.getByRole('button', {
       name: new RegExp(`^${injectedDate.getDate()}$`),
-    }).filter({ visible: true }).first();
+    }).first();
 
     await expect(dayButton).toBeVisible();
     await dayButton.click();
 
-    const dotContainer = calendar.locator('span[aria-label="이 날짜의 일정"]').filter({ visible: true }).last();
+    const dotContainer = calendar.locator('span[aria-label="이 날짜의 일정"]').last();
     await expect(dotContainer).toBeVisible();
 
     const dotChildren = dotContainer.locator(':scope > span');
