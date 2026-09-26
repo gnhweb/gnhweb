@@ -22,6 +22,14 @@ async function signIn(page: Page, email: string, password: string) {
   await page.locator('input[name="password"]').first().fill(password);
   await page.locator('button[type="submit"]').first().click();
   await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+
+  // Production login can show the optional quick-password onboarding sheet.
+  // It must not block the attendance UI used by this authenticated smoke test.
+  const dismissQuickPassword = page.getByRole('button', { name: '나중에 하기', exact: true });
+  if (await dismissQuickPassword.isVisible().catch(() => false)) {
+    await dismissQuickPassword.click();
+    await expect(dismissQuickPassword).toBeHidden({ timeout: 5_000 }).catch(() => {});
+  }
 }
 
 async function getTableResponse(page: Page, table: string) {
