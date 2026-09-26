@@ -21,7 +21,24 @@ async function signIn(page: Page, email: string, password: string) {
     await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await page.locator('input[name="email"]').first().fill(email);
     await page.locator('input[name="password"]').first().fill(password);
+
+    const authResponsePromise = page.waitForResponse(
+      response => {
+        const pathname = new URL(response.url()).pathname;
+        return response.request().method() === 'POST'
+          && (pathname.endsWith('/auth/sign-in/email') || pathname.endsWith('/sign-in/email'));
+      },
+      { timeout: 20_000 },
+    ).catch(() => null);
+
     await page.locator('button[type="submit"]').first().click();
+    const authResponse = await authResponsePromise;
+
+    if (authResponse?.status() === 429) {
+      const retryAfter = Number.parseInt(authResponse.headers()['x-retry-after'] || '10', 10);
+      await page.waitForTimeout(Math.max(1, Number.isFinite(retryAfter) ? retryAfter : 10) * 1000 + 1_000);
+      continue;
+    }
 
     try {
       await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 20_000 });
@@ -32,9 +49,13 @@ async function signIn(page: Page, email: string, password: string) {
       }
       return;
     } catch (error) {
-      if (attempt === 2) throw error;
+      if (attempt === 2) {
+        const status = authResponse?.status() ?? 'unknown';
+        const body = await authResponse?.text().catch(() => '') || '';
+        throw new Error(`Production sign-in failed: HTTP ${status}; response=${body.slice(0, 500)}`, { cause: error });
+      }
       await page.context().clearCookies();
-      await page.waitForTimeout(2_000);
+      await page.waitForTimeout(12_000);
     }
   }
 }
