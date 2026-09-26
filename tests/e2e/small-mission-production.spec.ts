@@ -59,6 +59,7 @@ test.describe('production Small Mission authenticated flow', () => {
       studentPage.on('pageerror', error => diagnostics.push(`pageerror: ${error.message}`));
       studentPage.on('requestfailed', request => diagnostics.push(`requestfailed: ${request.url()} :: ${request.failure()?.errorText || 'unknown'}`));
       await studentPage.goto(`${BASE_URL}/missions`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+      await dismissPin(studentPage);
       try {
         await expect(studentPage.getByRole('heading', { name: '작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
       } catch (error) {
