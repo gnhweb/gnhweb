@@ -489,14 +489,14 @@ test.describe('production attendance authenticated flow', () => {
       expect(reviewerLateRow?.status).toBe('late');
       expect(reviewerLateRow?.late_reason).toBe(finalLateReason);
 
-      await expect(reviewerPage.getByText(finalLateReason, { exact: true })).toBeVisible({ timeout: 30_000 });
-
+      // 현황판은 "사유: {late_reason}"을 하나의 텍스트 요소로 렌더링하므로
+      // 사유 문자열만 exact locator로 찾지 않고 늦참 섹션의 실제 표시 내용을 검증한다.
       const lateSection = reviewerPage
         .locator('div.bg-background-100.border.border-background-200.rounded-2xl.p-5')
         .filter({ hasText: /늦참 \(/ })
         .first();
-      await expect(lateSection).toContainText(studentName);
-      await expect(lateSection).toContainText(finalLateReason);
+      await expect(lateSection).toContainText(studentName, { timeout: 30_000 });
+      await expect(lateSection).toContainText(finalLateReason, { timeout: 30_000 });
 
       await expect(unresponsiveSection).not.toContainText(studentName);
 
