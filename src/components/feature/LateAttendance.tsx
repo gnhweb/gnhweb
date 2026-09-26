@@ -74,7 +74,7 @@ export default function LateAttendance({ profile }: { profile: AttendanceProfile
         club: profile.club || 'saeullim',
         attendance_date: today,
         status: 'late',
-        absence_reason: trimmedReason,
+        late_reason: trimmedReason,
         checked_in_at: new Date().toISOString(),
       });
       if (error) {
