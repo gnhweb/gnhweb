@@ -239,6 +239,11 @@ test.describe('production attendance authenticated flow', () => {
       expect(checkInState.ok()).toBeTruthy();
       const checkInStateRows = (await checkInState.json()) as AttendanceRow[];
       expect(checkInStateRows[0]?.status).toBe('attended');
+      const aiWelcomeConfirm = studentPage.getByRole('button', { name: '확인했어요!', exact: true });
+      if (await aiWelcomeConfirm.isVisible().catch(() => false)) {
+        await aiWelcomeConfirm.click();
+        await expect(aiWelcomeConfirm).toBeHidden({ timeout: 5_000 }).catch(() => {});
+      }
 
       // 정시 출석을 취소하면 다시 출석 가능한 상태가 되는지도 확인.
       await studentPage.getByRole('button', { name: '출석 취소하기', exact: true }).click();
