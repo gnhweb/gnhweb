@@ -147,6 +147,14 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
     timeout: 45_000,
   });
 
+  // Neon Auth 세션이 복원된 직후 SmartAttendance가 프로필을 기다리는 동안
+  // 페이지는 잠시 '불러오는 중...' 상태가 될 수 있다. API 요청을 즉시 검사하지
+  // 않고 실제 출석 UI가 렌더링된 뒤 인증 요청을 확인한다.
+  const attendanceAction = page.getByRole('button', {
+    name: /오늘 출석|늦참 사유 입력|출석 취소하기|늦참 기록 취소/,
+  }).first();
+  await expect(attendanceAction).toBeVisible({ timeout: 45_000 });
+
   if (!attendanceRequestUrl || !attendanceAuthorization) {
     throw new Error(
       `출석 API 인증 요청을 감지하지 못했습니다. url=${page.url()} body=${(await page.locator('body').innerText().catch(() => '')).slice(0, 3000)}`,
@@ -363,7 +371,8 @@ test.describe('production attendance authenticated flow', () => {
       await expect(unresponsiveSection).toContainText(studentName, { timeout: 30_000 });
 
       // 5. 실제 늦참 레코드를 하나 다시 만들고 현황판에서 늦참으로만 분류되는지 확인한다.
-      await signIn(studentPage, studentEmail!, studentPassword!);
+      // 학생 세션은 이미 유지되고 있으므로 재로그인하지 않는다. Neon Auth의
+      // 짧은 인증 제한을 불필요하게 건드리지 않고 동일 세션으로 출석 흐름을 이어간다.
       await studentPage.reload({ waitUntil: 'domcontentloaded' });
       await studentPage.getByRole('button', { name: '늦참 사유 입력', exact: true }).click();
       const finalLateReason = `E2E 최종 늦참 사유 ${Date.now()}`;
