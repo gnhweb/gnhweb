@@ -56,11 +56,16 @@ async function cancelExistingAttendance(page: Page) {
   });
 
   const cancelButton = page.getByRole('button', { name: '출석 취소하기', exact: true });
-  if (await cancelButton.isVisible().catch(() => false)) {
-    await cancelButton.click();
-    await page.getByRole('button', { name: '네, 취소할게요', exact: true }).click();
-    await expect(page.getByRole('button', { name: /오늘 출석/ })).toBeVisible({ timeout: 30_000 });
+  try {
+    await expect(cancelButton).toBeVisible({ timeout: 30_000 });
+  } catch {
+    await expect(page.getByRole('button', { name: '늦참 사유 입력', exact: true })).toBeVisible({ timeout: 30_000 });
+    return;
   }
+
+  await cancelButton.click();
+  await page.getByRole('button', { name: '네, 취소할게요', exact: true }).click();
+  await expect(page.getByRole('button', { name: /오늘 출석/ })).toBeVisible({ timeout: 30_000 });
 }
 
 async function prepareStudentAttendance(page: Page, context: BrowserContext) {
