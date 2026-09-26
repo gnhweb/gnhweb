@@ -12,7 +12,7 @@ if (interfaceCount > 1) {
   source = source.replace(anchor, anchor + interfaceLine);
 }
 
-const functionBlock = `  const signInWithPasskey = useCallback(async () => {\n    if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };\n    const result = await signInWithPasskeyLib();\n    return { error: result.error?.message ?? null };\n  }, []);`;
+const functionBlock = `  const signInWithPasskey = useCallback(async () => {\n    if (!isPasskeyEnabled() || !isPasskeySupported()) return { error: '생체인식 로그인이 꺼져 있거나 이 기기에서 패스키를 사용할 수 없습니다.' };\n    const result = await signInWithPasskeyLib();\n    return { error: result.error?.message ?? null };\n  }, []);`;
 const functionCount = source.split(functionBlock).length - 1;
 if (functionCount > 1) {
   source = source.replaceAll(functionBlock, '');
