@@ -221,6 +221,11 @@ test.describe('production attendance authenticated flow', () => {
     };
 
     try {
+      // 교사 세션은 학생 출석 흐름 도중 다시 로그인하지 않고 미리 확보한다.
+      // Neon Auth 세션을 재발급하는 중간 로그인으로 인해 실제 출석 검증이
+      // 인증 상태와 무관하게 실패하는 것을 방지한다.
+      await signIn(reviewerPage, reviewerEmail!, reviewerPassword!);
+
       await signIn(studentPage, studentEmail!, studentPassword!);
       ({ attendanceRequestUrl, attendanceAuthorization } = await prepareStudentAttendance(studentPage, studentContext));
 
@@ -318,7 +323,6 @@ test.describe('production attendance authenticated flow', () => {
       // 4. 불참도 삭제하면 미응답으로 복귀하는지 확인한다.
       await cleanup();
 
-      await signIn(reviewerPage, reviewerEmail!, reviewerPassword!);
       await reviewerPage.goto(`${BASE_URL}/attendance-board`, {
         waitUntil: 'domcontentloaded',
         timeout: 45_000,
