@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { CLUB_LABELS } from '@/types/auth';
 import type { UserRole, ClubType } from '@/types/auth';
-import { isPasskeySupported } from '@/lib/passkey';
+import { isPasskeyEnabled, isPasskeySupported } from '@/lib/passkey';
 import { migrateLegacyAccountPassword } from '@/lib/legacySupabaseAuth';
 
 type Mode = 'login' | 'signup';
@@ -470,7 +470,7 @@ export default function Login() {
           </form>
           )}
 
-          {mode === 'login' && !forgotMode && isPasskeySupported() && (
+          {mode === 'login' && !forgotMode && isPasskeyEnabled() && isPasskeySupported() && (
             <button
               type="button"
               onClick={async () => {
