@@ -88,7 +88,7 @@ test.describe('production home calendar', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await dismissPinPrompt();
 
-    const scheduleTab = page.getByRole('button', { name: '일정', exact: true });
+    const scheduleTab = page.getByRole('button', { name: /일정$/ }).first();
     await expect(scheduleTab).toBeVisible({ timeout: 15_000 });
     await scheduleTab.click();
 
