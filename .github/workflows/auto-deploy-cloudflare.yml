@@ -375,7 +375,6 @@ jobs:
     # Run attendance after those authenticated flows finish so Neon Auth sessions
     # for the shared production account cannot race each other.
     needs: [deploy-site, production-home-e2e, verify-production-small-mission, verify-production-bible-quiz]
-    if: "${{ !cancelled() && needs.deploy-site.result == 'success' }}"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
