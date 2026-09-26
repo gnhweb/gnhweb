@@ -73,6 +73,10 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
     timeout: 45_000,
   });
 
+  await expect(page.getByText('불러오는 중...', { exact: true })).toHaveCount(0, {
+    timeout: 30_000,
+  });
+
   const lateButton = page.getByRole('button', { name: '늦참으로 출석', exact: true });
   if (!(await lateButton.isVisible().catch(() => false))) {
     throw new Error(
