@@ -82,11 +82,26 @@ test.describe('production Small Mission authenticated flow', () => {
       await expect(studentPage.getByRole('button', { name: /인증 검토/ })).toHaveCount(0);
 
       const claimButton = studentPage.getByRole('button', { name: '작은 사명 하기', exact: true }).first();
-      await expect(claimButton).toBeVisible({ timeout: 15_000 });
-      const missionCard = claimButton.locator('xpath=ancestor::div[contains(@class,"rounded-card")]').first();
-      const missionTitle = (await missionCard.locator('h2').innerText()).trim();
-      await claimButton.click();
-      await expect(missionCard.getByText('내 사명', { exact: true })).toBeVisible({ timeout: 30_000 });
+      let missionTitle: string;
+
+      if (await claimButton.count()) {
+        const missionCard = claimButton.locator('xpath=ancestor::div[contains(@class,"rounded-card")]').first();
+        missionTitle = (await missionCard.locator('h2').innerText()).trim();
+        await claimButton.click();
+        await expect(missionCard.getByText('내 사명', { exact: true })).toBeVisible({ timeout: 30_000 });
+      } else {
+        // The E2E account may already have a mission from a previous run.
+        // Reuse an existing assigned mission so the test is repeatable without
+        // inserting or deleting production test data.
+        await studentPage.goto(`${BASE_URL}/missions/board`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+        await expect(studentPage.getByRole('heading', { name: '내 작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
+        const assignedCard = studentPage
+          .locator('div.bg-background-100.border.rounded-card.p-4')
+          .filter({ has: studentPage.getByText('진행 중', { exact: true }) })
+          .first();
+        await expect(assignedCard).toBeVisible({ timeout: 15_000 });
+        missionTitle = (await assignedCard.locator('h2').innerText()).trim();
+      }
 
       await submitProof(studentPage, `E2E Small Mission 검증 ${Date.now()}`);
 
