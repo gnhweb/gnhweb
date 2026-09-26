@@ -49,21 +49,18 @@ async function getTableResponse(page: Page, table: string) {
   return responsePromise;
 }
 
-async function deleteAttendanceRow(
-  page: Page,
-  requestUrl: string,
-  authorization: string,
-  id: string,
-) {
-  const endpoint = new URL(requestUrl);
-  endpoint.search = `?id=eq.${encodeURIComponent(id)}`;
-  const response = await page.request.delete(endpoint.toString(), {
-    headers: {
-      authorization,
-      Prefer: 'return=minimal',
-    },
+async function cancelExistingAttendance(page: Page) {
+  await page.goto(`${BASE_URL}/dashboard/attendance`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 45_000,
   });
-  expect(response.ok()).toBeTruthy();
+
+  const cancelButton = page.getByRole('button', { name: '출석 취소하기', exact: true });
+  if (await cancelButton.isVisible().catch(() => false)) {
+    await cancelButton.click();
+    await page.getByRole('button', { name: '네, 취소할게요', exact: true }).click();
+    await expect(page.getByRole('button', { name: /오늘 출석/ })).toBeVisible({ timeout: 30_000 });
+  }
 }
 
 async function prepareStudentAttendance(page: Page, context: BrowserContext) {
@@ -95,22 +92,14 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
     );
   }
 
+  await cancelExistingAttendance(page);
+
   const attendanceResponse = await page.request.get(attendanceRequestUrl, {
     headers: { authorization: attendanceAuthorization },
   });
   expect(attendanceResponse.ok()).toBeTruthy();
   const attendanceRows = (await attendanceResponse.json()) as AttendanceRow[];
-
-  for (const existing of attendanceRows) {
-    await deleteAttendanceRow(page, attendanceRequestUrl, attendanceAuthorization, existing.id);
-  }
-
-  const cleanupCheck = await page.request.get(attendanceResponse.url(), {
-    headers: { authorization: attendanceAuthorization },
-  });
-  expect(cleanupCheck.ok()).toBeTruthy();
-  const remainingRows = (await cleanupCheck.json()) as AttendanceRow[];
-  expect(remainingRows).toHaveLength(0);
+  expect(attendanceRows).toHaveLength(0);
 
   const locationsEndpoint = new URL(attendanceRequestUrl);
   locationsEndpoint.pathname = locationsEndpoint.pathname.replace(/\/attendance$/, '/attendance_locations');
@@ -182,18 +171,9 @@ test.describe('production attendance authenticated flow', () => {
 
     let attendanceRequestUrl = '';
     let attendanceAuthorization = '';
-    const createdIds: string[] = [];
 
     const cleanup = async () => {
-      if (!attendanceRequestUrl || !attendanceAuthorization) return;
-      const response = await studentPage.request.get(attendanceRequestUrl, {
-        headers: { authorization: attendanceAuthorization },
-      });
-      if (!response.ok()) return;
-      const rows = (await response.json()) as AttendanceRow[];
-      for (const row of rows) {
-        await deleteAttendanceRow(studentPage, attendanceRequestUrl, attendanceAuthorization, row.id).catch(() => {});
-      }
+      await cancelExistingAttendance(studentPage).catch(() => {});
     };
 
     try {
@@ -222,7 +202,6 @@ test.describe('production attendance authenticated flow', () => {
       await expect(studentPage.getByText('출석 완료!', { exact: true })).toBeVisible({ timeout: 30_000 });
       const checkInRows = (await (await checkInResponsePromise).json()) as AttendanceRow[];
       expect(checkInRows[0]?.status).toBe('attended');
-      if (checkInRows[0]?.id) createdIds.push(checkInRows[0].id);
 
       // 정시 출석을 취소하면 다시 출석 가능한 상태가 되는지도 확인.
       await studentPage.getByRole('button', { name: '출석 취소하기', exact: true }).click();
@@ -250,7 +229,6 @@ test.describe('production attendance authenticated flow', () => {
       const lateRows = (await (await lateInsertPromise).json()) as AttendanceRow[];
       expect(lateRows[0]?.status).toBe('late');
       expect(lateRows[0]?.late_reason).toBe(lateReason);
-      if (lateRows[0]?.id) createdIds.push(lateRows[0].id);
 
       // 늦참을 제거하고 다시 불참 흐름을 실제 UI에서 검증한다.
       await cleanup();
@@ -273,7 +251,6 @@ test.describe('production attendance authenticated flow', () => {
       await expect(studentPage.getByText('불참 신고 완료!', { exact: true })).toBeVisible({ timeout: 30_000 });
       const absentRows = (await (await absentInsertPromise).json()) as AttendanceRow[];
       expect(absentRows[0]?.status).toBe('absent');
-      if (absentRows[0]?.id) createdIds.push(absentRows[0].id);
 
       // 4. 불참도 삭제하면 미응답으로 복귀하는지 확인한다.
       await cleanup();
@@ -314,7 +291,6 @@ test.describe('production attendance authenticated flow', () => {
       await studentPage.getByRole('button', { name: '늦참으로 출석', exact: true }).click();
       const finalLateRows = (await (await finalLateResponsePromise).json()) as AttendanceRow[];
       expect(finalLateRows[0]?.status).toBe('late');
-      if (finalLateRows[0]?.id) createdIds.push(finalLateRows[0].id);
 
       await reviewerPage.reload({ waitUntil: 'domcontentloaded' });
       await expect(reviewerPage.getByText(finalLateReason, { exact: true })).toBeVisible({ timeout: 30_000 });
