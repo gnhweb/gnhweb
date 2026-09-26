@@ -83,6 +83,8 @@ test.describe('production home calendar', () => {
 
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
 
+    await page.getByRole('button', { name: '일정', exact: true }).click();
+
     const calendar = page
       .getByRole('heading', { name: '일정 달력', exact: true })
       .locator('xpath=..')
