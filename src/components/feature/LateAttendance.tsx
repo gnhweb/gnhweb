@@ -29,6 +29,8 @@ export default function LateAttendance({ profile }: { profile: AttendanceProfile
   const [status, setStatus] = useState<'idle' | 'checking' | 'done' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [alreadyMarked, setAlreadyMarked] = useState(false);
+  const [recordId, setRecordId] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [locations, setLocations] = useState<AttendanceLocationData[]>([]);
   const [reason, setReason] = useState('');
   const [showReason, setShowReason] = useState(false);
@@ -37,10 +39,11 @@ export default function LateAttendance({ profile }: { profile: AttendanceProfile
     let active = true;
     (async () => {
       const [{ data: attendance }, { data: activeLocations }] = await Promise.all([
-        supabase.from('attendance').select('status').eq('user_id', profile.user_id).eq('attendance_date', todayKey()).maybeSingle(),
+        supabase.from('attendance').select('id,status').eq('user_id', profile.user_id).eq('attendance_date', todayKey()).maybeSingle(),
         supabase.from('attendance_locations').select('id,label,latitude,longitude,radius_meters,is_active').eq('is_active', true),
       ]);
       if (!active) return;
+      setRecordId(attendance?.id ?? null);
       setAlreadyMarked(Boolean(attendance));
       setLocations((activeLocations || []) as AttendanceLocationData[]);
     })();
@@ -86,6 +89,13 @@ export default function LateAttendance({ profile }: { profile: AttendanceProfile
     const finish = async () => {
       try {
         await save();
+        const todayRecord = await supabase
+          .from('attendance')
+          .select('id')
+          .eq('user_id', profile.user_id)
+          .eq('attendance_date', todayKey())
+          .maybeSingle();
+        setRecordId(todayRecord.data?.id ?? null);
         setAlreadyMarked(true);
         setStatus('done');
         setMessage('늦참 출석과 사유가 기록되었습니다.');
@@ -119,8 +129,39 @@ export default function LateAttendance({ profile }: { profile: AttendanceProfile
     );
   }, [alreadyMarked, locations, profile, reason, status]);
 
+  const cancelLate = async () => {
+    if (!recordId) return;
+    setStatus('checking');
+    setMessage('');
+    const { error } = await supabase.from('attendance').delete().eq('id', recordId);
+    if (error) {
+      setStatus('error');
+      setMessage('늦참 기록 취소 중 오류가 발생했어요. 다시 시도해주세요.');
+      return;
+    }
+    setRecordId(null);
+    setAlreadyMarked(false);
+    setReason('');
+    setShowReason(false);
+    setShowCancelConfirm(false);
+    setStatus('idle');
+    setMessage('');
+  };
+
   if (alreadyMarked && status !== 'error') {
-    return <div className="mt-4 rounded-2xl border border-background-200 bg-background-100 p-4"><p className="text-sm font-bold text-foreground-900">오늘 출석 기록이 있습니다.</p></div>;
+    return (
+      <div className="mt-4 rounded-2xl border border-background-200 bg-background-100 p-4">
+        <p className="text-sm font-bold text-foreground-900">오늘 출석 기록이 있습니다.</p>
+        {showCancelConfirm ? (
+          <div className="mt-3 flex flex-col sm:flex-row gap-2">
+            <button type="button" onClick={() => setShowCancelConfirm(false)} className="min-h-11 px-4 rounded-xl border border-background-300 bg-background-50 text-foreground-700 text-sm font-semibold">유지하기</button>
+            <button type="button" onClick={cancelLate} className="min-h-11 px-4 rounded-xl bg-rose-500 text-white text-sm font-bold">네, 취소할게요</button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setShowCancelConfirm(true)} className="mt-3 min-h-11 px-4 rounded-xl border border-rose-200 bg-background-50 text-rose-600 text-sm font-semibold">늦참 기록 취소</button>
+        )}
+      </div>
+    );
   }
 
   return (
