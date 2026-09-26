@@ -38,7 +38,7 @@ async function submitProof(page: import('@playwright/test').Page, note: string) 
 }
 
 test.describe('production Small Mission authenticated flow', () => {
-  test('member claim, submit, approve/reject and reset flow works', async ({ browser }) => {
+  test('member claim, submit, reject and reset flow works', async ({ browser }) => {
     test.setTimeout(240_000);
 
     const studentEmail = process.env.E2E_MISSION_EMAIL;
