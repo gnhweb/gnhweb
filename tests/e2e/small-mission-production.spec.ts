@@ -116,7 +116,7 @@ test.describe('production Small Mission authenticated flow', () => {
           .first();
         await expect(resetCard).toBeVisible({ timeout: 30_000 });
         await resetCard.getByRole('button', { name: '인증 초기화', exact: true }).click();
-        await expect(resetCard).toHaveCount(0, { timeout: 30_000 });
+        await expect(resetCard.getByRole('button', { name: '인증 초기화', exact: true })).toHaveCount(0, { timeout: 30_000 });
         await studentPage.reload({ waitUntil: 'domcontentloaded' });
       }
 
