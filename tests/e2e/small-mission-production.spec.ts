@@ -10,9 +10,23 @@ async function signIn(page: Page, email: string, password: string) {
   await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
 }
 
-async function dismissPin(page: Page) {
+async function dismissPin(page: Page, pageHeading?: string) {
   const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
-  if (await skipPin.isVisible({ timeout: 30_000 }).catch(() => false)) await skipPin.click();
+  if (!pageHeading) {
+    if (await skipPin.isVisible({ timeout: 45_000 }).catch(() => false)) await skipPin.click();
+    return;
+  }
+
+  const heading = page.getByRole('heading', { name: pageHeading, exact: true });
+  const winner = await Promise.race([
+    heading.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'page'),
+    skipPin.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'pin'),
+  ]).catch(() => null);
+
+  if (winner === 'pin') {
+    await skipPin.click();
+    await heading.waitFor({ state: 'visible', timeout: 30_000 });
+  }
 }
 
 async function submitProof(page: Page, note: string) {
@@ -59,7 +73,7 @@ test.describe('production Small Mission authenticated flow', () => {
       studentPage.on('pageerror', error => diagnostics.push(`pageerror: ${error.message}`));
       studentPage.on('requestfailed', request => diagnostics.push(`requestfailed: ${request.url()} :: ${request.failure()?.errorText || 'unknown'}`));
       await studentPage.goto(`${BASE_URL}/missions`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-      await dismissPin(studentPage);
+      await dismissPin(studentPage, '작은 사명');
       try {
         await expect(studentPage.getByRole('heading', { name: '작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
       } catch (error) {
