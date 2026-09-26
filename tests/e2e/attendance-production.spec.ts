@@ -82,15 +82,6 @@ async function signIn(page: Page, email: string, password: string) {
   }
 }
 
-async function getTableResponse(page: Page, table: string) {
-  const responsePromise = page.waitForResponse(
-    response =>
-      response.request().method() === 'GET' &&
-      new URL(response.url()).pathname.endsWith(`/${table}`),
-    { timeout: 30_000 },
-  );
-  return responsePromise;
-}
 
 async function cancelExistingAttendance(page: Page, attendanceRequestUrl?: string, authorization?: string) {
   await page.goto(`${BASE_URL}/dashboard/attendance`, {
@@ -334,6 +325,8 @@ test.describe('production attendance authenticated flow', () => {
         { timeout: 30_000 },
       );
       await studentPage.getByRole('button', { name: /오늘 출석/ }).click();
+      const checkInResponse = await checkInResponsePromise;
+      expect(checkInResponse.ok()).toBeTruthy();
       await expect(studentPage.getByText('출석 완료!', { exact: true })).toBeVisible({ timeout: 30_000 });
       const checkInState = await studentPage.request.get(attendanceRequestUrl, {
         headers: { authorization: attendanceAuthorization },
@@ -371,6 +364,8 @@ test.describe('production attendance authenticated flow', () => {
         { timeout: 30_000 },
       );
       await studentPage.getByRole('button', { name: '늦참으로 출석', exact: true }).click();
+      const lateInsertResponse = await lateInsertPromise;
+      expect(lateInsertResponse.ok()).toBeTruthy();
       await expect(studentPage.getByText('오늘 출석 기록이 있습니다.', { exact: true })).toBeVisible({ timeout: 30_000 });
       const lateState = await studentPage.request.get(attendanceRequestUrl, {
         headers: { authorization: attendanceAuthorization },
@@ -400,6 +395,8 @@ test.describe('production attendance authenticated flow', () => {
         { timeout: 30_000 },
       );
       await studentPage.getByRole('button', { name: '불참 신고하기', exact: true }).click();
+      const absentInsertResponse = await absentInsertPromise;
+      expect(absentInsertResponse.ok()).toBeTruthy();
       await expect(studentPage.getByText('불참 신고 완료!', { exact: true })).toBeVisible({ timeout: 30_000 });
       const absentState = await studentPage.request.get(attendanceRequestUrl, {
         headers: { authorization: attendanceAuthorization },
@@ -457,8 +454,10 @@ test.describe('production attendance authenticated flow', () => {
       const finalLateRows = (await finalLateState.json()) as AttendanceRow[];
       expect(finalLateRows).toHaveLength(1);
       expect(finalLateRows[0]?.status).toBe('late');
-      expect(finalLateRows[0]?.late_reason).toBe(finalLateReason);
 
+      // 학생 세션의 attendance projection은 late_reason을 반환하지 않을 수 있다.
+      // 늦참 사유의 저장 여부는 실제 운영자 권한 세션의 전체 attendance 조회와
+      // 현황판 UI 표시까지 이어서 검증한다.
       // 교사 현황판도 먼저 실제 attendance GET이 끝난 것을 확인한 뒤 화면을 검증한다.
       // 이렇게 하면 "API에는 있는데 UI가 아직 렌더링되지 않음"과 "교사 세션에서
       // late_reason 자체가 조회되지 않음"을 구분할 수 있다.
