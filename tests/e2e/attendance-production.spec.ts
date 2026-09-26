@@ -63,6 +63,14 @@ async function cancelExistingAttendance(page: Page, attendanceRequestUrl?: strin
     return;
   }
 
+  const lateCancelButton = page.getByRole('button', { name: '늦참 기록 취소', exact: true });
+  if (await lateCancelButton.isVisible().catch(() => false)) {
+    await lateCancelButton.click();
+    await page.getByRole('button', { name: '네, 취소할게요', exact: true }).click();
+    await expect(page.getByRole('button', { name: '늦참 사유 입력', exact: true })).toBeVisible({ timeout: 30_000 });
+    return;
+  }
+
   if (attendanceRequestUrl && authorization) {
     const endpoint = new URL(attendanceRequestUrl);
     endpoint.search = `?user_id=${endpoint.searchParams.get('user_id')}&attendance_date=eq.${new Date().toISOString().slice(0, 10)}`;
