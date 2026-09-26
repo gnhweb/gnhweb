@@ -93,7 +93,7 @@ test.describe('production home calendar', () => {
     await scheduleTab.click();
 
     const calendar = page
-      .getByRole('heading', { name: '일정 달력', exact: true })
+      .getByRole('heading', { name: /일정 달력$/ })
       .locator('xpath=..')
       .locator('xpath=..');
 
