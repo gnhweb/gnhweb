@@ -184,7 +184,7 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
     if (
       !attendanceRequestUrl &&
       request.method() === 'GET' &&
-      new URL(request.url()).pathname.endsWith('/attendance') &&
+      new URL(request.url()).pathname.endsWith('/rest/v1/attendance') &&
       request.headers().authorization
     ) {
       attendanceRequestUrl = request.url();
