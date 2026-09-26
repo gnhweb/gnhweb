@@ -17,18 +17,25 @@ type UserRoleRow = {
 };
 
 async function signIn(page: Page, email: string, password: string) {
-  await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-  await page.locator('input[name="email"]').first().fill(email);
-  await page.locator('input[name="password"]').first().fill(password);
-  await page.locator('button[type="submit"]').first().click();
-  await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await page.locator('input[name="email"]').first().fill(email);
+    await page.locator('input[name="password"]').first().fill(password);
+    await page.locator('button[type="submit"]').first().click();
 
-  // Production login can show the optional quick-password onboarding sheet.
-  // It must not block the attendance UI used by this authenticated smoke test.
-  const dismissQuickPassword = page.getByRole('button', { name: '나중에 하기', exact: true });
-  if (await dismissQuickPassword.isVisible().catch(() => false)) {
-    await dismissQuickPassword.click();
-    await expect(dismissQuickPassword).toBeHidden({ timeout: 5_000 }).catch(() => {});
+    try {
+      await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 20_000 });
+      const dismissQuickPassword = page.getByRole('button', { name: '나중에 하기', exact: true });
+      if (await dismissQuickPassword.isVisible().catch(() => false)) {
+        await dismissQuickPassword.click();
+        await expect(dismissQuickPassword).toBeHidden({ timeout: 5_000 }).catch(() => {});
+      }
+      return;
+    } catch (error) {
+      if (attempt === 2) throw error;
+      await page.context().clearCookies();
+      await page.waitForTimeout(2_000);
+    }
   }
 }
 
@@ -74,8 +81,6 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
     }
   });
 
-  const attendanceResponsePromise = getTableResponse(page, 'attendance');
-
   await page.goto(`${BASE_URL}/dashboard/attendance`, {
     waitUntil: 'domcontentloaded',
     timeout: 45_000,
@@ -84,13 +89,16 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   const lateButton = page.getByRole('button', { name: '늦참으로 출석', exact: true });
   await expect(lateButton).toBeVisible({ timeout: 30_000 });
 
-  if (!(await lateButton.isVisible().catch(() => false))) {
+  if (!attendanceRequestUrl || !attendanceAuthorization) {
     throw new Error(
-      `늦참 버튼이 표시되지 않습니다. url=${page.url()} body=${(await page.locator('body').innerText().catch(() => '')).slice(0, 3000)}`,
+      `출석 API 인증 요청을 감지하지 못했습니다. url=${page.url()} body=${(await page.locator('body').innerText().catch(() => '')).slice(0, 3000)}`,
     );
   }
 
-  const attendanceResponse = await attendanceResponsePromise;
+  const attendanceResponse = await page.request.get(attendanceRequestUrl, {
+    headers: { authorization: attendanceAuthorization },
+  });
+  expect(attendanceResponse.ok()).toBeTruthy();
   const attendanceRows = (await attendanceResponse.json()) as AttendanceRow[];
 
   for (const existing of attendanceRows) {
