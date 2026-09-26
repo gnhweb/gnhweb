@@ -81,11 +81,9 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
     timeout: 45_000,
   });
 
-  await expect(page.getByText('불러오는 중...', { exact: true })).toHaveCount(0, {
-    timeout: 30_000,
-  });
-
   const lateButton = page.getByRole('button', { name: '늦참으로 출석', exact: true });
+  await expect(lateButton).toBeVisible({ timeout: 30_000 });
+
   if (!(await lateButton.isVisible().catch(() => false))) {
     throw new Error(
       `늦참 버튼이 표시되지 않습니다. url=${page.url()} body=${(await page.locator('body').innerText().catch(() => '')).slice(0, 3000)}`,
@@ -124,9 +122,7 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   }
 
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(page.getByText('불러오는 중...', { exact: true })).toHaveCount(0, {
-    timeout: 30_000,
-  });
+  await expect(page.getByRole('button', { name: '늦참으로 출석', exact: true })).toBeVisible({ timeout: 30_000 });
 
   return { attendanceRequestUrl, attendanceAuthorization };
 }
