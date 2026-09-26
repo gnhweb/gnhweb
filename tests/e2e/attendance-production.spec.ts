@@ -452,8 +452,27 @@ test.describe('production attendance authenticated flow', () => {
       const finalLateRows = (await finalLateState.json()) as AttendanceRow[];
       expect(finalLateRows).toHaveLength(1);
       expect(finalLateRows[0]?.status).toBe('late');
+      expect(finalLateRows[0]?.late_reason).toBe(finalLateReason);
 
+      // 교사 현황판도 먼저 실제 attendance GET이 끝난 것을 확인한 뒤 화면을 검증한다.
+      // 이렇게 하면 "API에는 있는데 UI가 아직 렌더링되지 않음"과 "교사 세션에서
+      // late_reason 자체가 조회되지 않음"을 구분할 수 있다.
+      const reviewerAttendanceResponsePromise = reviewerPage.waitForResponse(
+        response =>
+          response.request().method() === 'GET' &&
+          new URL(response.url()).pathname.endsWith('/attendance') &&
+          response.status() >= 200 &&
+          response.status() < 300,
+        { timeout: 30_000 },
+      );
       await reviewerPage.reload({ waitUntil: 'domcontentloaded' });
+      const reviewerAttendanceResponse = await reviewerAttendanceResponsePromise;
+      expect(reviewerAttendanceResponse.ok()).toBeTruthy();
+      const reviewerAttendanceRows = (await reviewerAttendanceResponse.json()) as AttendanceRow[];
+      const reviewerLateRow = reviewerAttendanceRows.find(row => row.user_id === identity.user_id);
+      expect(reviewerLateRow?.status).toBe('late');
+      expect(reviewerLateRow?.late_reason).toBe(finalLateReason);
+
       await expect(reviewerPage.getByText(finalLateReason, { exact: true })).toBeVisible({ timeout: 30_000 });
 
       const lateSection = reviewerPage
