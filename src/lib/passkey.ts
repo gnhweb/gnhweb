@@ -7,7 +7,19 @@
  */
 import { neonEnabled, supabase } from '@/lib/supabase';
 
+const PASSKEY_ENABLED_STORAGE_KEY = 'gnhweb.passkey.enabled';
+
 const neonPasskeyUnavailableError = () => new Error('현재 로그인 방식에서는 패스키를 사용할 수 없습니다. 이메일과 비밀번호로 로그인해주세요.');
+
+export function isPasskeyEnabled(): boolean {
+  if (typeof window === 'undefined') return true;
+  return window.localStorage.getItem(PASSKEY_ENABLED_STORAGE_KEY) !== 'false';
+}
+
+export function setPasskeyEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(PASSKEY_ENABLED_STORAGE_KEY, String(enabled));
+}
 
 type PasskeyMeta = {
   id: string;
