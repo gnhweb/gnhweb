@@ -122,8 +122,7 @@ test.describe('production Small Mission authenticated flow', () => {
 
       await submitProof(studentPage, `E2E Small Mission 검증 ${Date.now()}`);
 
-      if (!needsReviewerReset) {
-        await signIn(reviewerPage, reviewerEmail!, reviewerPassword!);
+      if (!needsReviewerReset) await signIn(reviewerPage, reviewerEmail!, reviewerPassword!);
       await reviewerPage.goto(`${BASE_URL}/missions`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
       await dismissPin(reviewerPage);
       await expect(reviewerPage.getByRole('heading', { name: '작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
