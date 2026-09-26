@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { BADGE_DEFINITIONS } from '@/constants/missionBadges';
 import { notifyAutoLogoutMinutesChanged } from '@/lib/simplePin';
 import { ROLE_LABELS } from '@/types/auth';
-import { deletePasskey, isPasskeySupported, listPasskeys, registerPasskey } from '@/lib/passkey';
+import { deletePasskey, isPasskeyEnabled, isPasskeySupported, listPasskeys, registerPasskey, setPasskeyEnabled } from '@/lib/passkey';
 
 const INTERESTS_LIST = ['악기', '운동', '독서', '그림', '코딩', '사진', '춤', '노래', '영화', '게임', '요리', '여행', '봉사', '글쓰기'];
 
@@ -37,6 +37,7 @@ export default function ProfilePage() {
   const [pinSaving, setPinSaving] = useState(false);
   const [pinMessage, setPinMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyEnabled, setPasskeyEnabledState] = useState(true);
   const [passkeyMessage, setPasskeyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [passkeys, setPasskeys] = useState<{ id: string; friendly_name?: string; created_at: string; last_used_at?: string }[]>([]);
 
@@ -65,6 +66,7 @@ export default function ProfilePage() {
     if (!user || !profile) return;
     loadProfile();
     loadBadges();
+    setPasskeyEnabledState(isPasskeyEnabled());
     loadPasskeys();
   }, [user, profile]);
 
@@ -694,6 +696,28 @@ export default function ProfilePage() {
                   </div>
                   <i className="ri-fingerprint-line text-2xl text-amber-500 dark:text-amber-300"></i>
                 </div>
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-background-100 px-3 py-2.5">
+                  <div>
+                    <p className="text-xs font-semibold text-foreground-800 dark:text-foreground-100">생체인식 사용</p>
+                    <p className="text-[11px] text-foreground-500 dark:text-foreground-300">
+                      {passkeyEnabled ? '로그인과 앱 잠금 해제에 사용합니다.' : '생체인식은 사용하지 않습니다.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={passkeyEnabled}
+                    onClick={() => {
+                      const next = !passkeyEnabled;
+                      setPasskeyEnabled(next);
+                      setPasskeyEnabledState(next);
+                    }}
+                    className={`relative h-7 w-12 rounded-full transition-colors cursor-pointer ${passkeyEnabled ? 'bg-primary-500' : 'bg-background-300 dark:bg-background-600'}`}
+                  >
+                    <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-background-50 shadow-sm transition-transform ${passkeyEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}></span>
+                  </button>
+                </div>
+                {passkeyEnabled && (
                 <button
                   onClick={handleRegisterPasskey}
                   disabled={passkeyLoading}
@@ -724,6 +748,7 @@ export default function ProfilePage() {
                   <p className={`text-xs mt-2 ${passkeyMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {passkeyMessage.text}
                   </p>
+                )}
                 )}
               </div>
             )}
