@@ -49,25 +49,51 @@ async function getTableResponse(page: Page, table: string) {
   return responsePromise;
 }
 
-async function cancelExistingAttendance(page: Page) {
+async function cancelExistingAttendance(page: Page, attendanceRequestUrl?: string, authorization?: string) {
   await page.goto(`${BASE_URL}/dashboard/attendance`, {
     waitUntil: 'domcontentloaded',
     timeout: 45_000,
   });
 
   const cancelButton = page.getByRole('button', { name: '출석 취소하기', exact: true });
-  try {
-    await expect(cancelButton).toBeVisible({ timeout: 30_000 });
-  } catch {
-    await expect(page.getByRole('button', { name: '늦참 사유 입력', exact: true })).toBeVisible({ timeout: 30_000 });
+  if (await cancelButton.isVisible().catch(() => false)) {
+    await cancelButton.click();
+    await page.getByRole('button', { name: '네, 취소할게요', exact: true }).click();
+    await expect(page.getByRole('button', { name: /오늘 출석/ })).toBeVisible({ timeout: 30_000 });
     return;
   }
 
-  await cancelButton.click();
-  await page.getByRole('button', { name: '네, 취소할게요', exact: true }).click();
-  await expect(page.getByRole('button', { name: /오늘 출석/ })).toBeVisible({ timeout: 30_000 });
+  if (attendanceRequestUrl && authorization) {
+    const endpoint = new URL(attendanceRequestUrl);
+    endpoint.search = `?user_id=${endpoint.searchParams.get('user_id')}&attendance_date=eq.${new Date().toISOString().slice(0, 10)}`;
+    const response = await page.request.delete(endpoint.toString(), { headers: { authorization } });
+    expect(response.ok()).toBeTruthy();
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('button', { name: /오늘 출석/ })).toBeVisible({ timeout: 30_000 });
+    return;
+  }
+
+  await expect(page.getByRole('button', { name: '늦참 사유 입력', exact: true })).toBeVisible({ timeout: 30_000 });
 }
 
+async function cleanupStudentAttendance(page: Page, attendanceRequestUrl: string, authorization: string) {
+  const endpoint = new URL(attendanceRequestUrl);
+  const response = await page.request.get(endpoint.toString(), { headers: { authorization } });
+  expect(response.ok()).toBeTruthy();
+  const rows = (await response.json()) as AttendanceRow[];
+
+  if (rows.length === 0) return;
+
+  if (rows[0]?.status === 'attended' || rows[0]?.status === 'absent') {
+    await cancelExistingAttendance(page, attendanceRequestUrl, authorization);
+    return;
+  }
+
+  const deleteEndpoint = new URL(attendanceRequestUrl);
+  deleteEndpoint.search = `?user_id=${deleteEndpoint.searchParams.get('user_id')}&attendance_date=eq.${new Date().toISOString().slice(0, 10)}`;
+  const deleteResponse = await page.request.delete(deleteEndpoint.toString(), { headers: { authorization } });
+  expect(deleteResponse.ok()).toBeTruthy();
+}
 async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   let attendanceRequestUrl = '';
   let attendanceAuthorization = '';
@@ -97,7 +123,7 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
     );
   }
 
-  await cancelExistingAttendance(page);
+  await cancelExistingAttendance(page, attendanceRequestUrl, attendanceAuthorization);
 
   const attendanceResponse = await page.request.get(attendanceRequestUrl, {
     headers: { authorization: attendanceAuthorization },
@@ -178,7 +204,7 @@ test.describe('production attendance authenticated flow', () => {
     let attendanceAuthorization = '';
 
     const cleanup = async () => {
-      await cancelExistingAttendance(studentPage).catch(() => {});
+      if (attendanceRequestUrl && attendanceAuthorization) {\n        await cleanupStudentAttendance(studentPage, attendanceRequestUrl, attendanceAuthorization).catch(() => {});\n      }
     };
 
     try {
