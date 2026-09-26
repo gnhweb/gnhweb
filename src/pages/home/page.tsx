@@ -1077,13 +1077,15 @@ export default function Home() {
                             className="absolute bottom-0 z-10 flex min-h-1.5 max-w-[36px] items-center justify-center gap-0.5 overflow-hidden rounded-full bg-background-100/80 px-0.5 dark:bg-background-900/80"
                             aria-label="이 날짜의 일정"
                           >
-                            {clubIds.slice(0, 3).map(clubId => (
-                              <span
-                                key={clubId}
-                                className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${getClubCalendarDotClass(clubId)}`}
-                                title={clubs.find(club => club.id === clubId)?.name || clubId}
-                              />
-                            ))}
+                            {clubIds
+                              .slice(0, Math.max(0, 3 - (hasGeneralEvent ? 1 : 0)))
+                              .map(clubId => (
+                                <span
+                                  key={clubId}
+                                  className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${getClubCalendarDotClass(clubId)}`}
+                                  title={clubs.find(club => club.id === clubId)?.name || clubId}
+                                />
+                              ))}
                             {hasGeneralEvent && (
                               <span
                                 className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-foreground-700 dark:bg-foreground-200"
