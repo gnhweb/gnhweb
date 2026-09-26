@@ -7,7 +7,7 @@ import {
   hasSimplePin, setSimplePin, verifySimplePin, clearSimplePin, isValidPinFormat,
   markPinActivity, setPinExplicitLock, isPinUnlockValid, setPinUnlockExpiration, clearPinUnlockSession, getAutoLogoutMinutes,
 } from '@/lib/simplePin';
-import { authenticateRegisteredPasskey, isPasskeySupported, signInWithPasskey as signInWithPasskeyLib } from '@/lib/passkey';
+import { authenticateRegisteredPasskey, isPasskeyEnabled, isPasskeySupported, signInWithPasskey as signInWithPasskeyLib } from '@/lib/passkey';
 
 interface AuthContextValue {
   user: User | null;
@@ -542,7 +542,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   const signInWithPasskey = useCallback(async () => {
-    if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };
+    if (!isPasskeyEnabled() || !isPasskeySupported()) return { error: '생체인식 로그인이 꺼져 있거나 이 기기에서 패스키를 사용할 수 없습니다.' };
     const result = await signInWithPasskeyLib();
     return { error: result.error?.message ?? null };
   }, []);
@@ -712,7 +712,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const unlockWithPasskey = useCallback(async () => {
-    if (!user || !isPasskeySupported()) return false;
+    if (!user || !isPasskeyEnabled() || !isPasskeySupported()) return false;
     const result = await authenticateRegisteredPasskey();
     if (!result.error) {
       setPinLocked(false);
