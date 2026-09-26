@@ -204,7 +204,9 @@ test.describe('production attendance authenticated flow', () => {
     let attendanceAuthorization = '';
 
     const cleanup = async () => {
-      if (attendanceRequestUrl && attendanceAuthorization) {\n        await cleanupStudentAttendance(studentPage, attendanceRequestUrl, attendanceAuthorization).catch(() => {});\n      }
+      if (attendanceRequestUrl && attendanceAuthorization) {
+        await cleanupStudentAttendance(studentPage, attendanceRequestUrl, attendanceAuthorization).catch(() => {});
+      }
     };
 
     try {
