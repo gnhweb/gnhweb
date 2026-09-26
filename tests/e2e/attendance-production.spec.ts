@@ -246,7 +246,9 @@ test.describe('production attendance authenticated flow', () => {
       }
 
       // 정시 출석을 취소하면 다시 출석 가능한 상태가 되는지도 확인.
-      await studentPage.getByRole('button', { name: '출석 취소하기', exact: true }).click();
+      const cancelButton = studentPage.locator('button').filter({ hasText: '출석 취소하기' }).first();
+      await expect(cancelButton).toBeVisible({ timeout: 10_000 });
+      await cancelButton.click();
       await studentPage.getByRole('button', { name: '네, 취소할게요', exact: true }).click();
       await expect(studentPage.getByRole('button', { name: /오늘 출석/ })).toBeVisible({ timeout: 30_000 });
 
