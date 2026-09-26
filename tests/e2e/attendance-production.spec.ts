@@ -244,10 +244,7 @@ test.describe('production attendance authenticated flow', () => {
       // 3. 불참: 실제 사유 입력 모달과 저장 결과를 확인한다.
       await studentPage.getByRole('button', { name: /오늘은 참석이 어려워요/ }).click();
       const absenceReason = `E2E 출석 불참 검증 ${Date.now()}`;
-      await studentPage.locator('textarea').filter({ has: undefined }).last().fill(absenceReason).catch(async () => {
-        const textarea = studentPage.locator('textarea').last();
-        await textarea.fill(absenceReason);
-      });
+      await studentPage.locator('textarea').last().fill(absenceReason);
 
       const absentInsertPromise = studentPage.waitForResponse(
         response =>
