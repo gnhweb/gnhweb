@@ -51,14 +51,14 @@ test.describe('production Small Mission authenticated flow', () => {
   test('student claim/submit/reject/reset flow works and student cannot review', async ({ browser }) => {
     test.setTimeout(180_000);
 
-    const studentEmail = process.env.E2E_MEMBER_EMAIL;
-    const studentPassword = process.env.E2E_MEMBER_PASSWORD;
+    const studentEmail = process.env.E2E_MISSION_EMAIL;
+    const studentPassword = process.env.E2E_MISSION_PASSWORD;
     const reviewerEmail = process.env.E2E_TEACHER_EMAIL;
     const reviewerPassword = process.env.E2E_TEACHER_PASSWORD;
 
     test.skip(
       !studentEmail || !studentPassword || !reviewerEmail || !reviewerPassword,
-      'Small Mission E2E requires E2E_MEMBER_* and E2E_TEACHER_* credentials.',
+      'Small Mission E2E requires E2E_MISSION_* and E2E_TEACHER_* credentials.',
     );
 
     const studentContext = await browser.newContext();
