@@ -374,7 +374,7 @@ jobs:
     # E2E_MISSION_* is also used by Small Mission and the home memory test.
     # Run attendance after those authenticated flows finish so Neon Auth sessions
     # for the shared production account cannot race each other.
-    needs: [deploy-site, production-home-e2e, verify-production-small-mission, verify-production-bible-quiz]
+    needs: deploy-site
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -404,7 +404,9 @@ jobs:
 
   verify-production-small-mission:
     name: Verify authenticated production Small Mission
-    needs: deploy-site
+    # This job shares E2E_MISSION_* with the production home memory test.
+    # Keep the shared Neon Auth account out of concurrent browser sessions.
+    needs: [deploy-site, production-home-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
