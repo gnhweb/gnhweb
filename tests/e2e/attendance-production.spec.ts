@@ -66,9 +66,12 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
     timeout: 45_000,
   });
 
-  await expect(page.getByRole('button', { name: '늦참으로 출석', exact: true })).toBeVisible({
-    timeout: 30_000,
-  });
+  const lateButton = page.getByRole('button', { name: '늦참으로 출석', exact: true });
+  if (!(await lateButton.isVisible().catch(() => false))) {
+    throw new Error(
+      `늦참 버튼이 표시되지 않습니다. url=${page.url()} body=${(await page.locator('body').innerText().catch(() => '')).slice(0, 3000)}`,
+    );
+  }
 
   const attendanceResponse = await attendanceResponsePromise;
   const attendanceRows = (await attendanceResponse.json()) as AttendanceRow[];
@@ -78,6 +81,13 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   for (const existing of attendanceRows) {
     await deleteAttendanceRow(page, attendanceRequestUrl, attendanceAuthorization, existing.id);
   }
+
+  const cleanupCheck = await page.request.get(attendanceResponse.url(), {
+    headers: { authorization: attendanceAuthorization },
+  });
+  expect(cleanupCheck.ok()).toBeTruthy();
+  const remainingRows = (await cleanupCheck.json()) as AttendanceRow[];
+  expect(remainingRows).toHaveLength(0);
 
   const locationsEndpoint = new URL(attendanceRequestUrl);
   locationsEndpoint.pathname = locationsEndpoint.pathname.replace(/\/attendance$/, '/attendance_locations');
