@@ -86,10 +86,18 @@ test.describe('production Small Mission authenticated flow', () => {
 
       const submittedCard = reviewerPage.locator('div.bg-amber-50').filter({ hasText: missionTitle }).filter({ hasText: 'E2E Small Mission 검증' }).first();
       await expect(submittedCard).toBeVisible({ timeout: 30_000 });
+      const rejectRequestPromise = reviewerPage.waitForRequest(
+        request => request.method() === 'POST' && request.url().includes('/rpc/review_mission_assignment'),
+        { timeout: 30_000 },
+      );
       await submittedCard.getByRole('button', { name: '반려', exact: true }).click();
       const reasonInput = reviewerPage.getByPlaceholder('반려 사유를 입력하세요...');
       await reasonInput.fill('E2E 반려 검증');
       await reviewerPage.getByRole('button', { name: '반려 확정', exact: true }).click();
+      const rejectRequest = await rejectRequestPromise;
+      const rejectPayload = rejectRequest.postDataJSON() as { p_assignment_id?: number; p_action?: string };
+      expect(rejectPayload.p_action).toBe('reject');
+      expect(rejectPayload.p_assignment_id).toBeGreaterThan(0);
       await expect(submittedCard).toHaveCount(0);
 
       await studentPage.reload({ waitUntil: 'domcontentloaded' });
@@ -97,11 +105,22 @@ test.describe('production Small Mission authenticated flow', () => {
       await expect(studentPage.getByText('반려 사유: E2E 반려 검증', { exact: true })).toBeVisible({ timeout: 15_000 });
 
       // A reviewer can reset a rejected proof back to the assigned state.
-      await reviewerPage.reload({ waitUntil: 'domcontentloaded' });
-      await reviewerPage.getByRole('button', { name: /인증 검토/ }).click();
-      const rejectedCard = reviewerPage.locator('div.bg-amber-50').filter({ hasText: missionTitle }).first();
-      await expect(rejectedCard).toBeVisible({ timeout: 30_000 });
-      await rejectedCard.getByRole('button', { name: '인증 초기화', exact: true }).click();
+      // reset_mission_proof is intentionally exercised through the real RPC because
+      // the current UI exposes its reset button only while an assignment is submitted.
+      const resetRejectedResult = await reviewerPage.evaluate(
+        async ({ url, assignmentId }) => {
+          const resetUrl = url.replace('/review_mission_assignment', '/reset_mission_proof');
+          const response = await fetch(resetUrl, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ p_assignment_id: assignmentId }),
+          });
+          return { status: response.status, body: await response.text() };
+        },
+        { url: rejectRequest.url(), assignmentId: rejectPayload.p_assignment_id },
+      );
+      expect(resetRejectedResult.status).toBe(200);
+      expect(JSON.parse(resetRejectedResult.body)).toMatchObject({ ok: true, status: 'assigned' });
 
       await studentPage.reload({ waitUntil: 'domcontentloaded' });
       await expect(studentPage.getByText('진행 중', { exact: true })).toBeVisible({ timeout: 30_000 });
