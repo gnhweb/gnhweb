@@ -98,17 +98,23 @@ async function cancelExistingAttendance(page: Page, attendanceRequestUrl?: strin
     timeout: 45_000,
   });
 
-  const cancelButton = page.getByRole('button', { name: '출석 취소하기', exact: true });
-  if (await cancelButton.isVisible().catch(() => false)) {
-    await cancelButton.click();
+  // LateAttendance가 출석 레코드를 비동기로 읽기 때문에 domcontentloaded 직후
+  // 버튼을 검사하면 아직 '사유 입력' 상태로 잘못 판단할 수 있다.
+  const attendanceStateButton = page.getByRole('button', {
+    name: /출석 취소하기|늦참 기록 취소|늦참 사유 입력/,
+  }).first();
+  await expect(attendanceStateButton).toBeVisible({ timeout: 30_000 });
+
+  const buttonText = await attendanceStateButton.innerText();
+  if (buttonText === '출석 취소하기') {
+    await attendanceStateButton.click();
     await page.getByRole('button', { name: '네, 취소할게요', exact: true }).click();
     await expect(page.getByRole('button', { name: /오늘 출석/ })).toBeVisible({ timeout: 30_000 });
     return;
   }
 
-  const lateCancelButton = page.getByRole('button', { name: '늦참 기록 취소', exact: true });
-  if (await lateCancelButton.isVisible().catch(() => false)) {
-    await lateCancelButton.click();
+  if (buttonText === '늦참 기록 취소') {
+    await attendanceStateButton.click();
     await page.getByRole('button', { name: '네, 취소할게요', exact: true }).click();
     await expect(page.getByRole('button', { name: '늦참 사유 입력', exact: true })).toBeVisible({ timeout: 30_000 });
     return;
