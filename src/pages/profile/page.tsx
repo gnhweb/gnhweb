@@ -718,13 +718,14 @@ export default function ProfilePage() {
                   </button>
                 </div>
                 {passkeyEnabled && (
-                <button
-                  onClick={handleRegisterPasskey}
-                  disabled={passkeyLoading}
-                  className="w-full mt-3 py-2.5 rounded-full border-2 border-amber-500 bg-amber-50 text-amber-900 text-sm font-semibold shadow-sm hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:border-amber-300 dark:bg-amber-950/70 dark:text-amber-100 dark:hover:bg-amber-900/80 dark:focus:ring-amber-300 dark:focus:ring-offset-background-950 disabled:opacity-40 cursor-pointer whitespace-nowrap"
-                >
-                  {passkeyLoading ? '확인 중...' : passkeys.length ? '다른 생체인증 추가' : '이 기기 지문 / Face ID 등록'}
-                </button>
+                  <>
+                    <button
+                      onClick={handleRegisterPasskey}
+                      disabled={passkeyLoading}
+                      className="w-full mt-3 py-2.5 rounded-full border-2 border-amber-500 bg-amber-50 text-amber-900 text-sm font-semibold shadow-sm hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:border-amber-300 dark:bg-amber-950/70 dark:text-amber-100 dark:hover:bg-amber-900/80 dark:focus:ring-amber-300 dark:focus:ring-offset-background-950 disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                    >
+                      {passkeyLoading ? '확인 중...' : passkeys.length ? '다른 생체인증 추가' : '이 기기 지문 / Face ID 등록'}
+                    </button>
                 {passkeys.length > 0 && (
                   <div className="mt-3 space-y-2">
                     {passkeys.map((pk) => (
@@ -744,11 +745,12 @@ export default function ProfilePage() {
                     ))}
                   </div>
                 )}
-                {passkeyMessage && (
-                  <p className={`text-xs mt-2 ${passkeyMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {passkeyMessage.text}
-                  </p>
-                )}
+                  {passkeyMessage && (
+                    <p className={`text-xs mt-2 ${passkeyMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {passkeyMessage.text}
+                    </p>
+                  )}
+                  </>
                 )}
               </div>
             )}
