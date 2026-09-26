@@ -37,7 +37,7 @@ write('src/sw.ts', sw);
 
 let auth = read('src/hooks/useAuth.tsx');
 auth = auth.replace(
-  "import { authenticateRegisteredPasskey, isPasskeySupported } from '@/lib/passkey';",
+  "import { authenticateRegisteredPasskey, isPasskeyEnabled, isPasskeySupported } from '@/lib/passkey';",
   "import { authenticateRegisteredPasskey, isPasskeySupported, signInWithPasskey as signInWithPasskeyLib } from '@/lib/passkey';",
 );
 auth = auth.replace(
@@ -46,7 +46,7 @@ auth = auth.replace(
 );
 auth = auth.replace(
   '  const signOut = useCallback(async () => {',
-  "  const signInWithPasskey = useCallback(async () => {\n    if (!isPasskeySupported()) return { error: '이 기기에서 패스키 로그인을 사용할 수 없습니다.' };\n    const result = await signInWithPasskeyLib();\n    return { error: result.error?.message ?? null };\n  }, []);\n\n  const signOut = useCallback(async () => {",
+  "  const signInWithPasskey = useCallback(async () => {\n    if (!isPasskeyEnabled() || !isPasskeySupported()) return { error: '생체인식 로그인이 꺼져 있거나 이 기기에서 패스키를 사용할 수 없습니다.' };\n    const result = await signInWithPasskeyLib();\n    return { error: result.error?.message ?? null };\n  }, []);\n\n  const signOut = useCallback(async () => {",
 );
 auth = auth.replace(
   'value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signUp, signOut,',
