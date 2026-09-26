@@ -7,10 +7,12 @@ async function signIn(page: Page, email: string, password: string) {
   await page.locator('input[name="email"]').first().fill(email);
   await page.locator('input[name="password"]').first().fill(password);
   await page.locator('button[type="submit"]').first().click();
-
-  const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
-  if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) await skipPin.click();
   await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+}
+
+async function dismissPin(page: Page) {
+  const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
+  if (await skipPin.isVisible({ timeout: 10_000 }).catch(() => false)) await skipPin.click();
 }
 
 async function submitProof(page: Page, note: string) {
@@ -75,6 +77,7 @@ test.describe('production Small Mission authenticated flow', () => {
 
       await signIn(reviewerPage, reviewerEmail!, reviewerPassword!);
       await reviewerPage.goto(`${BASE_URL}/missions`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+      await dismissPin(reviewerPage);
       await expect(reviewerPage.getByRole('heading', { name: '작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
       const reviewTab = reviewerPage.getByRole('button', { name: /인증 검토/ });
       await expect(reviewTab).toBeVisible({ timeout: 15_000 });
