@@ -107,6 +107,9 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   }
 
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.getByText('불러오는 중...', { exact: true })).toHaveCount(0, {
+    timeout: 30_000,
+  });
 }
 
 test.describe('production attendance authenticated flow', () => {
