@@ -95,12 +95,13 @@ test.describe('production Small Mission authenticated flow', () => {
         // inserting or deleting production test data.
         await studentPage.goto(`${BASE_URL}/missions/board`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
         await expect(studentPage.getByRole('heading', { name: '내 작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
-        const assignedCard = studentPage
+        const reusableCard = studentPage
           .locator('div.bg-background-100.border.rounded-card.p-4')
-          .filter({ has: studentPage.getByText('진행 중', { exact: true }) })
+          .filter({ hasText: /진행 중|반려됨/ })
+          .filter({ has: studentPage.getByRole('button', { name: '인증 제출하기', exact: true }) })
           .first();
-        await expect(assignedCard).toBeVisible({ timeout: 15_000 });
-        missionTitle = (await assignedCard.locator('h2').innerText()).trim();
+        await expect(reusableCard).toBeVisible({ timeout: 15_000 });
+        missionTitle = (await reusableCard.locator('h2').innerText()).trim();
       }
 
       await submitProof(studentPage, `E2E Small Mission 검증 ${Date.now()}`);
