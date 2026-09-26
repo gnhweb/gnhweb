@@ -126,9 +126,6 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
     timeout: 45_000,
   });
 
-  const lateButton = page.getByRole('button', { name: '늦참으로 출석', exact: true });
-  await expect(lateButton).toBeVisible({ timeout: 30_000 });
-
   if (!attendanceRequestUrl || !attendanceAuthorization) {
     throw new Error(
       `출석 API 인증 요청을 감지하지 못했습니다. url=${page.url()} body=${(await page.locator('body').innerText().catch(() => '')).slice(0, 3000)}`,
@@ -143,6 +140,8 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   expect(attendanceResponse.ok()).toBeTruthy();
   const attendanceRows = (await attendanceResponse.json()) as AttendanceRow[];
   expect(attendanceRows).toHaveLength(0);
+
+  await expect(page.getByRole('button', { name: '늦참으로 출석', exact: true })).toBeVisible({ timeout: 30_000 });
 
   const locationsEndpoint = new URL(attendanceRequestUrl);
   locationsEndpoint.pathname = locationsEndpoint.pathname.replace(/\/attendance$/, '/attendance_locations');
