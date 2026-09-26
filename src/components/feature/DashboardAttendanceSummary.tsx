@@ -11,6 +11,7 @@ interface AttendanceRow {
   status: string;
   checked_in_at: string | null;
   absence_reason: string | null;
+  late_reason: string | null;
 }
 
 const STATUS_META: Record<string, { label: string; className: string; icon: string }> = {
@@ -44,7 +45,7 @@ export default function DashboardAttendanceSummary() {
     try {
       const { data, error: queryError } = await supabase
         .from('attendance')
-        .select('id,attendance_date,status,checked_in_at,absence_reason')
+        .select('id,attendance_date,status,checked_in_at,absence_reason,late_reason')
         .eq('user_id', profile.user_id)
         .order('attendance_date', { ascending: false })
         .limit(7);
@@ -118,10 +119,10 @@ export default function DashboardAttendanceSummary() {
           </div>
         )}
 
-        {todayRecord?.status === 'late' && todayRecord.absence_reason && (
+        {todayRecord?.status === 'late' && (todayRecord.late_reason || todayRecord.absence_reason) && (
           <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-3.5 py-3">
             <p className="text-xs font-bold text-amber-900 mb-1">오늘 늦참 사유</p>
-            <p className="text-sm leading-5 text-amber-900 break-words">{todayRecord.absence_reason}</p>
+            <p className="text-sm leading-5 text-amber-900 break-words">{todayRecord.late_reason || todayRecord.absence_reason}</p>
           </div>
         )}
 
@@ -143,7 +144,7 @@ export default function DashboardAttendanceSummary() {
                       <p className="text-sm font-medium text-foreground-900 truncate">
                         {date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
                       </p>
-                      {row.status === 'late' && row.absence_reason && <p className="text-[11px] text-foreground-500 truncate">{row.absence_reason}</p>}
+                      {row.status === 'late' && (row.late_reason || row.absence_reason) && <p className="text-[11px] text-foreground-500 truncate">{row.late_reason || row.absence_reason}</p>}
                     </div>
                     <span className={`shrink-0 rounded-full border px-2 py-1 text-[11px] font-bold ${meta.className}`}>{meta.label}</span>
                   </div>
