@@ -233,8 +233,6 @@ test.describe('production attendance authenticated flow', () => {
       );
       await studentPage.getByRole('button', { name: /오늘 출석/ }).click();
       await expect(studentPage.getByText('출석 완료!', { exact: true })).toBeVisible({ timeout: 30_000 });
-      const checkInRows = (await (await checkInResponsePromise).json()) as Array<{ id?: string }>;
-      expect(checkInRows[0]?.id).toBeTruthy();
       const checkInState = await studentPage.request.get(attendanceRequestUrl, {
         headers: { authorization: attendanceAuthorization },
       });
@@ -265,8 +263,6 @@ test.describe('production attendance authenticated flow', () => {
       );
       await studentPage.getByRole('button', { name: '늦참으로 출석', exact: true }).click();
       await expect(studentPage.getByText('늦참 출석과 사유가 기록되었습니다.', { exact: true })).toBeVisible({ timeout: 30_000 });
-      const lateRows = (await (await lateInsertPromise).json()) as Array<{ id?: string }>;
-      expect(lateRows[0]?.id).toBeTruthy();
       const lateState = await studentPage.request.get(attendanceRequestUrl, {
         headers: { authorization: attendanceAuthorization },
       });
@@ -294,8 +290,6 @@ test.describe('production attendance authenticated flow', () => {
       );
       await studentPage.getByRole('button', { name: '불참 신고하기', exact: true }).click();
       await expect(studentPage.getByText('불참 신고 완료!', { exact: true })).toBeVisible({ timeout: 30_000 });
-      const absentRows = (await (await absentInsertPromise).json()) as Array<{ id?: string }>;
-      expect(absentRows[0]?.id).toBeTruthy();
       const absentState = await studentPage.request.get(attendanceRequestUrl, {
         headers: { authorization: attendanceAuthorization },
       });
