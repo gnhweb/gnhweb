@@ -9,10 +9,6 @@ type AttendanceRow = {
   late_reason?: string | null;
 };
 
-type UserRoleRow = {
-  user_id: string;
-};
-
 async function signIn(page: Page, email: string, password: string) {
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   await page.locator('input[name="email"]').first().fill(email);
@@ -50,9 +46,7 @@ async function deleteAttendanceRow(
 
 async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   let attendanceRequestUrl = '';
-
   let attendanceAuthorization = '';
-  let locationData: Array<{ latitude: number; longitude: number }> = [];
 
   page.on('request', request => {
     if (
@@ -66,31 +60,33 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   });
 
   const attendanceResponsePromise = getTableResponse(page, 'attendance');
-  const locationResponsePromise = getTableResponse(page, 'attendance_locations');
-  const userRoleResponsePromise = getTableResponse(page, 'user_roles');
 
   await page.goto(`${BASE_URL}/dashboard/attendance`, {
     waitUntil: 'domcontentloaded',
     timeout: 45_000,
   });
 
-  const [attendanceResponse, locationResponse, userRoleResponse] = await Promise.all([
-    attendanceResponsePromise,
-    locationResponsePromise,
-    userRoleResponsePromise,
-  ]);
+  await expect(page.getByRole('button', { name: '늦참으로 출석', exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
 
+  const attendanceResponse = await attendanceResponsePromise;
   const attendanceRows = (await attendanceResponse.json()) as AttendanceRow[];
-  locationData = (await locationResponse.json()) as Array<{ latitude: number; longitude: number }>;
-  const userRoles = (await userRoleResponse.json()) as UserRoleRow[];
-  const userId = userRoles[0]?.user_id;
-  expect(userId).toBeTruthy();
 
-  const existing = attendanceRows.find(row => row.user_id === userId);
-  if (existing) {
+  // SmartAttendance/LateAttendance query today's record for the signed-in
+  // student only. Therefore every row returned here belongs to this test account.
+  for (const existing of attendanceRows) {
     await deleteAttendanceRow(page, attendanceRequestUrl, attendanceAuthorization, existing.id);
-    await page.reload({ waitUntil: 'domcontentloaded' });
   }
+
+  const locationsEndpoint = new URL(attendanceRequestUrl);
+  locationsEndpoint.pathname = locationsEndpoint.pathname.replace(/\/attendance$/, '/attendance_locations');
+  locationsEndpoint.search = '?select=latitude,longitude&is_active=eq.true';
+  const locationsResponse = await page.request.get(locationsEndpoint.toString(), {
+    headers: { authorization: attendanceAuthorization },
+  });
+  expect(locationsResponse.ok()).toBeTruthy();
+  const locationData = (await locationsResponse.json()) as Array<{ latitude: number; longitude: number }>;
 
   if (locationData.length > 0) {
     await context.setGeolocation({
@@ -98,8 +94,9 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
       longitude: locationData[0].longitude,
     });
     await context.grantPermissions(['geolocation'], { origin: BASE_URL });
-    await page.reload({ waitUntil: 'domcontentloaded' });
   }
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
 }
 
 test.describe('production attendance authenticated flow', () => {
