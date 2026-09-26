@@ -76,15 +76,17 @@ test.describe('production home calendar', () => {
     await page.locator('button[type="submit"]').first().click();
 
     const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
-    if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) {
-      await skipPin.click();
-    }
-    await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+    const dismissPinPrompt = async () => {
+      if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) {
+        await skipPin.click();
+        await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+      }
+    };
 
+    await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+    await dismissPinPrompt();
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
-    if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) {
-      await skipPin.click();
-    }
+    await dismissPinPrompt();
 
     const scheduleTabLabel = page.getByText('일정', { exact: true }).first();
     await expect(scheduleTabLabel).toBeAttached();
