@@ -112,10 +112,22 @@ async function cancelExistingAttendance(page: Page, attendanceRequestUrl?: strin
   }
 
   if (attendanceRequestUrl && authorization) {
+    // Production API에서는 attendance 삭제를 user_id/date 복합 필터로 직접 요청하지 않고
+    // 실제 레코드 id를 기준으로 삭제한다. 앱의 실제 삭제 방식과 동일하게 정리한다.
     const endpoint = new URL(attendanceRequestUrl);
-    endpoint.search = `?user_id=${endpoint.searchParams.get('user_id')}&attendance_date=eq.${new Date().toISOString().slice(0, 10)}`;
-    const response = await page.request.delete(endpoint.toString(), { headers: { authorization } });
-    expect(response.ok()).toBeTruthy();
+    const getResponse = await page.request.get(endpoint.toString(), { headers: { authorization } });
+    expect(getResponse.ok()).toBeTruthy();
+    const rows = (await getResponse.json()) as AttendanceRow[];
+
+    for (const row of rows) {
+      const deleteEndpoint = new URL(attendanceRequestUrl);
+      deleteEndpoint.search = `?id=eq.${encodeURIComponent(row.id)}`;
+      const deleteResponse = await page.request.delete(deleteEndpoint.toString(), {
+        headers: { authorization, prefer: 'return=representation' },
+      });
+      expect(deleteResponse.ok()).toBeTruthy();
+    }
+
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('button', { name: /오늘 출석/ })).toBeVisible({ timeout: 30_000 });
     return;
