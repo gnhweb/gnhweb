@@ -233,8 +233,14 @@ test.describe('production attendance authenticated flow', () => {
       );
       await studentPage.getByRole('button', { name: /오늘 출석/ }).click();
       await expect(studentPage.getByText('출석 완료!', { exact: true })).toBeVisible({ timeout: 30_000 });
-      const checkInRows = (await (await checkInResponsePromise).json()) as AttendanceRow[];
-      expect(checkInRows[0]?.status).toBe('attended');
+      const checkInRows = (await (await checkInResponsePromise).json()) as Array<{ id?: string }>;
+      expect(checkInRows[0]?.id).toBeTruthy();
+      const checkInState = await studentPage.request.get(attendanceRequestUrl, {
+        headers: { authorization: attendanceAuthorization },
+      });
+      expect(checkInState.ok()).toBeTruthy();
+      const checkInStateRows = (await checkInState.json()) as AttendanceRow[];
+      expect(checkInStateRows[0]?.status).toBe('attended');
 
       // 정시 출석을 취소하면 다시 출석 가능한 상태가 되는지도 확인.
       await studentPage.getByRole('button', { name: '출석 취소하기', exact: true }).click();
@@ -259,9 +265,15 @@ test.describe('production attendance authenticated flow', () => {
       );
       await studentPage.getByRole('button', { name: '늦참으로 출석', exact: true }).click();
       await expect(studentPage.getByText('늦참 출석과 사유가 기록되었습니다.', { exact: true })).toBeVisible({ timeout: 30_000 });
-      const lateRows = (await (await lateInsertPromise).json()) as AttendanceRow[];
-      expect(lateRows[0]?.status).toBe('late');
-      expect(lateRows[0]?.late_reason).toBe(lateReason);
+      const lateRows = (await (await lateInsertPromise).json()) as Array<{ id?: string }>;
+      expect(lateRows[0]?.id).toBeTruthy();
+      const lateState = await studentPage.request.get(attendanceRequestUrl, {
+        headers: { authorization: attendanceAuthorization },
+      });
+      expect(lateState.ok()).toBeTruthy();
+      const lateStateRows = (await lateState.json()) as AttendanceRow[];
+      expect(lateStateRows[0]?.status).toBe('late');
+      expect(lateStateRows[0]?.late_reason).toBe(lateReason);
 
       // 늦참을 제거하고 다시 불참 흐름을 실제 UI에서 검증한다.
       await cleanup();
@@ -282,8 +294,14 @@ test.describe('production attendance authenticated flow', () => {
       );
       await studentPage.getByRole('button', { name: '불참 신고하기', exact: true }).click();
       await expect(studentPage.getByText('불참 신고 완료!', { exact: true })).toBeVisible({ timeout: 30_000 });
-      const absentRows = (await (await absentInsertPromise).json()) as AttendanceRow[];
-      expect(absentRows[0]?.status).toBe('absent');
+      const absentRows = (await (await absentInsertPromise).json()) as Array<{ id?: string }>;
+      expect(absentRows[0]?.id).toBeTruthy();
+      const absentState = await studentPage.request.get(attendanceRequestUrl, {
+        headers: { authorization: attendanceAuthorization },
+      });
+      expect(absentState.ok()).toBeTruthy();
+      const absentStateRows = (await absentState.json()) as AttendanceRow[];
+      expect(absentStateRows[0]?.status).toBe('absent');
 
       // 4. 불참도 삭제하면 미응답으로 복귀하는지 확인한다.
       await cleanup();
