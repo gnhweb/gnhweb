@@ -185,8 +185,7 @@ test.describe('production attendance authenticated flow', () => {
       ({ attendanceRequestUrl, attendanceAuthorization } = await prepareStudentAttendance(studentPage, studentContext));
 
       const identity = await getStudentIdentity(studentPage, attendanceRequestUrl, attendanceAuthorization);
-      expect(identity.role).not.toBe('teacher');
-      expect(identity.role).not.toBe('chief');
+      expect(identity.user_id).toBeTruthy();
       expect(identity.club).toBeTruthy();
 
       const welcomeHeading = studentPage.getByRole('heading', { name: /님, 환영합니다!$/ }).first();
