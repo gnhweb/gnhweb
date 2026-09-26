@@ -52,8 +52,16 @@ test.describe('production Small Mission authenticated flow', () => {
 
     try {
       await signIn(studentPage, studentEmail!, studentPassword!);
+      const diagnostics: string[] = [];
+      studentPage.on('console', message => { if (message.type() === 'error') diagnostics.push(`console: ${message.text()}`); });
+      studentPage.on('pageerror', error => diagnostics.push(`pageerror: ${error.message}`));
+      studentPage.on('requestfailed', request => diagnostics.push(`requestfailed: ${request.url()} :: ${request.failure()?.errorText || 'unknown'}`));
       await studentPage.goto(`${BASE_URL}/missions`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-      await expect(studentPage.getByRole('heading', { name: '작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
+      try {
+        await expect(studentPage.getByRole('heading', { name: '작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
+      } catch (error) {
+        throw new Error(`/missions did not render. url=${studentPage.url()} body=${(await studentPage.locator('body').innerText().catch(() => '')).slice(0, 1200)} diagnostics=${diagnostics.join(' | ')}`, { cause: error });
+      }
       await expect(studentPage.getByRole('button', { name: /인증 검토/ })).toHaveCount(0);
 
       const claimButton = studentPage.getByRole('button', { name: '작은 사명 하기', exact: true }).first();
