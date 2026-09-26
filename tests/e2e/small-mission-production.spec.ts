@@ -12,7 +12,7 @@ async function signIn(page: Page, email: string, password: string) {
 
 async function dismissPin(page: Page) {
   const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
-  if (await skipPin.isVisible({ timeout: 10_000 }).catch(() => false)) await skipPin.click();
+  if (await skipPin.isVisible({ timeout: 30_000 }).catch(() => false)) await skipPin.click();
 }
 
 async function submitProof(page: Page, note: string) {
