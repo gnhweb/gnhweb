@@ -371,10 +371,9 @@ jobs:
 
   verify-production-attendance:
     name: Verify authenticated production attendance
-    # E2E_MISSION_* is also used by Small Mission and the home memory test.
-    # Run attendance after those authenticated flows finish so Neon Auth sessions
-    # for the shared production account cannot race each other.
-    needs: deploy-site
+    # E2E_MISSION_* is shared by the home memory and Small Mission tests.
+    # Attendance starts only after the shared-account flow has finished.
+    needs: [deploy-site, verify-production-small-mission]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
