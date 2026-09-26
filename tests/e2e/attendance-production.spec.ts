@@ -9,6 +9,10 @@ type AttendanceRow = {
   late_reason?: string | null;
 };
 
+type UserRoleRow = {
+  user_id: string;
+};
+
 async function signIn(page: Page, email: string, password: string) {
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   await page.locator('input[name="email"]').first().fill(email);
@@ -46,6 +50,7 @@ async function deleteAttendanceRow(
 
 async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   let attendanceRequestUrl = '';
+
   let attendanceAuthorization = '';
   let locationData: Array<{ latitude: number; longitude: number }> = [];
 
@@ -62,21 +67,26 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
 
   const attendanceResponsePromise = getTableResponse(page, 'attendance');
   const locationResponsePromise = getTableResponse(page, 'attendance_locations');
+  const userRoleResponsePromise = getTableResponse(page, 'user_roles');
 
   await page.goto(`${BASE_URL}/dashboard/attendance`, {
     waitUntil: 'domcontentloaded',
     timeout: 45_000,
   });
 
-  const [attendanceResponse, locationResponse] = await Promise.all([
+  const [attendanceResponse, locationResponse, userRoleResponse] = await Promise.all([
     attendanceResponsePromise,
     locationResponsePromise,
+    userRoleResponsePromise,
   ]);
 
   const attendanceRows = (await attendanceResponse.json()) as AttendanceRow[];
   locationData = (await locationResponse.json()) as Array<{ latitude: number; longitude: number }>;
+  const userRoles = (await userRoleResponse.json()) as UserRoleRow[];
+  const userId = userRoles[0]?.user_id;
+  expect(userId).toBeTruthy();
 
-  const existing = attendanceRows.find(row => row.user_id);
+  const existing = attendanceRows.find(row => row.user_id === userId);
   if (existing) {
     await deleteAttendanceRow(page, attendanceRequestUrl, attendanceAuthorization, existing.id);
     await page.reload({ waitUntil: 'domcontentloaded' });
