@@ -2,8 +2,6 @@ import { expect, test } from '@playwright/test';
 
 test.describe('production home calendar', () => {
   test('renders general and club event dots together without clipping', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
-
     const injectedDate = new Date();
     injectedDate.setDate(injectedDate.getDate() + 2);
     const eventDate = [
@@ -65,6 +63,8 @@ test.describe('production home calendar', () => {
 
       await route.continue();
     });
+
+    await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
 
     const scheduleTabLabel = page.getByText('일정', { exact: true }).first();
     await expect(scheduleTabLabel).toBeAttached();
