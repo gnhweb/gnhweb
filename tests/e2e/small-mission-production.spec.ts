@@ -83,6 +83,7 @@ test.describe('production Small Mission authenticated flow', () => {
 
       const claimButton = studentPage.getByRole('button', { name: '작은 사명 하기', exact: true }).first();
       let missionTitle: string;
+      let needsReviewerReset = false;
 
       if (await claimButton.count()) {
         const missionCard = claimButton.locator('xpath=ancestor::div[contains(@class,"rounded-card")]').first();
@@ -97,16 +98,32 @@ test.describe('production Small Mission authenticated flow', () => {
         await expect(studentPage.getByRole('heading', { name: '내 작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
         const reusableCard = studentPage
           .locator('div.bg-background-100.border.rounded-card.p-4')
-          .filter({ hasText: /진행 중|반려됨/ })
-          .filter({ has: studentPage.getByRole('button', { name: '인증 제출하기', exact: true }) })
           .first();
         await expect(reusableCard).toBeVisible({ timeout: 15_000 });
         missionTitle = (await reusableCard.locator('h2').innerText()).trim();
+        needsReviewerReset = true;
+      }
+
+      if (needsReviewerReset) {
+        await signIn(reviewerPage, reviewerEmail!, reviewerPassword!);
+        await reviewerPage.goto(`${BASE_URL}/missions`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+        await dismissPin(reviewerPage, '작은 사명');
+        await reviewerPage.getByRole('button', { name: /인증 검토/ }).click();
+        const resetCard = reviewerPage
+          .locator('div.bg-background-100.border.rounded-card.p-4')
+          .filter({ hasText: missionTitle })
+          .filter({ has: reviewerPage.getByRole('button', { name: '인증 초기화', exact: true }) })
+          .first();
+        await expect(resetCard).toBeVisible({ timeout: 30_000 });
+        await resetCard.getByRole('button', { name: '인증 초기화', exact: true }).click();
+        await expect(resetCard).toHaveCount(0, { timeout: 30_000 });
+        await studentPage.reload({ waitUntil: 'domcontentloaded' });
       }
 
       await submitProof(studentPage, `E2E Small Mission 검증 ${Date.now()}`);
 
-      await signIn(reviewerPage, reviewerEmail!, reviewerPassword!);
+      if (!needsReviewerReset) {
+        await signIn(reviewerPage, reviewerEmail!, reviewerPassword!);
       await reviewerPage.goto(`${BASE_URL}/missions`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
       await dismissPin(reviewerPage);
       await expect(reviewerPage.getByRole('heading', { name: '작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
