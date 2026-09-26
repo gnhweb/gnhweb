@@ -177,8 +177,9 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   let attendanceRequestUrl = '';
   let attendanceAuthorization = '';
 
-  page.on('request', request => {
+  const attendanceRequestHandler = (request: import('@playwright/test').Request) => {
     if (
+      !attendanceRequestUrl &&
       request.method() === 'GET' &&
       new URL(request.url()).pathname.endsWith('/attendance') &&
       request.headers().authorization
@@ -186,8 +187,8 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
       attendanceRequestUrl = request.url();
       attendanceAuthorization = request.headers().authorization;
     }
-  });
-
+  };
+  page.on('request', attendanceRequestHandler);
   await page.goto(`${BASE_URL}/dashboard/attendance`, {
     waitUntil: 'domcontentloaded',
     timeout: 45_000,
@@ -206,6 +207,10 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
       `출석 API 인증 요청을 감지하지 못했습니다. url=${page.url()} body=${(await page.locator('body').innerText().catch(() => '')).slice(0, 3000)}`,
     );
   }
+
+  // 페이지에는 SmartAttendance/LateAttendance가 서로 다른 projection으로
+  // attendance를 조회한다. 첫 인증 URL만 고정하고 이후 요청으로 덮어쓰지 않는다.
+  page.off('request', attendanceRequestHandler);
 
   await cancelExistingAttendance(page, attendanceRequestUrl, attendanceAuthorization);
 
