@@ -15,7 +15,7 @@ import BiblePick from '@/pages/biblePick/page';
 import BibleMbtiEnhanced from '@/pages/bibleMbtiEnhanced/page';
 import { useAutoLogout } from '@/hooks/useAutoLogout';
 import { MobileMenuProvider } from '@/hooks/useMobileMenu';
-import { listPasskeys } from '@/lib/passkey';
+import { isPasskeyEnabled, listPasskeys } from '@/lib/passkey';
 import { isPinUnlockValid } from '@/lib/simplePin';
 import { supabase } from '@/lib/supabase';
 
@@ -50,7 +50,7 @@ export default function Layout(){
    const timer=window.setTimeout(async()=>{
      try{
        const {data}=await listPasskeys();
-       if(cancelled||!data?.length)return;
+       if(cancelled||!data?.length||!isPasskeyEnabled())return;
        await unlockWithPasskey();
      }catch{}
    },120);
