@@ -40,6 +40,28 @@ async function signIn(page: Page, email: string, password: string) {
       continue;
     }
 
+    if (authResponse?.ok()) {
+      const tokenResponse = await page.request.get(`${BASE_URL}/auth/token`, {
+        failOnStatusCode: false,
+      });
+      if (tokenResponse.ok()) {
+        const tokenPayload = (await tokenResponse.json()) as {
+          token?: string;
+          access_token?: string;
+          session?: { access_token?: string };
+          data?: { token?: string; access_token?: string };
+        };
+        const jwt = tokenPayload.token
+          ?? tokenPayload.access_token
+          ?? tokenPayload.session?.access_token
+          ?? tokenPayload.data?.token
+          ?? tokenPayload.data?.access_token;
+        if (jwt) {
+          await page.context().setExtraHTTPHeaders({ Authorization: `Bearer ${jwt}` });
+        }
+      }
+    }
+
     try {
       await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 20_000 });
       const dismissQuickPassword = page.getByRole('button', { name: '나중에 하기', exact: true });
