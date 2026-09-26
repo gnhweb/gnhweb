@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { getSimplePinLength } from '@/lib/simplePin';
-import { isPasskeySupported, listPasskeys } from '@/lib/passkey';
+import { isPasskeyEnabled, isPasskeySupported, listPasskeys } from '@/lib/passkey';
 
 const PASSKEY_TIMEOUT_MS = 1500;
 const PIN_TIMEOUT_MS = 10000;
@@ -36,7 +36,7 @@ export default function AppLockScreen() {
       setHasRegisteredBiometric(true);
       try {
         const { data } = await withTimeout(listPasskeys(), PASSKEY_TIMEOUT_MS);
-        if (mounted && Array.isArray(data) && data.length === 0) setHasRegisteredBiometric(true);
+        if (mounted && isPasskeyEnabled() && Array.isArray(data) && data.length > 0) setHasRegisteredBiometric(true);
       } catch {
         if (mounted) setHasRegisteredBiometric(true);
       }
