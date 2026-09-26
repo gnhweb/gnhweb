@@ -440,7 +440,17 @@ test.describe('production attendance authenticated flow', () => {
         { timeout: 30_000 },
       );
       await studentPage.getByRole('button', { name: '늦참으로 출석', exact: true }).click();
-      const finalLateRows = (await (await finalLateResponsePromise).json()) as AttendanceRow[];
+      const finalLateResponse = await finalLateResponsePromise;
+      expect(finalLateResponse.ok()).toBeTruthy();
+
+      // Production attendance POST 응답은 성공해도 JSON body가 비어 있을 수 있다.
+      // POST body를 직접 파싱하지 않고 동일한 인증 세션으로 현재 상태를 재조회한다.
+      const finalLateState = await studentPage.request.get(attendanceRequestUrl, {
+        headers: { authorization: attendanceAuthorization },
+      });
+      expect(finalLateState.ok()).toBeTruthy();
+      const finalLateRows = (await finalLateState.json()) as AttendanceRow[];
+      expect(finalLateRows).toHaveLength(1);
       expect(finalLateRows[0]?.status).toBe('late');
 
       await reviewerPage.reload({ waitUntil: 'domcontentloaded' });
