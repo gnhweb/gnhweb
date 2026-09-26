@@ -135,7 +135,9 @@ async function cleanupStudentAttendance(page: Page, attendanceRequestUrl: string
 
   if (rows.length === 0) return;
 
-  if (rows[0]?.status === 'attended' || rows[0]?.status === 'absent') {
+  if (rows[0]?.status === 'attended' || rows[0]?.status === 'absent' || rows[0]?.status === 'late') {
+    // 출석 상태별 복구 UI를 사용해 정리한다. 특히 늦참은 학생 DELETE 권한에
+    // 의존하지 않고 실제 서비스에서 제공하는 '늦참 기록 취소' 흐름을 검증한다.
     await cancelExistingAttendance(page, attendanceRequestUrl, authorization);
     return;
   }
