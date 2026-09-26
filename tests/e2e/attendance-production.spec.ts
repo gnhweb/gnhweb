@@ -202,6 +202,12 @@ async function prepareStudentAttendance(page: Page, context: BrowserContext) {
 
   await expect(page.getByRole('button', { name: '늦참으로 출석', exact: true })).toBeVisible({ timeout: 30_000 });
 
+  // SmartAttendance의 초기 조회는 화면 상태에 필요한 컬럼만 요청한다.
+  // 이후 상태 검증에서는 늦참 사유까지 포함한 전용 조회 URL을 사용한다.
+  const attendanceStateEndpoint = new URL(attendanceRequestUrl);
+  attendanceStateEndpoint.searchParams.set('select', 'id,status,user_id,late_reason,absence_reason');
+  attendanceRequestUrl = attendanceStateEndpoint.toString();
+
   const locationsEndpoint = new URL(attendanceRequestUrl);
   locationsEndpoint.pathname = locationsEndpoint.pathname.replace(/\/attendance$/, '/attendance_locations');
   locationsEndpoint.search = '?select=latitude,longitude&is_active=eq.true';
