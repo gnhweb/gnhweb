@@ -96,15 +96,75 @@ test.describe('production Small Mission authenticated flow', () => {
       await expect(studentPage.getByText('반려됨', { exact: true })).toBeVisible({ timeout: 30_000 });
       await expect(studentPage.getByText('반려 사유: E2E 반려 검증', { exact: true })).toBeVisible({ timeout: 15_000 });
 
+      // A reviewer can reset a rejected proof back to the assigned state.
       await reviewerPage.reload({ waitUntil: 'domcontentloaded' });
       await reviewerPage.getByRole('button', { name: /인증 검토/ }).click();
       const rejectedCard = reviewerPage.locator('div.bg-amber-50').filter({ hasText: missionTitle }).first();
       await expect(rejectedCard).toBeVisible({ timeout: 30_000 });
-      await reviewerPage.getByRole('button', { name: '인증 초기화', exact: true }).first().click();
+      await rejectedCard.getByRole('button', { name: '인증 초기화', exact: true }).click();
 
       await studentPage.reload({ waitUntil: 'domcontentloaded' });
       await expect(studentPage.getByText('진행 중', { exact: true })).toBeVisible({ timeout: 30_000 });
       await expect(studentPage.getByRole('button', { name: '인증 제출하기', exact: true })).toBeVisible({ timeout: 15_000 });
+
+      // Resubmit after reset and verify reviewer approval.
+      await submitProof(studentPage, `E2E Small Mission 승인 검증 ${Date.now()}`);
+
+      await reviewerPage.reload({ waitUntil: 'domcontentloaded' });
+      await reviewerPage.getByRole('button', { name: /인증 검토/ }).click();
+      const approvalCard = reviewerPage.locator('div.bg-amber-50').filter({ hasText: missionTitle }).filter({ hasText: 'E2E Small Mission 승인 검증' }).first();
+      await expect(approvalCard).toBeVisible({ timeout: 30_000 });
+
+      const approveRequestPromise = reviewerPage.waitForRequest(
+        request => request.method() === 'POST' && request.url().includes('/rpc/review_mission_assignment'),
+        { timeout: 30_000 },
+      );
+      await approvalCard.getByRole('button', { name: '승인', exact: true }).click();
+      const approveRequest = await approveRequestPromise;
+      const approvePayload = approveRequest.postDataJSON() as { p_assignment_id?: number; p_action?: string };
+      expect(approvePayload.p_action).toBe('approve');
+      expect(approvePayload.p_assignment_id).toBeGreaterThan(0);
+      await expect(approvalCard).toHaveCount(0, { timeout: 30_000 });
+
+      await studentPage.reload({ waitUntil: 'domcontentloaded' });
+      await expect(studentPage.getByText('인증 완료', { exact: true })).toBeVisible({ timeout: 30_000 });
+
+      // The reviewer-only reset RPC must also work after approval.
+      const resetResult = await reviewerPage.evaluate(
+        async ({ url, assignmentId }) => {
+          const resetUrl = url.replace('/review_mission_assignment', '/reset_mission_proof');
+          const response = await fetch(resetUrl, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ p_assignment_id: assignmentId }),
+          });
+          return { status: response.status, body: await response.text() };
+        },
+        { url: approveRequest.url(), assignmentId: approvePayload.p_assignment_id },
+      );
+      expect(resetResult.status).toBe(200);
+      expect(JSON.parse(resetResult.body)).toMatchObject({ ok: true, status: 'assigned' });
+
+      // The same reviewer RPC must reject a normal member.
+      const unauthorizedResult = await studentPage.evaluate(
+        async ({ url, assignmentId }) => {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              p_assignment_id: assignmentId,
+              p_action: 'approve',
+              p_reject_reason: null,
+            }),
+          });
+          return { status: response.status, body: await response.text() };
+        },
+        { url: approveRequest.url(), assignmentId: approvePayload.p_assignment_id },
+      );
+      expect(unauthorizedResult.status).toBeGreaterThanOrEqual(400);
+
+      await studentPage.reload({ waitUntil: 'domcontentloaded' });
+      await expect(studentPage.getByText('진행 중', { exact: true })).toBeVisible({ timeout: 30_000 });
     } finally {
       await reviewerContext.close();
       await studentContext.close();
