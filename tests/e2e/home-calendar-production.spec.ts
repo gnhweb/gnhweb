@@ -83,7 +83,9 @@ test.describe('production home calendar', () => {
 
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
 
-    await page.locator('button').filter({ hasText: '일정' }).first().click({ force: true });
+    const scheduleTabLabel = page.getByText('일정', { exact: true }).first();
+    await expect(scheduleTabLabel).toBeAttached();
+    await scheduleTabLabel.locator('xpath=..').click({ force: true });
 
     const calendar = page
       .getByRole('heading', { name: '일정 달력', exact: true })
