@@ -162,9 +162,9 @@ async function cleanupStudentAttendance(page: Page, attendanceRequestUrl: string
 
   if (rows.length === 0) return;
 
-  // 먼저 실제 서비스의 취소 UI를 사용한다. UI가 성공 표시를 했지만
-  // 네트워크/권한 문제로 레코드가 남는 경우를 막기 위해 DB 상태를 재확인한다.
-  await cancelExistingAttendance(page, attendanceRequestUrl, authorization);
+  // 먼저 실제 서비스의 취소 UI를 사용한다. UI가 실패해도 테스트 계정의
+  // 오늘 레코드가 남아 다음 CI 실행을 오염시키지 않도록 API 상태를 최종 정리한다.
+  await cancelExistingAttendance(page, attendanceRequestUrl, authorization).catch(() => {});
 
   const verifyResponse = await page.request.get(endpoint.toString(), { headers: { authorization } });
   expect(verifyResponse.ok()).toBeTruthy();
