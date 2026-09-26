@@ -90,9 +90,13 @@ async function cleanupStudentAttendance(page: Page, attendanceRequestUrl: string
   }
 
   const deleteEndpoint = new URL(attendanceRequestUrl);
-  deleteEndpoint.search = `?user_id=${deleteEndpoint.searchParams.get('user_id')}&attendance_date=eq.${new Date().toISOString().slice(0, 10)}`;
-  const deleteResponse = await page.request.delete(deleteEndpoint.toString(), { headers: { authorization } });
+  deleteEndpoint.search = `?id=eq.${encodeURIComponent(rows[0].id)}`;
+  const deleteResponse = await page.request.delete(deleteEndpoint.toString(), {
+    headers: { authorization, prefer: 'return=representation' },
+  });
   expect(deleteResponse.ok()).toBeTruthy();
+  const deletedRows = (await deleteResponse.json()) as AttendanceRow[];
+  expect(deletedRows).toHaveLength(1);
 }
 async function prepareStudentAttendance(page: Page, context: BrowserContext) {
   let attendanceRequestUrl = '';
@@ -269,7 +273,7 @@ test.describe('production attendance authenticated flow', () => {
         { timeout: 30_000 },
       );
       await studentPage.getByRole('button', { name: '늦참으로 출석', exact: true }).click();
-      await expect(studentPage.getByText('늦참 출석과 사유가 기록되었습니다.', { exact: true })).toBeVisible({ timeout: 30_000 });
+      await expect(studentPage.getByText('오늘 출석 기록이 있습니다.', { exact: true })).toBeVisible({ timeout: 30_000 });
       const lateState = await studentPage.request.get(attendanceRequestUrl, {
         headers: { authorization: attendanceAuthorization },
       });
