@@ -83,6 +83,10 @@ test.describe('production home calendar', () => {
 
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
 
+    if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) {
+      await skipPin.click();
+    }
+
     const scheduleTabLabel = page.getByText('일정', { exact: true }).first();
     await expect(scheduleTabLabel).toBeAttached();
     await scheduleTabLabel.locator('xpath=..').click({ force: true });
