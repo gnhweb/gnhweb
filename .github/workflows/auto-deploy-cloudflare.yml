@@ -327,6 +327,14 @@ jobs:
           cat /tmp/prayer-relay-response.json
           test "$status" = "401"
 
+      - name: Verify passkey route auth guard
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output /tmp/passkey-response.json --write-out '%{http_code}' --request GET 'https://gnhweb-api.gemini19840314.workers.dev/passkey?action=list')
+          cat /tmp/passkey-response.json
+          test "$status" = "401"
+
+
   deploy-ai-gateway:
     name: Deploy gnhweb AI gateway Worker
     needs: regression-guard
