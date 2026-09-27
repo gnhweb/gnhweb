@@ -979,19 +979,25 @@ export default function Home() {
                           {d.day}
                         </span>
                         {hasEvent && d.isCurrentMonth && !isSelected && (
-                          <div className="absolute bottom-0 flex max-w-[32px] items-center justify-center gap-0.5 overflow-hidden" aria-label="이 날짜의 동아리 일정">
+                          <div
+                            className="absolute bottom-0.5 left-1/2 flex h-2.5 w-full -translate-x-1/2 items-center justify-center gap-1 overflow-hidden"
+                            aria-label="이 날짜의 동아리 일정"
+                          >
                             {clubIds.slice(0, 3).map(clubId => (
                               <span
                                 key={clubId}
-                                className={`h-1.5 w-1.5 rounded-full ${getClubCalendarDotClass(clubId)}`}
+                                className={`h-2 w-2 shrink-0 rounded-full ${getClubCalendarDotClass(clubId)}`}
                                 title={clubs.find(club => club.id === clubId)?.name || clubId}
                               />
                             ))}
                             {hasGeneralEvent && (
-                              <span className="h-1.5 w-1.5 rounded-full bg-foreground-500 dark:bg-foreground-300" title="전체 행사" />
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-full bg-foreground-500 dark:bg-foreground-300"
+                                title="전체 행사"
+                              />
                             )}
                             {clubIds.length > 3 && (
-                              <span className="text-[7px] font-bold leading-none text-foreground-500 dark:text-foreground-300">+</span>
+                              <span className="text-[8px] font-bold leading-none text-foreground-500 dark:text-foreground-300">+</span>
                             )}
                           </div>
                         )}                      </button>
@@ -1006,7 +1012,19 @@ export default function Home() {
                   );
                 })}
               </div>
-              {/* 선택된 날짜의 일정 */}
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-background-200 pt-3">
+                {clubs.map(club => (
+                  <span key={club.id} className="inline-flex items-center gap-1 text-[9px] font-semibold text-foreground-600 dark:text-foreground-300">
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${getClubCalendarDotClass(club.id)}`} aria-hidden="true" />
+                    {club.name}
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-foreground-600 dark:text-foreground-300">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-foreground-500 dark:bg-foreground-300" aria-hidden="true" />
+                  전체 행사
+                </span>
+              </div>
+              {/* 선택된 날짜의 일정 */
               {selectedDate && selectedDateEvents.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-background-200">
                   <p className="text-xs font-semibold text-foreground-600 mb-2">{selectedDate}</p>
