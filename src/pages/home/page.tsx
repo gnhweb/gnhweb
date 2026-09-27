@@ -312,6 +312,7 @@ export default function Home() {
   const [confirmedMarathon, setConfirmedMarathon] = useState<ConfirmedChampion | null>(null);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [memoryPhotos, setMemoryPhotos] = useState<MemoryPhoto[]>([]);
+  const [selectedMemoryPhoto, setSelectedMemoryPhoto] = useState<MemoryPhoto | null>(null);
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [noticesError, setNoticesError] = useState(false);
   const [schedulesLoading, setSchedulesLoading] = useState(true);
@@ -613,17 +614,25 @@ export default function Home() {
   }, []);
 
   // ── 히어로 슬라이드 구성 ──
-  // 홈페이지에는 추억창 연결 배너 1개만 남긴다.
-  const memoryPhoto = memoryPhotos[0] ?? null;
-  const heroSlides: HeroSlide[] = memoryPhoto
+  // 캐러셀은 항상 1개만 유지하고, 추억창 사진 중 하나를 무작위로 선택한다.
+  useEffect(() => {
+    if (memoryPhotos.length === 0) {
+      setSelectedMemoryPhoto(null);
+      return;
+    }
+    const randomIndex = Math.floor(Math.random() * memoryPhotos.length);
+    setSelectedMemoryPhoto(memoryPhotos[randomIndex]);
+  }, [memoryPhotos]);
+
+  const heroSlides: HeroSlide[] = selectedMemoryPhoto
     ? [{
-        id: `memory-${memoryPhoto.id}`,
+        id: `memory-${selectedMemoryPhoto.id}`,
         type: 'feature' as const,
-        image: memoryPhoto.thumb_url || memoryPhoto.photo_url,
+        image: selectedMemoryPhoto.thumb_url || selectedMemoryPhoto.photo_url,
         badge: '추억창',
         badgeColor: 'bg-primary-500',
-        title: '우리의 추억을\n다시 만나보세요',
-        subtitle: memoryPhoto.title || '강릉 학생회의 소중한 순간을 만나보세요',
+        title: '우리의 추억을\\n다시 만나보세요',
+        subtitle: selectedMemoryPhoto.title || '강릉 학생회의 소중한 순간을 만나보세요',
         cta: { label: '추억창 보러가기', path: '/memory-board' },
       }]
     : [];
