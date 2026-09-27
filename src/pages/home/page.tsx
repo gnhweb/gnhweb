@@ -613,17 +613,20 @@ export default function Home() {
   }, []);
 
   // ── 히어로 슬라이드 구성 ──
-  // 홈페이지 캐러셀은 추억창 사진만 사용한다.
-  const heroSlides: HeroSlide[] = memoryPhotos.map((photo) => ({
-    id: `memory-${photo.id}`,
-    type: 'feature' as const,
-    image: photo.thumb_url || photo.photo_url,
-    badge: '추억창',
-    badgeColor: 'bg-primary-500',
-    title: '우리의 추억을\n다시 만나보세요',
-    subtitle: photo.title || '강릉 학생회의 소중한 순간을 만나보세요',
-    cta: { label: '추억창 보러가기', path: '/memory-board' },
-  }));
+  // 홈페이지에는 추억창 연결 배너 1개만 남긴다.
+  const memoryPhoto = memoryPhotos[0] ?? null;
+  const heroSlides: HeroSlide[] = memoryPhoto
+    ? [{
+        id: `memory-${memoryPhoto.id}`,
+        type: 'feature' as const,
+        image: memoryPhoto.thumb_url || memoryPhoto.photo_url,
+        badge: '추억창',
+        badgeColor: 'bg-primary-500',
+        title: '우리의 추억을\n다시 만나보세요',
+        subtitle: memoryPhoto.title || '강릉 학생회의 소중한 순간을 만나보세요',
+        cta: { label: '추억창 보러가기', path: '/memory-board' },
+      }]
+    : [];
 
   // ── 캐러셀 ──
   const startAuto = useCallback(() => {
