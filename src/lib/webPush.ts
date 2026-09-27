@@ -60,7 +60,7 @@ function bytesToBase64Url(value: ArrayBuffer | ArrayBufferView | null): string {
     : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
   let binary = '';
   for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
-  return window.btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+  return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
 function hasCurrentVapidKey(subscription: PushSubscription, publicKey: string): boolean {
