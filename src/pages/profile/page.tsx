@@ -700,7 +700,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-xs font-semibold text-foreground-800 dark:text-foreground-100">생체인식 사용</p>
                     <p className="text-[11px] text-foreground-500 dark:text-foreground-300">
-                      {passkeyEnabled ? '로그인과 앱 잠금 해제에 사용합니다.' : '생체인식은 사용하지 않습니다.'}
+                      {passkeyEnabled ? '앱 잠금 해제에 사용합니다.' : '생체인식은 사용하지 않습니다.'}
                     </p>
                   </div>
                   <button
