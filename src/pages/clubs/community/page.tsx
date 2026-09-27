@@ -20,6 +20,42 @@ interface ClubPost {
   updated_at: string;
 }
 
+// 사진 여러 장이 달린 글의 모바일 표시 — 좌우 스와이프 캐러셀 + 하단 점 인디케이터
+function PostImageCarousel({ images }: { images: string[] }) {
+  const [active, setActive] = useState(0);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    if (idx !== active) setActive(idx);
+  };
+
+  return (
+    <div className="mt-3">
+      <div
+        onScroll={handleScroll}
+        className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide rounded-xl"
+      >
+        {images.map((imgUrl, i) => (
+          <div key={i} className="relative w-full flex-shrink-0 snap-start aspect-square bg-background-200">
+            <img src={imgUrl} alt={`게시글 이미지 ${i + 1}`} className="w-full h-full object-cover" />
+          </div>
+        ))}
+      </div>
+      {images.length > 1 && (
+        <div className="flex items-center justify-center gap-1.5 mt-2">
+          {images.map((_, i) => (
+            <span
+              key={i}
+              className={`rounded-full transition-all ${i === active ? 'w-4 h-1.5 bg-primary-500' : 'w-1.5 h-1.5 bg-background-300'}`}
+            ></span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ClubCommunity() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -513,15 +549,20 @@ export default function ClubCommunity() {
                       <p className="text-sm text-foreground-700 leading-relaxed whitespace-pre-wrap break-words">
                         {post.content}
                       </p>
-                      {/* Post images */}
+                      {/* Post images — 모바일: 스와이프 캐러셀, PC: 기존 그리드 유지 */}
                       {post.images && post.images.length > 0 && (
-                        <div className={`grid gap-2 mt-3 ${post.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                          {post.images.map((imgUrl, i) => (
-                            <div key={i} className={`relative rounded-xl overflow-hidden bg-background-200 ${post.images!.length === 1 ? 'aspect-video' : 'aspect-square'}`}>
-                              <img src={imgUrl} alt={`게시글 이미지 ${i + 1}`} className="w-full h-full object-cover" />
-                            </div>
-                          ))}
-                        </div>
+                        <>
+                          <div className="md:hidden">
+                            <PostImageCarousel images={post.images} />
+                          </div>
+                          <div className={`hidden md:grid gap-2 mt-3 ${post.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                            {post.images.map((imgUrl, i) => (
+                              <div key={i} className={`relative rounded-xl overflow-hidden bg-background-200 ${post.images!.length === 1 ? 'aspect-video' : 'aspect-square'}`}>
+                                <img src={imgUrl} alt={`게시글 이미지 ${i + 1}`} className="w-full h-full object-cover" />
+                              </div>
+                            ))}
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>
