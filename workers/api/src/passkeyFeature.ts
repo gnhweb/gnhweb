@@ -9,7 +9,6 @@ import {
   type RegistrationResponseJSON,
   type AuthenticationResponseJSON,
 } from '@simplewebauthn/server';
-import { isoUint8Array } from '@simplewebauthn/server/helpers';
 import { requireUserId } from './bibleStreakFeature';
 
 const CORS_HEADERS = {
@@ -136,7 +135,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
       const options = await generateRegistrationOptions({
         rpName: RP_NAME,
         rpID: webAuthnConfig.rpID,
-        userID: isoUint8Array.fromUTF8String(userId),
+        userID: new TextEncoder().encode(userId),
         userName: user.email,
         userDisplayName: user.name || user.email,
         attestationType: 'none',
@@ -148,6 +147,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
         authenticatorSelection: {
           authenticatorAttachment: 'platform',
           residentKey: 'required',
+          requireResidentKey: true,
           userVerification: 'required',
         },
       });
