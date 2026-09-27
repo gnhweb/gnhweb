@@ -1024,7 +1024,7 @@ export default function Home() {
                   전체 행사
                 </span>
               </div>
-              {/* 선택된 날짜의 일정 */
+              {/* 선택된 날짜의 일정 */}
               {selectedDate && selectedDateEvents.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-background-200">
                   <p className="text-xs font-semibold text-foreground-600 mb-2">{selectedDate}</p>
