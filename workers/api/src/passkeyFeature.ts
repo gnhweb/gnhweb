@@ -20,9 +20,19 @@ const CORS_HEADERS = {
 };
 
 const RP_NAME = '강릉학생회';
-const RP_ID = 'gnhwebw.pages.dev';
-const RP_ORIGIN = 'https://gnhwebw.pages.dev';
+const ALLOWED_RP_ORIGINS = new Set([
+  'https://gnhwebw.pages.dev',
+  'https://gnhweb.vercel.app',
+]);
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+
+function getWebAuthnConfig(request: Request): { rpID: string; origin: string } {
+  const origin = request.headers.get('Origin')?.replace(/\/$/, '');
+  if (!origin || !ALLOWED_RP_ORIGINS.has(origin)) {
+    throw new Error('지원되지 않는 웹사이트 주소입니다. 공식 사이트에서 다시 시도해주세요.');
+  }
+  return { rpID: new URL(origin).hostname, origin };
+}
 
 type Env = {
   DATABASE_URL?: string;
@@ -107,6 +117,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
     const { userId } = await requireUserId(request, env);
     const sql = getDatabase(env);
     const action = new URL(request.url).searchParams.get('action') || '';
+    const webAuthnConfig = getWebAuthnConfig(request);
 
     if (request.method === 'GET' && action === 'list') {
       const credentials = await getCredentials(sql, userId);
@@ -124,7 +135,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
       const credentials = await getCredentials(sql, userId);
       const options = await generateRegistrationOptions({
         rpName: RP_NAME,
-        rpID: RP_ID,
+        rpID: webAuthnConfig.rpID,
         userID: isoUint8Array.fromUTF8String(userId),
         userName: user.email,
         userDisplayName: user.name || user.email,
@@ -152,8 +163,8 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
       const verification = await verifyRegistrationResponse({
         response: body.credential as RegistrationResponseJSON,
         expectedChallenge,
-        expectedOrigin: RP_ORIGIN,
-        expectedRPID: RP_ID,
+        expectedOrigin: webAuthnConfig.origin,
+        expectedRPID: webAuthnConfig.rpID,
         requireUserVerification: true,
         supportedAlgorithmIDs: [-7, -257],
       });
