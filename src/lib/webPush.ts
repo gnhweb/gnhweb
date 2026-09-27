@@ -4,7 +4,7 @@ const ENV_VAPID_PUBLIC_KEY = String(import.meta.env.VITE_WEB_PUSH_VAPID_PUBLIC_K
 const WEB_PUSH_PUBLIC_KEY_URL = String(
   import.meta.env.VITE_WEB_PUSH_PUBLIC_KEY_URL || 'https://gnhweb-api.gemini19840314.workers.dev/web-push-public-key',
 ).trim();
-let cachedVapidPublicKey = ENV_VAPID_PUBLIC_KEY;
+let cachedVapidPublicKey = '';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -51,6 +51,25 @@ async function getVapidPublicKey(): Promise<string> {
   // Cloudflare Worker/secret migration is allowed to lag behind the frontend.
   // Keep the existing build-time key as a safe compatibility fallback.
   return ENV_VAPID_PUBLIC_KEY;
+}
+
+function bytesToBase64Url(value: ArrayBuffer | ArrayBufferView | null): string {
+  if (!value) return '';
+  const bytes = value instanceof ArrayBuffer
+    ? new Uint8Array(value)
+    : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+  return window.btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+}
+
+function hasCurrentVapidKey(subscription: PushSubscription, publicKey: string): boolean {
+  const configuredKey = urlBase64ToUint8Array(publicKey);
+  const subscriptionKey = subscription.options?.applicationServerKey;
+  if (!subscriptionKey) return false;
+  const currentKey = bytesToBase64Url(subscriptionKey);
+  const configured = bytesToBase64Url(configuredKey.buffer);
+  return currentKey === configured;
 }
 
 function isIOSWebView(): boolean {
@@ -109,6 +128,10 @@ export async function enableWebPush(userId: string): Promise<{ ok: boolean; reas
 
   try {
     let subscription = await registration.pushManager.getSubscription();
+    if (subscription && !hasCurrentVapidKey(subscription, vapidPublicKey)) {
+      await subscription.unsubscribe();
+      subscription = null;
+    }
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -158,6 +181,11 @@ export async function syncWebPushSubscription(userId: string): Promise<void> {
   if (Notification.permission !== 'granted' || !isWebPushSupported()) return;
   const existing = await getWebPushSubscription();
   if (!existing) return;
+  const vapidPublicKey = await getVapidPublicKey();
+  if (!vapidPublicKey || !hasCurrentVapidKey(existing, vapidPublicKey)) {
+    await existing.unsubscribe();
+    return;
+  }
   const json = existing.toJSON();
   if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return;
   await supabase.from('web_push_subscriptions').upsert({
