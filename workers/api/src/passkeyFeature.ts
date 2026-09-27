@@ -78,7 +78,7 @@ function toPostgresTextArrayLiteral(values: string[]): string {
 function getDatabase(env: Env) {
   const databaseUrl = String(env.DATABASE_URL || '').trim();
   if (!databaseUrl) throw new Error('DATABASE_URL is not configured');
-  return neon(databaseUrl);
+  return neon(databaseUrl, { fullResults: true });
 }
 
 async function getCurrentUser(sql: ReturnType<typeof neon>, userId: string) {
