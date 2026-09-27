@@ -5,6 +5,9 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
   type WebAuthnCredential,
+  type AuthenticatorTransportFuture,
+  type RegistrationResponseJSON,
+  type AuthenticationResponseJSON,
 } from '@simplewebauthn/server';
 import { isoUint8Array } from '@simplewebauthn/server/helpers';
 import { requireUserId } from './bibleStreakFeature';
@@ -129,7 +132,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
         supportedAlgorithmIDs: [-7, -257],
         excludeCredentials: credentials.map((credential) => ({
           id: credential.credential_id,
-          transports: credential.transports as any,
+          transports: credential.transports as AuthenticatorTransportFuture[],
         })),
         authenticatorSelection: {
           authenticatorAttachment: 'platform',
@@ -147,7 +150,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
       if (!expectedChallenge) return json({ error: '생체인증 등록 요청이 만료되었습니다. 다시 시도해주세요.' }, 400);
 
       const verification = await verifyRegistrationResponse({
-        response: body.credential as any,
+        response: body.credential as RegistrationResponseJSON,
         expectedChallenge,
         expectedOrigin: RP_ORIGIN,
         expectedRPID: RP_ID,
@@ -204,10 +207,10 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
         id: stored.credential_id,
         publicKey: base64UrlToBytes(stored.public_key),
         counter: Number(stored.counter),
-        transports: stored.transports as any,
+        transports: stored.transports as AuthenticatorTransportFuture[],
       };
       const verification = await verifyAuthenticationResponse({
-        response: body.credential as any,
+        response: body.credential as AuthenticationResponseJSON,
         expectedChallenge,
         expectedOrigin: RP_ORIGIN,
         expectedRPID: RP_ID,
