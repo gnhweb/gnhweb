@@ -332,6 +332,7 @@ export default function Home() {
 
   // 모바일: 공지·일정·강학뉴스를 세로로 다 펼치지 않고 탭으로 전환해서 봄
   const [homeTab, setHomeTab] = useState<'notice' | 'schedule' | 'news'>('notice');
+  const [noticeCategory, setNoticeCategory] = useState('전체');
 
   // 달력
   const today = new Date();
@@ -859,46 +860,63 @@ export default function Home() {
                 <div className="p-6 text-center bg-background-100 rounded-2xl border border-background-200 text-foreground-400 text-sm">등록된 공지사항이 없습니다</div>
               ) : (
                 <>
-                {notices.map((notice) => {
-                  const readIds = getReadNoticeIds(user?.id);
-                  const isNew = !readIds.has(notice.id) && (Date.now() - new Date(notice.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
-                  const catColor = getCategoryColor(notice.category);
-                  return (
-                    <Link
-                      key={notice.id}
-                      to={`/notices/${notice.id}`}
-                      className={`group flex items-start gap-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer hover:scale-[1.01] hover:shadow-sm ${
-                        notice.is_pinned
-                          ? 'bg-primary-50 border-primary-200 hover:border-primary-300'
-                          : 'bg-background-100 border-background-200 hover:border-primary-200'
-                      }`}
-                    >
-                      <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center mt-0.5 ${catColor.bg}`}>
-                        <i className={`${catColor.icon} text-sm ${catColor.text}`}></i>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                          {notice.is_pinned && (
-                            <span className="text-[9px] font-bold text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded-full">공지</span>
-                          )}
-                          {notice.category && (
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${catColor.chip}`}>{notice.category}</span>
-                          )}
-                          {isNew && (
-                            <span className="text-[9px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded-full">NEW</span>
-                          )}
-                        </div>
-                        <p className={`text-sm font-semibold truncate group-hover:text-primary-700 transition-colors ${
-                          notice.is_pinned ? 'text-primary-800' : 'text-foreground-900'
-                        }`}>{notice.title}</p>
-                        <p className="text-[11px] text-foreground-400 mt-0.5">
-                          {notice.author_name && <span>{notice.author_name} · </span>}{timeAgo(notice.created_at)}
-                        </p>
-                      </div>
-                      <i className="ri-arrow-right-s-line text-foreground-300 group-hover:text-primary-400 flex-shrink-0 mt-2 transition-colors"></i>
-                    </Link>
-                  );
-                })}
+                  <div className="mb-3 rounded-card border border-background-200 bg-background-100 p-2.5">
+                    <div className="mb-2 px-1 text-[10px] font-bold text-foreground-500">카테고리별 공지</div>
+                    <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none" role="tablist" aria-label="홈 공지사항 카테고리">
+                      {['전체', '일반', '긴급', '행사', '모집', '교육', '기도제목'].map((category) => {
+                        const active = noticeCategory === category;
+                        const catColor = getCategoryColor(category === '전체' ? null : category);
+                        return (
+                          <button
+                            key={category}
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            onClick={() => setNoticeCategory(category)}
+                            className={`flex min-h-12 min-w-[58px] shrink-0 flex-col items-center justify-center gap-1 rounded-input px-2 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${active ? 'bg-primary-50 text-primary-700 shadow-card dark:bg-primary-900/30 dark:text-primary-200' : 'bg-background-50 text-foreground-500 hover:bg-background-200 dark:bg-background-200 dark:text-foreground-300'}`}
+                          >
+                            <span className={`flex h-7 w-7 items-center justify-center rounded-full ${active ? 'bg-primary-100 dark:bg-primary-800/50' : catColor.bg}`}>
+                              <i className={`${category === '전체' ? 'ri-apps-2-line' : catColor.icon} text-sm ${active ? 'text-primary-600 dark:text-primary-300' : catColor.text}`} aria-hidden="true" />
+                            </span>
+                            <span className="whitespace-nowrap text-[10px] font-bold">{category}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {(() => {
+                    const filteredNotices = noticeCategory === '전체' ? notices : notices.filter((notice) => (notice.category || '일반') === noticeCategory);
+                    return filteredNotices.length === 0 ? (
+                      <div className="p-6 text-center bg-background-100 rounded-card border border-background-200 text-foreground-500 text-sm">이 카테고리에 등록된 공지사항이 없습니다</div>
+                    ) : (
+                      filteredNotices.map((notice) => {
+                        const readIds = getReadNoticeIds(user?.id);
+                        const isNew = !readIds.has(notice.id) && (Date.now() - new Date(notice.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
+                        const catColor = getCategoryColor(notice.category);
+                        return (
+                          <Link
+                            key={notice.id}
+                            to={`/notices/${notice.id}`}
+                            className={`group flex items-start gap-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer hover:scale-[1.01] hover:shadow-sm ${notice.is_pinned ? 'bg-primary-50 border-primary-200 hover:border-primary-300' : 'bg-background-100 border-background-200 hover:border-primary-200'}`}
+                          >
+                            <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center mt-0.5 ${catColor.bg}`}>
+                              <i className={`${catColor.icon} text-sm ${catColor.text}`} aria-hidden="true"></i>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                {notice.is_pinned && <span className="text-[9px] font-bold text-primary-700 bg-primary-100 px-1.5 py-0.5 rounded-full">공지</span>}
+                                {notice.category && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${catColor.chip}`}>{notice.category}</span>}
+                                {isNew && <span className="text-[9px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded-full">NEW</span>}
+                              </div>
+                              <p className={`text-sm font-semibold truncate group-hover:text-primary-700 transition-colors ${notice.is_pinned ? 'text-primary-800' : 'text-foreground-900'}`}>{notice.title}</p>
+                              <p className="text-[11px] text-foreground-400 mt-0.5">{notice.author_name && <span>{notice.author_name} · </span>}{timeAgo(notice.created_at)}</p>
+                            </div>
+                            <i className="ri-arrow-right-s-line text-foreground-300 group-hover:text-primary-400 flex-shrink-0 mt-2 transition-colors" aria-hidden="true"></i>
+                          </Link>
+                        );
+                      })
+                    );
+                  })()}
                 </>
               )}
             </div>
