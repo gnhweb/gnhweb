@@ -18,7 +18,7 @@ export const neonEnabled = Boolean(neonAuthUrl && neonDataApiUrl);
 
 export async function getNeonJwtToken(): Promise<string | null> {
   try {
-    return (await neonAuth.getJWTToken?.()) ?? null;
+    return (await neonAuth.getJWTToken?.(false)) ?? null;
   } catch {
     return null;
   }
