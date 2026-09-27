@@ -177,6 +177,7 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
         'bible-streak-update': '/bible-streak-update',
         'bible-pick': '/bible-pick',
         'monthly-champion-snapshot': '/monthly-champion-snapshot',
+        'passkey': '/passkey',
       };
       const endpoint = endpointMap[baseFunctionName];
       if (!endpoint) return target.invoke(functionName, options as Parameters<typeof target.invoke>[1]);
