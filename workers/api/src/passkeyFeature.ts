@@ -189,7 +189,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
       const credentials = await getCredentials(sql, userId);
       if (!credentials.length) return json({ error: '등록된 생체인식이 없습니다.' }, 404);
       const options = await generateAuthenticationOptions({
-        rpID: RP_ID,
+        rpID: webAuthnConfig.rpID,
         userVerification: 'required',
         allowCredentials: credentials.map((credential) => ({
           id: credential.credential_id,
@@ -223,8 +223,8 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
       const verification = await verifyAuthenticationResponse({
         response: body.credential as AuthenticationResponseJSON,
         expectedChallenge,
-        expectedOrigin: RP_ORIGIN,
-        expectedRPID: RP_ID,
+        expectedOrigin: webAuthnConfig.origin,
+        expectedRPID: webAuthnConfig.rpID,
         credential,
         requireUserVerification: true,
       });
