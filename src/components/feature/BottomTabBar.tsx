@@ -4,15 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { useMobileMenu } from "@/hooks/useMobileMenu";
 
-// 맨 위(스크롤 0)에서는 숨기고, 사용자가 아래로 스크롤해야만 하단 탭바가 나타난다.
-const SHOW_AFTER_SCROLL_Y = 40;
+const SHOW_AT_TOP_Y = 40;
 
-// 모바일에서 가장 자주 쓰는 5개 동선을 엄지 존(하단)에 고정한다.
-// - 라우팅/권한/데이터 로직은 전혀 건드리지 않고, 기존 페이지로 이동만 시킨다.
-// - 가운데 "갓겜" 탭만 시각적으로 튀어나온 원형 버튼으로 강조(인스타의 + 버튼 포지션).
-// - 마지막 "더보기" 탭은 Navbar의 기존 전체화면 모바일 메뉴를 그대로 연다(로직 재사용).
 interface TabDef {
-  key: string;
+  key: "home" | "clubs" | "game" | "prayer" | "suggestions" | "journal";
   label: string;
   icon: string;
   activeIcon: string;
@@ -20,60 +15,42 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  {
-    key: "home",
-    label: "홈",
-    icon: "ri-home-5-line",
-    activeIcon: "ri-home-5-fill",
-    path: "/",
-  },
-  {
-    key: "clubs",
-    label: "동아리",
-    icon: "ri-group-line",
-    activeIcon: "ri-group-fill",
-    path: "/clubs",
-  },
-  {
-    key: "game",
-    label: "갓겜",
-    icon: "ri-gamepad-line",
-    activeIcon: "ri-gamepad-fill",
-    path: "/games",
-  },
-  {
-    key: "quiz",
-    label: "성경퀴즈",
-    icon: "ri-question-answer-line",
-    activeIcon: "ri-question-answer-fill",
-    path: "/bible-quiz",
-  },
-  {
-    key: "more",
-    label: "더보기",
-    icon: "ri-menu-line",
-    activeIcon: "ri-menu-fill",
-  },
+  { key: "home", label: "홈", icon: "ri-home-5-line", activeIcon: "ri-home-5-fill", path: "/" },
+  { key: "clubs", label: "동아리", icon: "ri-group-line", activeIcon: "ri-group-fill", path: "/clubs" },
+  { key: "game", label: "게임", icon: "ri-gamepad-line", activeIcon: "ri-gamepad-fill" },
+  { key: "prayer", label: "기도 릴레이", icon: "ri-heart-3-line", activeIcon: "ri-heart-3-fill", path: "/prayer-relay" },
+  { key: "suggestions", label: "건의·질문", icon: "ri-question-answer-line", activeIcon: "ri-question-answer-fill" },
+  { key: "journal", label: "신앙일기", icon: "ri-book-3-line", activeIcon: "ri-book-3-fill", path: "/faith-journal" },
 ];
 
-// 갓겜 허브에서 진입하는 개별 게임 라우트 — 게임 플레이 중에도 하단 탭의 "갓겜"이 활성 상태로 보이게 한다.
-const GAME_PLAY_PATHS = ["/wolves-and-sheep", "/pharisee", "/galilee-phone"];
+const GAME_PLAY_PATHS = ["/games", "/wolves-and-sheep", "/pharisee", "/galilee-phone", "/bible-quiz"];
+
+const GAME_LINKS = [
+  { label: "양과 늑대", path: "/wolves-and-sheep", icon: "ri-user-3-line" },
+  { label: "바리새인을 찾아라", path: "/pharisee", icon: "ri-search-eye-line" },
+  { label: "갈릴리폰", path: "/galilee-phone", icon: "ri-chat-smile-3-line" },
+  { label: "성경퀴즈", path: "/bible-quiz", icon: "ri-question-answer-line" },
+];
+
+const COMMUNITY_LINKS = [
+  { label: "건의사항", path: "/suggestions", icon: "ri-lightbulb-line" },
+  { label: "질문있어요", path: "/qna-board", icon: "ri-question-line" },
+];
 
 export default function BottomTabBar() {
   const location = useLocation();
   const { user, profile } = useAuth();
   const { mobileOpen, setMobileOpen } = useMobileMenu();
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
+  const [openMenu, setOpenMenu] = useState<"game" | "suggestions" | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
-    // 페이지 이동 시엔 항상 맨 위(숨김 상태)에서 시작한다.
-    setVisible(window.scrollY > SHOW_AFTER_SCROLL_Y);
-
     const handleScroll = () => {
-      setVisible(window.scrollY > SHOW_AFTER_SCROLL_Y);
+      setVisible(window.scrollY <= SHOW_AT_TOP_Y);
     };
 
+    handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
 
     const viewport = window.visualViewport;
@@ -89,6 +66,7 @@ export default function BottomTabBar() {
     viewport?.addEventListener("resize", updateKeyboardState);
     viewport?.addEventListener("scroll", updateKeyboardState);
     window.addEventListener("resize", updateKeyboardState);
+
     const handleFocusOut = () => {
       window.setTimeout(updateKeyboardState, 120);
     };
@@ -107,23 +85,27 @@ export default function BottomTabBar() {
     };
   }, [location.pathname]);
 
+  useEffect(() => {
+    setOpenMenu(null);
+  }, [location.pathname]);
+
   if (!user) return null;
 
-  // 더보기 메뉴가 열려 있을 땐 스크롤 위치와 상관없이 탭바를 보여준다(활성 표시를 위해).
-  // 모바일 메뉴가 열려 있으면 하단 탭바를 숨겨 메뉴 항목이 가려지지 않게 한다
   const shouldShow = visible && !mobileOpen && !keyboardOpen;
 
   const isTabActive = (tab: TabDef) => {
-    if (tab.key === "more") return mobileOpen;
+    if (tab.key === "game") {
+      return GAME_PLAY_PATHS.some((path) => location.pathname.startsWith(path));
+    }
+    if (tab.key === "suggestions") {
+      return location.pathname.startsWith("/suggestions") || location.pathname.startsWith("/qna-board");
+    }
     if (!tab.path) return false;
     if (tab.path === "/") return location.pathname === "/";
-    if (tab.key === "game")
-      return (
-        GAME_PLAY_PATHS.some((p) => location.pathname.startsWith(p)) ||
-        location.pathname.startsWith(tab.path)
-      );
     return location.pathname.startsWith(tab.path);
   };
+
+  const closeMenu = () => setOpenMenu(null);
 
   return (
     <AnimatePresence>
@@ -136,71 +118,73 @@ export default function BottomTabBar() {
           className="md:hidden fixed bottom-0 left-0 right-0 z-50"
           aria-label="하단 바로가기"
         >
-          {/* 변경점: 반투명과 외부 여백 제거하고 화면 끝까지 채우고, 위쪽만 둥글게 처리 */}
-          <div className="w-full rounded-t-[20px] bg-background-100 shadow-card-lg border-t border-background-200 pb-safe">
-            <div className="flex items-end justify-between px-2 pt-2 pb-1.5">
+          <AnimatePresence>
+            {openMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                transition={{ duration: 0.16 }}
+                className="absolute bottom-[calc(100%+0.5rem)] left-3 right-3 rounded-card border border-background-200 bg-background-100 p-2 shadow-card-lg"
+                role="menu"
+                aria-label={openMenu === "game" ? "게임 메뉴" : "건의·질문 메뉴"}
+              >
+                <div className="grid grid-cols-2 gap-2">
+                  {(openMenu === "game" ? GAME_LINKS : COMMUNITY_LINKS).map((item) => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={closeMenu}
+                      role="menuitem"
+                      className="flex min-h-12 items-center gap-2.5 rounded-input px-3 text-sm font-semibold text-foreground-700 hover:bg-background-200 active:bg-background-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-foreground-200 dark:hover:bg-background-200"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-input bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+                        <i className={item.icon} aria-hidden="true" />
+                      </span>
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="w-full rounded-t-[20px] border-t border-background-200 bg-background-100 pb-safe shadow-card-lg dark:bg-background-100">
+            <div className="grid grid-cols-6 px-1 pt-1.5 pb-1">
               {TABS.map((tab) => {
                 const active = isTabActive(tab);
-                const isCenter = tab.key === "game";
+                const isMenuTab = tab.key === "game" || tab.key === "suggestions";
 
                 const content = (
                   <motion.div
-                    whileTap={{ y: -2, scale: 0.94 }}
+                    whileTap={{ scale: 0.94 }}
                     transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                    className="flex flex-col items-center justify-end gap-0.5 flex-1"
+                    className="flex min-h-12 w-full flex-col items-center justify-center gap-0.5"
                   >
-                    {isCenter ? (
-                      <div
-                        className={`w-14 h-14 -mt-6 rounded-full flex items-center justify-center bg-gradient-to-br from-primary-500 to-accent-500 shadow-card-lg ${
-                          active ? "ring-2 ring-primary-200" : ""
-                        }`}
-                      >
-                        <i
-                          className={`${active ? tab.activeIcon : tab.icon} text-white text-2xl`}
-                        ></i>
-                      </div>
-                    ) : tab.key === "more" && profile?.profile_image ? (
-                      <div
-                        className={
-                          active
-                            ? "insta-gradient-ring"
-                            : "p-[2.5px] rounded-full bg-background-200"
-                        }
-                      >
-                        <div className="w-6 h-6 rounded-full overflow-hidden bg-background-100 border-2 border-background-100">
-                          <img
-                            src={profile.profile_image}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <i
-                        className={`${active ? tab.activeIcon : tab.icon} text-[22px] ${
-                          active ? "text-primary-600" : "text-foreground-400"
-                        }`}
-                      ></i>
-                    )}
+                    <i
+                      className={`${active ? tab.activeIcon : tab.icon} text-[21px] ${active ? "text-primary-600 dark:text-primary-400" : "text-foreground-500 dark:text-foreground-400"}`}
+                      aria-hidden="true"
+                    />
                     <span
-                      className={`text-[10px] leading-none ${
-                        active
-                          ? "text-primary-600 font-bold"
-                          : "text-foreground-400 font-medium"
-                      } ${isCenter ? "mt-0.5" : ""}`}
+                      className={`whitespace-nowrap text-[10px] leading-tight ${active ? "font-bold text-primary-600 dark:text-primary-400" : "font-medium text-foreground-500 dark:text-foreground-400"}`}
                     >
                       {tab.label}
                     </span>
                   </motion.div>
                 );
 
-                if (tab.key === "more") {
+                if (isMenuTab) {
+                  const menuKey = tab.key as "game" | "suggestions";
+                  const expanded = openMenu === menuKey;
                   return (
                     <button
                       key={tab.key}
-                      onClick={() => setMobileOpen(!mobileOpen)}
-                      className="flex-1 flex justify-center cursor-pointer"
-                      aria-label="더보기 메뉴"
+                      type="button"
+                      onClick={() => setOpenMenu(expanded ? null : menuKey)}
+                      aria-expanded={expanded}
+                      aria-haspopup="menu"
+                      aria-label={`${tab.label} 메뉴`}
+                      className="flex min-w-0 items-center justify-center rounded-input focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                     >
                       {content}
                     </button>
@@ -211,8 +195,9 @@ export default function BottomTabBar() {
                   <Link
                     key={tab.key}
                     to={tab.path!}
-                    className="flex-1 flex justify-center cursor-pointer"
-                    onClick={() => setMobileOpen(false)}
+                    onClick={closeMenu}
+                    aria-current={active ? "page" : undefined}
+                    className="flex min-w-0 items-center justify-center rounded-input focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                   >
                     {content}
                   </Link>
