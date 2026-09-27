@@ -71,6 +71,11 @@ function bytesToBase64Url(value: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+function toPostgresTextArrayLiteral(values: string[]): string {
+  const escaped = values.map((value) => `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
+  return `{${escaped.join(',')}}`;
+}
+
 function getDatabase(env: Env) {
   const databaseUrl = String(env.DATABASE_URL || '').trim();
   if (!databaseUrl) throw new Error('DATABASE_URL is not configured');
@@ -112,6 +117,7 @@ async function saveChallenge(sql: ReturnType<typeof neon>, userId: string, purpo
 export async function handlePasskey(request: Request, env: Env): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
+  let stage = '인증';
   try {
     const { userId } = await requireUserId(request, env);
     const sql = getDatabase(env);
@@ -129,6 +135,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
     }
 
     if (request.method === 'POST' && action === 'register-options') {
+      stage = '등록 옵션 생성';
       const user = await getCurrentUser(sql, userId);
       if (!user) return json({ error: '사용자 정보를 찾을 수 없습니다.' }, 404);
       const credentials = await getCredentials(sql, userId);
@@ -159,6 +166,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
     }
 
     if (request.method === 'POST' && action === 'register-verify') {
+      stage = '등록 응답 검증';
       const body = await request.json() as { credential?: unknown; friendlyName?: unknown };
       const expectedChallenge = await consumeChallenge(sql, userId, 'registration');
       if (!expectedChallenge) return json({ error: '생체인증 등록 요청이 만료되었습니다. 다시 시도해주세요.' }, 400);
@@ -175,20 +183,26 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
         return json({ error: '생체인증 등록을 확인하지 못했습니다.' }, 400);
       }
 
+      stage = '등록 정보 저장';
       const credential = verification.registrationInfo.credential;
       const transports = Array.isArray(credential.transports) ? credential.transports : [];
       const friendlyName = typeof body.friendlyName === 'string' && body.friendlyName.trim()
         ? body.friendlyName.trim().slice(0, 100)
         : null;
 
+      // @neondatabase/serverless의 배열 파라미터 직렬화에 의존하지 않고
+      // PostgreSQL text[] 리터럴로 명시적으로 전달합니다. Android/WebAuthn 응답에서
+      // transports가 []인 경우에도 등록 저장이 실패하지 않도록 하기 위한 처리입니다.
+      const transportsLiteral = toPostgresTextArrayLiteral(transports);
       await sql.query(
-        'INSERT INTO public.passkey_credentials (user_id, credential_id, public_key, counter, transports, friendly_name) VALUES ($1, $2, $3, $4, $5, $6)',
-        [userId, credential.id, bytesToBase64Url(credential.publicKey), credential.counter, transports, friendlyName],
+        'INSERT INTO public.passkey_credentials (user_id, credential_id, public_key, counter, transports, friendly_name) VALUES ($1, $2, $3, $4, $5::text[], $6)',
+        [userId, credential.id, bytesToBase64Url(credential.publicKey), credential.counter, transportsLiteral, friendlyName],
       );
       return json({ passkey: { id: credential.id, friendly_name: friendlyName || undefined, created_at: new Date().toISOString() } });
     }
 
     if (request.method === 'POST' && action === 'auth-options') {
+      stage = '생체인증 옵션 생성';
       const credentials = await getCredentials(sql, userId);
       if (!credentials.length) return json({ error: '등록된 생체인식이 없습니다.' }, 404);
       const options = await generateAuthenticationOptions({
@@ -204,6 +218,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
     }
 
     if (request.method === 'POST' && action === 'auth-verify') {
+      stage = '생체인증 응답 검증';
       const body = await request.json() as { credential?: { id?: unknown } };
       const credentialId = typeof body.credential?.id === 'string' ? body.credential.id : '';
       if (!credentialId) return json({ error: '생체인증 응답이 올바르지 않습니다.' }, 400);
@@ -241,6 +256,7 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
     }
 
     if (request.method === 'DELETE' && action === 'delete') {
+      stage = '생체인증 삭제';
       const body = await request.json() as { id?: unknown };
       const id = typeof body.id === 'string' ? body.id : '';
       if (!id) return json({ error: '생체인증 정보를 지정해주세요.' }, 400);
@@ -257,6 +273,6 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
     console.error('[passkey] error:', error);
     const message = error instanceof Error ? error.message : '서버 오류';
     const status = message === 'Unauthorized' || message.includes('token') || message.includes('signature') ? 401 : 500;
-    return json({ error: message }, status);
+    return json({ error: `[${stage}] ${message}` }, status);
   }
 }
