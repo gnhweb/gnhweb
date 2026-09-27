@@ -137,7 +137,9 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
         rpID: webAuthnConfig.rpID,
         userID: new TextEncoder().encode(userId),
         userName: user.email,
-        userDisplayName: user.name || user.email,
+        // 일부 Android/Samsung WebAuthn 구현은 name과 displayName이 다를 때
+        // 등록 옵션을 비정상적으로 처리할 수 있어 안정적으로 동일한 값을 사용합니다.
+        userDisplayName: user.email,
         attestationType: 'none',
         supportedAlgorithmIDs: [-7, -257],
         excludeCredentials: credentials.map((credential) => ({
@@ -146,8 +148,9 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
         })),
         authenticatorSelection: {
           authenticatorAttachment: 'platform',
-          residentKey: 'required',
-          requireResidentKey: true,
+          // Android 플랫폼 인증기 호환성을 위해 discoverable credential은
+          // required가 아닌 preferred로 요청합니다. userVerification은 반드시 요구합니다.
+          residentKey: 'preferred',
           userVerification: 'required',
         },
       });
