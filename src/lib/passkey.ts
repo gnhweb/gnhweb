@@ -4,7 +4,9 @@ import {
   startAuthentication,
   startRegistration,
 } from '@simplewebauthn/browser';
-import { supabase } from '@/lib/supabase';
+import { getNeonJwtToken } from '@/lib/supabase';
+
+const CLOUDFLARE_API = import.meta.env.VITE_CLOUDFLARE_API_URL || 'https://gnhweb-api.gemini19840314.workers.dev';
 
 const PASSKEY_ENABLED_STORAGE_KEY = 'gnhweb.passkey.enabled';
 
@@ -36,11 +38,48 @@ type PasskeyMeta = {
 type PasskeyResult<T> = { data: T | null; error: Error | null };
 
 async function invoke(action: string, method: 'GET' | 'POST' | 'DELETE', body?: unknown) {
-  const result = await supabase.functions.invoke(`passkey?action=${action}`, {
-    method,
-    body,
-  });
-  return result as { data: unknown; error: Error | null };
+  try {
+    const jwt = await getNeonJwtToken();
+    if (!jwt) return { data: null, error: new Error('로그인 세션이 없습니다. 다시 로그인해주세요.') };
+
+    const url = new URL('/passkey', CLOUDFLARE_API);
+    url.searchParams.set('action', action);
+
+    const response = await fetch(url.toString(), {
+      method,
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        'Content-Type': 'application/json',
+      },
+      body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
+    });
+
+    const text = await response.text();
+    let data: unknown = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error: new Error(
+          typeof (data as { error?: unknown })?.error === 'string'
+            ? (data as { error: string }).error
+            : `생체인증 서버 요청에 실패했습니다. (${response.status})`,
+        ),
+      };
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('생체인증 서버 연결에 실패했습니다.'),
+    };
+  }
 }
 
 export async function registerPasskey(friendlyName?: string): Promise<PasskeyResult<PasskeyMeta>> {
