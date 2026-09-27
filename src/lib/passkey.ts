@@ -1,6 +1,5 @@
 import {
   browserSupportsWebAuthn,
-  getBrowserCapabilities,
   WebAuthnError,
   startAuthentication,
   startRegistration,
@@ -27,12 +26,6 @@ export function isPasskeySupported(): boolean {
     && browserSupportsWebAuthn();
 }
 
-export async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
-  if (!isPasskeySupported()) return false;
-  const capabilities = await getBrowserCapabilities();
-  return capabilities.passkeyPlatformAuthenticator === 'supported';
-}
-
 type PasskeyMeta = {
   id: string;
   friendly_name?: string;
@@ -52,10 +45,6 @@ async function invoke(action: string, method: 'GET' | 'POST' | 'DELETE', body?: 
 
 export async function registerPasskey(friendlyName?: string): Promise<PasskeyResult<PasskeyMeta>> {
   if (!isPasskeyEnabled()) return { data: null, error: unavailableError() };
-  if (!(await isPlatformAuthenticatorAvailable())) {
-    return { data: null, error: new Error('이 기기에서 지문, Face ID 또는 Windows Hello를 사용할 수 없습니다.') };
-  }
-
   try {
     const optionsResponse = await invoke('register-options', 'POST');
     if (optionsResponse.error || !optionsResponse.data) {
