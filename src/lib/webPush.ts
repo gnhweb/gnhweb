@@ -68,7 +68,7 @@ function hasCurrentVapidKey(subscription: PushSubscription, publicKey: string): 
   const subscriptionKey = subscription.options?.applicationServerKey;
   if (!subscriptionKey) return false;
   const currentKey = bytesToBase64Url(subscriptionKey);
-  const configured = bytesToBase64Url(configuredKey.buffer);
+  const configured = bytesToBase64Url(configuredKey);
   return currentKey === configured;
 }
 
