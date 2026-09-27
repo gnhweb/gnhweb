@@ -16,6 +16,14 @@ const configuredNeonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAU
 const neonDataApiUrl = configuredNeonDataApiUrl.replace(/\/rest\/v1\/?$/, '');
 export const neonEnabled = Boolean(neonAuthUrl && neonDataApiUrl);
 
+export async function getNeonJwtToken(): Promise<string | null> {
+  try {
+    return (await neonAuth.getJWTToken?.()) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event?.reason;
