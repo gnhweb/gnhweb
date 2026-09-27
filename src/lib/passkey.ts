@@ -1,6 +1,6 @@
 import {
   browserSupportsWebAuthn,
-  platformAuthenticatorIsAvailable,
+  getBrowserCapabilities,
   startAuthentication,
   startRegistration,
 } from '@simplewebauthn/browser';
@@ -28,7 +28,8 @@ export function isPasskeySupported(): boolean {
 
 export async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
   if (!isPasskeySupported()) return false;
-  return platformAuthenticatorIsAvailable();
+  const capabilities = await getBrowserCapabilities();
+  return capabilities.passkeyPlatformAuthenticator === 'supported';
 }
 
 type PasskeyMeta = {
