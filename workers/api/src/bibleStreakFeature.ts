@@ -48,12 +48,13 @@ function decodeJsonPart(value: string): Record<string, unknown> {
 async function verifyJwt(token: string, env: Env): Promise<Record<string, unknown>> {
   const parts = token.split('.');
   if (parts.length !== 3) throw new Error('Invalid token');
+
   const header = decodeJsonPart(parts[0]);
   const payload = decodeJsonPart(parts[1]);
-  const algorithm = header.alg;
-  if ((algorithm !== 'RS256' && algorithm !== 'ES256') || typeof header.kid !== 'string') {
-    throw new Error('Unsupported token');
-  }
+  const algorithm = typeof header.alg === 'string' ? header.alg : '';
+  const kid = typeof header.kid === 'string' ? header.kid : '';
+  if (!algorithm || !kid) throw new Error('Unsupported token');
+
   const exp = typeof payload.exp === 'number' ? payload.exp : 0;
   if (!exp || exp <= Math.floor(Date.now() / 1000)) throw new Error('Expired token');
   if (env.NEON_AUTH_ISSUER && payload.iss !== env.NEON_AUTH_ISSUER) throw new Error('Invalid issuer');
@@ -63,16 +64,46 @@ async function verifyJwt(token: string, env: Env): Promise<Record<string, unknow
     cf: { cacheTtl: 300, cacheEverything: true },
   });
   if (!jwksResponse.ok) throw new Error('JWKS unavailable');
+
   const jwks = await jwksResponse.json() as { keys?: Array<Record<string, unknown>> };
-  const jwk = jwks.keys?.find((key) => key.kid === header.kid && key.alg === algorithm);
+  const candidates = (jwks.keys ?? []).filter((key) => {
+    if (typeof key.kid === 'string' && kid && key.kid !== kid) return false;
+    return typeof key.alg !== 'string' || key.alg === algorithm;
+  });
+  const jwk = candidates.length === 1 ? candidates[0] : candidates.find((key) => key.kid === kid);
   if (!jwk) throw new Error('Signing key not found');
 
-  const importAlgorithm: RsaHashedImportParams | EcKeyImportParams = algorithm === 'RS256'
-    ? { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }
-    : { name: 'ECDSA', namedCurve: 'P-256' };
-  const verifyAlgorithm: RsaPssParams | EcdsaParams = algorithm === 'RS256'
-    ? { name: 'RSASSA-PKCS1-v1_5' }
-    : { name: 'ECDSA', hash: 'SHA-256' };
+  let importAlgorithm: AlgorithmIdentifier;
+  let verifyAlgorithm: AlgorithmIdentifier;
+  if (algorithm === 'RS256') {
+    importAlgorithm = { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' };
+    verifyAlgorithm = importAlgorithm;
+  } else if (algorithm === 'RS384') {
+    importAlgorithm = { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-384' };
+    verifyAlgorithm = importAlgorithm;
+  } else if (algorithm === 'RS512') {
+    importAlgorithm = { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-512' };
+    verifyAlgorithm = importAlgorithm;
+  } else if (algorithm === 'PS256') {
+    importAlgorithm = { name: 'RSA-PSS', hash: 'SHA-256' };
+    verifyAlgorithm = { name: 'RSA-PSS', saltLength: 32 };
+  } else if (algorithm === 'PS384') {
+    importAlgorithm = { name: 'RSA-PSS', hash: 'SHA-384' };
+    verifyAlgorithm = { name: 'RSA-PSS', saltLength: 48 };
+  } else if (algorithm === 'PS512') {
+    importAlgorithm = { name: 'RSA-PSS', hash: 'SHA-512' };
+    verifyAlgorithm = { name: 'RSA-PSS', saltLength: 64 };
+  } else if (algorithm === 'ES256' || algorithm === 'ES384' || algorithm === 'ES512') {
+    const hash = algorithm === 'ES256' ? 'SHA-256' : algorithm === 'ES384' ? 'SHA-384' : 'SHA-512';
+    const namedCurve = algorithm === 'ES256' ? 'P-256' : algorithm === 'ES384' ? 'P-384' : 'P-521';
+    importAlgorithm = { name: 'ECDSA', namedCurve };
+    verifyAlgorithm = { name: 'ECDSA', hash };
+  } else if (algorithm === 'EdDSA') {
+    importAlgorithm = { name: 'Ed25519' };
+    verifyAlgorithm = { name: 'Ed25519' };
+  } else {
+    throw new Error('Unsupported token');
+  }
 
   const cryptoKey = await crypto.subtle.importKey(
     'jwk',
@@ -81,7 +112,7 @@ async function verifyJwt(token: string, env: Env): Promise<Record<string, unknow
     false,
     ['verify'],
   );
-  const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+  const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
   const valid = await crypto.subtle.verify(
     verifyAlgorithm,
     cryptoKey,
