@@ -1,15 +1,14 @@
-/**
- * Device biometric authentication through WebAuthn passkeys.
- *
- * The site never receives or stores fingerprint/Face ID data. The browser/device
- * platform authenticator performs biometric verification and only returns a
- * signed WebAuthn credential to Supabase Auth.
- */
-import { neonEnabled, supabase } from '@/lib/supabase';
+import {
+  browserSupportsWebAuthn,
+  platformAuthenticatorIsAvailable,
+  startAuthentication,
+  startRegistration,
+} from '@simplewebauthn/browser';
+import { supabase } from '@/lib/supabase';
 
 const PASSKEY_ENABLED_STORAGE_KEY = 'gnhweb.passkey.enabled';
 
-const neonPasskeyUnavailableError = () => new Error('현재 로그인 방식에서는 패스키를 사용할 수 없습니다. 이메일과 비밀번호로 로그인해주세요.');
+const unavailableError = () => new Error('현재 생체인식 기능을 사용할 수 없습니다. 이메일과 비밀번호로 로그인한 뒤 프로필에서 생체인식을 등록해주세요.');
 
 export function isPasskeyEnabled(): boolean {
   if (typeof window === 'undefined') return true;
@@ -21,6 +20,17 @@ export function setPasskeyEnabled(enabled: boolean): void {
   window.localStorage.setItem(PASSKEY_ENABLED_STORAGE_KEY, String(enabled));
 }
 
+export function isPasskeySupported(): boolean {
+  return typeof window !== 'undefined'
+    && window.isSecureContext
+    && browserSupportsWebAuthn();
+}
+
+export async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
+  if (!isPasskeySupported()) return false;
+  return platformAuthenticatorIsAvailable();
+}
+
 type PasskeyMeta = {
   id: string;
   friendly_name?: string;
@@ -30,236 +40,96 @@ type PasskeyMeta = {
 
 type PasskeyResult<T> = { data: T | null; error: Error | null };
 
-export function isPasskeySupported(): boolean {
-  return typeof window !== 'undefined'
-    && window.isSecureContext
-    && typeof window.PublicKeyCredential !== 'undefined'
-    && typeof navigator.credentials !== 'undefined'
-    && typeof navigator.credentials.create === 'function'
-    && typeof navigator.credentials.get === 'function';
-}
-
-function base64UrlToBytes(value: string): Uint8Array {
-  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
-  const binary = atob(padded);
-  return Uint8Array.from(binary, char => char.charCodeAt(0));
-}
-
-function toArrayBuffer(value: string | ArrayBuffer | Uint8Array): ArrayBuffer {
-  if (typeof value === 'string') return base64UrlToBytes(value).buffer.slice(0);
-  if (value instanceof ArrayBuffer) return value.slice(0);
-  return value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer;
-}
-
-function deserializeCreationOptions(raw: any): PublicKeyCredentialCreationOptions {
-  const publicKey = raw?.publicKey ?? raw;
-  return {
-    ...publicKey,
-    challenge: toArrayBuffer(publicKey.challenge),
-    user: {
-      ...publicKey.user,
-      id: toArrayBuffer(publicKey.user.id),
-    },
-    excludeCredentials: Array.isArray(publicKey.excludeCredentials)
-      ? publicKey.excludeCredentials.map((item: any) => ({
-          ...item,
-          id: toArrayBuffer(item.id),
-        }))
-      : undefined,
-  };
-}
-
-function deserializeRequestOptions(raw: any): PublicKeyCredentialRequestOptions {
-  const publicKey = raw?.publicKey ?? raw;
-  return {
-    ...publicKey,
-    challenge: toArrayBuffer(publicKey.challenge),
-    allowCredentials: Array.isArray(publicKey.allowCredentials)
-      ? publicKey.allowCredentials.map((item: any) => ({
-          ...item,
-          id: toArrayBuffer(item.id),
-        }))
-      : undefined,
-  };
-}
-
-function arrayBufferToBase64Url(buffer: ArrayBuffer | ArrayBufferView | null | undefined): string | null {
-  if (buffer == null) return null;
-  const bytes = buffer instanceof ArrayBuffer
-    ? new Uint8Array(buffer)
-    : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-function serializeRegistrationCredential(credential: PublicKeyCredential): Record<string, unknown> {
-  const withJson = credential as PublicKeyCredential & { toJSON?: () => unknown };
-  if (typeof withJson.toJSON === 'function') return withJson.toJSON() as Record<string, unknown>;
-  const response = credential.response as AuthenticatorAttestationResponse;
-  return {
-    id: credential.id,
-    rawId: arrayBufferToBase64Url(credential.rawId),
-    response: {
-      attestationObject: arrayBufferToBase64Url(response.attestationObject),
-      clientDataJSON: arrayBufferToBase64Url(response.clientDataJSON),
-    },
-    type: credential.type,
-    clientExtensionResults: credential.getClientExtensionResults(),
-    authenticatorAttachment: credential.authenticatorAttachment ?? undefined,
-  };
-}
-
-function serializeAuthenticationCredential(credential: PublicKeyCredential): Record<string, unknown> {
-  const withJson = credential as PublicKeyCredential & { toJSON?: () => unknown };
-  if (typeof withJson.toJSON === 'function') return withJson.toJSON() as Record<string, unknown>;
-  const response = credential.response as AuthenticatorAssertionResponse;
-  return {
-    id: credential.id,
-    rawId: arrayBufferToBase64Url(credential.rawId),
-    response: {
-      authenticatorData: arrayBufferToBase64Url(response.authenticatorData),
-      clientDataJSON: arrayBufferToBase64Url(response.clientDataJSON),
-      signature: arrayBufferToBase64Url(response.signature),
-      userHandle: arrayBufferToBase64Url(response.userHandle),
-    },
-    type: credential.type,
-    clientExtensionResults: credential.getClientExtensionResults(),
-    authenticatorAttachment: credential.authenticatorAttachment ?? undefined,
-  };
-}
-
-function biometricUnavailableError(): Error {
-  return new Error('이 기기에서 지문/Face ID를 사용할 수 없습니다. 기기 생체인증과 HTTPS를 확인해주세요.');
+async function invoke(action: string, method: 'GET' | 'POST' | 'DELETE', body?: unknown) {
+  const result = await supabase.functions.invoke(`passkey?action=${action}`, {
+    method,
+    body,
+  });
+  return result as { data: unknown; error: Error | null };
 }
 
 export async function registerPasskey(friendlyName?: string): Promise<PasskeyResult<PasskeyMeta>> {
-  if (neonEnabled) return { data: null, error: neonPasskeyUnavailableError() };
-  if (!isPasskeySupported()) return { data: null, error: biometricUnavailableError() };
-
-  const auth = supabase.auth as typeof supabase.auth & {
-    passkey: {
-      startRegistration: () => Promise<{ data: { challenge_id: string; options: any } | null; error: Error | null }>;
-      verifyRegistration: (params: { challengeId: string; credential: Record<string, unknown> }) => Promise<{ data: PasskeyMeta | null; error: Error | null }>;
-    };
-  };
-
-  const { data: registration, error: startError } = await auth.passkey.startRegistration();
-  if (startError || !registration) return { data: null, error: startError ?? new Error('생체인증 등록 준비에 실패했습니다.') };
+  if (!isPasskeyEnabled()) return { data: null, error: unavailableError() };
+  if (!(await isPlatformAuthenticatorAvailable())) {
+    return { data: null, error: new Error('이 기기에서 지문, Face ID 또는 Windows Hello를 사용할 수 없습니다.') };
+  }
 
   try {
-    const publicKey = deserializeCreationOptions(registration.options);
-    (publicKey as PublicKeyCredentialCreationOptions & { hints?: string[] }).hints = ['client-device'];
-    publicKey.authenticatorSelection = {
-      ...(publicKey.authenticatorSelection ?? {}),
-      authenticatorAttachment: 'platform',
-      residentKey: 'required',
-      requireResidentKey: true,
-      userVerification: 'required',
-    };
-
-    const credential = await navigator.credentials.create({ publicKey });
-    if (!(credential instanceof PublicKeyCredential)) {
-      return { data: null, error: new Error('기기 생체인증 등록이 취소되었거나 지원되지 않습니다.') };
+    const optionsResponse = await invoke('register-options', 'POST');
+    if (optionsResponse.error || !optionsResponse.data) {
+      return { data: null, error: optionsResponse.error ?? new Error('생체인증 등록 준비에 실패했습니다.') };
     }
 
-    return await auth.passkey.verifyRegistration({
-      challengeId: registration.challenge_id,
-      credential: serializeRegistrationCredential(credential),
+    const credential = await startRegistration({
+      optionsJSON: optionsResponse.data as Parameters<typeof startRegistration>[0]['optionsJSON'],
     });
+
+    const verificationResponse = await invoke('register-verify', 'POST', {
+      credential,
+      friendlyName,
+    });
+    if (verificationResponse.error || !verificationResponse.data) {
+      return { data: null, error: verificationResponse.error ?? new Error('생체인증 등록 확인에 실패했습니다.') };
+    }
+
+    const data = verificationResponse.data as { passkey?: PasskeyMeta };
+    return { data: data.passkey ?? null, error: data.passkey ? null : new Error('생체인증 등록 결과가 올바르지 않습니다.') };
   } catch (error) {
-    return { data: null, error: error instanceof Error ? error : new Error('지문/Face ID 등록 중 오류가 발생했습니다.') };
+    return { data: null, error: error instanceof Error ? error : new Error('생체인증 등록 중 오류가 발생했습니다.') };
   }
 }
 
-export async function signInWithPasskey(): Promise<PasskeyResult<{ session: unknown; user: unknown }>> {
-  if (neonEnabled) return { data: null, error: neonPasskeyUnavailableError() };
-  if (!isPasskeySupported()) return { data: null, error: biometricUnavailableError() };
-
-  const auth = supabase.auth as typeof supabase.auth & {
-    passkey: {
-      startAuthentication: () => Promise<{ data: { challenge_id: string; options: any } | null; error: Error | null }>;
-      verifyAuthentication: (params: { challengeId: string; credential: Record<string, unknown> }) => Promise<{ data: { session: unknown; user: unknown } | null; error: Error | null }>;
-    };
-  };
-
-  const { data: authentication, error: startError } = await auth.passkey.startAuthentication();
-  if (startError || !authentication) return { data: null, error: startError ?? new Error('생체인증 준비에 실패했습니다.') };
+export async function authenticateRegisteredPasskey(): Promise<PasskeyResult<{ verified: boolean }>> {
+  if (!isPasskeyEnabled()) return { data: null, error: unavailableError() };
+  if (!isPasskeySupported()) return { data: null, error: new Error('이 기기에서 생체인증을 사용할 수 없습니다.') };
 
   try {
-    const publicKey = deserializeRequestOptions(authentication.options) as PublicKeyCredentialRequestOptions & { hints?: string[] };
-    publicKey.hints = ['client-device'];
-    publicKey.userVerification = 'required';
-    const credential = await navigator.credentials.get({ publicKey });
-    if (!(credential instanceof PublicKeyCredential)) {
-      return { data: null, error: new Error('지문/Face ID 인증이 취소되었거나 지원되지 않습니다.') };
+    const optionsResponse = await invoke('auth-options', 'POST');
+    if (optionsResponse.error || !optionsResponse.data) {
+      return { data: null, error: optionsResponse.error ?? new Error('생체인증 준비에 실패했습니다.') };
     }
-    return await auth.passkey.verifyAuthentication({
-      challengeId: authentication.challenge_id,
-      credential: serializeAuthenticationCredential(credential),
+
+    const credential = await startAuthentication({
+      optionsJSON: optionsResponse.data as Parameters<typeof startAuthentication>[0]['optionsJSON'],
     });
+
+    const verificationResponse = await invoke('auth-verify', 'POST', { credential });
+    if (verificationResponse.error || !verificationResponse.data) {
+      return { data: null, error: verificationResponse.error ?? new Error('생체인증 확인에 실패했습니다.') };
+    }
+
+    const data = verificationResponse.data as { verified?: boolean };
+    return { data: { verified: data.verified === true }, error: data.verified === true ? null : new Error('생체인증에 실패했습니다.') };
   } catch (error) {
-    return { data: null, error: error instanceof Error ? error : new Error('지문/Face ID 인증 중 오류가 발생했습니다.') };
+    return { data: null, error: error instanceof Error ? error : new Error('생체인증 중 오류가 발생했습니다.') };
   }
 }
 
-/**
- * Authenticate a signed-in user with the passkey already registered to the
- * current account. Supabase's `passkey.list()` returns a management UUID,
- * not the WebAuthn credential ID, so it must NOT be copied into
- * PublicKeyCredentialRequestOptions.allowCredentials. Doing that causes
- * Android to show "사용 가능한 패스키 없음" even when a passkey is registered.
- * We therefore use the server-issued discoverable-credential options and ask
- * for a platform/device authenticator with required user verification.
- */
-export async function authenticateRegisteredPasskey(): Promise<PasskeyResult<unknown>> {
-  if (neonEnabled) return { data: null, error: neonPasskeyUnavailableError() };
-  if (!isPasskeySupported()) return { data: null, error: biometricUnavailableError() };
-
-  const auth = supabase.auth as typeof supabase.auth & {
-    passkey: {
-      startAuthentication: () => Promise<{ data: { challenge_id: string; options: any } | null; error: Error | null }>;
-      verifyAuthentication: (params: { challengeId: string; credential: Record<string, unknown> }) => Promise<{ data: unknown | null; error: Error | null }>;
-    };
+export async function signInWithPasskey(): Promise<PasskeyResult<null>> {
+  return {
+    data: null,
+    error: new Error('생체인식 로그인은 현재 지원하지 않습니다. 로그인 후 앱 잠금 해제에 생체인식을 사용할 수 있습니다.'),
   };
-
-  const { data: authentication, error: startError } = await auth.passkey.startAuthentication();
-  if (startError || !authentication) {
-    return { data: null, error: startError ?? new Error('생체인증 준비에 실패했습니다.') };
-  }
-
-  try {
-    const publicKey = deserializeRequestOptions(authentication.options) as PublicKeyCredentialRequestOptions & { hints?: string[] };
-    publicKey.hints = ['client-device'];
-    publicKey.userVerification = 'required';
-
-    const credential = await navigator.credentials.get({ publicKey });
-    if (!(credential instanceof PublicKeyCredential)) {
-      return { data: null, error: new Error('지문/Face ID 인증이 취소되었습니다.') };
-    }
-
-    return await auth.passkey.verifyAuthentication({
-      challengeId: authentication.challenge_id,
-      credential: serializeAuthenticationCredential(credential),
-    });
-  } catch (error) {
-    return { data: null, error: error instanceof Error ? error : new Error('지문/Face ID 인증 중 오류가 발생했습니다.') };
-  }
 }
 
 export async function listPasskeys(): Promise<PasskeyResult<PasskeyMeta[]>> {
-  if (neonEnabled) return { data: null, error: neonPasskeyUnavailableError() };
-  const auth = supabase.auth as typeof supabase.auth & {
-    passkey: { list: () => Promise<{ data: PasskeyMeta[] | null; error: Error | null }> };
-  };
-  return auth.passkey.list();
+  try {
+    const response = await invoke('list', 'GET');
+    if (response.error || !response.data) {
+      return { data: null, error: response.error ?? new Error('등록된 생체인식을 불러오지 못했습니다.') };
+    }
+    const data = response.data as { passkeys?: PasskeyMeta[] };
+    return { data: data.passkeys ?? [], error: null };
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error : new Error('등록된 생체인식을 불러오지 못했습니다.') };
+  }
 }
 
-export async function deletePasskey(passkeyId: string) {
-  if (neonEnabled) return { error: neonPasskeyUnavailableError() };
-  const auth = supabase.auth as typeof supabase.auth & {
-    passkey: { delete: (options: { passkeyId: string }) => Promise<{ error: Error | null }> };
-  };
-  return auth.passkey.delete({ passkeyId });
+export async function deletePasskey(passkeyId: string): Promise<{ error: Error | null }> {
+  try {
+    const response = await invoke('delete', 'DELETE', { id: passkeyId });
+    return { error: response.error };
+  } catch (error) {
+    return { error: error instanceof Error ? error : new Error('생체인식 삭제 중 오류가 발생했습니다.') };
+  }
 }
