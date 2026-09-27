@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { clubs } from '@/mocks/clubs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { useIsMobile } from '@/hooks/useIsMobile';
 import LeaderboardModal from '@/pages/bibleQuiz/components/LeaderboardModal';
 import { getCachedQuoteOfTheDay, fetchAndCacheQuoteOfTheDay } from '@/lib/dailyQuote';
 import { todayKey, formatKoreanDate } from '@/lib/date';
@@ -313,12 +312,11 @@ export default function Home() {
   const [confirmedQuiz, setConfirmedQuiz] = useState<ConfirmedChampion | null>(null);
   const [confirmedMarathon, setConfirmedMarathon] = useState<ConfirmedChampion | null>(null);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-  const [memoryPhoto, setMemoryPhoto] = useState<MemoryPhoto | null>(null);
+  const [memoryPhotos, setMemoryPhotos] = useState<MemoryPhoto[]>([]);
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [noticesError, setNoticesError] = useState(false);
   const [schedulesLoading, setSchedulesLoading] = useState(true);
   const [schedulesError, setSchedulesError] = useState(false);
-  const isMobile = useIsMobile();
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [attendanceError, setAttendanceError] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -354,8 +352,7 @@ export default function Home() {
   const touchStartY = useRef(0);
   const touchEndY = useRef(0);
 
-  // 추억창 사진은 메인 히어로 캐러셀의 한 슬라이드로 사용한다.
-  // 홈에 들어올 때마다 최근 사진 중 하나를 무작위로 선택한다.
+  // 추억창 사진을 메인 히어로 캐러셀의 슬라이드로 사용한다.
   useEffect(() => {
     let cancelled = false;
 
@@ -367,10 +364,7 @@ export default function Home() {
         .limit(30);
 
       if (cancelled || error || !data?.length) return;
-
-      const photos = data as MemoryPhoto[];
-      const randomPhoto = photos[Math.floor(Math.random() * photos.length)];
-      setMemoryPhoto(randomPhoto);
+      setMemoryPhotos(data as MemoryPhoto[]);
     })();
 
     return () => { cancelled = true; };
@@ -620,99 +614,17 @@ export default function Home() {
   }, []);
 
   // ── 히어로 슬라이드 구성 ──
-  // 산만하지 않도록 핵심 슬라이드만 남김: 인트로, 이달의 챔피언(있을 때), 말씀뽑기, 성경퀴즈, 동아리 소개.
-  // 공지·일정·게시판·신앙일지·출결 등은 바로 아래 섹션과 하단 메뉴에서 이미 확인할 수 있어 배너에서는 제외.
-  const heroSlides: HeroSlide[] = [
-    ...(memoryPhoto
-      ? [{
-          id: 'memory', type: 'feature' as const,
-          image: memoryPhoto.thumb_url || memoryPhoto.photo_url,
-          badge: '추억창', badgeColor: 'bg-primary-500',
-          title: '우리의 추억을\n다시 만나보세요',
-          subtitle: memoryPhoto.title || '강릉 학생회의 소중한 순간을 만나보세요',
-          cta: { label: '추억창 보러가기', path: '/memory-board' },
-        }]
-      : []),
-    {
-      id: 'main', type: 'main',
-      image: '/hero/main.svg',
-      badge: '강릉 학생회', badgeColor: 'bg-primary-500',
-      title: '스스로 신앙하는\n거침없는 강릉 학생회',
-      subtitle: '말씀과 찬양, 동아리 활동을 통해\n전국 1등 학생회로 함께 성장합니다',
-      cta: { label: '동아리 둘러보기', path: '/clubs' },
-    },
-    ...(monthlyChampion
-      ? [{
-          id: 'champion-quiz', type: 'champion' as const,
-          image: '/hero/champion.svg',
-          badge: `${new Date().getMonth() + 1}월 성경퀴즈 1위`, badgeColor: 'bg-amber-500',
-          title: `이달의 성경퀴즈 1위 동아리\n${monthlyChampion.topClub.club_name}`,
-          subtitle: monthlyChampion.topPlayer ? `개인 MVP: ${monthlyChampion.topPlayer.nickname} (${monthlyChampion.topPlayer.club_name}) · ${monthlyChampion.topClub.total_score.toLocaleString()}점` : `누적 ${monthlyChampion.topClub.total_score.toLocaleString()}점 · 실시간 랭킹 진행 중`,
-          cta: { label: '성경퀴즈 도전하기', path: '/bible-quiz' },
-        }]
-      : []),
-    ...(marathonChampion
-      ? [{
-          id: 'champion-marathon', type: 'champion' as const,
-          image: '/hero/champion.svg',
-          badge: `${new Date().getMonth() + 1}월 성경완독 1위`, badgeColor: 'bg-emerald-500',
-          title: `이달의 성경완독 1위 동아리\n${marathonChampion.label}`,
-          subtitle: `${marathonChampion.chapters.toLocaleString()}장 완독 · 실시간 랭킹 진행 중`,
-          cta: { label: '성경완독 도전하기', path: '/bible-marathon' },
-        }]
-      : []),
-    {
-      id: 'bible-pick', type: 'quiz',
-      image: '/hero/bible-pick.svg',
-      badge: '오늘의 말씀', badgeColor: 'bg-amber-500',
-      title: '말씀뽑기로\n오늘의 말씀을 받으세요',
-      subtitle: 'AI가 감정과 상황에 맞는\n성경 구절을 선물해드립니다',
-      cta: { label: '말씀 받기', path: '/bible-pick' },
-    },
-    {
-      id: 'quiz', type: 'quiz',
-      image: '/hero/quiz.svg',
-      badge: '성경 퀴즈', badgeColor: 'bg-rose-500',
-      title: '성경 퀴즈에 도전해서\n믿음을 더 깊게!',
-      subtitle: '600개 문제 데이터베이스에서\n동아리별 랭킹을 겨뤄보세요',
-      cta: { label: '퀴즈 시작하기', path: '/bible-quiz' },
-    },
-    {
-      id: 'clubs', type: 'feature',
-      image: '/hero/clubs.svg',
-      badge: '동아리', badgeColor: 'bg-emerald-500',
-      title: '다섯 동아리,\n각자의 사명으로 함께 성장해요',
-      subtitle: '동아리 소개와 명단, 활동 사진까지\n우리 동아리의 이야기를 만나보세요',
-      cta: { label: '동아리 둘러보기', path: '/clubs' },
-    },
-  ];
-
-  const heroImages: Record<string, string> = {
-    notice: '/hero/notice.svg',
-    schedule: '/hero/schedule.svg',
-    clubs: '/hero/clubs.svg',
-    qna: '/hero/qna.svg',
-    'faith-journal': '/hero/faith-journal.svg',
-    attendance: '/hero/attendance.svg',
-    'bible-pick': '/hero/bible-pick.svg',
-    champion: '/hero/champion.svg',
-    quiz: '/hero/quiz.svg',
-  };
-
-  const heroGradients: Record<string, string> = {
-    main: 'from-amber-700 via-amber-600 to-orange-800',
-    'bible-pick': 'from-emerald-700 via-teal-600 to-emerald-900',
-    champion: 'from-amber-600 via-yellow-500 to-amber-800',
-    'champion-quiz': 'from-amber-600 via-yellow-500 to-amber-800',
-    'champion-marathon': 'from-emerald-600 via-teal-500 to-emerald-800',
-    quiz: 'from-rose-600 via-pink-500 to-rose-800',
-    notice: 'from-rose-700 via-fuchsia-600 to-violet-800',
-    schedule: 'from-sky-700 via-indigo-600 to-violet-800',
-    clubs: 'from-emerald-700 via-teal-600 to-cyan-800',
-    qna: 'from-sky-700 via-blue-600 to-indigo-800',
-    'faith-journal': 'from-violet-700 via-fuchsia-600 to-pink-800',
-    attendance: 'from-pink-700 via-rose-600 to-orange-700',
-  };
+  // 홈페이지 캐러셀은 추억창 사진만 사용한다.
+  const heroSlides: HeroSlide[] = memoryPhotos.map((photo) => ({
+    id: `memory-${photo.id}`,
+    type: 'feature' as const,
+    image: photo.thumb_url || photo.photo_url,
+    badge: '추억창',
+    badgeColor: 'bg-primary-500',
+    title: '우리의 추억을\\n다시 만나보세요',
+    subtitle: photo.title || '강릉 학생회의 소중한 순간을 만나보세요',
+    cta: { label: '추억창 보러가기', path: '/memory-board' },
+  }));
 
   // ── 캐러셀 ──
   const startAuto = useCallback(() => {
@@ -819,33 +731,17 @@ export default function Home() {
             transition={{ type: 'tween', duration: 0.45, ease: 'easeInOut' }}
             className={`absolute inset-0 ${(heroSlides[slideIndex].image || heroImages[heroSlides[slideIndex].id]) ? '' : 'bg-gradient-to-br ' + (heroGradients[heroSlides[slideIndex].id] || heroGradients.main)}`}
           >
-            {(heroSlides[slideIndex].image || heroImages[heroSlides[slideIndex].id]) && (
-              <img
-                src={heroSlides[slideIndex].image || heroImages[heroSlides[slideIndex].id]}
-                alt={heroSlides[slideIndex].title}
-                className="absolute inset-0 w-full h-full object-cover object-center bg-foreground-950"
-              />
-            )}
+            <img
+              src={heroSlides[slideIndex].image}
+              alt={heroSlides[slideIndex].title}
+              className="absolute inset-0 w-full h-full object-cover object-center bg-foreground-950"
+            />
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/60"></div>
             <div className="absolute inset-0 flex items-end justify-center px-3 pb-14 sm:px-4 sm:pb-16 md:pb-16">
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="text-center max-w-xl w-full">
                 {heroSlides[slideIndex].badge && (
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold text-white mb-2 sm:mb-3 ${heroSlides[slideIndex].badgeColor}`}>
-                    <i className={{
-                      main: 'ri-map-pin-line',
-                      notice: 'ri-megaphone-line',
-                      schedule: 'ri-calendar-event-line',
-                      clubs: 'ri-group-line',
-                      'bible-pick': 'ri-book-open-line',
-                      champion: 'ri-trophy-line',
-                      'champion-quiz': 'ri-trophy-line',
-                      'champion-marathon': 'ri-book-open-line',
-                      memory: 'ri-image-line',
-                      quiz: 'ri-question-answer-line',
-                      qna: 'ri-question-answer-line',
-                      'faith-journal': 'ri-edit-line',
-                      attendance: 'ri-checkbox-circle-line',
-                    }[heroSlides[slideIndex].id] || 'ri-sparkling-line'}></i>
+                    <i className="ri-image-line"></i>
                     {heroSlides[slideIndex].badge}
                   </span>
                 )}
@@ -949,28 +845,6 @@ export default function Home() {
                 <div className="p-6 text-center bg-background-100 rounded-2xl border border-background-200 text-foreground-400 text-sm">등록된 공지사항이 없습니다</div>
               ) : (
                 <>
-                {/* 모바일 전용: 인스타 스토리처럼 원형으로 훑어보는 최근 공지 링 */}
-                <div className="lg:hidden flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1 mb-1 snap-x">
-                  {notices.slice(0, 6).map((notice) => {
-                    const readIds = getReadNoticeIds(user?.id);
-                    const isRead = readIds.has(notice.id);
-                    const catColor = getCategoryColor(notice.category);
-                    return (
-                      <button
-                        key={`story-${notice.id}`}
-                        onClick={() => navigate(`/notices/${notice.id}`)}
-                        className="flex-shrink-0 snap-start flex flex-col items-center gap-1 w-16 cursor-pointer active:scale-95 transition-transform"
-                      >
-                        <div className={`w-14 h-14 rounded-full flex items-center justify-center p-[2px] ${isRead ? 'bg-background-200' : 'bg-gradient-to-br from-primary-500 to-accent-500'}`}>
-                          <div className={`w-full h-full rounded-full flex items-center justify-center border-2 border-white ${catColor.bg}`}>
-                            <i className={`${catColor.icon} text-lg ${catColor.text}`}></i>
-                          </div>
-                        </div>
-                        <span className="text-[10px] text-foreground-600 truncate w-full text-center">{notice.category || '공지'}</span>
-                      </button>
-                    );
-                  })}
-                </div>
                 {notices.map((notice) => {
                   const readIds = getReadNoticeIds(user?.id);
                   const isNew = !readIds.has(notice.id) && (Date.now() - new Date(notice.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
@@ -1233,54 +1107,14 @@ export default function Home() {
         {/* 모바일/데스크톱 레이아웃을 CSS(md:hidden)로만 나누면 둘 다 DOM에 렌더링되어
             <img> 태그가 뷰포트와 무관하게 항상 다운로드되는 문제가 있었다 (동아리 카드
             이미지가 방문마다 2배로 받아졌던 원인). isMobile로 실제 필요한 쪽 하나만 렌더링한다. */}
-        {isMobile ? (
-        /* 모바일: 한눈에 스와이프해서 훑어볼 수 있는 가로 캐러셀.
-            (기존 2열 그리드는 5개 항목이 2+2+1로 어중간하게 끊기고,
-            좁은 카드 폭 때문에 동아리 이름이 중간에 줄바꿈되는 문제가 있었음) */
-        <div className="-mx-4 px-4 flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1">
-          {clubs.map((club) => {
-            return (
-              <Link
-                key={club.id}
-                to={`/clubs/${club.id}`}
-                className="group relative flex-shrink-0 w-[148px] h-[200px] snap-start rounded-[20px] overflow-hidden shadow-card active:scale-[0.97] transition-transform duration-150"
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${club.color}`}></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/5"></div>
-                <div className={`absolute top-2.5 left-2.5 w-7 h-7 rounded-full ${club.iconBg} flex items-center justify-center shadow-card`}>
-                  <i className={`${CLUB_ICON_MAP[club.id]} text-xs ${club.iconText}`}></i>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <p className="text-white font-bold text-[15px] leading-tight drop-shadow whitespace-nowrap overflow-hidden text-ellipsis">
-                    {club.name}
-                  </p>
-                  <p className="text-white/75 text-[11px] mt-0.5 truncate">{club.subtitle}</p>
-                </div>
-              </Link>
-            );
-          })}
-          {/* 어중간한 빈 슬롯 대신 명확한 CTA 카드로 마무리 */}
-          <Link
-            to="/clubs"
-            className="flex-shrink-0 w-[110px] h-[200px] snap-start rounded-[20px] border-2 border-dashed border-emerald-200 bg-emerald-50/60 flex flex-col items-center justify-center gap-2 active:scale-[0.97] transition-transform duration-150"
-          >
-            <div className="w-9 h-9 rounded-full bg-background-100 flex items-center justify-center shadow-card">
-              <i className="ri-arrow-right-line text-emerald-600"></i>
-            </div>
-            <span className="text-[11px] font-semibold text-emerald-700 text-center leading-tight">전체 동아리<br />보기</span>
-          </Link>
-        </div>
-        ) : (
-        /* 데스크톱: 기존 5열 그리드 유지 */
-        <div className="grid md:grid-cols-5 gap-4">
-          {clubs.map((club) => {
-            return (
-            <Link key={club.id} to={`/clubs/${club.id}`} className="group relative bg-background-100 rounded-2xl border border-background-200 overflow-hidden hover:border-emerald-200 hover:shadow-md transition-all duration-300 cursor-pointer">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+          {clubs.map((club) => (
+            <Link key={club.id} to={`/clubs/${club.id}`} className="group relative bg-background-100 rounded-card border border-background-200 overflow-hidden hover:border-primary-200 hover:shadow-card transition-all duration-300 cursor-pointer">
               <div className="relative h-32 overflow-hidden">
                 <div className={`w-full h-full bg-gradient-to-br ${club.color}`}></div>
                 <div className={`absolute inset-0 bg-gradient-to-b ${club.color} opacity-50 group-hover:opacity-40 transition-opacity`}></div>
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
-                <div className={`absolute top-2.5 left-2.5 w-7 h-7 rounded-lg ${club.iconBg} flex items-center justify-center`}>
+                <div className={`absolute top-2.5 left-2.5 w-7 h-7 rounded-card ${club.iconBg} flex items-center justify-center`}>
                   <i className={`${CLUB_ICON_MAP[club.id]} text-sm ${club.iconText}`}></i>
                 </div>
               </div>
@@ -1289,10 +1123,8 @@ export default function Home() {
                 <p className="text-[11px] text-foreground-500 mt-0.5 truncate">{club.subtitle}</p>
               </div>
             </Link>
-            );
-          })}
+          ))}
         </div>
-        )}
       </section>
 
       <AnimatePresence>
