@@ -692,7 +692,7 @@ export default function ProfilePage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <label className="text-sm font-medium text-foreground-950">이 기기 지문 / Face ID 로그인</label>
-                    <p className="text-xs text-foreground-600 mt-0.5">이 기기의 생체인증으로 비밀번호 없이 로그인할 수 있어요.</p>
+                    <p className="text-xs text-foreground-600 mt-0.5">이 기기의 생체인증으로 앱 잠금을 빠르게 해제할 수 있어요.</p>
                   </div>
                   <i className="ri-fingerprint-line text-2xl text-amber-500 dark:text-amber-300"></i>
                 </div>
