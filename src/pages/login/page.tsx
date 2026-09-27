@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { CLUB_LABELS } from '@/types/auth';
 import type { UserRole, ClubType } from '@/types/auth';
-import { isPasskeyEnabled, isPasskeySupported } from '@/lib/passkey';
 import { migrateLegacyAccountPassword } from '@/lib/legacySupabaseAuth';
 
 type Mode = 'login' | 'signup';
@@ -14,7 +13,7 @@ const INTERESTS_LIST = ['악기', '운동', '독서', '그림', '코딩', '사�
 const CLUB_OPTIONS: (ClubType | '')[] = ['', 'saeullim', 'cheonjipoong', 'cheonjihu', 'munhwabu'];
 
 export default function Login() {
-  const { user, signIn, signInWithPasskey, signUp, resetPassword } = useAuth();
+  const { user, signIn, signUp, resetPassword } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -34,7 +33,6 @@ export default function Login() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [passkeySubmitting, setPasskeySubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -468,26 +466,6 @@ export default function Login() {
               )}
             </button>
           </form>
-          )}
-
-          {mode === 'login' && !forgotMode && isPasskeyEnabled() && isPasskeySupported() && (
-            <button
-              type="button"
-              onClick={async () => {
-                setError('');
-                setPasskeySubmitting(true);
-                const { error: passkeyError } = await signInWithPasskey();
-                setPasskeySubmitting(false);
-                if (passkeyError) setError(passkeyError);
-              }}
-              disabled={submitting || passkeySubmitting}
-              className="w-full mt-3 py-3 rounded-xl border border-background-300 bg-background-50 text-foreground-900 font-medium text-sm hover:bg-background-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              <span className="flex items-center justify-center gap-2">
-                <i className="ri-fingerprint-line text-lg text-amber-500"></i>
-                {passkeySubmitting ? '생체인증 확인 중...' : '이 기기 지문 / Face ID로 로그인'}
-              </span>
-            </button>
           )}
 
           <div className="mt-6 pt-5 border-t border-background-200 text-center">
