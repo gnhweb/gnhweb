@@ -139,10 +139,16 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
       const user = await getCurrentUser(sql, userId);
       if (!user) return json({ error: '사용자 정보를 찾을 수 없습니다.' }, 404);
       const credentials = await getCredentials(sql, userId);
+      // Cloudflare Workers의 Web Crypto에서 직접 32바이트 challenge를 생성합니다.
+      // SimpleWebAuthn의 기본 challenge 생성 경로를 우회해 Workers 런타임의
+      // Crypto 호환성 문제로 등록 옵션 생성이 실패하지 않도록 합니다.
+      const challenge = new Uint8Array(32);
+      crypto.getRandomValues(challenge);
       const options = await generateRegistrationOptions({
         rpName: RP_NAME,
         rpID: webAuthnConfig.rpID,
         userID: new TextEncoder().encode(userId),
+        challenge,
         userName: user.email,
         // 일부 Android/Samsung WebAuthn 구현은 name과 displayName이 다를 때
         // 등록 옵션을 비정상적으로 처리할 수 있어 안정적으로 동일한 값을 사용합니다.
