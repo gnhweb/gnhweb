@@ -555,7 +555,7 @@ export default function Home() {
         .select('id, title, content, is_pinned, created_at, author_name, category')
         .order('is_pinned', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(4)
+        .limit(30)
     )
       .then(({ data }) => {
         if (data) setNotices(data);
