@@ -978,32 +978,23 @@ export default function Home() {
                         }`}>
                           {d.day}
                         </span>
-                        {hasEvent && d.isCurrentMonth && (
-                          <span
-                            className="absolute bottom-0 z-10 flex min-h-1.5 max-w-[36px] items-center justify-center gap-0.5 overflow-hidden rounded-full bg-background-100/80 px-0.5 dark:bg-background-900/80"
-                            aria-label="이 날짜의 일정"
-                          >
-                            {clubIds
-                              .slice(0, Math.max(0, 3 - (hasGeneralEvent ? 1 : 0)))
-                              .map(clubId => (
-                                <span
-                                  key={clubId}
-                                  className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${getClubCalendarDotClass(clubId)}`}
-                                  title={clubs.find(club => club.id === clubId)?.name || clubId}
-                                />
-                              ))}
-                            {hasGeneralEvent && (
+                        {hasEvent && d.isCurrentMonth && !isSelected && (
+                          <div className="absolute bottom-0 flex max-w-[32px] items-center justify-center gap-0.5 overflow-hidden" aria-label="이 날짜의 동아리 일정">
+                            {clubIds.slice(0, 3).map(clubId => (
                               <span
-                                className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-foreground-700 dark:bg-foreground-200"
-                                title="전체 행사"
+                                key={clubId}
+                                className={`h-1.5 w-1.5 rounded-full ${getClubCalendarDotClass(clubId)}`}
+                                title={clubs.find(club => club.id === clubId)?.name || clubId}
                               />
+                            ))}
+                            {hasGeneralEvent && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-foreground-500 dark:bg-foreground-300" title="전체 행사" />
                             )}
-                            {(clubIds.length + (hasGeneralEvent ? 1 : 0)) > 3 && (
-                              <span className="text-[7px] font-bold leading-none text-foreground-600 dark:text-foreground-300">+</span>
+                            {clubIds.length > 3 && (
+                              <span className="text-[7px] font-bold leading-none text-foreground-500 dark:text-foreground-300">+</span>
                             )}
-                          </span>
-                        )}
-                      </button>
+                          </div>
+                        )}                      </button>
                       {isHovered && hasEvent && !isSelected && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-20 bg-foreground-950 text-background-50 text-[10px] rounded-lg px-2 py-1.5 shadow-lg whitespace-nowrap max-w-[160px] truncate pointer-events-none">
                           {d.events[0].title}
