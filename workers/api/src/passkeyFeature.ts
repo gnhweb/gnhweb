@@ -1,7 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import {
   generateAuthenticationOptions,
-  generateRegistrationOptions,
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
   type WebAuthnCredential,
@@ -142,31 +141,35 @@ export async function handlePasskey(request: Request, env: Env): Promise<Respons
       // Cloudflare Workers의 Web Crypto에서 직접 32바이트 challenge를 생성합니다.
       // SimpleWebAuthn의 기본 challenge 생성 경로를 우회해 Workers 런타임의
       // Crypto 호환성 문제로 등록 옵션 생성이 실패하지 않도록 합니다.
+      // Cloudflare Worker에서 SimpleWebAuthn 등록 옵션 생성 시 undefined[0] 예외가 발생하므로
+      // WebAuthn 표준 JSON 옵션을 직접 구성하고, 응답 검증은 SimpleWebAuthn으로 유지합니다.
       const challenge = new Uint8Array(32);
       crypto.getRandomValues(challenge);
-      const options = await generateRegistrationOptions({
-        rpName: RP_NAME,
-        rpID: webAuthnConfig.rpID,
-        userID: new TextEncoder().encode(userId),
-        challenge,
-        userName: user.email,
-        // 일부 Android/Samsung WebAuthn 구현은 name과 displayName이 다를 때
-        // 등록 옵션을 비정상적으로 처리할 수 있어 안정적으로 동일한 값을 사용합니다.
-        userDisplayName: user.email,
-        attestationType: 'none',
-        supportedAlgorithmIDs: [-7, -257],
+      const options = {
+        challenge: bytesToBase64Url(challenge),
+        rp: { name: RP_NAME, id: webAuthnConfig.rpID },
+        user: {
+          id: bytesToBase64Url(new TextEncoder().encode(userId)),
+          name: user.email,
+          displayName: user.email,
+        },
+        pubKeyCredParams: [
+          { alg: -7, type: 'public-key' as const },
+          { alg: -257, type: 'public-key' as const },
+        ],
+        timeout: 60_000,
+        attestation: 'none' as const,
         excludeCredentials: credentials.map((credential) => ({
           id: credential.credential_id,
+          type: 'public-key' as const,
           transports: credential.transports as AuthenticatorTransportFuture[],
         })),
         authenticatorSelection: {
-          authenticatorAttachment: 'platform',
-          // Android 플랫폼 인증기 호환성을 위해 discoverable credential은
-          // required가 아닌 preferred로 요청합니다. userVerification은 반드시 요구합니다.
-          residentKey: 'preferred',
-          userVerification: 'required',
+          authenticatorAttachment: 'platform' as const,
+          residentKey: 'preferred' as const,
+          userVerification: 'required' as const,
         },
-      });
+      };
       await saveChallenge(sql, userId, 'registration', options.challenge);
       return json(options);
     }
