@@ -1,6 +1,7 @@
 import {
   browserSupportsWebAuthn,
   getBrowserCapabilities,
+  WebAuthnError,
   startAuthentication,
   startRegistration,
 } from '@simplewebauthn/browser';
@@ -61,8 +62,20 @@ export async function registerPasskey(friendlyName?: string): Promise<PasskeyRes
       return { data: null, error: optionsResponse.error ?? new Error('생체인증 등록 준비에 실패했습니다.') };
     }
 
+    const optionsJSON = optionsResponse.data as Partial<Parameters<typeof startRegistration>[0]['optionsJSON']>;
+    if (
+      typeof optionsJSON.challenge !== 'string' ||
+      typeof optionsJSON.rp?.id !== 'string' ||
+      typeof optionsJSON.user?.id !== 'string'
+    ) {
+      return {
+        data: null,
+        error: new Error('생체인증 등록 옵션이 올바르지 않습니다. 서버의 WebAuthn 설정을 확인해주세요.'),
+      };
+    }
+
     const credential = await startRegistration({
-      optionsJSON: optionsResponse.data as Parameters<typeof startRegistration>[0]['optionsJSON'],
+      optionsJSON: optionsJSON as Parameters<typeof startRegistration>[0]['optionsJSON'],
     });
 
     const verificationResponse = await invoke('register-verify', 'POST', {
@@ -76,6 +89,11 @@ export async function registerPasskey(friendlyName?: string): Promise<PasskeyRes
     const data = verificationResponse.data as { passkey?: PasskeyMeta };
     return { data: data.passkey ?? null, error: data.passkey ? null : new Error('생체인증 등록 결과가 올바르지 않습니다.') };
   } catch (error) {
+    if (error instanceof WebAuthnError) {
+      const causeMessage = error.cause instanceof Error ? error.cause.message : '';
+      const detail = causeMessage ? ` (${causeMessage})` : '';
+      return { data: null, error: new Error(`${error.message}${detail}`) };
+    }
     return { data: null, error: error instanceof Error ? error : new Error('생체인증 등록 중 오류가 발생했습니다.') };
   }
 }
