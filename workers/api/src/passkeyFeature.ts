@@ -17,8 +17,8 @@ const CORS_HEADERS = {
 };
 
 const RP_NAME = '강릉학생회';
-const RP_ID = 'gnhweb.vercel.app';
-const RP_ORIGIN = 'https://gnhweb.vercel.app';
+const RP_ID = 'gnhwebw.pages.dev';
+const RP_ORIGIN = 'https://gnhwebw.pages.dev';
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
 type Env = {
