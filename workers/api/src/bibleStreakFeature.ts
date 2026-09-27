@@ -10,8 +10,10 @@ const DEFAULT_NEON_DATA_API_URL = 'https://ep-empty-surf-az87wypd.apirest.c-3.ap
 
 type DataApiRow = Record<string, unknown>;
 
+const DEFAULT_NEON_JWKS_URL = 'https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json';
+
 type Env = {
-  NEON_JWKS_URL: string;
+  NEON_JWKS_URL?: string;
   NEON_AUTH_ISSUER?: string;
 };
 
@@ -59,7 +61,8 @@ async function verifyJwt(token: string, env: Env): Promise<Record<string, unknow
   if (!exp || exp <= Math.floor(Date.now() / 1000)) throw new Error('Expired token');
   if (env.NEON_AUTH_ISSUER && payload.iss !== env.NEON_AUTH_ISSUER) throw new Error('Invalid issuer');
 
-  const jwksResponse = await fetch(env.NEON_JWKS_URL, {
+  const jwksUrl = env.NEON_JWKS_URL?.trim() || DEFAULT_NEON_JWKS_URL;
+  const jwksResponse = await fetch(jwksUrl, {
     headers: { accept: 'application/json' },
     cf: { cacheTtl: 300, cacheEverything: true },
   });
