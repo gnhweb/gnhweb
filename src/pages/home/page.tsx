@@ -621,7 +621,7 @@ export default function Home() {
     image: photo.thumb_url || photo.photo_url,
     badge: '추억창',
     badgeColor: 'bg-primary-500',
-    title: '우리의 추억을\\n다시 만나보세요',
+    title: '우리의 추억을\n다시 만나보세요',
     subtitle: photo.title || '강릉 학생회의 소중한 순간을 만나보세요',
     cta: { label: '추억창 보러가기', path: '/memory-board' },
   }));
@@ -715,58 +715,60 @@ export default function Home() {
     <div className="min-h-screen bg-background-50 pb-24 md:pb-0">
 
       {/* ═══ 1. 히어로 캐러셀 ═══ */}
-      <section
-        className="relative h-[clamp(240px,38vh,360px)] md:h-[560px] overflow-hidden bg-foreground-950 touch-pan-y"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        <AnimatePresence custom={direction} initial={false}>
-          <motion.div
-            key={heroSlides[slideIndex].id}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ type: 'tween', duration: 0.45, ease: 'easeInOut' }}
-            className={`absolute inset-0 ${(heroSlides[slideIndex].image || heroImages[heroSlides[slideIndex].id]) ? '' : 'bg-gradient-to-br ' + (heroGradients[heroSlides[slideIndex].id] || heroGradients.main)}`}
-          >
-            <img
-              src={heroSlides[slideIndex].image}
-              alt={heroSlides[slideIndex].title}
-              className="absolute inset-0 w-full h-full object-cover object-center bg-foreground-950"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/60"></div>
-            <div className="absolute inset-0 flex items-end justify-center px-3 pb-14 sm:px-4 sm:pb-16 md:pb-16">
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="text-center max-w-xl w-full">
-                {heroSlides[slideIndex].badge && (
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold text-white mb-2 sm:mb-3 ${heroSlides[slideIndex].badgeColor}`}>
+      {heroSlides.length > 0 && (
+        <section
+          className="relative h-[clamp(240px,38vh,360px)] md:h-[560px] overflow-hidden bg-foreground-950 touch-pan-y"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          <AnimatePresence custom={direction} initial={false}>
+            <motion.div
+              key={heroSlides[slideIndex].id}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: 'tween', duration: 0.45, ease: 'easeInOut' }}
+              className="absolute inset-0"
+            >
+              <img
+                src={heroSlides[slideIndex].image}
+                alt={heroSlides[slideIndex].title}
+                className="absolute inset-0 w-full h-full object-cover object-center bg-foreground-950"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/60"></div>
+              <div className="absolute inset-0 flex items-end justify-center px-3 pb-14 sm:px-4 sm:pb-16 md:pb-16">
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="text-center max-w-xl w-full">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold text-white mb-2 sm:mb-3 bg-primary-500">
                     <i className="ri-image-line"></i>
-                    {heroSlides[slideIndex].badge}
+                    추억창
                   </span>
-                )}
-                <h1 className="text-[1.2rem] min-[360px]:text-[1.3rem] sm:text-2xl md:text-4xl font-black text-white leading-[1.25] mb-1.5 md:mb-2 whitespace-pre-line drop-shadow-lg">{heroSlides[slideIndex].title}</h1>
-                <p className="text-[11px] min-[360px]:text-xs sm:text-sm md:text-base text-white/85 mb-3.5 sm:mb-4 md:mb-5 whitespace-pre-line leading-[1.45]">{heroSlides[slideIndex].subtitle}</p>
-                {heroSlides[slideIndex].cta && (
-                  <Link to={heroSlides[slideIndex].cta!.path} className="inline-flex items-center gap-1.5 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-background-100 text-foreground-950 text-[12px] sm:text-sm font-bold hover:bg-background-100 transition-colors cursor-pointer whitespace-nowrap shadow-lg">
-                    {heroSlides[slideIndex].cta!.label} <i className="ri-arrow-right-line"></i>
+                  <h1 className="text-[1.2rem] min-[360px]:text-[1.3rem] sm:text-2xl md:text-4xl font-black text-white leading-[1.25] mb-1.5 md:mb-2 whitespace-pre-line drop-shadow-lg">{heroSlides[slideIndex].title}</h1>
+                  <p className="text-[11px] min-[360px]:text-xs sm:text-sm md:text-base text-white/85 mb-3.5 sm:mb-4 md:mb-5 whitespace-pre-line leading-[1.45]">{heroSlides[slideIndex].subtitle}</p>
+                  <Link to="/memory-board" className="inline-flex items-center gap-1.5 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-background-100 text-foreground-950 text-[12px] sm:text-sm font-bold hover:bg-background-100 transition-colors cursor-pointer whitespace-nowrap shadow-lg">
+                    추억창 보러가기 <i className="ri-arrow-right-line"></i>
                   </Link>
-                )}
-              </motion.div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-        <button onClick={prevSlide} aria-label="이전 슬라이드" className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-left-s-line text-xl" aria-hidden="true"></i></button>
-        <button onClick={nextSlide} aria-label="다음 슬라이드" className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-right-s-line text-xl" aria-hidden="true"></i></button>
-        <div className="absolute bottom-2.5 sm:bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1.5 max-w-[calc(100%-24px)]">
-          <span className="text-[10px] md:text-xs font-semibold text-white/90 tabular-nums">{slideIndex + 1} / {heroSlides.length}</span>
-          <div className="flex items-center gap-1.5">
-            {heroSlides.map((_, i) => (
-              <button key={i} aria-label={`${i + 1}번 슬라이드로 이동`} onClick={() => goToSlide(i)} className={`rounded-full transition-all duration-300 cursor-pointer ${i === slideIndex ? 'w-5 h-2 bg-background-100' : 'w-1.5 h-1.5 bg-background-100/45 hover:bg-background-100/70'}`} />
-            ))}
-          </div>
-        </div>
-      </section>
+                </motion.div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+          {heroSlides.length > 1 && (
+            <>
+              <button onClick={prevSlide} aria-label="이전 슬라이드" className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-left-s-line text-xl" aria-hidden="true"></i></button>
+              <button onClick={nextSlide} aria-label="다음 슬라이드" className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 w-9 h-9 md:w-11 md:h-11 rounded-full bg-background-100/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-background-100/35 transition-colors cursor-pointer z-10"><i className="ri-arrow-right-s-line text-xl" aria-hidden="true"></i></button>
+              <div className="absolute bottom-2.5 sm:bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1.5 max-w-[calc(100%-24px)]">
+                <span className="text-[10px] md:text-xs font-semibold text-white/90 tabular-nums">{slideIndex + 1} / {heroSlides.length}</span>
+                <div className="flex items-center gap-1.5">
+                  {heroSlides.map((_, i) => (
+                    <button key={i} aria-label={`${i + 1}번 슬라이드로 이동`} onClick={() => goToSlide(i)} className={`rounded-full transition-all duration-300 cursor-pointer ${i === slideIndex ? 'w-5 h-2 bg-background-100' : 'w-1.5 h-1.5 bg-background-100/45 hover:bg-background-100/70'}`} />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       {/* ═══ 1.5 오늘의 어록 ═══ */}
       <section className="w-full max-w-6xl mx-auto px-2.5 min-[360px]:px-3 sm:px-4 md:px-6 mt-5 md:mt-6">
