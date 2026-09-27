@@ -136,6 +136,7 @@ const MIGRATED_CLOUDFLARE_FUNCTIONS = new Set([
   'bible-streak-update',
   'bible-pick',
   'monthly-champion-snapshot',
+  'passkey',
 ]);
 
 const CLOUDFLARE_AI_FUNCTIONS = new Set([
@@ -189,6 +190,7 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
           'bible-streak-update',
           'bible-pick',
           'monthly-champion-snapshot',
+          'passkey',
         ]).has(baseFunctionName);
         const quizJwt = baseFunctionName === 'nim-quiz' ? await neonAuth.getJWTToken?.(false) : null;
         const jwt = jwtRequiredFunction ? await neonAuth.getJWTToken?.(false) : quizJwt;
