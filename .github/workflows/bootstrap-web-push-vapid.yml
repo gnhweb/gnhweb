@@ -40,9 +40,9 @@ jobs:
           set -euo pipefail
           response=""
           for attempt in {1..12}; do
-            if response="$(curl --silent --show-error --fail-with-body               --header 'Accept: application/json'               'https://gnhweb-api.gemini19840314.workers.dev/web-push-public-key' 2>/tmp/vapid-error); then
+            if response="$(curl --silent --show-error --fail-with-body --header "Accept: application/json" "https://gnhweb-api.gemini19840314.workers.dev/web-push-public-key" 2>/tmp/vapid-error)"; then
               printf '%s\n' "$response"
-              printf '%s' "$response" | grep -Eq '"publicKey":"[^"]{20,}"'
+              printf '%s' "$response" | jq -e '.publicKey | type == "string" and length >= 20' >/dev/null
               exit 0
             fi
             cat /tmp/vapid-error || true
