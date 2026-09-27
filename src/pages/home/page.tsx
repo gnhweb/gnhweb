@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clubs } from '@/mocks/clubs';
@@ -302,7 +302,6 @@ interface HeroSlide {
 // ──────────────────────────────────────────────
 export default function Home() {
   const { user, profile, hasRole } = useAuth();
-  const navigate = useNavigate();
 
   const [notices, setNotices] = useState<Notice[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -629,6 +628,7 @@ export default function Home() {
   // ── 캐러셀 ──
   const startAuto = useCallback(() => {
     if (autoRef.current) clearInterval(autoRef.current);
+    if (heroSlides.length <= 1) return;
     autoRef.current = setInterval(() => {
       setDirection(1);
       setSlideIndex(prev => (prev + 1) % heroSlides.length);
