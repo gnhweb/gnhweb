@@ -18,11 +18,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) return null;
   try {
-    await navigator.serviceWorker.register(`${import.meta.env.BASE_URL || '/'}sw.js`, { scope: import.meta.env.BASE_URL || '/' });
-  } catch {
-    // A previously registered VitePWA service worker may already be active.
-  }
-  try {
+    // PWA registration is owned by src/pwa.ts. Do not register the worker again
+    // here with a different script URL/query string: that can race the PWA
+    // registration and leave PushManager attached to a different registration.
     return await navigator.serviceWorker.ready;
   } catch {
     return null;
