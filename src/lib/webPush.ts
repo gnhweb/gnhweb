@@ -101,6 +101,28 @@ export async function getWebPushSubscription(): Promise<PushSubscription | null>
   }
 }
 
+export async function testWebPushNotification(): Promise<{ ok: boolean; reason?: string }> {
+  if (!isWebPushSupported()) return { ok: false, reason: '이 브라우저에서는 휴대폰 알림을 지원하지 않아요.' };
+  const registration = await getRegistration();
+  if (!registration) return { ok: false, reason: '서비스 워커를 준비하지 못했어요.' };
+
+  try {
+    await registration.showNotification('강학 알림 테스트', {
+      body: '설치된 PWA의 알림 표시 기능이 정상적으로 동작하는지 확인하는 테스트입니다.',
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+      tag: 'gnh-push-display-test',
+      requireInteraction: true,
+      silent: false,
+      data: { link: '/' },
+    });
+    return { ok: true };
+  } catch (error) {
+    console.error('[webPush] 로컬 알림 표시 테스트 실패:', error);
+    return { ok: false, reason: '알림 표시 테스트에 실패했어요.' };
+  }
+}
+
 export async function enableWebPush(userId: string): Promise<{ ok: boolean; reason?: string }> {
   if (!isWebPushSupported()) return { ok: false, reason: '이 브라우저에서는 휴대폰 알림을 지원하지 않아요.' };
   if (!userId) return { ok: false, reason: '로그인 정보를 확인하지 못했어요.' };
