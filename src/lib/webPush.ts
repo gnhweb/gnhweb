@@ -184,6 +184,7 @@ export async function syncWebPushSubscription(userId: string): Promise<void> {
   const vapidPublicKey = await getVapidPublicKey();
   if (!vapidPublicKey || !hasCurrentVapidKey(existing, vapidPublicKey)) {
     await existing.unsubscribe();
+    await enableWebPush(userId);
     return;
   }
   const json = existing.toJSON();
