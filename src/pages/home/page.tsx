@@ -313,6 +313,7 @@ export default function Home() {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [memoryPhotos, setMemoryPhotos] = useState<MemoryPhoto[]>([]);
   const [selectedMemoryPhoto, setSelectedMemoryPhoto] = useState<MemoryPhoto | null>(null);
+  const [clubBannerMap, setClubBannerMap] = useState<Record<string, { card_image_url: string | null }>>({});
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [noticesError, setNoticesError] = useState(false);
   const [schedulesLoading, setSchedulesLoading] = useState(true);
@@ -323,6 +324,24 @@ export default function Home() {
   const [showAwards, setShowAwards] = useState(false);
   const [allMembersTotal, setAllMembersTotal] = useState(0);
   const attendanceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);;
+
+  useEffect(() => {
+    Promise.resolve(
+      supabase
+        .from('club_banners')
+        .select('club, card_image_url')
+    )
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, { card_image_url: string | null }> = {};
+          data.forEach((banner: { club: string; card_image_url: string | null }) => {
+            map[banner.club] = { card_image_url: banner.card_image_url };
+          });
+          setClubBannerMap(map);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleOpenAwards = () => setShowAwards(true);
@@ -1152,8 +1171,18 @@ export default function Home() {
           {clubs.map((club) => (
             <Link key={club.id} to={`/clubs/${club.id}`} className="group relative bg-background-100 rounded-card border border-background-200 overflow-hidden hover:border-primary-200 hover:shadow-card transition-all duration-300 cursor-pointer">
               <div className="relative h-32 overflow-hidden">
-                <div className={`w-full h-full bg-gradient-to-br ${club.color}`}></div>
-                <div className={`absolute inset-0 bg-gradient-to-b ${club.color} opacity-50 group-hover:opacity-40 transition-opacity`}></div>
+                {clubBannerMap[club.id]?.card_image_url ? (
+                  <img
+                    src={clubBannerMap[club.id].card_image_url!}
+                    alt={`${club.name} 동아리 카드`}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className={`w-full h-full bg-gradient-to-br ${club.color}`}></div>
+                )}
+                <div className={`absolute inset-0 bg-gradient-to-b ${club.color} opacity-30 group-hover:opacity-20 transition-opacity`}></div>
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
                 <div className={`absolute top-2.5 left-2.5 w-7 h-7 rounded-card ${club.iconBg} flex items-center justify-center`}>
                   <i className={`${CLUB_ICON_MAP[club.id]} text-sm ${club.iconText}`}></i>
