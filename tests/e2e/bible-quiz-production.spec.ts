@@ -33,6 +33,6 @@ test.describe('production Bible quiz', () => {
     await startButton.click();
 
     await expect(page.getByText(/^1 \/ 10$/)).toBeVisible({ timeout: 30_000 });
-    await expect(page.locator('button').filter({ hasText: /1/ }).first()).toBeVisible();
+    await expect(page.locator('button.min-h-\\[56px\\]').first()).toBeVisible();
   });
 });
