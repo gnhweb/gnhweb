@@ -106,7 +106,6 @@ test.describe('production home calendar', () => {
       .first();
 
     await expect(dayButton).toBeVisible();
-    await dayButton.click();
 
     const dotContainer = calendar.locator('[aria-label="이 날짜의 동아리 일정"]').last();
     await expect(dotContainer).toBeVisible();
@@ -118,6 +117,7 @@ test.describe('production home calendar', () => {
     await expect(dotChildren.nth(2)).toHaveClass(/rounded-full/);
     await expect(dotChildren.nth(3)).toHaveClass(/rounded-full/);
 
+    await dayButton.click();
     await expect(calendar.getByText(eventDate, { exact: true })).toBeVisible();
     await expect(calendar.getByText('E2E 전체 일정', { exact: true })).toBeVisible();
     await expect(calendar.getByText('E2E 새울림 일정', { exact: true })).toBeVisible();
