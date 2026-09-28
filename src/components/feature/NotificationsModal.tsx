@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useMobileBackHandler } from '@/hooks/useMobileBackHandler';
-import { enableWebPush, getWebPushSubscription, isWebPushSupported, syncWebPushSubscription, disableWebPush } from '@/lib/webPush';
+import { enableWebPush, getWebPushSubscription, isWebPushSupported, syncWebPushSubscription, disableWebPush, testWebPushNotification } from '@/lib/webPush';
 import type { User } from '@supabase/supabase-js';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -153,6 +153,7 @@ export default function NotificationsModal({ open, onClose, user }: Notification
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMessage, setPushMessage] = useState('');
+  const [pushTestBusy, setPushTestBusy] = useState(false);
   useMobileBackHandler(open, onClose);
 
   useEffect(() => {
@@ -189,6 +190,20 @@ export default function NotificationsModal({ open, onClose, user }: Notification
       }
     } finally {
       setPushBusy(false);
+    }
+  };
+
+  const testPushDisplay = async () => {
+    if (pushTestBusy) return;
+    setPushTestBusy(true);
+    setPushMessage('');
+    try {
+      const result = await testWebPushNotification();
+      setPushMessage(result.ok
+        ? '알림 표시 테스트를 보냈어요. 휴대폰 알림이 뜨는지 확인해 주세요.'
+        : (result.reason || '알림 표시 테스트에 실패했어요.'));
+    } finally {
+      setPushTestBusy(false);
     }
   };
 
@@ -283,6 +298,18 @@ export default function NotificationsModal({ open, onClose, user }: Notification
               <h3 className="text-sm font-bold text-foreground-950">알림</h3>
               {unreadCount > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">{unreadCount}</span>
+              )}
+              {isWebPushSupported() && pushEnabled && (
+                <button
+                  type="button"
+                  onClick={testPushDisplay}
+                  disabled={pushTestBusy}
+                  className="text-[11px] px-2.5 py-1 rounded-full border border-primary-500/60 text-primary-600 bg-primary-500/10 font-medium whitespace-nowrap"
+                  title="설치된 PWA의 알림 표시 기능 테스트"
+                >
+                  <i className="ri-notification-3-line mr-1"></i>
+                  {pushTestBusy ? '테스트 중' : '알림 테스트'}
+                </button>
               )}
               {isWebPushSupported() && (
                 <button
