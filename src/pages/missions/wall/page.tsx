@@ -163,6 +163,8 @@ export default function MissionWallPage() {
                         <img
                           src={entry.proof_image_url}
                           alt={`${entry.mission_title} 인증 사진`}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
