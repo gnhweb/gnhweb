@@ -428,7 +428,7 @@ export default function ProfilePage() {
               <div className="insta-gradient-ring mx-auto w-fit">
                 <div className="w-24 h-24 rounded-full overflow-hidden bg-background-200 border-4 border-white shadow-card flex items-center justify-center">
                   {profileImage ? (
-                    <img src={profileImage} alt="프로필 사진" className="w-full h-full object-cover" />
+                    <img src={profileImage} alt="프로필 사진" loading="eager" decoding="async" className="w-full h-full object-cover" />
                   ) : (
                     <i className="ri-user-line text-4xl text-foreground-400" aria-hidden="true"></i>
                   )}
