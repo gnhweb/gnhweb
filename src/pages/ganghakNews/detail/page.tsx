@@ -148,6 +148,9 @@ export default function GanghakNewsDetail() {
               <img
                 src={item.image_url}
                 alt={item.title}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
                 className="w-full h-56 md:h-72 object-cover border border-foreground-200"
               />
               <p className="text-[10px] text-foreground-400 italic mt-1 text-center">사진 제공: 강학 학생회</p>
