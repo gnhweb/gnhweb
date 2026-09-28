@@ -48,7 +48,6 @@ self.addEventListener('push', (event) => {
       icon: payload.icon || '/pwa-192x192.png',
       badge: '/pwa-192x192.png',
       tag: payload.tag || `gnh-${Date.now()}`,
-      renotify: true,
       requireInteraction: true,
       silent: false,
       vibrate: [200, 100, 200],
