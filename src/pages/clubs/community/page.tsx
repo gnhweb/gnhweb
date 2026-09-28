@@ -38,7 +38,7 @@ function PostImageCarousel({ images }: { images: string[] }) {
       >
         {images.map((imgUrl, i) => (
           <div key={i} className="relative w-full flex-shrink-0 snap-start aspect-square bg-background-200">
-            <img src={imgUrl} alt={`게시글 이미지 ${i + 1}`} className="w-full h-full object-cover" />
+            <img src={imgUrl} alt={`게시글 이미지 ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
           </div>
         ))}
       </div>
@@ -558,7 +558,7 @@ export default function ClubCommunity() {
                           <div className={`hidden md:grid gap-2 mt-3 ${post.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                             {post.images.map((imgUrl, i) => (
                               <div key={i} className={`relative rounded-xl overflow-hidden bg-background-200 ${post.images!.length === 1 ? 'aspect-video' : 'aspect-square'}`}>
-                                <img src={imgUrl} alt={`게시글 이미지 ${i + 1}`} className="w-full h-full object-cover" />
+                                <img src={imgUrl} alt={`게시글 이미지 ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                               </div>
                             ))}
                           </div>
