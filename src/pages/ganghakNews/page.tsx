@@ -175,6 +175,8 @@ export default function GanghakNewsList() {
                         <img
                           src={leadArticle.image_url}
                           alt={leadArticle.title}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-48 md:h-56 object-cover border border-foreground-200"
                         />
                       </Link>
