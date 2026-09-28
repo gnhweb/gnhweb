@@ -777,7 +777,7 @@ export default function Dashboard() {
                 >
                   <div className="w-full aspect-square rounded-lg bg-background-200 overflow-hidden mb-2">
                     {p.proof_image_url ? (
-                      <img src={p.proof_image_url} alt={p.mission_title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <img src={p.proof_image_url} alt={p.mission_title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <i className="ri-checkbox-circle-line text-2xl text-foreground-300"></i>
