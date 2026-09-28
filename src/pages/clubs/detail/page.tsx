@@ -829,7 +829,7 @@ export default function ClubDetail() {
       {/* Hero */}
       <div className="relative z-20 aspect-[16/10] md:aspect-[21/7] overflow-visible">
         {clubBanner?.hero_image_url ? (
-          <img src={clubBanner.hero_image_url} alt={club.name} className="w-full h-full object-cover object-top" />
+          <img src={clubBanner.hero_image_url} alt={club.name} loading="eager" fetchPriority="high" decoding="async" className="w-full h-full object-cover object-top" />
         ) : (
           <div className={`w-full h-full bg-gradient-to-br ${club.color}`}></div>
         )}
