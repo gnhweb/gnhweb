@@ -44,101 +44,76 @@ export async function processWebPushQueue(env: WebPushEnv): Promise<{ processed:
 
   webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
   const sql = neon(databaseUrl);
-
-  const rows = await sql<QueueRow[]>`
-    UPDATE web_push_queue
-    SET status = 'processing', attempts = attempts + 1
-    WHERE id IN (
-      SELECT id
-      FROM web_push_queue
-      WHERE status = 'pending' AND available_at <= now() AND attempts < 5
-      ORDER BY created_at
-      FOR UPDATE SKIP LOCKED
-      LIMIT 20
-    )
-    RETURNING id, user_id, title, message, link_url, tag, attempts
-  `;
-
+  const deadline = Date.now() + 50_000;
+  let processed = 0;
   let sent = 0;
   let failed = 0;
 
-  for (const row of rows) {
-    try {
-      const subscriptions = await sql<SubscriptionRow[]>`
-        SELECT id, endpoint, p256dh, auth, subscription
-        FROM web_push_subscriptions
-        WHERE user_id = ${row.user_id}::uuid
-      `;
+  while (Date.now() < deadline) {
+    const rows = await sql<QueueRow[]>`
+      UPDATE web_push_queue
+      SET status = 'processing', attempts = attempts + 1
+      WHERE id IN (
+        SELECT id FROM web_push_queue
+        WHERE status = 'pending' AND available_at <= now() AND attempts < 5
+        ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 20
+      )
+      RETURNING id, user_id, title, message, link_url, tag, attempts
+    `;
 
-      const payload = JSON.stringify({
-        title: row.title,
-        message: row.message || '',
-        link_url: row.link_url || '/',
-        tag: row.tag || `notification-${row.id}`,
-      });
+    if (rows.length === 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 5_000));
+      continue;
+    }
+    processed += rows.length;
 
-      const staleIds: string[] = [];
-      let rowSent = 0;
-
-      await Promise.all(subscriptions.map(async (subscription) => {
-        try {
-          await webpush.sendNotification(getSubscription(subscription), payload);
-          rowSent += 1;
-        } catch (error) {
-          const statusCode = Number((error as { statusCode?: number } | null)?.statusCode || 0);
-          if (statusCode === 404 || statusCode === 410) staleIds.push(subscription.id);
-          console.error('[web-push-queue] push failure', subscription.endpoint, statusCode, error);
+    for (const row of rows) {
+      try {
+        const subscriptions = await sql<SubscriptionRow[]>`
+          SELECT id, endpoint, p256dh, auth, subscription
+          FROM web_push_subscriptions WHERE user_id = ${row.user_id}::uuid
+        `;
+        const payload = JSON.stringify({
+          title: row.title, message: row.message || '',
+          link_url: row.link_url || '/', tag: row.tag || `notification-${row.id}`,
+        });
+        const staleIds: string[] = [];
+        let rowSent = 0;
+        await Promise.all(subscriptions.map(async (subscription) => {
+          try {
+            await webpush.sendNotification(getSubscription(subscription), payload);
+            rowSent += 1;
+          } catch (error) {
+            const statusCode = Number((error as { statusCode?: number } | null)?.statusCode || 0);
+            if (statusCode === 404 || statusCode === 410) staleIds.push(subscription.id);
+            console.error('[web-push-queue] push failure', subscription.endpoint, statusCode, error);
+          }
+        }));
+        if (staleIds.length) {
+          await sql`DELETE FROM web_push_subscriptions WHERE id = ANY(${staleIds}::uuid[])`;
         }
-      }));
-
-      if (staleIds.length) {
-        await sql`
-          DELETE FROM web_push_subscriptions
-          WHERE id = ANY(${staleIds}::uuid[])
-        `;
-      }
-
-      if (rowSent > 0 || subscriptions.length === 0) {
-        await sql`
-          UPDATE web_push_queue
-          SET status = 'sent', processed_at = now(), last_error = NULL
-          WHERE id = ${row.id}::uuid
-        `;
-        sent += rowSent;
-      } else if (row.attempts >= 5) {
-        await sql`
-          UPDATE web_push_queue
-          SET status = 'failed', processed_at = now(), last_error = 'No active push subscriptions'
-          WHERE id = ${row.id}::uuid
-        `;
+        if (rowSent > 0 || subscriptions.length === 0) {
+          await sql`UPDATE web_push_queue SET status = 'sent', processed_at = now(), last_error = NULL WHERE id = ${row.id}::uuid`;
+          sent += rowSent;
+        } else if (row.attempts >= 5) {
+          await sql`UPDATE web_push_queue SET status = 'failed', processed_at = now(), last_error = 'No active push subscriptions' WHERE id = ${row.id}::uuid`;
+          failed += 1;
+        } else {
+          await sql`UPDATE web_push_queue SET status = 'pending', available_at = now() + interval '15 seconds', last_error = 'Push delivery failed' WHERE id = ${row.id}::uuid`;
+          failed += 1;
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (row.attempts >= 5) {
+          await sql`UPDATE web_push_queue SET status = 'failed', processed_at = now(), last_error = ${message} WHERE id = ${row.id}::uuid`;
+        } else {
+          await sql`UPDATE web_push_queue SET status = 'pending', available_at = now() + interval '15 seconds', last_error = ${message} WHERE id = ${row.id}::uuid`;
+        }
         failed += 1;
-      } else {
-        await sql`
-          UPDATE web_push_queue
-          SET status = 'pending', available_at = now() + interval '5 minutes', last_error = 'Push delivery failed'
-          WHERE id = ${row.id}::uuid
-        `;
-        failed += 1;
+        console.error('[web-push-queue] queue failure', row.id, error);
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (row.attempts >= 5) {
-        await sql`
-          UPDATE web_push_queue
-          SET status = 'failed', processed_at = now(), last_error = ${message}
-          WHERE id = ${row.id}::uuid
-        `;
-      } else {
-        await sql`
-          UPDATE web_push_queue
-          SET status = 'pending', available_at = now() + interval '5 minutes', last_error = ${message}
-          WHERE id = ${row.id}::uuid
-        `;
-      }
-      failed += 1;
-      console.error('[web-push-queue] queue failure', row.id, error);
     }
   }
 
-  return { processed: rows.length, sent, failed };
+  return { processed, sent, failed };
 }
