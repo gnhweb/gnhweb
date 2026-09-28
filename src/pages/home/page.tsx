@@ -767,6 +767,9 @@ export default function Home() {
               <img
                 src={heroSlides[slideIndex].image}
                 alt={heroSlides[slideIndex].title}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
                 className="absolute inset-0 w-full h-full object-cover object-center bg-foreground-950"
               />
               <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/60"></div>
