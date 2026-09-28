@@ -101,8 +101,8 @@ test.describe('production home calendar', () => {
     await expect(calendar.getByText(`${injectedDate.getFullYear()}년 ${injectedDate.getMonth() + 1}월`, { exact: true })).toBeVisible();
 
     const dayButton = calendar
-      .getByRole('button', { name: new RegExp(`^${injectedDate.getDate()}$`) })
-      .locator(':not([disabled])')
+      .locator('button:not([disabled])')
+      .filter({ hasText: new RegExp(`^\\s*${injectedDate.getDate()}\\s*$`) })
       .first();
 
     await expect(dayButton).toBeVisible();
