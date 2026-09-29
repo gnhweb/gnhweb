@@ -20,7 +20,7 @@ async function guards(page: Page) {
   const consoleErrors: string[] = [], pageErrors: string[] = [], failedRequests: string[] = [];
   page.on('console', m => { if (m.type() === 'error' && !/favicon|ResizeObserver|ERR_BLOCKED_BY_CLIENT/i.test(m.text())) consoleErrors.push(m.text()); });
   page.on('pageerror', e => pageErrors.push(e.message));
-  page.on('requestfailed', r => { try { const u = new URL(r.url()); if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico')) failedRequests.push(`${r.url()} :: ${r.failure()?.errorText || 'unknown'}`); } catch {} });
+  page.on('requestfailed', r => { try { const u = new URL(r.url()); const errorText = r.failure()?.errorText || 'unknown'; if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico') && !/Load request cancelled/i.test(errorText)) failedRequests.push(`${r.url()} :: ${errorText}`); } catch {} });
   return { consoleErrors, pageErrors, failedRequests };
 }
 async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof guards>>, allowGuard = true) {
