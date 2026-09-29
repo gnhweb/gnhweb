@@ -98,7 +98,16 @@ test.describe('production home calendar', () => {
       .locator('xpath=..');
 
     await expect(calendar).toBeVisible({ timeout: 30_000 });
-    await expect(calendar.getByText(`${injectedDate.getFullYear()}년 ${injectedDate.getMonth() + 1}월`, { exact: true })).toBeVisible();
+
+    // The calendar opens on the current month. Move to the injected event month
+    // so this test remains valid across month boundaries.
+    const targetMonthLabel = `${injectedDate.getFullYear()}년 ${injectedDate.getMonth() + 1}월`;
+    const nextMonthButton = calendar.getByRole('button', { name: '다음 달' });
+    for (let i = 0; i < 12; i += 1) {
+      if (await calendar.getByText(targetMonthLabel, { exact: true }).isVisible().catch(() => false)) break;
+      await nextMonthButton.click();
+    }
+    await expect(calendar.getByText(targetMonthLabel, { exact: true })).toBeVisible();
 
     const dayButton = calendar
       .locator('button:not([disabled])')
