@@ -61,6 +61,9 @@ const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
     detectSessionInUrl: false,
     storage: undefined,
   },
+  global: {
+    fetch: neonDataFetch,
+  },
   accessToken: async () => {
     try {
       return (await neonAuth.getJWTToken?.(true)) ?? null;
@@ -71,6 +74,60 @@ const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
 });
 
 const authClient = neonAuth as unknown as typeof legacySupabase.auth;
+
+let webPushFlushInFlight: Promise<void> | null = null;
+
+async function flushWebPushQueue(): Promise<void> {
+  if (webPushFlushInFlight) return webPushFlushInFlight;
+
+  webPushFlushInFlight = (async () => {
+    const jwt = await getNeonJwtToken();
+    if (!jwt) return;
+
+    try {
+      const response = await fetch(`${CLOUDFLARE_API}/web-push/flush`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          Accept: 'application/json',
+        },
+      });
+      if (!response.ok) {
+        console.warn('[webPush] 즉시 발송 요청 실패:', response.status);
+      }
+    } catch (error) {
+      console.warn('[webPush] 즉시 발송 요청 중 네트워크 오류:', error);
+    }
+  })().finally(() => {
+    webPushFlushInFlight = null;
+  });
+
+  return webPushFlushInFlight;
+}
+
+async function neonDataFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const response = await fetch(input, init);
+  if (!response.ok) return response;
+
+  const requestUrl = typeof input === 'string'
+    ? input
+    : input instanceof Request
+      ? input.url
+      : input.toString();
+  const requestMethod = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+
+  try {
+    const parsedUrl = new URL(requestUrl);
+    if (requestMethod === 'POST' && parsedUrl.pathname.endsWith('/rest/v1/notifications')) {
+      await flushWebPushQueue();
+    }
+  } catch {
+    // Notification delivery must never turn a successful database write into
+    // a client-visible failure.
+  }
+
+  return response;
+}
 
 const LIGHTWEIGHT_REALTIME_CHANNELS = new Set([
   'home-quiz-champion-rt',
