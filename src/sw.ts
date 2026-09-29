@@ -44,6 +44,7 @@ self.addEventListener('push', (event) => {
 
   const notificationOptions: NotificationOptions & {
     vibrate?: number[];
+    renotify?: boolean;
   } = {
     body,
     icon: payload.icon || '/pwa-192x192.png',
