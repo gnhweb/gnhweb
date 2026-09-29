@@ -32,6 +32,9 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
 
       - name: Build site for local Pages runtime
+        env:
+          VITE_NEON_AUTH_URL: http://127.0.0.1:8788/auth
+          VITE_NEON_DATA_API_URL: http://127.0.0.1:8788/data
         run: npm run build
 
       - name: Start local Cloudflare Pages runtime
