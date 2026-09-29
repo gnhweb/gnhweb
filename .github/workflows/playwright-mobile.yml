@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_ENV: development
+  NODE_ENV: production
   E2E_BASE_URL:
 
 concurrency:
