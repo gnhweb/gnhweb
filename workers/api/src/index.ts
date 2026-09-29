@@ -49,7 +49,13 @@ export default {
       return json({ error: 'Unauthorized' }, 401);
     }
     if (url.pathname === '/passkey') return handlePasskey(req, env);
-    if (url.pathname === '/prayer-relay') return handlePrayerRelay(req, env);
+    if (url.pathname === '/prayer-relay') {
+      const response = await handlePrayerRelay(req, env);
+      if (req.method === 'POST' && response.ok) {
+        ctx.waitUntil(processWebPushQueue(env, { waitForNewRows: false, maxDurationMs: 25_000 }));
+      }
+      return response;
+    }
     if (url.pathname === '/quiz-leaderboard') return handleQuizLeaderboard(req, env);
     if (url.pathname === '/quiz-report') return handleQuizReport(req, env);
     if (url.pathname === '/streak-tracker') return handleStreakTracker(req, env);
