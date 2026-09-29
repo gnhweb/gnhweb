@@ -54,27 +54,6 @@ const legacySupabase = createClient(legacySupabaseUrl, legacySupabaseAnonKey, {
 });
 
 const neonAuth = createAuthClient(neonAuthUrl, { adapter: SupabaseAuthAdapter(), allowAnonymous: true });
-const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false,
-    storage: undefined,
-  },
-  global: {
-    fetch: neonDataFetch,
-  },
-  accessToken: async () => {
-    try {
-      return (await neonAuth.getJWTToken?.(true)) ?? null;
-    } catch {
-      return null;
-    }
-  },
-});
-
-const authClient = neonAuth as unknown as typeof legacySupabase.auth;
-
 let webPushFlushInFlight: Promise<void> | null = null;
 
 async function flushWebPushQueue(): Promise<void> {
@@ -128,6 +107,28 @@ async function neonDataFetch(input: RequestInfo | URL, init?: RequestInit): Prom
 
   return response;
 }
+
+
+const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false,
+    storage: undefined,
+  },
+  global: {
+    fetch: neonDataFetch,
+  },
+  accessToken: async () => {
+    try {
+      return (await neonAuth.getJWTToken?.(true)) ?? null;
+    } catch {
+      return null;
+    }
+  },
+});
+
+const authClient = neonAuth as unknown as typeof legacySupabase.auth;
 
 const LIGHTWEIGHT_REALTIME_CHANNELS = new Set([
   'home-quiz-champion-rt',
