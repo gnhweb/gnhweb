@@ -52,27 +52,6 @@ export default function Login() {
     }
   }, [user, navigate, from]);
 
-  useEffect(() => {
-    async function checkConnection() {
-      try {
-        const controller = new AbortController();
-        const t = setTimeout(() => controller.abort(), 8000);
-        const res = await fetch('/auth/v1/settings', {
-          signal: controller.signal,
-        });
-        clearTimeout(t);
-        if (res.ok || res.status === 401 || res.status === 403) {
-          setConnectionStatus('ok');
-        } else {
-          setConnectionStatus('error');
-        }
-      } catch {
-        setConnectionStatus('error');
-      }
-    }
-    checkConnection();
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
