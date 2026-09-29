@@ -39,7 +39,6 @@ export default function Login() {
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
 
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const from = (location.state as { from?: string })?.from || '/';
 
   // 로그인 성공 후에는 라우팅을 먼저 완료하고, PIN 안내는 Layout의 공용
@@ -183,18 +182,6 @@ export default function Login() {
             </button>
           </div>
 
-          {connectionStatus === 'error' && (
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm mb-5">
-              <i className="ri-wifi-off-line flex-shrink-0 mt-0.5"></i>
-              <div>
-                <p className="font-medium">서버 연결이 원활하지 않습니다</p>
-                <p className="text-xs text-amber-600 mt-0.5">
-                  모바일 브라우저 보안 설정이나 네트워크 환경에 따라 일부 기능이 제한될 수 있습니다.
-                  Wi-Fi나 데이터 연결을 확인하고 다시 시도해주세요.
-                </p>
-              </div>
-            </div>
-          )}
 
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 text-rose-600 text-sm mb-5">
