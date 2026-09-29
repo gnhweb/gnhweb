@@ -67,11 +67,11 @@ export default {
       if (req.method !== 'POST') return json({ error: 'Method Not Allowed' }, 405);
       try {
         await requireUserId(req, env);
-        ctx.waitUntil(processWebPushQueue(env, { waitForNewRows: false, maxDurationMs: 25_000 }));
-        return json({ accepted: true }, 202);
+        const result = await processWebPushQueue(env, { waitForNewRows: false, maxDurationMs: 25_000 });
+        return json({ accepted: true, ...result }, 200);
       } catch (error) {
-        console.error('[web-push-flush] unauthorized request:', error);
-        return json({ error: 'Unauthorized' }, 401);
+        console.error('[web-push-flush] flush failed:', error);
+        return json({ error: 'Web Push flush failed' }, 500);
       }
     }
     if (url.pathname === '/web-push') return handleWebPush(req, env);
