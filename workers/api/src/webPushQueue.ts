@@ -32,7 +32,10 @@ function getSubscription(row: SubscriptionRow): webpush.PushSubscription {
   };
 }
 
-export async function processWebPushQueue(env: WebPushEnv): Promise<{ processed: number; sent: number; failed: number }> {
+export async function processWebPushQueue(
+  env: WebPushEnv,
+  options: { waitForNewRows?: boolean; maxDurationMs?: number } = {},
+): Promise<{ processed: number; sent: number; failed: number }> {
   const databaseUrl = String(env.DATABASE_URL || '').trim();
   const vapidPublicKey = String(env.WEB_PUSH_VAPID_PUBLIC_KEY || '').trim();
   const vapidPrivateKey = String(env.WEB_PUSH_VAPID_PRIVATE_KEY || '').trim();
@@ -44,7 +47,8 @@ export async function processWebPushQueue(env: WebPushEnv): Promise<{ processed:
 
   webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
   const sql = neon(databaseUrl);
-  const deadline = Date.now() + 50_000;
+  const waitForNewRows = options.waitForNewRows ?? true;
+  const deadline = Date.now() + (options.maxDurationMs ?? 50_000);
   let processed = 0;
   let sent = 0;
   let failed = 0;
@@ -62,6 +66,7 @@ export async function processWebPushQueue(env: WebPushEnv): Promise<{ processed:
     `;
 
     if (rows.length === 0) {
+      if (!waitForNewRows) break;
       await new Promise<void>((resolve) => setTimeout(resolve, 5_000));
       continue;
     }

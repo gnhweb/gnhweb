@@ -10,6 +10,7 @@ import { handleWebPush } from './webPushFeature';
 import { handleAccountPasswordMigration } from './accountPasswordMigrationFeature';
 import { handlePasskey } from './passkeyFeature';
 import { processWebPushQueue } from './webPushQueue';
+import { requireUserId } from './bibleStreakFeature';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -26,13 +27,14 @@ function json(body: unknown, status = 200, extraHeaders: Record<string, string> 
 
 function requiresNeonJwt(pathname: string, url: URL, method: string): boolean {
   return pathname === '/passkey'
+    || pathname === '/web-push/flush'
     || (pathname === '/prayer-relay' && method === 'GET')
     || pathname === '/streak-tracker'
     || (pathname === '/monthly-champion-snapshot' && url.searchParams.get('mode') === 'finalize');
 }
 
 export default {
-  async fetch(req: Request, env: Record<string, string | undefined>): Promise<Response> {
+  async fetch(req: Request, env: Record<string, string | undefined>, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
 
     // The account migration endpoint owns its origin-aware CORS handling.
@@ -47,7 +49,13 @@ export default {
       return json({ error: 'Unauthorized' }, 401);
     }
     if (url.pathname === '/passkey') return handlePasskey(req, env);
-    if (url.pathname === '/prayer-relay') return handlePrayerRelay(req, env);
+    if (url.pathname === '/prayer-relay') {
+      const response = await handlePrayerRelay(req, env);
+      if (req.method === 'POST' && response.ok) {
+        ctx.waitUntil(processWebPushQueue(env, { waitForNewRows: false, maxDurationMs: 25_000 }));
+      }
+      return response;
+    }
     if (url.pathname === '/quiz-leaderboard') return handleQuizLeaderboard(req, env);
     if (url.pathname === '/quiz-report') return handleQuizReport(req, env);
     if (url.pathname === '/streak-tracker') return handleStreakTracker(req, env);
@@ -55,6 +63,17 @@ export default {
     if (url.pathname === '/bible-pick') return handleBiblePick(req, env);
     if (url.pathname === '/setup-chief') return handleSetupChief(req, env);
     if (url.pathname === '/monthly-champion-snapshot') return handleMonthlyChampionSnapshot(req, env);
+    if (url.pathname === '/web-push/flush') {
+      if (req.method !== 'POST') return json({ error: 'Method Not Allowed' }, 405);
+      try {
+        await requireUserId(req, env);
+        ctx.waitUntil(processWebPushQueue(env, { waitForNewRows: false, maxDurationMs: 25_000 }));
+        return json({ accepted: true }, 202);
+      } catch (error) {
+        console.error('[web-push-flush] unauthorized request:', error);
+        return json({ error: 'Unauthorized' }, 401);
+      }
+    }
     if (url.pathname === '/web-push') return handleWebPush(req, env);
     if (url.pathname !== '/web-push-public-key') return json({ error: 'Not Found' }, 404);
     if (req.method !== 'GET') return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
