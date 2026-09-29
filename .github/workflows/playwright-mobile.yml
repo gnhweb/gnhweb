@@ -6,7 +6,7 @@ on:
 
 env:
   NODE_ENV: development
-  E2E_BASE_URL: https://test-pwa-heads-up-notificati.gnhweb.pages.dev
+  E2E_BASE_URL: https://gnhwebw.pages.dev
 
 concurrency:
   group: mobile-e2e-${{ github.ref }}
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   mobile-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,28 +28,17 @@ jobs:
       - name: Install dependencies
         run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
 
-      - name: Build site
-        run: npm run build
-
-      - name: Deploy PR branch preview
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: e005fccad53297f6ac5ca4d88472cd59
-          wranglerVersion: "4"
-          command: pages deploy out --project-name gnhweb --branch test-pwa-heads-up-notification
-
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
 
-      - name: Check PR preview reachability
+      - name: Check production reachability
         run: |
           for attempt in {1..30}; do
             status=$(curl -L -s -o /dev/null -w '%{http_code}' "$E2E_BASE_URL")
             if [ "$status" -ge 200 ] && [ "$status" -lt 500 ]; then exit 0; fi
             sleep 10
           done
-          echo "PR preview did not become reachable: $E2E_BASE_URL"
+          echo "Production did not become reachable: $E2E_BASE_URL"
           exit 1
 
       - name: Run mobile E2E
