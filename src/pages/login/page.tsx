@@ -57,9 +57,8 @@ export default function Login() {
       try {
         const controller = new AbortController();
         const t = setTimeout(() => controller.abort(), 8000);
-        const res = await fetch(`${import.meta.env.VITE_PUBLIC_SUPABASE_URL}/auth/v1/settings`, {
+        const res = await fetch('/auth/v1/settings', {
           signal: controller.signal,
-          headers: { apikey: import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY },
         });
         clearTimeout(t);
         if (res.ok || res.status === 401 || res.status === 403) {
