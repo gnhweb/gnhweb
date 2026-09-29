@@ -63,7 +63,7 @@ const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
   },
   accessToken: async () => {
     try {
-      return (await neonAuth.getJWTToken?.(false)) ?? null;
+      return (await neonAuth.getJWTToken?.(true)) ?? null;
     } catch {
       return null;
     }
