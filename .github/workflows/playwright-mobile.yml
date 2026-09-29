@@ -6,7 +6,7 @@ on:
 
 env:
   NODE_ENV: development
-  E2E_BASE_URL: https://gnhweb.gemini19840314.workers.dev
+  E2E_BASE_URL: https://gnhwebw.pages.dev
 
 concurrency:
   group: mobile-e2e-${{ github.ref }}
