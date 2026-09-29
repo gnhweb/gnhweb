@@ -417,7 +417,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3 rounded-xl bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap mt-2"
+              className="w-full min-h-[44px] py-3 rounded-xl bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap mt-2"
             >
               {submitting ? (
                 <span className="flex items-center justify-center gap-2">
