@@ -24,8 +24,9 @@ function json(body: unknown, status = 200, extraHeaders: Record<string, string> 
   });
 }
 
-function requiresNeonJwt(pathname: string, url: URL): boolean {
+function requiresNeonJwt(pathname: string, url: URL, method: string): boolean {
   return pathname === '/passkey'
+    || (pathname === '/prayer-relay' && method === 'GET')
     || pathname === '/streak-tracker'
     || (pathname === '/monthly-champion-snapshot' && url.searchParams.get('mode') === 'finalize');
 }
@@ -42,7 +43,7 @@ export default {
     }
 
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
-    if (requiresNeonJwt(url.pathname, url) && !req.headers.get('authorization')) {
+    if (requiresNeonJwt(url.pathname, url, req.method) && !req.headers.get('authorization')) {
       return json({ error: 'Unauthorized' }, 401);
     }
     if (url.pathname === '/passkey') return handlePasskey(req, env);
