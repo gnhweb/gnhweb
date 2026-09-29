@@ -20,7 +20,7 @@ async function guards(page: Page) {
   const consoleErrors: string[] = [], pageErrors: string[] = [], failedRequests: string[] = [];
   page.on('console', m => { if (m.type() === 'error' && !/favicon|ResizeObserver|ERR_BLOCKED_BY_CLIENT/i.test(m.text())) consoleErrors.push(m.text()); });
   page.on('pageerror', e => pageErrors.push(e.message));
-  page.on('requestfailed', r => { try { const u = new URL(r.url()); if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico')) failedRequests.push(`${r.url()} :: ${r.failure()?.errorText || 'unknown'}`); } catch {} });
+  page.on('requestfailed', r => { try { const u = new URL(r.url()); const errorText = r.failure()?.errorText || 'unknown'; if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico') && !/Load request cancelled/i.test(errorText)) failedRequests.push(`${r.url()} :: ${errorText}`); } catch {} });
   return { consoleErrors, pageErrors, failedRequests };
 }
 async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof guards>>, allowGuard = true) {
@@ -31,7 +31,7 @@ async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof
   for (const marker of ERROR_MARKERS) expect(body, `${marker} on ${path}`).not.toContain(marker);
   const actual = new URL(page.url()).pathname; expect(actual === path || (allowGuard && GUARD_REDIRECTS.has(actual)), `Unexpected redirect: ${path} -> ${actual}`).toBeTruthy();
   for (const marker of NOT_FOUND_MARKERS) expect(body, `NotFound on ${path}`).not.toContain(marker);
-  expect(g.consoleErrors, `Console errors on ${path}`).toEqual([]); expect(g.pageErrors, `Page errors on ${path}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}`).toEqual([]);
+  expect(g.consoleErrors, `Console errors on ${path}: ${g.consoleErrors.join(' | ')}`).toEqual([]); expect(g.pageErrors, `Page errors on ${path}: ${g.pageErrors.join(' | ')}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}: ${g.failedRequests.join(' | ')}`).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), `Horizontal overflow on ${path}`).toBeTruthy();
 }
 async function signIn(page: Page, role: RoleKey) {

@@ -107,9 +107,9 @@ function dataApiUrl(path: string): string {
   return `${DEFAULT_NEON_DATA_API_URL}/rest/v1/${path}`;
 }
 
-async function dataApiRequest<T>(url: string, authorization: string, init: RequestInit = {}): Promise<T> {
+async function dataApiRequest<T>(url: string, authorization: string | undefined, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set('authorization', authorization);
+  if (authorization) headers.set('authorization', authorization);
   headers.set('accept', 'application/json');
   if (init.body && !headers.has('content-type')) headers.set('content-type', 'application/json');
 
@@ -123,7 +123,7 @@ async function dataApiRequest<T>(url: string, authorization: string, init: Reque
   return (text ? JSON.parse(text) : null) as T;
 }
 
-async function getRelay(relayId: string, authorization: string): Promise<Relay | null> {
+async function getRelay(relayId: string, authorization?: string): Promise<Relay | null> {
   const rows = await dataApiRequest<Relay[]>(
     dataApiUrl(`prayer_relays?select=*&id=eq.${encodeURIComponent(relayId)}&limit=1`),
     authorization,
@@ -131,7 +131,7 @@ async function getRelay(relayId: string, authorization: string): Promise<Relay |
   return rows[0] ?? null;
 }
 
-async function getEntries(relayId: string, authorization: string): Promise<Entry[]> {
+async function getEntries(relayId: string, authorization?: string): Promise<Entry[]> {
   return dataApiRequest<Entry[]>(
     dataApiUrl(`prayer_relay_entries?select=*&relay_id=eq.${encodeURIComponent(relayId)}&order=entry_order.asc`),
     authorization,
@@ -149,7 +149,7 @@ export async function handlePrayerRelay(request: Request, env: Env): Promise<Res
       const requestedLimit = Number.parseInt(url.searchParams.get('limit') || '20', 10);
       const limit = Math.min(Number.isFinite(requestedLimit) ? Math.max(requestedLimit, 1) : 20, 50);
 
-      const authorization = request.headers.get('authorization') || '';
+      const authorization = request.headers.get('authorization') || undefined;
       if (relayId) {
         const relay = await getRelay(relayId, authorization);
         if (!relay) return json({ error: '릴레이를 찾을 수 없습니다.' }, 404);
@@ -173,7 +173,7 @@ export async function handlePrayerRelay(request: Request, env: Env): Promise<Res
       const statusFilter = typeof body.status === 'string' ? body.status : 'active';
       const requestedLimit = Number.parseInt(String(body.limit || '20'), 10);
       const limit = Math.min(Number.isFinite(requestedLimit) ? Math.max(requestedLimit, 1) : 20, 50);
-      const authorization = request.headers.get('authorization') || '';
+      const authorization = request.headers.get('authorization') || undefined;
       const relays = await dataApiRequest<Relay[]>(
         dataApiUrl(`prayer_relays?select=*&status=eq.${encodeURIComponent(statusFilter)}&order=created_at.desc&limit=${limit}`),
         authorization,
@@ -181,10 +181,9 @@ export async function handlePrayerRelay(request: Request, env: Env): Promise<Res
       return json({ relays });
     }
 
-    const { userId, authorization } = await requireAuth(request, env);
-
     if (action === 'detail') {
       const relayId = typeof body.relayId === 'string' ? body.relayId : '';
+      const authorization = request.headers.get('authorization') || undefined;
       if (!relayId) return json({ error: '릴레이 ID가 필요합니다.' }, 400);
       const relay = await getRelay(relayId, authorization);
       if (!relay) return json({ error: '릴레이를 찾을 수 없습니다.' }, 404);

@@ -42,16 +42,23 @@ self.addEventListener('push', (event) => {
   const body = payload.message || payload.body || '새로운 알림이 도착했어요.';
   const link = payload.link_url || '/';
 
+  const notificationOptions: NotificationOptions & {
+    vibrate?: number[];
+    renotify?: boolean;
+  } = {
+    body,
+    icon: payload.icon || '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+    tag: payload.tag || `gnh-${Date.now()}`,
+    requireInteraction: true,
+    renotify: true,
+    silent: false,
+    vibrate: [200, 100, 200],
+    data: { link },
+  };
+
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: payload.icon || '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
-      tag: payload.tag || `gnh-${Date.now()}`,
-      requireInteraction: true,
-      silent: false,
-      data: { link },
-    }),
+    self.registration.showNotification(title, notificationOptions),
   );
 });
 

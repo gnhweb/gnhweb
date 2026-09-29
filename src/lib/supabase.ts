@@ -13,7 +13,9 @@ const CLOUDFLARE_API = import.meta.env.VITE_CLOUDFLARE_API_URL || 'https://gnhwe
 const CLOUDFLARE_AI_GATEWAY = import.meta.env.VITE_CLOUDFLARE_AI_GATEWAY_URL || 'https://gnhweb-ai-gateway.gemini19840314.workers.dev';
 const neonAuthUrl = import.meta.env.PROD && typeof window !== 'undefined' ? `${window.location.origin}/auth` : (import.meta.env.VITE_NEON_AUTH_URL || DEFAULT_NEON_AUTH_URL);
 const configuredNeonDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || DEFAULT_NEON_DATA_API_URL;
-const neonDataApiUrl = configuredNeonDataApiUrl.replace(/\/rest\/v1\/?$/, '');
+const neonDataApiUrl = import.meta.env.PROD && typeof window !== 'undefined'
+  ? `${window.location.origin}/data`
+  : configuredNeonDataApiUrl.replace(/\/rest\/v1\/?$/, '');
 export const neonEnabled = Boolean(neonAuthUrl && neonDataApiUrl);
 
 export async function getNeonJwtToken(): Promise<string | null> {
@@ -61,7 +63,7 @@ const neonDataClient = createClient(neonDataApiUrl, 'anonymous', {
   },
   accessToken: async () => {
     try {
-      return (await neonAuth.getJWTToken?.(false)) ?? null;
+      return (await neonAuth.getJWTToken?.(true)) ?? null;
     } catch {
       return null;
     }

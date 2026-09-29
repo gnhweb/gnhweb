@@ -5,8 +5,8 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_ENV: development
-  E2E_BASE_URL: https://gnhweb.gemini19840314.workers.dev
+  NODE_ENV: production
+  E2E_BASE_URL:
 
 concurrency:
   group: mobile-e2e-${{ github.ref }}
@@ -19,25 +19,49 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+
       - name: Install dependencies
         run: npm install --include=dev --cache "/tmp/npm-cache-${{ github.run_id }}"
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
-      - name: Check production reachability
+
+      - name: Build site for Pages preview
+        run: npm run build
+
+      - name: Deploy Pages preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: e005fccad53297f6ac5ca4d88472cd59
         run: |
+          set -euo pipefail
+          preview_log=$(mktemp)
+          npx --yes wrangler@4.143.0 pages deploy out --project-name gnhweb --branch "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" 2>&1 | tee "$preview_log"
+          preview_url=$(grep -Eo 'https://[A-Za-z0-9.-]+\.gnhwebw\.pages\.dev' "$preview_log" | tail -n 1)
+          if [ -z "$preview_url" ]; then echo "Could not determine Pages preview URL."; exit 1; fi
+          echo "E2E_BASE_URL=$preview_url" >> "$GITHUB_ENV"
+          echo "Pages preview: $preview_url"
+
+      - name: Check Pages preview reachability
+        run: |
+          set -euo pipefail
           for attempt in {1..30}; do
-            status=$(curl -L -s -o /dev/null -w '%{http_code}' "$E2E_BASE_URL")
+            status=$(curl -L -s -o /dev/null -w '%{http_code}' "$E2E_BASE_URL" || true)
+            echo "attempt=$attempt status=$status url=$E2E_BASE_URL"
             if [ "$status" -ge 200 ] && [ "$status" -lt 500 ]; then exit 0; fi
-            sleep 10
+            sleep 5
           done
-          echo "Production did not become reachable: $E2E_BASE_URL"
+          echo "Pages preview did not become reachable: $E2E_BASE_URL"
           exit 1
+
       - name: Run mobile E2E
         run: npm run test:e2e
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4

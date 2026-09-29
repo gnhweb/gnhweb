@@ -39,7 +39,6 @@ export default function Login() {
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
 
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const from = (location.state as { from?: string })?.from || '/';
 
   // 로그인 성공 후에는 라우팅을 먼저 완료하고, PIN 안내는 Layout의 공용
@@ -51,28 +50,6 @@ export default function Login() {
       navigate(from, { replace: true });
     }
   }, [user, navigate, from]);
-
-  useEffect(() => {
-    async function checkConnection() {
-      try {
-        const controller = new AbortController();
-        const t = setTimeout(() => controller.abort(), 8000);
-        const res = await fetch(`${import.meta.env.VITE_PUBLIC_SUPABASE_URL}/auth/v1/settings`, {
-          signal: controller.signal,
-          headers: { apikey: import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY },
-        });
-        clearTimeout(t);
-        if (res.ok || res.status === 401 || res.status === 403) {
-          setConnectionStatus('ok');
-        } else {
-          setConnectionStatus('error');
-        }
-      } catch {
-        setConnectionStatus('error');
-      }
-    }
-    checkConnection();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,18 +182,6 @@ export default function Login() {
             </button>
           </div>
 
-          {connectionStatus === 'error' && (
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm mb-5">
-              <i className="ri-wifi-off-line flex-shrink-0 mt-0.5"></i>
-              <div>
-                <p className="font-medium">서버 연결이 원활하지 않습니다</p>
-                <p className="text-xs text-amber-600 mt-0.5">
-                  모바일 브라우저 보안 설정이나 네트워크 환경에 따라 일부 기능이 제한될 수 있습니다.
-                  Wi-Fi나 데이터 연결을 확인하고 다시 시도해주세요.
-                </p>
-              </div>
-            </div>
-          )}
 
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 text-rose-600 text-sm mb-5">
@@ -452,7 +417,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3 rounded-xl bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap mt-2"
+              className="w-full min-h-[44px] py-3 rounded-xl bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap mt-2"
             >
               {submitting ? (
                 <span className="flex items-center justify-center gap-2">
