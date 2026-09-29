@@ -81,7 +81,17 @@ export async function processWebPushQueue(env: WebPushEnv): Promise<{ processed:
         let rowSent = 0;
         await Promise.all(subscriptions.map(async (subscription) => {
           try {
-            await webpush.sendNotification(getSubscription(subscription), payload);
+            await webpush.sendNotification(getSubscription(subscription), payload, {
+              // Do not let a stalled push-service connection consume most of the
+              // Worker invocation. Failed sends are retried by the queue.
+              timeout: 8_000,
+              // Ask the push service to prioritize prompt delivery. This does not
+              // force an Android heads-up popup; that is controlled by the device.
+              urgency: 'high',
+              // Keep the notification available to the push service for a short
+              // period if the device is temporarily unreachable.
+              TTL: 300,
+            });
             rowSent += 1;
           } catch (error) {
             const statusCode = Number((error as { statusCode?: number } | null)?.statusCode || 0);
