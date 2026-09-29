@@ -52,7 +52,6 @@ self.addEventListener('push', (event) => {
     requireInteraction: true,
     silent: false,
     vibrate: [200, 100, 200],
-    renotify: true,
     data: { link },
   };
 
