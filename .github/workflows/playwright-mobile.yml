@@ -6,7 +6,7 @@ on:
 
 env:
   NODE_ENV: development
-  E2E_BASE_URL: https://gnhwebw.pages.dev
+  E2E_BASE_URL: http://127.0.0.1:8788
 
 concurrency:
   group: mobile-e2e-${{ github.ref }}
@@ -31,14 +31,23 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
 
-      - name: Check production reachability
+      - name: Build site for local Pages runtime
+        run: npm run build
+
+      - name: Start local Cloudflare Pages runtime
+        run: |
+          npx --yes wrangler pages dev out --ip 127.0.0.1 --port 8788 > /tmp/gnhweb-pages.log 2>&1 &
+          echo $! > /tmp/gnhweb-pages.pid
+
+      - name: Check local Pages reachability
         run: |
           for attempt in {1..30}; do
             status=$(curl -L -s -o /dev/null -w '%{http_code}' "$E2E_BASE_URL")
             if [ "$status" -ge 200 ] && [ "$status" -lt 500 ]; then exit 0; fi
-            sleep 10
+            sleep 2
           done
-          echo "Production did not become reachable: $E2E_BASE_URL"
+          echo "Local Pages runtime did not become reachable: $E2E_BASE_URL"
+          cat /tmp/gnhweb-pages.log
           exit 1
 
       - name: Run mobile E2E
