@@ -97,7 +97,8 @@ async function neonDataFetch(input: RequestInfo | URL, init?: RequestInit): Prom
 
   try {
     const parsedUrl = new URL(requestUrl);
-    if (requestMethod === 'POST' && parsedUrl.pathname.endsWith('/rest/v1/notifications')) {
+    const dataApiPath = new URL(neonDataApiUrl).pathname.replace(/\/$/, '');
+    if (requestMethod === 'POST' && parsedUrl.pathname === `${dataApiPath}/notifications`) {
       await flushWebPushQueue();
     }
   } catch {
