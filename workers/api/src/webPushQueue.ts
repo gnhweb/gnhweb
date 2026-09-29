@@ -60,7 +60,10 @@ export async function processWebPushQueue(
       WHERE id IN (
         SELECT id FROM web_push_queue
         WHERE status = 'pending' AND available_at <= now() AND attempts < 5
-        ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 20
+        ORDER BY
+          CASE WHEN ${waitForNewRows} THEN created_at ELSE NULL END ASC,
+          CASE WHEN ${waitForNewRows} THEN NULL ELSE created_at END DESC
+        FOR UPDATE SKIP LOCKED LIMIT 20
       )
       RETURNING id, user_id, title, message, link_url, tag, attempts
     `;
