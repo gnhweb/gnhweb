@@ -26,7 +26,6 @@ function json(body: unknown, status = 200, extraHeaders: Record<string, string> 
 
 function requiresNeonJwt(pathname: string, url: URL): boolean {
   return pathname === '/passkey'
-    || pathname === '/quiz-leaderboard'
     || pathname === '/streak-tracker'
     || (pathname === '/monthly-champion-snapshot' && url.searchParams.get('mode') === 'finalize');
 }
