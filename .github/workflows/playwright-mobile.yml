@@ -42,7 +42,7 @@ jobs:
           set -euo pipefail
           preview_log=$(mktemp)
           npx --yes wrangler@4.143.0 pages deploy out --project-name gnhweb --branch "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" 2>&1 | tee "$preview_log"
-          preview_url=$(grep -Eo 'https://[A-Za-z0-9.-]+\.gnhweb\.pages\.dev' "$preview_log" | tail -n 1)
+          preview_url=$(grep -Eo 'https://[A-Za-z0-9.-]+\.gnhwebw\.pages\.dev' "$preview_log" | tail -n 1)
           if [ -z "$preview_url" ]; then echo "Could not determine Pages preview URL."; exit 1; fi
           echo "E2E_BASE_URL=$preview_url" >> "$GITHUB_ENV"
           echo "Pages preview: $preview_url"
