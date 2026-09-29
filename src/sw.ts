@@ -50,6 +50,8 @@ self.addEventListener('push', (event) => {
       tag: payload.tag || `gnh-${Date.now()}`,
       requireInteraction: true,
       silent: false,
+      vibrate: [200, 100, 200],
+      renotify: true,
       data: { link },
     }),
   );
