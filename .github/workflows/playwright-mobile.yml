@@ -36,7 +36,7 @@ jobs:
 
       - name: Start local Cloudflare Pages runtime
         run: |
-          npx --yes wrangler pages dev out --ip 127.0.0.1 --port 8788 > /tmp/gnhweb-pages.log 2>&1 &
+          npx --yes wrangler@4.143.0 pages dev out --ip 127.0.0.1 --port 8788 > /tmp/gnhweb-pages.log 2>&1 &
           echo $! > /tmp/gnhweb-pages.pid
 
       - name: Check local Pages reachability
