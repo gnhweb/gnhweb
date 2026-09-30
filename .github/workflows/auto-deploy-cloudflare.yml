@@ -142,7 +142,7 @@ jobs:
           path: |
             ~/.npm
             ~/.cache/ms-playwright
-          key: ${{ runner.os }}-e2e-${{ hashFiles('package.json') }}-${{ hashFiles('tests/e2e/**') }}
+          key: ${{ runner.os }}-e2e-${{ hashFiles('package.json') }}
           restore-keys: |
             ${{ runner.os }}-e2e-${{ hashFiles('package.json') }}-
             ${{ runner.os }}-e2e-
