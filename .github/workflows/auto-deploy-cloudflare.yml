@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 2
       - name: Check critical file changes
         env:
           BEFORE_SHA: ${{ github.event.before }}
@@ -95,8 +95,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Cache npm downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
       - name: Install site dependencies
-        run: npm install --include=dev --no-audit --no-fund
+        run: npm install --include=dev --no-audit --no-fund --prefer-offline
       - name: Type-check site
         run: npm run type-check
       - name: Lint site
@@ -129,8 +136,18 @@ jobs:
         with:
           node-version: 20
 
+      - name: Cache npm and Playwright downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-e2e-${{ hashFiles('package.json') }}-${{ hashFiles('tests/e2e/**') }}
+          restore-keys: |
+            ${{ runner.os }}-e2e-${{ hashFiles('package.json') }}-
+            ${{ runner.os }}-e2e-
       - name: Install test dependencies
-        run: npm install --include=dev --no-audit --no-fund
+        run: npm install --include=dev --no-audit --no-fund --prefer-offline
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
