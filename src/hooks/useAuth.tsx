@@ -162,11 +162,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileError(null);
 
     try {
-      const { data, error } = await supabase
+      const profileQuery = supabase
         .from('user_roles')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
+      const extraRolesQuery = supabase
+        .from('user_role_assignments')
+        .select('role')
+        .eq('user_id', userId);
+      const [profileResult, extraRolesResult] = await Promise.all([profileQuery, extraRolesQuery]);
+      const { data, error } = profileResult;
+      const { data: extraRoles } = extraRolesResult;
 
       if (fetchingForRef.current !== userId) return;
 
@@ -183,10 +190,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await supabase.auth.signOut();
           return;
         }
-        const { data: extraRoles } = await supabase
-          .from('user_role_assignments')
-          .select('role')
-          .eq('user_id', userId);
         if (extraRoles && extraRoles.length > 0) {
           profileData.roles = [profileData.role, ...extraRoles.map((r: any) => r.role as UserRole)];
         }
