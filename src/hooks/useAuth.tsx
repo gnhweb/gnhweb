@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
+import { neonAuth } from '@/lib/neonAuth';
 import type { User } from '@supabase/supabase-js';
 import type { UserProfile, UserRole } from '@/types/auth';
 import { ROLE_HIERARCHY } from '@/types/auth';
@@ -45,6 +45,14 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+let supabaseClientPromise: Promise<typeof import('@/lib/supabase').supabase> | null = null;
+async function getSupabaseClient() {
+  if (!supabaseClientPromise) {
+    supabaseClientPromise = import('@/lib/supabase').then(({ supabase }) => supabase);
+  }
+  return supabaseClientPromise;
+}
 
 const PIN_SETUP_DISMISSED_SESSION_PREFIX = 'gnh_pin_setup_dismissed:';
 
@@ -113,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ──── Supabase Realtime: 권한 변경 실시간 감지 ────
   // 부장이 admin/roles 페이지에서 역할·겸직·동아리를 변경하면
   // 해당 사용자의 profile이 자동으로 갱신되어 UI에 즉시 반영됩니다.
-  const realtimeSubRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const realtimeSubRef = useRef<ReturnType<Awaited<ReturnType<typeof getSupabaseClient>>['channel']> | null>(null);
 
   /**
    * Centralised "the session is dead" handler.
@@ -133,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // scope: 'local' avoids a server round-trip (which would fail anyway
     // with the expired refresh token), but still resets the in-memory
     // session and stops the auto-refresh timer.
-    supabase.auth.signOut({ scope: 'local' }).catch(() => { /* ignore — we are already dead */ });
+    neonAuth.signOut({ scope: 'local' }).catch(() => { /* ignore — we are already dead */ });
 
     setUser(null);
     setProfile(null);
@@ -161,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileError(null);
 
     try {
+      const supabase = await getSupabaseClient();
       const profileQuery = supabase
         .from('user_roles')
         .select('*')
@@ -186,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (profileData.is_expelled) {
           setProfile(null);
           setProfileError('퇴출된 계정입니다. 관리자에게 문의하세요.');
-          await supabase.auth.signOut();
+          await neonAuth.signOut();
           return;
         }
         if (extraRoles && extraRoles.length > 0) {
@@ -277,9 +286,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const getSessionVersion = authEventVersionRef.current;
 
-    supabase.auth.getSession()
+    neonAuth.getSession()
       .then(({ data: { session }, error }) => {
-        if (!isMounted) return;
+        if (cancelled) return;
         if (authEventVersionRef.current !== getSessionVersion) {
           sessionRestoredRef.current = true;
           return;
@@ -348,7 +357,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPinSetupNeeded(false);
       });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = neonAuth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
       authEventVersionRef.current += 1;
 
@@ -470,7 +479,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     try {
       refreshFailureHandledRef.current = false;
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await neonAuth.signInWithPassword({ email, password });
       if (error) return { error: error.message, user: null };
 
       const signedInUser = data.user ?? null;
@@ -494,7 +503,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile]);
 
   const signUp = useCallback(async (email: string, password: string, name: string, role: UserRole, club?: string, birthYear?: number, gender?: string, birthMonth?: number, birthDay?: number, interests?: string, grade?: string) => {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await neonAuth.signUp({
       email,
       password,
       options: {
@@ -504,6 +513,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error.message };
 
     if (data.session && data.user) {
+      const supabase = await getSupabaseClient();
       const { error: roleError } = await supabase.from('user_roles').insert({
         user_id: data.user.id,
         role,
@@ -564,7 +574,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearPinSetupDismissedThisSession(user.id);
     }
     clearAllAuthStorage();
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => { /* already cleaned */ });
+    await neonAuth.signOut({ scope: 'local' }).catch(() => { /* already cleaned */ });
 
     try {
       if (window.REACT_APP_NAVIGATE) {
@@ -592,7 +602,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     Promise.resolve(
-      supabase
+      (await getSupabaseClient())
         .from('club_teachers')
         .select('club')
         .eq('teacher_id', user.id)
@@ -615,7 +625,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     Promise.resolve(
-      supabase
+      (await getSupabaseClient())
         .from('user_club_assignments')
         .select('club')
         .eq('user_id', user.id)
@@ -638,7 +648,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const pathPrefix = basePath ? `/${basePath}` : '';
       const redirectTo = `${window.location.origin}${pathPrefix}/reset-password`;
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await neonAuth.resetPasswordForEmail(email, {
         redirectTo,
       });
       if (error) return { error: error.message };
@@ -650,7 +660,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updatePassword = useCallback(async (newPassword: string) => {
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      const { error } = await neonAuth.updateUser({ password: newPassword });
       if (error) return { error: error.message };
       return { error: null };
     } catch {
@@ -660,7 +670,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateEmail = useCallback(async (newEmail: string) => {
     try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      const { error } = await neonAuth.updateUser({ email: newEmail });
       if (error) return { error: error.message };
       return { error: null };
     } catch {
