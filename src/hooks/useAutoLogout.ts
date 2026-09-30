@@ -61,7 +61,9 @@ export function useAutoLogout() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
+    // AuthProvider already loads user_roles for the initial profile. Do not
+    // issue a second user_roles request until the profile is ready.
+    if (!user || !profile) return;
     loadTimeoutSetting().then(() => {
       if (timeoutMinutesRef.current !== null && timeoutMinutesRef.current > 0) resetTimer();
     });
