@@ -66,7 +66,6 @@
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link rel="dns-prefetch" href="https://readdy.ai">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.5.0/remixicon.min.css" crossorigin="anonymous">
   </head>
   <body class="notranslate" translate="no">
@@ -113,6 +112,22 @@
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
-    <script src="https://readdy.ai/api/public/assistant/widget?projectId=bf294611-0b59-44df-aa0a-5ff8df712394" mode="hybrid" voice-show-transcript="true" theme="light" size="compact" accent-color="#F59E0B" button-base-color="#1F2937" button-accent-color="#FFFFFF" main-label="학생회 AI 도우미" defer></script>
+    <script>
+      (function () {
+        var WIDGET_URL = 'https://readdy.ai/api/public/assistant/widget?projectId=bf294611-0b59-44df-aa0a-5ff8df712394&mode=hybrid&voice-show-transcript=true&theme=light&size=compact&accent-color=%23F59E0B&button-base-color=%231F2937&button-accent-color=%23FFFFFF&main-label=%ED%95%99%EC%83%9D%ED%9A%8C%20AI%20%EB%8F%84%EC%9A%B0%EB%AF%B8';
+        function loadAssistantWidget() {
+          if (document.querySelector('script[data-gnh-readdy-widget]')) return;
+          var script = document.createElement('script');
+          script.src = WIDGET_URL;
+          script.dataset.gnhReaddyWidget = 'true';
+          document.body.appendChild(script);
+        }
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(loadAssistantWidget, { timeout: 10000 });
+        } else {
+          window.setTimeout(loadAssistantWidget, 7000);
+        }
+      })();
+    </script>
   </body>
 </html>
