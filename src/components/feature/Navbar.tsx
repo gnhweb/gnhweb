@@ -338,7 +338,7 @@ export default function Navbar() {
           </motion.div>}
         </AnimatePresence>
       </nav>
-      <MeetingIdeasModal open={meetingIdeasOpen} onClose={() => setMeetingIdeasOpen(false)} />
+      <Suspense fallback={null}><MeetingIdeasModal open={meetingIdeasOpen} onClose={() => setMeetingIdeasOpen(false)} /></Suspense>
       <Suspense fallback={null}><NotificationsModal open={notificationsOpen} onClose={() => setNotificationsOpen(false)} user={user} /></Suspense>
       <NotificationToast user={user} onOpenList={() => setNotificationsOpen(true)} />
     </>

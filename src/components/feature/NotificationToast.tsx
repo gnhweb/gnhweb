@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { getWebPushSubscription } from '@/lib/webPush';
 
 interface Notification {
   id: string;
@@ -55,6 +54,7 @@ async function showBrowserNotification(n: Notification, onClick?: () => void) {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
     if (typeof document !== 'undefined' && document.visibilityState === 'visible') return;
+    const { getWebPushSubscription } = await import('@/lib/webPush');
     if (await getWebPushSubscription()) return;
 
     const browserNoti = new Notification(n.title, { body: n.message, tag: n.id });
