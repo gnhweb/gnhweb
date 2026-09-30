@@ -398,9 +398,15 @@ export default function Home() {
     return () => { cancelled = true; };
   }, []);
 
-  // 오늘의 어록 - DB에서 최신 활성 어록 목록을 가져와 갱신 (하루 1회만 실제 조회, 실패 시 폴백 유지)
+  // 오늘의 어록은 첫 화면 렌더 이후 가져온다.
   useEffect(() => {
-    fetchAndCacheQuoteOfTheDay().then(setDailyQuote);
+    const run = () => { void fetchAndCacheQuoteOfTheDay().then(setDailyQuote); };
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(run, { timeout: 2500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(run, 800);
+    return () => window.clearTimeout(id);
   }, []);
 
   // ── 이달의 동아리 챔피언(성경퀴즈 · 성경완독) 실시간 로드 ──
@@ -738,14 +744,22 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    loadAttendanceSummary();
-    const todayStr = todayKey();
-    const channel = supabase
-      .channel('home-attendance-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance', filter: `attendance_date=eq.${todayStr}` }, () => loadAttendanceSummary())
-      .subscribe();
-    attendanceChannelRef.current = channel;
-    return () => { supabase.removeChannel(channel); };
+    const run = () => {
+      loadAttendanceSummary();
+      const todayStr = todayKey();
+      const channel = supabase
+        .channel('home-attendance-rt')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance', filter: `attendance_date=eq.${todayStr}` }, () => loadAttendanceSummary())
+        .subscribe();
+      attendanceChannelRef.current = channel;
+      return () => { supabase.removeChannel(channel); };
+    };
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(run, { timeout: 2500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(run, 800);
+    return () => window.clearTimeout(id);
   }, [loadAttendanceSummary]);
 
   const slideVariants = {
