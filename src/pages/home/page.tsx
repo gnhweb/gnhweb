@@ -380,22 +380,36 @@ export default function Home() {
   const touchStartY = useRef(0);
   const touchEndY = useRef(0);
 
-  // 추억창 사진을 메인 히어로 캐러셀의 슬라이드로 사용한다.
+  // 추억창 사진은 첫 화면 핵심 데이터가 아니므로 초기 렌더 이후 가져온다.
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
-      const { data, error } = await supabase
+    const loadMemoryPhotos = () => {
+      void supabase
         .from('memory_photos')
         .select('id, title, thumb_url, photo_url, created_at')
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(30)
+        .then(({ data }) => {
+          if (cancelled || !data?.length) return;
+          setMemoryPhotos(data as MemoryPhoto[]);
+        })
+        .catch(() => {});
+    };
 
-      if (cancelled || error || !data?.length) return;
-      setMemoryPhotos(data as MemoryPhoto[]);
-    })();
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(loadMemoryPhotos, { timeout: 2500 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(id);
+      };
+    }
 
-    return () => { cancelled = true; };
+    const id = globalThis.setTimeout(loadMemoryPhotos, 800);
+    return () => {
+      cancelled = true;
+      globalThis.clearTimeout(id);
+    };
   }, []);
 
   // 오늘의 어록은 첫 화면 렌더 이후 가져온다.

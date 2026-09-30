@@ -4,9 +4,10 @@ import { useAuth } from '@/hooks/useAuth';
 import AuthGuard from '@/components/base/AuthGuard';
 import Navbar from '@/components/feature/Navbar';
 import BottomTabBar from '@/components/feature/BottomTabBar';
-import DynamicWatermark from '@/components/feature/DynamicWatermark';
+const DynamicWatermark = lazy(() => import('@/components/feature/DynamicWatermark'));
+const PrayerRelayAuthorDeleteBridge = lazy(() => import('@/components/base/PrayerRelayAuthorDeleteBridge'));
 const AppLockScreen = lazy(() => import('@/components/feature/AppLockScreen'));
-import PinSetupPrompt from '@/components/feature/PinSetupPrompt';
+const PinSetupPrompt = lazy(() => import('@/components/feature/PinSetupPrompt'));
 const DashboardAttendanceSummary = lazy(() => import('@/components/feature/DashboardAttendanceSummary'));
 const AttendanceTelegramEnhancer = lazy(() => import('@/components/feature/AttendanceTelegramEnhancer'));
 const FaithHubPage = lazy(() => import('@/pages/faithHub/page'));
@@ -58,7 +59,7 @@ export default function Layout(){
  },[loading,user?.id,hasPin,pinLocked,unlockWithPasskey]);
 
  const persistedPinUnlocked = !!user && hasPin && isPinUnlockValid(user.id);
- if(pinLocked && !persistedPinUnlocked)return <Suspense fallback={<div className="min-h-screen bg-background-50" />}><AppLockScreen/></Suspense>; if(pinSetupNeeded)return <PinSetupPrompt/>;
+ if(pinLocked && !persistedPinUnlocked)return <Suspense fallback={<div className="min-h-screen bg-background-50" />}><AppLockScreen/></Suspense>; if(pinSetupNeeded)return <Suspense fallback={<div className="min-h-screen bg-background-50" />}><PinSetupPrompt/></Suspense>;
  const isSpecial=['/faith','/telegram-settings','/bible-pick','/bible-mbti','/leadership-diary'].includes(location.pathname);
  const isFullscreen=FULLSCREEN_GAME_PATHS.some(p=>location.pathname.startsWith(p));
  const showNavbar=!isFullscreen&&!!user&&(!profile||(profile.approval_status==='approved'&&!profile.is_expelled));
@@ -66,5 +67,5 @@ export default function Layout(){
  if(isFullscreen)return <><IosPwaBackButton/><Outlet/></>;
  const showMissionaryAttendanceSummary=location.pathname==='/dashboard'&&profile?.role==='member';
  const showTelegramEnhancer=location.pathname==='/attendance-board'||location.pathname==='/dashboard/attendance';
- return <MobileMenuProvider><div className="min-h-screen bg-background-50"><a href="#main-content" className="skip-link">본문 바로가기</a>{showNavbar&&<Navbar/>}<IosPwaBackButton/>{user&&<DynamicWatermark/>}{user&&!profile&&!loading&&profileError&&<div role="alert" className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-center gap-3"><div className="flex items-center gap-2 text-sm text-amber-700"><i className="ri-error-warning-line" aria-hidden="true"/>{profileError}</div><button onClick={retryProfile} disabled={profileRetrying} className="min-h-10 px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-semibold disabled:opacity-50">{profileRetrying?'재시도 중...':'다시 시도'}</button></div>}<main id="main-content" tabIndex={-1} className={showNavbar?'max-md:pb-[calc(6rem+env(safe-area-inset-bottom))]':''}>{showMissionaryAttendanceSummary&&<Suspense fallback={null}><DashboardAttendanceSummary/></Suspense>}{showTelegramEnhancer&&<Suspense fallback={null}><AttendanceTelegramEnhancer/></Suspense>}{isSpecial?special:<Outlet/>}</main>{showNavbar&&<BottomTabBar/>}</div></MobileMenuProvider>;
+ return <MobileMenuProvider><div className="min-h-screen bg-background-50"><a href="#main-content" className="skip-link">본문 바로가기</a>{showNavbar&&<Navbar/>}<IosPwaBackButton/>{user&&<Suspense fallback={null}><DynamicWatermark/></Suspense>}{user&&!profile&&!loading&&profileError&&<div role="alert" className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-center gap-3"><div className="flex items-center gap-2 text-sm text-amber-700"><i className="ri-error-warning-line" aria-hidden="true"/>{profileError}</div><button onClick={retryProfile} disabled={profileRetrying} className="min-h-10 px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-semibold disabled:opacity-50">{profileRetrying?'재시도 중...':'다시 시도'}</button></div>}<main id="main-content" tabIndex={-1} className={showNavbar?'max-md:pb-[calc(6rem+env(safe-area-inset-bottom))]':''}>{showMissionaryAttendanceSummary&&<Suspense fallback={null}><DashboardAttendanceSummary/></Suspense>}{showTelegramEnhancer&&<Suspense fallback={null}><AttendanceTelegramEnhancer/></Suspense>}{isSpecial?special:<Outlet/>}</main>{showNavbar&&<BottomTabBar/>}{location.pathname==='/prayer-relay'&&<Suspense fallback={null}><PrayerRelayAuthorDeleteBridge/></Suspense>}</div></MobileMenuProvider>;
 }

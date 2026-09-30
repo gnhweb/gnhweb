@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { lazy, Suspense, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,8 +6,10 @@ import { useTheme } from '@/hooks/useTheme';
 import { useMobileMenu } from '@/hooks/useMobileMenu';
 import { ROLE_LABELS, CLUB_LABELS } from '@/types/auth';
 import type { UserRole } from '@/types/auth';
-import MeetingIdeasModal from '@/components/feature/MeetingIdeasModal';
-import NotificationsModal, { useNotificationCount, NotificationToast } from '@/components/feature/NotificationsModal';
+const MeetingIdeasModal = lazy(() => import('@/components/feature/MeetingIdeasModal'));
+import { useNotificationCount } from '@/hooks/useNotificationCount';
+import NotificationToast from '@/components/feature/NotificationToast';
+const NotificationsModal = lazy(() => import('@/components/feature/NotificationsModal'));
 
 const MotionLink = motion(Link);
 
@@ -337,7 +339,7 @@ export default function Navbar() {
         </AnimatePresence>
       </nav>
       <MeetingIdeasModal open={meetingIdeasOpen} onClose={() => setMeetingIdeasOpen(false)} />
-      <NotificationsModal open={notificationsOpen} onClose={() => setNotificationsOpen(false)} user={user} />
+      <Suspense fallback={null}><NotificationsModal open={notificationsOpen} onClose={() => setNotificationsOpen(false)} user={user} /></Suspense>
       <NotificationToast user={user} onOpenList={() => setNotificationsOpen(true)} />
     </>
   );
