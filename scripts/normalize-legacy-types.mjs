@@ -35,25 +35,6 @@ let sw = read('src/sw.ts');
 sw = sw.replace(/\n\s*vibrate: \[120, 60, 120\],/m, '');
 write('src/sw.ts', sw);
 
-let auth = read('src/hooks/useAuth.tsx');
-auth = auth.replace(
-  "import { authenticateRegisteredPasskey, isPasskeyEnabled, isPasskeySupported } from '@/lib/passkey';",
-  "import { authenticateRegisteredPasskey, isPasskeySupported, signInWithPasskey as signInWithPasskeyLib } from '@/lib/passkey';",
-);
-auth = auth.replace(
-  "  signIn: (email: string, password: string) => Promise<{ error: string | null; user: User | null }>;\n",
-  "  signIn: (email: string, password: string) => Promise<{ error: string | null; user: User | null }>;\n  signInWithPasskey: () => Promise<{ error: string | null }>;\n",
-);
-auth = auth.replace(
-  '  const signOut = useCallback(async () => {',
-  "  const signInWithPasskey = useCallback(async () => {\n    if (!isPasskeyEnabled() || !isPasskeySupported()) return { error: '생체인식 로그인이 꺼져 있거나 이 기기에서 패스키를 사용할 수 없습니다.' };\n    const result = await signInWithPasskeyLib();\n    return { error: result.error?.message ?? null };\n  }, []);\n\n  const signOut = useCallback(async () => {",
-);
-auth = auth.replace(
-  'value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signUp, signOut,',
-  'value={{ user, profile, loading, profileError, profileRetrying, retryProfile, signIn, signInWithPasskey, signUp, signOut,',
-);
-write('src/hooks/useAuth.tsx', auth);
-
 let router = read('src/router/config.tsx');
 router = router.replace(
   '{ path: "/reports/review", element: <AuthGuard minRole="teacher">{withSuspense(<ReviewPage />)}</AuthGuard> },',
