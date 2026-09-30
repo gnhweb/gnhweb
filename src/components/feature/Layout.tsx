@@ -2,8 +2,8 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState, lazy, Suspense, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import AuthGuard from '@/components/base/AuthGuard';
-import Navbar from '@/components/feature/Navbar';
-import BottomTabBar from '@/components/feature/BottomTabBar';
+const Navbar = lazy(() => import('@/components/feature/Navbar'));
+const BottomTabBar = lazy(() => import('@/components/feature/BottomTabBar'));
 const DynamicWatermark = lazy(() => import('@/components/feature/DynamicWatermark'));
 const PrayerRelayAuthorDeleteBridge = lazy(() => import('@/components/base/PrayerRelayAuthorDeleteBridge'));
 const AppLockScreen = lazy(() => import('@/components/feature/AppLockScreen'));
@@ -17,7 +17,6 @@ const BibleMbtiEnhanced = lazy(() => import('@/pages/bibleMbtiEnhanced/page'));
 import { useAutoLogout } from '@/hooks/useAutoLogout';
 import { MobileMenuProvider } from '@/hooks/useMobileMenu';
 import { isPinUnlockValid } from '@/lib/simplePin';
-import { supabase } from '@/lib/supabase';
 
 const LeadershipDiary = lazy(() => import('@/pages/leadershipDiary/page'));
 const FULLSCREEN_GAME_PATHS=['/wolves-and-sheep','/pharisee','/pilgrims-run','/jonah-hide-seek','/galilee-phone'];
