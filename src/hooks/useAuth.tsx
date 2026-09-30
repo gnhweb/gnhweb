@@ -601,12 +601,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAssignedTeacherClub(null);
       return;
     }
-    Promise.resolve(
-      (await getSupabaseClient())
+    getSupabaseClient()
+      .then((supabase) => supabase
         .from('club_teachers')
         .select('club')
         .eq('teacher_id', user.id)
-    )
+      )
       .then(({ data }) => {
         if (data && data.length > 0) {
           setAssignedTeacherClub(data[0].club as string);
@@ -624,12 +624,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSecondaryClubs([]);
       return;
     }
-    Promise.resolve(
-      (await getSupabaseClient())
+    getSupabaseClient()
+      .then((supabase) => supabase
         .from('user_club_assignments')
         .select('club')
         .eq('user_id', user.id)
-    )
+      )
       .then(({ data }) => {
         if (data && data.length > 0) {
           setSecondaryClubs(data.map((r: any) => r.club as string));
