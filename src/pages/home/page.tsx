@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clubs } from '@/mocks/clubs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import LeaderboardModal from '@/pages/bibleQuiz/components/LeaderboardModal';
+const LeaderboardModal = lazy(() => import('@/pages/bibleQuiz/components/LeaderboardModal'));
 import { getCachedQuoteOfTheDay, fetchAndCacheQuoteOfTheDay } from '@/lib/dailyQuote';
 import { todayKey, formatKoreanDate } from '@/lib/date';
 import { CLUB_LABELS } from '@/types/auth';
@@ -1292,7 +1292,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />
+      <Suspense fallback={null}><LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} /></Suspense>
 
       {/* ═══ Footer ═══ */}
       <footer className="border-t border-primary-100/50 py-8 mt-4">
