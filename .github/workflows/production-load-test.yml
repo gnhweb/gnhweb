@@ -27,8 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      LOAD_TEST_BASE_URL: ${{ inputs.base_url }}
-      LOAD_TEST_HOLD_MS: ${{ fromJSON(inputs.hold_seconds) * 1000 }}
+      LOAD_TEST_BASE_URL: ${{ github.event.inputs.base_url || 'https://gnhwebw.pages.dev' }}
+      LOAD_TEST_HOLD_MS: ${{ fromJSON(github.event.inputs.hold_seconds || '10') * 1000 }}
       LOAD_TEST_NAVIGATION_TIMEOUT_MS: '30000'
     steps:
       - uses: actions/checkout@v4
