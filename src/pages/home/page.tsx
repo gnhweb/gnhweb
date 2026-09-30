@@ -347,8 +347,8 @@ export default function Home() {
       const id = window.requestIdleCallback(run, { timeout: 2000 });
       return () => window.cancelIdleCallback(id);
     }
-    const id = window.setTimeout(run, 500);
-    return () => window.clearTimeout(id);
+    const id = globalThis.setTimeout(run, 500);
+    return () => globalThis.clearTimeout(id);
   }, []);
 
   useEffect(() => {
@@ -405,8 +405,8 @@ export default function Home() {
       const id = window.requestIdleCallback(run, { timeout: 2500 });
       return () => window.cancelIdleCallback(id);
     }
-    const id = window.setTimeout(run, 800);
-    return () => window.clearTimeout(id);
+    const id = globalThis.setTimeout(run, 800);
+    return () => globalThis.clearTimeout(id);
   }, []);
 
   // ── 이달의 동아리 챔피언(성경퀴즈 · 성경완독) 실시간 로드 ──
@@ -583,8 +583,8 @@ export default function Home() {
       const id = window.requestIdleCallback(runNonCriticalHomeData, { timeout: 2500 });
       return () => window.cancelIdleCallback(id);
     }
-    const id = window.setTimeout(runNonCriticalHomeData, 800);
-    return () => window.clearTimeout(id);
+    const id = globalThis.setTimeout(runNonCriticalHomeData, 800);
+    return () => globalThis.clearTimeout(id);
   }, [loadQuizChampion, loadMarathonChampion, loadConfirmedChampions, finalizePreviousMonth]);
 
   // ── 데이터 패치 ──
@@ -658,9 +658,9 @@ export default function Home() {
         supabase.removeChannel(scheduleChannel);
       };
     }
-    const newsTimer = window.setTimeout(loadNews, 800);
+    const newsTimer = globalThis.setTimeout(loadNews, 800);
     return () => {
-      window.clearTimeout(newsTimer);
+      globalThis.clearTimeout(newsTimer);
       supabase.removeChannel(scheduleChannel);
     };
   }, []);
@@ -758,8 +758,8 @@ export default function Home() {
       const id = window.requestIdleCallback(run, { timeout: 2500 });
       return () => window.cancelIdleCallback(id);
     }
-    const id = window.setTimeout(run, 800);
-    return () => window.clearTimeout(id);
+    const id = globalThis.setTimeout(run, 800);
+    return () => globalThis.clearTimeout(id);
   }, [loadAttendanceSummary]);
 
   const slideVariants = {
