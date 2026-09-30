@@ -113,6 +113,9 @@ function CountUpBar({ label, value, delay }: { label: string; value: number; del
 }
 
 export default function BibleMbti() {
+  useEffect(() => {
+    void import('@/lib/bibleMbtiShare');
+  }, []);
   const [currentStep, setCurrentStep] = useState(0); const [answers, setAnswers] = useState<string[]>([]); const [result, setResult] = useState<MbtiResult | null>(null); const [isLoading, setIsLoading] = useState(false); const [error, setError] = useState(''); const [direction, setDirection] = useState(1); const [isCapturing, setIsCapturing] = useState(false); const [toastMessage, setToastMessage] = useState(''); const [toastType, setToastType] = useState<'success' | 'info' | 'error'>('info'); const [showSparkles, setShowSparkles] = useState(false); const resultCardRef = useRef<HTMLDivElement>(null);
   useEffect(() => { if (result) { setTimeout(() => setShowSparkles(true), 200); setTimeout(() => setShowSparkles(false), 2500); } }, [result]);
   const handleAnswer = async (answer: string) => { if (isLoading) return; if (currentStep >= questions.length - 1 && answers.length >= questions.length) return; const newAnswers = [...answers, answer]; setAnswers(newAnswers); setDirection(1); if (currentStep < questions.length - 1) { setCurrentStep(currentStep + 1); return; } setIsLoading(true); setError(''); try { const res = await fetchMbtiResult(newAnswers.slice(0, questions.length)); setResult(res); setCurrentStep(currentStep + 1); } catch (err) { setError(err instanceof Error ? err.message : '잠시 후 다시 시도해주세요'); } finally { setIsLoading(false); } };
