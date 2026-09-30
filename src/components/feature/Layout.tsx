@@ -15,7 +15,6 @@ const BiblePick = lazy(() => import('@/pages/biblePick/page'));
 const BibleMbtiEnhanced = lazy(() => import('@/pages/bibleMbtiEnhanced/page'));
 import { useAutoLogout } from '@/hooks/useAutoLogout';
 import { MobileMenuProvider } from '@/hooks/useMobileMenu';
-import { isPasskeyEnabled, listPasskeys } from '@/lib/passkey';
 import { isPinUnlockValid } from '@/lib/simplePin';
 import { supabase } from '@/lib/supabase';
 
@@ -49,8 +48,9 @@ export default function Layout(){
    let cancelled=false;
    const timer=window.setTimeout(async()=>{
      try{
-       const {data}=await listPasskeys();
-       if(cancelled||!data?.length||!isPasskeyEnabled())return;
+       const passkey = await import('@/lib/passkey');
+       const {data}=await passkey.listPasskeys();
+       if(cancelled||!data?.length||!passkey.isPasskeyEnabled())return;
        await unlockWithPasskey();
      }catch{}
    },120);
