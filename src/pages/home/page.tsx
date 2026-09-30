@@ -385,11 +385,13 @@ export default function Home() {
     let cancelled = false;
 
     const loadMemoryPhotos = () => {
-      void supabase
-        .from('memory_photos')
-        .select('id, title, thumb_url, photo_url, created_at')
-        .order('created_at', { ascending: false })
-        .limit(30)
+      void Promise.resolve(
+        supabase
+          .from('memory_photos')
+          .select('id, title, thumb_url, photo_url, created_at')
+          .order('created_at', { ascending: false })
+          .limit(30)
+      )
         .then(({ data }) => {
           if (cancelled || !data?.length) return;
           setMemoryPhotos(data as MemoryPhoto[]);
