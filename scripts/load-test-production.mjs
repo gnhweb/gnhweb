@@ -1,3 +1,4 @@
+// Production load validation is intentionally kept on push so performance regressions are measured after loading-path changes.
 import { chromium } from '@playwright/test';
 import { performance } from 'node:perf_hooks';
 
