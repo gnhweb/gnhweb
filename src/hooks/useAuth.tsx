@@ -288,7 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     neonAuth.getSession()
       .then(({ data: { session }, error }) => {
-        if (cancelled) return;
+        if (!isMounted) return;
         if (authEventVersionRef.current !== getSessionVersion) {
           sessionRestoredRef.current = true;
           return;
@@ -419,60 +419,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) {
       if (realtimeSubRef.current) {
-        supabase.removeChannel(realtimeSubRef.current);
+        void getSupabaseClient().then((supabase) => supabase.removeChannel(realtimeSubRef.current!)).catch(() => {});
         realtimeSubRef.current = null;
       }
       return;
     }
 
     const userId = user.id;
-    const channel = supabase
-      .channel(`profile-realtime-${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_roles',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          console.log('[Auth] user_roles 변경 감지 → 프로필 갱신');
-          fetchProfile(user);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_role_assignments',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          console.log('[Auth] user_role_assignments 변경 감지 → 프로필 갱신');
-          fetchProfile(user);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_club_assignments',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          console.log('[Auth] user_club_assignments 변경 감지 → 프로필 갱신');
-          fetchProfile(user);
-        }
-      )
-      .subscribe();
+    let cancelled = false;
+    let channel: ReturnType<Awaited<ReturnType<typeof getSupabaseClient>>['channel']> | null = null;
 
-    realtimeSubRef.current = channel;
+    void getSupabaseClient().then((supabase) => {
+      if (cancelled) return;
+      channel = supabase
+        .channel(`profile-realtime-${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_roles',
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            console.log('[Auth] user_roles 변경 감지 → 프로필 갱신');
+            fetchProfile(user);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_role_assignments',
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            console.log('[Auth] user_role_assignments 변경 감지 → 프로필 갱신');
+            fetchProfile(user);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_club_assignments',
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            console.log('[Auth] user_club_assignments 변경 감지 → 프로필 갱신');
+            fetchProfile(user);
+          }
+        )
+        .subscribe();
+
+      realtimeSubRef.current = channel;
+    }).catch(() => {});
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) {
+        void getSupabaseClient().then((supabase) => supabase.removeChannel(channel!)).catch(() => {});
+      }
+      realtimeSubRef.current = null;
     };
   }, [user, fetchProfile]);
 
