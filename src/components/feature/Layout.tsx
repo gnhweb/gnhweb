@@ -5,7 +5,7 @@ import AuthGuard from '@/components/base/AuthGuard';
 import Navbar from '@/components/feature/Navbar';
 import BottomTabBar from '@/components/feature/BottomTabBar';
 import DynamicWatermark from '@/components/feature/DynamicWatermark';
-import AppLockScreen from '@/components/feature/AppLockScreen';
+const AppLockScreen = lazy(() => import('@/components/feature/AppLockScreen'));
 import PinSetupPrompt from '@/components/feature/PinSetupPrompt';
 const DashboardAttendanceSummary = lazy(() => import('@/components/feature/DashboardAttendanceSummary'));
 const AttendanceTelegramEnhancer = lazy(() => import('@/components/feature/AttendanceTelegramEnhancer'));
@@ -58,7 +58,7 @@ export default function Layout(){
  },[loading,user?.id,hasPin,pinLocked,unlockWithPasskey]);
 
  const persistedPinUnlocked = !!user && hasPin && isPinUnlockValid(user.id);
- if(pinLocked && !persistedPinUnlocked)return <AppLockScreen/>; if(pinSetupNeeded)return <PinSetupPrompt/>;
+ if(pinLocked && !persistedPinUnlocked)return <Suspense fallback={<div className="min-h-screen bg-background-50" />}><AppLockScreen/></Suspense>; if(pinSetupNeeded)return <PinSetupPrompt/>;
  const isSpecial=['/faith','/telegram-settings','/bible-pick','/bible-mbti','/leadership-diary'].includes(location.pathname);
  const isFullscreen=FULLSCREEN_GAME_PATHS.some(p=>location.pathname.startsWith(p));
  const showNavbar=!isFullscreen&&!!user&&(!profile||(profile.approval_status==='approved'&&!profile.is_expelled));
