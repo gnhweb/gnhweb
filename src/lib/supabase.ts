@@ -44,11 +44,14 @@ if (typeof window !== 'undefined') {
 }
 
 const legacySupabase = createClient(legacySupabaseUrl, legacySupabaseAnonKey, {
+  // Production authentication is handled by Neon Auth below. Keeping the
+  // compatibility client sessionless prevents a second auth bootstrap from
+  // reading stale localStorage tokens or starting an unnecessary refresh loop.
   auth: {
-    autoRefreshToken: true,
-    persistSession: true,
+    autoRefreshToken: false,
+    persistSession: false,
     detectSessionInUrl: false,
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storage: undefined,
     experimental: { passkey: true },
   },
 });
