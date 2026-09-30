@@ -326,21 +326,29 @@ export default function Home() {
   const attendanceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);;
 
   useEffect(() => {
-    Promise.resolve(
-      supabase
-        .from('club_banners')
-        .select('club, card_image_url')
-    )
-      .then(({ data }) => {
-        if (data) {
-          const map: Record<string, { card_image_url: string | null }> = {};
-          data.forEach((banner: { club: string; card_image_url: string | null }) => {
-            map[banner.club] = { card_image_url: banner.card_image_url };
-          });
-          setClubBannerMap(map);
-        }
-      })
-      .catch(() => {});
+    const run = () => {
+      Promise.resolve(
+        supabase
+          .from('club_banners')
+          .select('club, card_image_url')
+      )
+        .then(({ data }) => {
+          if (data) {
+            const map: Record<string, { card_image_url: string | null }> = {};
+            data.forEach((banner: { club: string; card_image_url: string | null }) => {
+              map[banner.club] = { card_image_url: banner.card_image_url };
+            });
+            setClubBannerMap(map);
+          }
+        })
+        .catch(() => {});
+    };
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(run, { timeout: 2000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(run, 500);
+    return () => window.clearTimeout(id);
   }, []);
 
   useEffect(() => {
@@ -517,6 +525,7 @@ export default function Home() {
   }, [getPrevMonthRange, loadConfirmedChampions]);
 
   useEffect(() => {
+    const runNonCriticalHomeData = () => {
     // 캐시가 있으면 즉시 화면에 먼저 보여주고, 뒤이어 최신 데이터로 덮어쓴다
     const cachedLeaderboard = readQuizLeaderboardCache();
     if (cachedLeaderboard) setMonthlyChampion(cachedLeaderboard);
@@ -563,6 +572,13 @@ export default function Home() {
       clearTimeout(midnightTimeout);
       if (midnightInterval) clearInterval(midnightInterval);
     };
+    };
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(runNonCriticalHomeData, { timeout: 2500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(runNonCriticalHomeData, 800);
+    return () => window.clearTimeout(id);
   }, [loadQuizChampion, loadMarathonChampion, loadConfirmedChampions, finalizePreviousMonth]);
 
   // ── 데이터 패치 ──
@@ -615,20 +631,30 @@ export default function Home() {
       )
       .subscribe();
 
-    // 강학뉴스
-    Promise.resolve(
-      supabase
-        .from('ganghak_news')
-        .select('id, title, content, author_name, category, created_at')
-        .order('created_at', { ascending: false })
-        .limit(4)
-    )
-      .then(({ data }) => {
-        if (data) setNewsItems(data);
-      })
-      .catch(() => {});
-
+    // 강학뉴스는 첫 화면의 핵심 데이터가 아니므로 최초 페인트 이후 요청한다.
+    const loadNews = () => {
+      Promise.resolve(
+        supabase
+          .from('ganghak_news')
+          .select('id, title, content, author_name, category, created_at')
+          .order('created_at', { ascending: false })
+          .limit(4)
+      )
+        .then(({ data }) => {
+          if (data) setNewsItems(data);
+        })
+        .catch(() => {});
+    };
+    if ('requestIdleCallback' in window) {
+      const newsIdleId = window.requestIdleCallback(loadNews, { timeout: 2500 });
+      return () => {
+        window.cancelIdleCallback(newsIdleId);
+        supabase.removeChannel(scheduleChannel);
+      };
+    }
+    const newsTimer = window.setTimeout(loadNews, 800);
     return () => {
+      window.clearTimeout(newsTimer);
       supabase.removeChannel(scheduleChannel);
     };
   }, []);
