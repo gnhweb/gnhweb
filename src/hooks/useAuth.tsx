@@ -7,7 +7,6 @@ import {
   hasSimplePin, setSimplePin, verifySimplePin, clearSimplePin, isValidPinFormat,
   markPinActivity, setPinExplicitLock, isPinUnlockValid, setPinUnlockExpiration, clearPinUnlockSession, getAutoLogoutMinutes,
 } from '@/lib/simplePin';
-import { authenticateRegisteredPasskey, isPasskeyEnabled, isPasskeySupported, signInWithPasskey as signInWithPasskeyLib } from '@/lib/passkey';
 
 interface AuthContextValue {
   user: User | null;
@@ -715,7 +714,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const unlockWithPasskey = useCallback(async () => {
-    if (!user || !isPasskeyEnabled() || !isPasskeySupported()) return false;
+    if (!user) return false;
+    const { authenticateRegisteredPasskey, isPasskeyEnabled, isPasskeySupported } = await import('@/lib/passkey');
+    if (!isPasskeyEnabled() || !isPasskeySupported()) return false;
     const result = await authenticateRegisteredPasskey();
     if (!result.error) {
       setPinLocked(false);
