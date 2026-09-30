@@ -1,6 +1,10 @@
 name: Production Load Test
 
 on:
+  push:
+    paths:
+      - 'scripts/load-test-production.mjs'
+      - '.github/workflows/production-load-test.yml'
   workflow_dispatch:
     inputs:
       base_url:
