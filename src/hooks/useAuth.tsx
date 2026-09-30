@@ -544,6 +544,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   const signInWithPasskey = useCallback(async () => {
+    const { isPasskeyEnabled, isPasskeySupported, signInWithPasskey: signInWithPasskeyLib } = await import('@/lib/passkey');
     if (!isPasskeyEnabled() || !isPasskeySupported()) return { error: '생체인식 로그인이 꺼져 있거나 이 기기에서 패스키를 사용할 수 없습니다.' };
     const result = await signInWithPasskeyLib();
     return { error: result.error?.message ?? null };
