@@ -2,21 +2,10 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState, lazy, Suspense, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import AuthGuard from '@/components/base/AuthGuard';
-let navbarModulePromise: Promise<typeof import('@/components/feature/Navbar')> | null = null;
-let bottomTabBarModulePromise: Promise<typeof import('@/components/feature/BottomTabBar')> | null = null;
-
-function loadNavbarModule() {
-  if (!navbarModulePromise) navbarModulePromise = import('@/components/feature/Navbar');
-  return navbarModulePromise;
-}
-
-function loadBottomTabBarModule() {
-  if (!bottomTabBarModulePromise) bottomTabBarModulePromise = import('@/components/feature/BottomTabBar');
-  return bottomTabBarModulePromise;
-}
-
-const Navbar = lazy(loadNavbarModule);
-const BottomTabBar = lazy(loadBottomTabBarModule);
+const navbarModulePromise = import('@/components/feature/Navbar');
+const bottomTabBarModulePromise = import('@/components/feature/BottomTabBar');
+const Navbar = lazy(() => navbarModulePromise);
+const BottomTabBar = lazy(() => bottomTabBarModulePromise);
 const DynamicWatermark = lazy(() => import('@/components/feature/DynamicWatermark'));
 const PrayerRelayAuthorDeleteBridge = lazy(() => import('@/components/base/PrayerRelayAuthorDeleteBridge'));
 const AppLockScreen = lazy(() => import('@/components/feature/AppLockScreen'));
@@ -75,10 +64,6 @@ export default function Layout(){
  const isSpecial=['/faith','/telegram-settings','/bible-pick','/bible-mbti','/leadership-diary'].includes(location.pathname);
  const isFullscreen=FULLSCREEN_GAME_PATHS.some(p=>location.pathname.startsWith(p));
  const showNavbar=!isFullscreen&&!!user&&(!profile||(profile.approval_status==='approved'&&!profile.is_expelled));
- if(showNavbar){
-   void loadNavbarModule();
-   void loadBottomTabBarModule();
- }
  const special=location.pathname==='/faith'?<Suspense fallback={<div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">로딩 중…</div>}><FaithHubPage/></Suspense>:location.pathname==='/telegram-settings'?<Suspense fallback={<div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">로딩 중…</div>}><TelegramSettingsPage/></Suspense>:location.pathname==='/bible-pick'?<Suspense fallback={<div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">로딩 중…</div>}><BiblePick/></Suspense>:location.pathname==='/bible-mbti'?<Suspense fallback={<div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">로딩 중…</div>}><BibleMbtiEnhanced/></Suspense>:location.pathname==='/leadership-diary'?<AuthGuard minRole="assistant_zone_leader"><Suspense fallback={<div className="min-h-[40vh] flex items-center justify-center p-6 text-sm text-muted-foreground">로딩 중…</div>}><LeadershipDiary/></Suspense></AuthGuard>:null;
  if(isFullscreen)return <><IosPwaBackButton/><Outlet/></>;
  const showMissionaryAttendanceSummary=location.pathname==='/dashboard'&&profile?.role==='member';
