@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { markPinActivity, AUTO_LOGOUT_STORAGE_KEY, DEFAULT_AUTO_LOGOUT_MINUTES, AUTO_LOGOUT_CHANGE_EVENT, getPinUnlockExpiration, setPinUnlockExpiration } from '@/lib/simplePin';
 
@@ -45,6 +44,7 @@ export function useAutoLogout() {
       if (!isNaN(mins)) timeoutMinutesRef.current = mins;
     }
     try {
+      const { supabase } = await import('@/lib/supabase');
       const { data } = await supabase
         .from('user_roles')
         .select('auto_logout_minutes')
