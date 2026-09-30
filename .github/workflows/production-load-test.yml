@@ -1,0 +1,70 @@
+name: Production Load Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Production base URL'
+        required: false
+        default: 'https://gnhwebw.pages.dev'
+        type: string
+      hold_seconds:
+        description: 'Seconds each virtual user keeps the page open'
+        required: false
+        default: '10'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  load-test:
+    name: 50 → 100 → 200 concurrent production sessions
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOAD_TEST_BASE_URL: ${{ inputs.base_url }}
+      LOAD_TEST_HOLD_MS: ${{ fromJSON(inputs.hold_seconds) * 1000 }}
+      LOAD_TEST_NAVIGATION_TIMEOUT_MS: '30000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install test dependencies
+        run: npm install --include=dev --no-audit --no-fund
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Check production reachability
+        run: |
+          set -euo pipefail
+          status=$(curl -L -s -o /dev/null -w '%{http_code}' "$LOAD_TEST_BASE_URL")
+          echo "Production status=$status"
+          test "$status" -ge 200
+          test "$status" -lt 500
+      - name: Run 50 → 100 → 200 load test
+        run: |
+          set -o pipefail
+          mkdir -p load-test-results
+          node scripts/load-test-production.mjs | tee load-test-results/result.txt
+      - name: Add load-test summary
+        if: always()
+        run: |
+          {
+            echo '## Production Load Test'
+            echo
+            echo "- Target: $LOAD_TEST_BASE_URL"
+            echo '- Stages: 50 → 100 → 200 concurrent sessions'
+            echo '- Read-only homepage navigation'
+            echo
+            echo '```text'
+            cat load-test-results/result.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload load-test result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-load-test-result
+          path: load-test-results/result.txt
+          if-no-files-found: error
