@@ -56,7 +56,7 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     if ('requestIdleCallback' in window) {
       window.requestIdleCallback(register, { timeout: 8000 });
     } else {
-      window.setTimeout(register, 5000);
+      globalThis.setTimeout(register, 5000);
     }
   };
 
