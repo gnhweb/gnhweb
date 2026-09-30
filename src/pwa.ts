@@ -45,8 +45,24 @@ async function registerOrUpdateServiceWorker() {
 }
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  void registerOrUpdateServiceWorker().catch(() => {
-    // PWA support is optional. Failure must never surface as a console error
-    // or block authentication/app startup.
-  });
+  const scheduleRegistration = () => {
+    const register = () => {
+      void registerOrUpdateServiceWorker().catch(() => {
+        // PWA support is optional. Failure must never surface as a console error
+        // or block authentication/app startup.
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(register, { timeout: 8000 });
+    } else {
+      window.setTimeout(register, 5000);
+    }
+  };
+
+  if (document.readyState === 'complete') {
+    scheduleRegistration();
+  } else {
+    window.addEventListener('load', scheduleRegistration, { once: true });
+  }
 }
