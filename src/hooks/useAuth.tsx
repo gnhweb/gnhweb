@@ -51,7 +51,7 @@ async function getNeonAuthClient() {
   if (!neonAuthClientPromise) neonAuthClientPromise = import('@/lib/neonAuth').then(({ neonAuth }) => neonAuth);
   return neonAuthClientPromise;
 }
-async function getSupabaseClient() {
+export async function getSupabaseClient() {
   if (!supabaseClientPromise) {
     supabaseClientPromise = import('@/lib/supabase').then(({ supabase }) => supabase);
   }
