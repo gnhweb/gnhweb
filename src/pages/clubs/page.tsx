@@ -102,6 +102,7 @@ export default function Clubs() {
               >
                 <Link
                   to={`/clubs/${club.id}`}
+                  onPointerEnter={() => { void import('@/pages/clubs/detail/page'); }}
                   className="block bg-background-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group h-full"
                 >
                   <div className="relative aspect-[16/10] overflow-hidden">
@@ -172,6 +173,7 @@ export default function Clubs() {
                 <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }}>
                   <Link
                     to={`/clubs/${club.id}`}
+                    onPointerEnter={() => { void import('@/pages/clubs/detail/page'); }}
                     className="relative z-10 block rounded-[20px] overflow-hidden shadow-card cursor-pointer h-56 touch-manipulation"
                   >
                     {clubBanner?.card_image_url ? (
