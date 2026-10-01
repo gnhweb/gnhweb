@@ -616,81 +616,79 @@ export default function Home() {
 
   // ── 데이터 패치 ──
   useEffect(() => {
-    // 공지사항
-    Promise.resolve(
-      supabase
-        .from('notices')
-        .select('id, title, content, is_pinned, created_at, author_name, category')
-        .order('is_pinned', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(30)
-    )
-      .then(({ data }) => {
-        if (data) setNotices(data);
-      })
-      .catch(() => setNoticesError(true))
-      .finally(() => setNoticesLoading(false));
+    let scheduleChannel: ReturnType<Awaited<ReturnType<typeof getSupabaseClient>>['channel']> | null = null;
+    let cancelled = false;
 
-    // 일정
-    // 홈페이지 달력은 일정관리의 schedules 데이터를 그대로 사용한다.
-    // 최초 조회뿐 아니라 추가/수정/삭제도 Realtime으로 즉시 반영한다.
-    const loadSchedules = async () => {
-      try {
-        const supabase = await getSupabaseClient();
-        const { data, error } = await supabase
-          .from('schedules')
-          .select('id, title, description, event_date, event_time, location, target_club')
-          .order('event_date', { ascending: true });
-
-        if (error) throw error;
-        setSchedules(data || []);
-        setSchedulesError(false);
-      } catch {
-        setSchedulesError(true);
-      } finally {
-        setSchedulesLoading(false);
-      }
-    };
-
-    void loadSchedules();
-
-    const scheduleChannel = supabase
-      .channel('home-schedules-rt')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'schedules' },
-        () => {
-          void loadSchedules();
-        },
-      )
-      .subscribe();
-
-    // 강학뉴스는 첫 화면의 핵심 데이터가 아니므로 최초 페인트 이후 요청한다.
-    const loadNews = async () => {
+    const loadHomeCoreData = async () => {
       const supabase = await getSupabaseClient();
+      if (cancelled) return;
+
       Promise.resolve(
         supabase
-          .from('ganghak_news')
-          .select('id, title, content, author_name, category, created_at')
+          .from('notices')
+          .select('id, title, content, is_pinned, created_at, author_name, category')
+          .order('is_pinned', { ascending: false })
           .order('created_at', { ascending: false })
-          .limit(4)
+          .limit(30)
       )
-        .then(({ data }) => {
-          if (data) setNewsItems(data);
-        })
-        .catch(() => {});
-    };
-    if ('requestIdleCallback' in window) {
-      const newsIdleId = window.requestIdleCallback(loadNews, { timeout: 2500 });
-      return () => {
-        window.cancelIdleCallback(newsIdleId);
-        supabase.removeChannel(scheduleChannel);
+        .then(({ data }) => { if (!cancelled && data) setNotices(data); })
+        .catch(() => { if (!cancelled) setNoticesError(true); })
+        .finally(() => { if (!cancelled) setNoticesLoading(false); });
+
+      const loadSchedules = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('schedules')
+            .select('id, title, description, event_date, event_time, location, target_club')
+            .order('event_date', { ascending: true });
+          if (error) throw error;
+          if (!cancelled) {
+            setSchedules(data || []);
+            setSchedulesError(false);
+          }
+        } catch {
+          if (!cancelled) setSchedulesError(true);
+        } finally {
+          if (!cancelled) setSchedulesLoading(false);
+        }
       };
-    }
-    const newsTimer = globalThis.setTimeout(loadNews, 800);
+
+      void loadSchedules();
+
+      scheduleChannel = supabase
+        .channel('home-schedules-rt')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules' }, () => {
+          void loadSchedules();
+        })
+        .subscribe();
+
+      const loadNews = () => {
+        void Promise.resolve(
+          supabase
+            .from('ganghak_news')
+            .select('id, title, content, author_name, category, created_at')
+            .order('created_at', { ascending: false })
+            .limit(4)
+        ).then(({ data }) => {
+          if (!cancelled && data) setNewsItems(data);
+        }).catch(() => {});
+      };
+
+      if ('requestIdleCallback' in window) {
+        const newsIdleId = window.requestIdleCallback(loadNews, { timeout: 2500 });
+        return () => window.cancelIdleCallback(newsIdleId);
+      }
+      const newsTimer = globalThis.setTimeout(loadNews, 800);
+      return () => globalThis.clearTimeout(newsTimer);
+    };
+
+    void loadHomeCoreData();
+
     return () => {
-      globalThis.clearTimeout(newsTimer);
-      supabase.removeChannel(scheduleChannel);
+      cancelled = true;
+      if (scheduleChannel) {
+        void getSupabaseClient().then((client) => client.removeChannel(scheduleChannel));
+      }
     };
   }, []);
 
@@ -774,43 +772,30 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const run = () => {
+    let channel: ReturnType<Awaited<ReturnType<typeof getSupabaseClient>>['channel']> | null = null;
+    const run = async () => {
+      const supabase = await getSupabaseClient();
       loadAttendanceSummary();
       const todayStr = todayKey();
-      const channel = supabase
+      channel = supabase
         .channel('home-attendance-rt')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance', filter: `attendance_date=eq.${todayStr}` }, () => loadAttendanceSummary())
         .subscribe();
       attendanceChannelRef.current = channel;
-      return () => { supabase.removeChannel(channel); };
     };
     if ('requestIdleCallback' in window) {
       const id = window.requestIdleCallback(run, { timeout: 2500 });
-      return () => window.cancelIdleCallback(id);
+      return () => {
+        window.cancelIdleCallback(id);
+        if (channel) void getSupabaseClient().then((client) => client.removeChannel(channel));
+      };
     }
     const id = globalThis.setTimeout(run, 800);
-    return () => globalThis.clearTimeout(id);
+    return () => {
+      globalThis.clearTimeout(id);
+      if (channel) void getSupabaseClient().then((client) => client.removeChannel(channel));
+    };
   }, [loadAttendanceSummary]);
-
-  const slideVariants = {
-    enter: (d: number) => ({ x: d > 0 ? '100%' : '-100%', opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: (d: number) => ({ x: d > 0 ? '-100%' : '100%', opacity: 0 }),
-  };
-
-  // 달력 데이터
-  const calendarDays = getCalendarDays(calYear, calMonth, schedules);
-  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-  const selectedDateEvents = selectedDate ? schedules.filter(s => s.event_date === selectedDate) : [];
-
-  const prevMonth = () => {
-    if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); }
-    else setCalMonth(calMonth - 1);
-  };
-  const nextMonth = () => {
-    if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); }
-    else setCalMonth(calMonth + 1);
-  };
 
   // ──────────────────────────────────────────────
   return (
