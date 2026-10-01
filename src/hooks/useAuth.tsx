@@ -336,7 +336,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const getSessionVersion = authEventVersionRef.current;
 
-    getNeonAuthClient().then((neonAuth) => neonAuth.getSession())
+    // The authenticated home is the default destination. Start its lazy module
+    // while Neon Auth is bootstrapping so route code and session lookup overlap.
+    if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '')) {
+      void import('@/pages/home/page');
+    }
+
+    const neonAuthPromise = getNeonAuthClient();
+    neonAuthPromise.then((neonAuth) => neonAuth.getSession())
       .then(({ data: { session }, error }) => {
         if (!isMounted) return;
         if (authEventVersionRef.current !== getSessionVersion) {
@@ -367,9 +374,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const currentUser = session?.user ?? null;
         if (currentUser) {
-          // The home route is the default authenticated destination. Start its lazy module
-          // fetch in parallel with profile loading so navigation does not wait on both in series.
-          void import('@/pages/home/page');
+          // Home was preloaded while auth was bootstrapping above.
         }
         setUser(currentUser);
         setLoading(false);
@@ -413,7 +418,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
     let subscription: { unsubscribe: () => void } | null = null;
-    void getNeonAuthClient().then((neonAuth) => {
+    void neonAuthPromise.then((neonAuth) => {
       if (!isMounted) return;
       const { data } = neonAuth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
