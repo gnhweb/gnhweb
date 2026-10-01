@@ -103,6 +103,7 @@ export default function Clubs() {
                 <Link
                   to={`/clubs/${club.id}`}
                   onPointerEnter={() => { void import('@/pages/clubs/detail/page'); }}
+                  onTouchStart={() => { void import('@/pages/clubs/detail/page'); }}
                   className="block bg-background-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group h-full"
                 >
                   <div className="relative aspect-[16/10] overflow-hidden">
