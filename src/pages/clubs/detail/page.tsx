@@ -208,13 +208,17 @@ export default function ClubDetail() {
     setLoading(true);
     setError(null);
     try {
-      const { data: detailData, error: detailError } = await supabase
-        .from('club_posts')
-        .select('content')
-        .eq('club', id)
-        .eq('type', 'detail')
-        .maybeSingle();
+      const [detailResult] = await Promise.all([
+        supabase
+          .from('club_posts')
+          .select('content')
+          .eq('club', id)
+          .eq('type', 'detail')
+          .maybeSingle(),
+        loadMembers(),
+      ]);
 
+      const { data: detailData, error: detailError } = detailResult;
       if (detailError) throw detailError;
 
       if (detailData) {
@@ -244,7 +248,6 @@ export default function ClubDetail() {
         }));
       }
 
-      await loadMembers();
     } catch (e) {
       console.error('Failed to load club data:', e);
       setError('동아리 정보를 불러오지 못했습니다.');
