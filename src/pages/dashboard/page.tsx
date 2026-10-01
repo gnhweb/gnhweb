@@ -240,9 +240,6 @@ export default function Dashboard() {
           stats.totalMissionaries = String(totalTeacherMembers);
 
           // 이번 주 제출률 조회는 위의 병렬 조회에서 이미 시작했다.
-          const monday = new Date(now);
-          monday.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
-          monday.setHours(0, 0, 0, 0);
           const { count: weekSubmitted } = weekSubmittedResult;
           const weekRate = totalTeacherMembers > 0 ? Math.round(((weekSubmitted || 0) / totalTeacherMembers) * 100) : 0;
           stats.weekSubmitRate = `${weekRate}%`;
