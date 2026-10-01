@@ -560,7 +560,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         setProfileError(null);
         setPinSetupNeeded(!hasSimplePin(signedInUser.id) && !isPinSetupDismissedThisSession(signedInUser.id));
-        fetchProfile(signedInUser);
+        // SIGNED_IN from onAuthStateChange owns profile hydration. Avoid a
+        // second concurrent profile fetch immediately after login.
       }
       return { error: null, user: signedInUser };
     } catch (e: any) {
