@@ -175,6 +175,7 @@ export default function Clubs() {
                   <Link
                     to={`/clubs/${club.id}`}
                     onPointerEnter={() => { void import('@/pages/clubs/detail/page'); }}
+                    onTouchStart={() => { void import('@/pages/clubs/detail/page'); }}
                     className="relative z-10 block rounded-[20px] overflow-hidden shadow-card cursor-pointer h-56 touch-manipulation"
                   >
                     {clubBanner?.card_image_url ? (
