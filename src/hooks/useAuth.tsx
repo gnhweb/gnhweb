@@ -167,29 +167,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const fetchNeonDataRows = useCallback(async <T,>(table: string, select: string, userId: string): Promise<T[]> => {
+    const neonAuth = await getNeonAuthClient();
+    const token = await neonAuth.getJWTToken?.(true);
+    if (!token) throw new Error('인증 토큰을 가져올 수 없습니다.');
+
+    const configuredDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb';
+    const baseUrl = import.meta.env.PROD && typeof window !== 'undefined'
+      ? window.location.origin + '/data'
+      : configuredDataApiUrl.replace(/\/rest\/v1\/?$/, '');
+    const url = new URL(baseUrl + '/' + table, typeof window !== 'undefined' ? window.location.origin : undefined);
+    url.searchParams.set('select', select);
+    url.searchParams.set('user_id', 'eq.' + userId);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error('프로필 데이터 조회 실패 (HTTP ' + response.status + ')');
+    }
+    const data: unknown = await response.json();
+    return Array.isArray(data) ? data as T[] : [];
+  }, []);
   const fetchProfile = useCallback(async (authUser: User) => {
     const userId = authUser.id;
     fetchingForRef.current = userId;
     setProfileError(null);
 
     try {
-      const supabase = await getSupabaseClient();
-      const profileQuery = supabase
-        .from('user_roles')
-        .select('user_id, role, name, club, zone, is_active, birth_year, birth_month, birth_day, gender, grade, interests, bio, profile_image, approval_status, assigned_teacher_id, dual_club, is_expelled, graduation_expected, is_active')
-        .eq('user_id', userId)
-        .maybeSingle();
-      const extraRolesQuery = supabase
-        .from('user_role_assignments')
-        .select('role')
-        .eq('user_id', userId);
-      const [profileResult, extraRolesResult] = await Promise.all([profileQuery, extraRolesQuery]);
-      const { data, error } = profileResult;
-      const { data: extraRoles } = extraRolesResult;
+      let data: Record<string, unknown> | null = null;
+      let extraRoles: Array<{ role: UserRole }> = [];
+
+      try {
+        const [profileRows, extraRoleRows] = await Promise.all([
+          fetchNeonDataRows<Record<string, unknown>>(
+            'user_roles',
+            'user_id,role,name,club,zone,is_active,birth_year,birth_month,birth_day,gender,grade,interests,bio,profile_image,approval_status,assigned_teacher_id,dual_club,is_expelled,graduation_expected',
+            userId,
+          ),
+          fetchNeonDataRows<{ role: UserRole }>('user_role_assignments', 'role', userId),
+        ]);
+        data = profileRows[0] ?? null;
+        extraRoles = extraRoleRows;
+      } catch {
+        // Keep the existing Supabase-compatible fallback for transient Data API errors.
+        const supabase = await getSupabaseClient();
+        const [profileResult, extraRolesResult] = await Promise.all([
+          supabase
+            .from('user_roles')
+            .select('user_id, role, name, club, zone, is_active, birth_year, birth_month, birth_day, gender, grade, interests, bio, profile_image, approval_status, assigned_teacher_id, dual_club, is_expelled, graduation_expected')
+            .eq('user_id', userId)
+            .maybeSingle(),
+          supabase
+            .from('user_role_assignments')
+            .select('role')
+            .eq('user_id', userId),
+        ]);
+        data = profileResult.data as Record<string, unknown> | null;
+        extraRoles = (extraRolesResult.data || []) as Array<{ role: UserRole }>;
+      }
 
       if (fetchingForRef.current !== userId) return;
 
-      if (!error && data) {
+      if (data) {
         profileRetryCountRef.current = 0;
         if (profileRetryTimerRef.current) {
           clearTimeout(profileRetryTimerRef.current);
