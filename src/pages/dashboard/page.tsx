@@ -199,6 +199,11 @@ export default function Dashboard() {
           // 이번 달 보고서
           stats.monthReports = String(monthReports);
         } else if (role === 'teacher') {
+          // 이번 주 제출률 기준일은 네트워크 조회와 무관하게 먼저 계산한다.
+          const monday = new Date(now);
+          monday.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+          monday.setHours(0, 0, 0, 0);
+
           // 서로 독립적인 교사 통계는 동시에 시작한다. 담당 동아리 조회만 인원수 계산의 선행 조건이다.
           const [pendingResults, doneResults, teacherClubsResult, weekSubmittedResult] = await Promise.all([
             Promise.all([
