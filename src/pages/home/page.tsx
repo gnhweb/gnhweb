@@ -2,8 +2,7 @@ import { Link } from 'react-router-dom';
 import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clubs } from '@/mocks/clubs';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth, getSupabaseClient } from '@/hooks/useAuth';
 const LeaderboardModal = lazy(() => import('@/pages/bibleQuiz/components/LeaderboardModal'));
 const HomeClubsSection = lazy(() => import('@/pages/home/components/HomeClubsSection'));
 const HomeAwardsModal = lazy(() => import('@/pages/home/components/HomeAwardsModal'));
@@ -318,10 +317,11 @@ export default function Home() {
   const [showAwards, setShowAwards] = useState(false);
   const [showDeferredHomeSections, setShowDeferredHomeSections] = useState(false);
   const [allMembersTotal, setAllMembersTotal] = useState(0);
-  const attendanceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);;
+  const attendanceChannelRef = useRef<ReturnType<Awaited<ReturnType<typeof getSupabaseClient>>['channel']> | null>(null);
 
   useEffect(() => {
-    const run = () => {
+    const run = async () => {
+      const supabase = await getSupabaseClient();
       Promise.resolve(
         supabase
           .from('club_banners')
@@ -379,7 +379,8 @@ export default function Home() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadMemoryPhotos = () => {
+    const loadMemoryPhotos = async () => {
+      const supabase = await getSupabaseClient();
       void Promise.resolve(
         supabase
           .from('memory_photos')
@@ -436,8 +437,9 @@ export default function Home() {
   // force=false면 캐시가 아직 유효한 동안은 네트워크 호출을 건너뛴다.
   // (Realtime 구독이 실제 데이터 변경 시점에 loadQuizChampion(true)로 강제 갱신을 트리거하므로
   // 컴포넌트가 재마운트될 때마다 매번 quiz-leaderboard 함수를 다시 호출할 필요가 없다.)
-  const loadQuizChampion = useCallback((force = false) => {
+  const loadQuizChampion = useCallback(async (force = false) => {
     if (!force && readQuizLeaderboardCache()) return;
+    const supabase = await getSupabaseClient();
     supabase.functions.invoke('quiz-leaderboard?monthly=true', {
       method: 'GET',
     }).then(({ data }) => {
@@ -452,7 +454,8 @@ export default function Home() {
     }).catch(() => {});
   }, []);
 
-  const loadMarathonChampion = useCallback(() => {
+  const loadMarathonChampion = useCallback(async () => {
+    const supabase = await getSupabaseClient();
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
@@ -502,7 +505,8 @@ export default function Home() {
   }, []);
 
   // 지난달 확정 수상 동아리를 서버에서 불러온다 (홈 배너용)
-  const loadConfirmedChampions = useCallback(() => {
+  const loadConfirmedChampions = useCallback(async () => {
+    const supabase = await getSupabaseClient();
     supabase.functions.invoke('monthly-champion-snapshot?mode=latest', {
       method: 'GET',
     }).then(({ data }) => {
@@ -521,7 +525,8 @@ export default function Home() {
   // 지난달을 "확정"으로 박제한다. unique(year, month, category) + ignoreDuplicates 라서
   // 이미 확정된 달이면 몇 번을 호출해도 안전하게 아무 변화가 없다(=값이 절대 바뀌지 않음).
   // 달이 바뀐 뒤 홈에 처음 들어오는 사용자가 자연스럽게 이 확정을 트리거하게 된다.
-  const finalizePreviousMonth = useCallback(() => {
+  const finalizePreviousMonth = useCallback(async () => {
+    const supabase = await getSupabaseClient();
     const { year, month, start, end } = getPrevMonthRange();
     const monthKey = `${year}-${month}`;
 
@@ -552,7 +557,8 @@ export default function Home() {
   }, [getPrevMonthRange, loadConfirmedChampions]);
 
   useEffect(() => {
-    const runNonCriticalHomeData = () => {
+    const runNonCriticalHomeData = async () => {
+    const supabase = await getSupabaseClient();
     // 캐시가 있으면 즉시 화면에 먼저 보여주고, 뒤이어 최신 데이터로 덮어쓴다
     const cachedLeaderboard = readQuizLeaderboardCache();
     if (cachedLeaderboard) setMonthlyChampion(cachedLeaderboard);
@@ -630,6 +636,7 @@ export default function Home() {
     // 최초 조회뿐 아니라 추가/수정/삭제도 Realtime으로 즉시 반영한다.
     const loadSchedules = async () => {
       try {
+        const supabase = await getSupabaseClient();
         const { data, error } = await supabase
           .from('schedules')
           .select('id, title, description, event_date, event_time, location, target_club')
@@ -659,7 +666,8 @@ export default function Home() {
       .subscribe();
 
     // 강학뉴스는 첫 화면의 핵심 데이터가 아니므로 최초 페인트 이후 요청한다.
-    const loadNews = () => {
+    const loadNews = async () => {
+      const supabase = await getSupabaseClient();
       Promise.resolve(
         supabase
           .from('ganghak_news')
@@ -748,6 +756,7 @@ export default function Home() {
 
   // ── 출석 현황 로드 ──
   const loadAttendanceSummary = useCallback(async () => {
+    const supabase = await getSupabaseClient();
     const todayStr = todayKey();
     try {
       const [{ data: attData }, { count: totalMembers }] = await Promise.all([
