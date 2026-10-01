@@ -169,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchNeonDataRows = useCallback(async <T,>(table: string, select: string, userId: string): Promise<T[]> => {
     const neonAuth = await getNeonAuthClient();
-    const token = await neonAuth.getJWTToken?.(true);
+    const token = await neonAuth.getJWTToken?.(false);
     if (!token) throw new Error('인증 토큰을 가져올 수 없습니다.');
 
     const configuredDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb';
