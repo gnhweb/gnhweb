@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { LazyMotion, domAnimation, m, AnimatePresence } from 'framer-motion';
 import { clubs } from '@/mocks/clubs';
 import { useAuth, getSupabaseClient } from '@/hooks/useAuth';
 const LeaderboardModal = lazy(() => import('@/pages/bibleQuiz/components/LeaderboardModal'));
@@ -829,7 +829,8 @@ export default function Home() {
 
   // ──────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background-50 pb-24 md:pb-0">
+    <LazyMotion features={domAnimation}>
+      <div className="min-h-screen bg-background-50 pb-24 md:pb-0">
 
       {/* ═══ 1. 히어로 캐러셀 ═══ */}
       {heroSlides.length > 0 && (
@@ -839,7 +840,7 @@ export default function Home() {
           onTouchEnd={onTouchEnd}
         >
           <AnimatePresence custom={direction} initial={false}>
-            <motion.div
+            <m.div
               key={heroSlides[slideIndex].id}
               custom={direction}
               variants={slideVariants}
@@ -859,7 +860,7 @@ export default function Home() {
               />
               <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/60"></div>
               <div className="absolute inset-0 flex items-end justify-center px-3 pb-14 sm:px-4 sm:pb-16 md:pb-16">
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="text-center max-w-xl w-full">
+                <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="text-center max-w-xl w-full">
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold text-white mb-2 sm:mb-3 bg-primary-500">
                     <i className="ri-image-line"></i>
                     추억창
@@ -869,9 +870,9 @@ export default function Home() {
                   <Link to="/memory-board" className="inline-flex items-center gap-1.5 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-background-100 text-foreground-950 text-[12px] sm:text-sm font-bold hover:bg-background-100 transition-colors cursor-pointer whitespace-nowrap shadow-lg">
                     추억창 보러가기 <i className="ri-arrow-right-line"></i>
                   </Link>
-                </motion.div>
+                </m.div>
               </div>
-            </motion.div>
+            </m.div>
           </AnimatePresence>
           {heroSlides.length > 1 && (
             <>
@@ -1255,6 +1256,7 @@ export default function Home() {
           <p className="text-xs text-foreground-400">&ldquo;여호와로 말미암아 기뻐하는 것이 너희의 힘이니라&rdquo; — 느헤미야 8:10</p>
         </div>
       </footer>
-    </div>
+      </div>
+    </LazyMotion>
   );
 }
