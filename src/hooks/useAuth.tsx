@@ -176,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const supabase = await getSupabaseClient();
       const profileQuery = supabase
         .from('user_roles')
-        .select('*')
+        .select('user_id, role, name, club, zone, is_active, birth_year, birth_month, birth_day, gender, grade, interests, bio, profile_image, approval_status, assigned_teacher_id, dual_club, is_expelled, graduation_expected')
         .eq('user_id', userId)
         .maybeSingle();
       const extraRolesQuery = supabase
@@ -321,6 +321,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const currentUser = session?.user ?? null;
+        if (currentUser) {
+          // The home route is the default authenticated destination. Start its lazy module
+          // fetch in parallel with profile loading so navigation does not wait on both in series.
+          void import('@/pages/home/page');
+        }
         setUser(currentUser);
         setLoading(false);
 
