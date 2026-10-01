@@ -36,37 +36,30 @@ export function useAutoLogout() {
     timerRef.current = setTimeout(timeoutAction, mins * 60 * 1000);
   }, [user, hasPin, timeoutAction]);
 
-  const loadTimeoutSetting = useCallback(async () => {
+  const loadTimeoutSetting = useCallback(() => {
     if (!user) return;
     const saved = localStorage.getItem(`${STORAGE_KEY}_${user.id}`);
     if (saved) {
       const mins = parseInt(saved, 10);
-      if (!isNaN(mins)) timeoutMinutesRef.current = mins;
-    }
-    try {
-      const { supabase } = await import('@/lib/supabase');
-      const { data } = await supabase
-        .from('user_roles')
-        .select('auto_logout_minutes')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (data?.auto_logout_minutes === null || data?.auto_logout_minutes === undefined) {
-        timeoutMinutesRef.current = null;
-        localStorage.removeItem(`${STORAGE_KEY}_${user.id}`);
-      } else {
-        timeoutMinutesRef.current = data.auto_logout_minutes;
-        localStorage.setItem(`${STORAGE_KEY}_${user.id}`, String(data.auto_logout_minutes));
+      if (!isNaN(mins)) {
+        timeoutMinutesRef.current = mins;
+        return;
       }
-    } catch { /* ignore */ }
-  }, [user]);
+    }
+    const profileMinutes = profile?.auto_logout_minutes;
+    if (profileMinutes === null || profileMinutes === undefined) {
+      timeoutMinutesRef.current = DEFAULT_TIMEOUT_MINUTES;
+      return;
+    }
+    timeoutMinutesRef.current = profileMinutes;
+  }, [user, profile?.auto_logout_minutes]);
 
   useEffect(() => {
     // AuthProvider already loads user_roles for the initial profile. Do not
     // issue a second user_roles request until the profile is ready.
     if (!user || !profile) return;
-    loadTimeoutSetting().then(() => {
-      if (timeoutMinutesRef.current !== null && timeoutMinutesRef.current > 0) resetTimer();
-    });
+    loadTimeoutSetting();
+    if (timeoutMinutesRef.current !== null && timeoutMinutesRef.current > 0) resetTimer();
 
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'] as const;
     const handler = () => resetTimer();
@@ -84,7 +77,7 @@ export function useAutoLogout() {
       window.removeEventListener('beforeunload', flushActivity);
       document.removeEventListener('visibilitychange', flushActivity);
     };
-  }, [user, hasPin, loadTimeoutSetting, resetTimer]);
+  }, [user, profile, hasPin, loadTimeoutSetting, resetTimer]);
 
   const updateTimeout = useCallback((minutes: number | null) => {
     timeoutMinutesRef.current = minutes;
