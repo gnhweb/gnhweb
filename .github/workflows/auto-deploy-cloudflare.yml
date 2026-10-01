@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: cloudflare-auto-deploy
@@ -195,6 +196,49 @@ jobs:
           name: production-load-test-result
           path: load-test-results/result.txt
           if-no-files-found: error
+      - name: Publish load-test telemetry to GitHub issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ ! -f load-test-results/result.txt ]; then
+            gh issue comment 65 --repo gnhweb/gnhweb --body "## Production load test
+
+          - Commit: \`${GITHUB_SHA}\`
+          - Result file was not produced. Check the load-test job logs." || true
+            exit 0
+          fi
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+          text = Path("load-test-results/result.txt").read_text(encoding="utf-8")
+          match = re.search(r"=== LOAD_TEST_RESULT_JSON ===\s*(\{.*\})\s*$", text, re.S)
+          if not match:
+              body = "## Production load test\n\n- Could not parse LOAD_TEST_RESULT_JSON. See workflow artifact/logs."
+          else:
+              data = json.loads(match.group(1))
+              lines = [
+                  "## Production load test",
+                  "",
+                  f"- Commit: `${GITHUB_SHA}`",
+                  f"- Generated: `{data.get('generatedAt', 'unknown')}`",
+                  f"- Target: `{data.get('baseUrl', 'unknown')}`",
+              ]
+              for result in data.get("stages", []):
+                  lines.append(
+                      f"- {result['concurrency']} concurrent: "
+                      f"success={result['success']}/{result['total']}, "
+                      f"failure={result['failureRate']}%, "
+                      f"TTFB median/p95={result['ttfbMedianMs']}/{result['ttfbP95Ms']}ms, "
+                      f"DCL median/p95={result['domContentLoadedMedianMs']}/{result['domContentLoadedP95Ms']}ms, "
+                      f"total median/p95={result['medianMs']}/{result['p95Ms']}ms"
+                  )
+              body = "\n".join(lines)
+          Path("/tmp/load-test-issue-body.md").write_text(body, encoding="utf-8")
+          PY
+          gh issue comment 65 --repo gnhweb/gnhweb --body-file /tmp/load-test-issue-body.md || true
 
   production-home-e2e:
     name: Verify production home after Pages deploy
