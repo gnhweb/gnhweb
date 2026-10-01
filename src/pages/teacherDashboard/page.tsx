@@ -96,140 +96,86 @@ export default function TeacherDashboard() {
     setLoading(true);
     setError(null);
     try {
-      // Get club member IDs if a specific club is targeted
-      let clubMemberIds: string[] = [];
-      if (effectiveClub !== 'all') {
-        const { data: clubMembers } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('club', effectiveClub);
-        clubMemberIds = clubMembers ? clubMembers.map((m: { user_id: string }) => m.user_id) : [];
-      }
+      const today = todayKey();
+      const memberIdsPromise = effectiveClub !== 'all'
+        ? supabase.from('user_roles').select('user_id').eq('club', effectiveClub)
+        : Promise.resolve({ data: null });
 
-      // Fetch weekly reports
-      let weeklyQuery = supabase
-        .from('weekly_reports')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      let weeklyQuery = supabase.from('weekly_reports').select('id, author_name, club, status, created_at, week_start, progress_summary, record_date').order('created_at', { ascending: false }).limit(10);
+      let growthQuery = supabase.from('growth_records').select('id, author_name, club, status, created_at, record_date, spiritual_growth, student_name').order('created_at', { ascending: false }).limit(10);
+      let qnaQuery = supabase.from('qna_questions').select('id, question, answer, created_at, author_id').is('answer_author_id', null).order('created_at', { ascending: false }).limit(10);
+      let marathonQuery = supabase.from('bible_marathon_entries').select('id, student_name, student_club, book, chapter, status, created_at, user_id').eq('status', 'pending').order('created_at', { ascending: false }).limit(10);
+      let attQuery = supabase.from('attendance').select('user_id, user_name, club, status, absence_reason, checked_in_at').eq('attendance_date', today);
+      let studentsQuery = supabase.from('user_roles').select('user_id, name, club, is_expelled, is_active').eq('role', 'member');
+
       if (effectiveClub !== 'all') {
         weeklyQuery = weeklyQuery.eq('club', effectiveClub);
-      }
-      const { data: weeklyData } = await weeklyQuery;
-      setWeeklyReports(weeklyData || []);
-
-      // Fetch growth records
-      let growthQuery = supabase
-        .from('growth_records')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      if (effectiveClub !== 'all') {
         growthQuery = growthQuery.eq('club', effectiveClub);
+        marathonQuery = marathonQuery.eq('student_club', effectiveClub);
+        attQuery = attQuery.eq('club', effectiveClub);
+        studentsQuery = studentsQuery.eq('club', effectiveClub);
       }
-      const { data: growthData } = await growthQuery;
-      setGrowthRecords(growthData || []);
 
-      // Fetch unanswered QnA
-      let qnaQuery = supabase
-        .from('qna_questions')
-        .select('*')
-        .is('answer_author_id', null)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      const [memberIdsResult, weeklyResult, growthResult, marathonResult, attResult, studentsResult] = await Promise.all([
+        memberIdsPromise,
+        weeklyQuery,
+        growthQuery,
+        marathonQuery,
+        attQuery,
+        studentsQuery,
+      ]);
+
+      const clubMemberIds = memberIdsResult.data
+        ? (memberIdsResult.data as { user_id: string }[]).map((m) => m.user_id)
+        : [];
+
       if (effectiveClub !== 'all' && clubMemberIds.length > 0) {
         qnaQuery = qnaQuery.in('author_id', clubMemberIds);
       }
-      const { data: qnaData } = await qnaQuery;
-      setUnansweredQnA(qnaData || []);
+      const qnaResult = await qnaQuery;
 
-      // Fetch pending marathon entries
-      let marathonQuery = supabase
-        .from('bible_marathon_entries')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      if (effectiveClub !== 'all') {
-        marathonQuery = marathonQuery.eq('student_club', effectiveClub);
-      }
-      const { data: marathonData } = await marathonQuery;
-      setPendingMarathon(marathonData || []);
+      setWeeklyReports(weeklyResult.data || []);
+      setGrowthRecords(growthResult.data || []);
+      setUnansweredQnA(qnaResult.data || []);
+      setPendingMarathon(marathonResult.data || []);
 
-      // Fetch attendance summary (today's) + detailed list
-      const today = todayKey();
-      let attQuery = supabase.from('attendance').select('*').eq('attendance_date', today);
-      if (effectiveClub !== 'all') {
-        attQuery = attQuery.eq('club', effectiveClub);
-      }
-      const { data: attData } = await attQuery;
-
-      // Get all students (excluding teachers and chiefs, and excluding expelled members)
-      let studentsQuery = supabase
-        .from('user_roles')
-        .select('user_id, name, club, is_expelled, is_active')
-        .eq('role', 'member');
-      if (effectiveClub !== 'all') {
-        studentsQuery = studentsQuery.eq('club', effectiveClub);
-      }
-      const { data: allStudentsRaw } = await studentsQuery;
-      // 전체 학생 수는 user_id 기준으로 중복을 제거합니다.
-      // 동아리 미지정 학생도 '전체' 집계에는 포함합니다.
+      const attData = attResult.data || [];
+      const allStudentsRaw = studentsResult.data || [];
       const uniqueStudents = new Map<string, { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }>();
-      for (const rawStudent of ((allStudentsRaw || []) as { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }[])) {
+      for (const rawStudent of allStudentsRaw as { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }[]) {
         if (rawStudent.is_expelled || rawStudent.is_active === false) continue;
         const existing = uniqueStudents.get(rawStudent.user_id);
-        if (!existing || (!existing.club && rawStudent.club)) {
-          uniqueStudents.set(rawStudent.user_id, rawStudent);
-        }
+        if (!existing || (!existing.club && rawStudent.club)) uniqueStudents.set(rawStudent.user_id, rawStudent);
       }
       const allStudents = Array.from(uniqueStudents.values());
 
-      if (attData && allStudents) {
-        // 학생 기준(user_id)으로 하루에 한 건만 집계하여 중복 출결 row로 숫자가 부풀지 않게 합니다.
-        const validUserIds = new Set(allStudents.map((s: { user_id: string }) => s.user_id));
-        const latestByUser = new Map<string, any>();
-        for (const record of (attData as any[])) {
-          if (!validUserIds.has(record.user_id)) continue;
-          const prev = latestByUser.get(record.user_id);
-          if (!prev || new Date(record.checked_in_at || 0).getTime() >= new Date(prev.checked_in_at || 0).getTime()) {
-            latestByUser.set(record.user_id, record);
-          }
-        }
-        const validAttData = Array.from(latestByUser.values());
-
-        const present = validAttData.filter((a: { status: string }) => a.status === 'attended').length;
-        setAttendanceSummary({
-          total: allStudents.length,
-          present,
-        });
-
-        const attendedUserIds = new Set(validAttData.filter((a: { status: string }) => a.status === 'attended').map((a: { user_id: string }) => a.user_id));
-        const absentUserIds = new Set(validAttData.filter((a: { status: string }) => a.status === 'absent').map((a: { user_id: string }) => a.user_id));
-
-        const attendedList: { name: string; club: string; clubName: string; user_id: string }[] = [];
-        const absentList: { name: string; club: string; clubName: string; reason: string; user_id: string }[] = [];
-        const unresponsiveList: { name: string; club: string; clubName: string; user_id: string }[] = [];
-
-        for (const a of validAttData as { user_name: string; club: string; status: string; absence_reason: string | null; user_id: string }[]) {
-          const clubName = CLUB_LABELS[a.club as ClubType]?.split(' ')[0] || a.club;
-          if (a.status === 'attended') {
-            attendedList.push({ name: a.user_name, club: a.club, clubName, user_id: a.user_id });
-          } else if (a.status === 'absent') {
-            absentList.push({ name: a.user_name, club: a.club, clubName, reason: a.absence_reason || '', user_id: a.user_id });
-          }
-        }
-
-        // Find unresponsive students (in user_roles but not in attendance)
-        for (const s of allStudents as { user_id: string; name: string; club: string }[]) {
-          if (!attendedUserIds.has(s.user_id) && !absentUserIds.has(s.user_id)) {
-            const clubName = CLUB_LABELS[s.club as ClubType]?.split(' ')[0] || s.club;
-            unresponsiveList.push({ name: s.name, club: s.club, clubName, user_id: s.user_id });
-          }
-        }
-
-        setAttendanceList({ attended: attendedList, absent: absentList, unresponsive: unresponsiveList });
+      const validUserIds = new Set(allStudents.map((s) => s.user_id));
+      const latestByUser = new Map<string, { user_id: string; user_name: string; club: string; status: string; absence_reason: string | null; checked_in_at?: string }>();
+      for (const record of attData as { user_id: string; user_name: string; club: string; status: string; absence_reason: string | null; checked_in_at?: string }[]) {
+        if (!validUserIds.has(record.user_id)) continue;
+        const prev = latestByUser.get(record.user_id);
+        if (!prev || new Date(record.checked_in_at || 0).getTime() >= new Date(prev.checked_in_at || 0).getTime()) latestByUser.set(record.user_id, record);
       }
+      const validAttData = Array.from(latestByUser.values());
+      setAttendanceSummary({ total: allStudents.length, present: validAttData.filter((a) => a.status === 'attended').length });
+
+      const attendedUserIds = new Set(validAttData.filter((a) => a.status === 'attended').map((a) => a.user_id));
+      const absentUserIds = new Set(validAttData.filter((a) => a.status === 'absent').map((a) => a.user_id));
+      const attendedList: { name: string; club: string; clubName: string; user_id: string }[] = [];
+      const absentList: { name: string; club: string; clubName: string; reason: string; user_id: string }[] = [];
+      const unresponsiveList: { name: string; club: string; clubName: string; user_id: string }[] = [];
+      for (const a of validAttData) {
+        const clubName = CLUB_LABELS[a.club as ClubType]?.split(' ')[0] || a.club;
+        if (a.status === 'attended') attendedList.push({ name: a.user_name, club: a.club, clubName, user_id: a.user_id });
+        else if (a.status === 'absent') absentList.push({ name: a.user_name, club: a.club, clubName, reason: a.absence_reason || '', user_id: a.user_id });
+      }
+      for (const s of allStudents as { user_id: string; name: string; club: string }[]) {
+        if (!attendedUserIds.has(s.user_id) && !absentUserIds.has(s.user_id)) {
+          const clubName = CLUB_LABELS[s.club as ClubType]?.split(' ')[0] || s.club;
+          unresponsiveList.push({ name: s.name, club: s.club, clubName, user_id: s.user_id });
+        }
+      }
+      setAttendanceList({ attended: attendedList, absent: absentList, unresponsive: unresponsiveList });
     } catch (e) {
       console.error('Teacher dashboard load error:', e);
       setError('대시보드 데이터를 불러오지 못했습니다.');
@@ -237,7 +183,6 @@ export default function TeacherDashboard() {
       setLoading(false);
     }
   };
-
   const clubAttendanceBars = ALL_CLUBS.map((club) => {
     const present = attendanceList.attended.filter((m) => m.club === club).length;
     const absent = attendanceList.absent.filter((m) => m.club === club).length;
