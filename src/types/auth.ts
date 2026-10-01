@@ -47,6 +47,7 @@ export interface UserProfile {
   dual_club?: ClubType | null;
   is_expelled?: boolean;
   graduation_expected?: boolean;
+  auto_logout_minutes?: number | null;
 }
 
 export const CLUB_LABELS: Record<ClubType, string> = {
