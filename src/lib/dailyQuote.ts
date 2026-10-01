@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/hooks/useAuth';
 import { getRandomQuote as getStaticRandomQuote } from '@/constants/quotes';
 
 // ──────────────────────────────────────────────
@@ -73,6 +73,7 @@ export async function fetchAndCacheQuoteOfTheDay(): Promise<string> {
   }
 
   try {
+    const supabase = await getSupabaseClient();
     const { data, error } = await supabase
       .from('quotes')
       .select('content')
