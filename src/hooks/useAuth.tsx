@@ -206,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const [profileRows, extraRoleRows] = await Promise.all([
           fetchNeonDataRows<Record<string, unknown>>(
             'user_roles',
-            'user_id,role,name,club,zone,is_active,birth_year,birth_month,birth_day,gender,grade,interests,bio,profile_image,approval_status,assigned_teacher_id,dual_club,is_expelled,graduation_expected',
+            'user_id,role,name,club,zone,is_active,birth_year,birth_month,birth_day,gender,grade,interests,bio,profile_image,approval_status,assigned_teacher_id,dual_club,is_expelled,graduation_expected,auto_logout_minutes',
             userId,
           ),
           fetchNeonDataRows<{ role: UserRole }>('user_role_assignments', 'role', userId),
@@ -219,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const [profileResult, extraRolesResult] = await Promise.all([
           supabase
             .from('user_roles')
-            .select('user_id, role, name, club, zone, is_active, birth_year, birth_month, birth_day, gender, grade, interests, bio, profile_image, approval_status, assigned_teacher_id, dual_club, is_expelled, graduation_expected')
+            .select('user_id, role, name, club, zone, is_active, birth_year, birth_month, birth_day, gender, grade, interests, bio, profile_image, approval_status, assigned_teacher_id, dual_club, is_expelled, graduation_expected, auto_logout_minutes')
             .eq('user_id', userId)
             .maybeSingle(),
           supabase
