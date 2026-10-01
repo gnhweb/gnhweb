@@ -167,6 +167,8 @@ export default defineConfig({
           if (!id.includes('node_modules')) return;
           if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router') || id.includes('/scheduler/')) return 'vendor';
           if (id.includes('/@supabase/')) return 'supabase';
+          if (id.includes('/@neondatabase/auth')) return 'neon-auth';
+          if (id.includes('/i18next/') || id.includes('/react-i18next/') || id.includes('/i18next-browser-languagedetector/')) return 'i18n';
           if (id.includes('html2canvas') || id.includes('dom-to-image-more')) return 'canvas';
           if (id.includes('lucide-react')) return 'icons';
           if (id.includes('recharts')) return 'charts';
