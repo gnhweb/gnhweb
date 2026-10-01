@@ -195,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearTimeout(profileRetryTimerRef.current);
           profileRetryTimerRef.current = null;
         }
-        const profileData = data as UserProfile;
+        const profileData = { ...data, isActive: Boolean(data.is_active) } as UserProfile;
         if (profileData.is_expelled) {
           setProfile(null);
           setProfileError('퇴출된 계정입니다. 관리자에게 문의하세요.');

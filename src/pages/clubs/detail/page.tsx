@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth, getSupabaseClient } from '@/hooks/useAuth';
 import { clubs, clubIcons, type ClubData } from '@/mocks/clubs';
-import { useClubBanner } from '@/components/feature/ClubBannerManager';
+import ClubBannerManager, { useClubBanner } from '@/components/feature/ClubBannerManager';
 import PhotoLightbox from '@/components/feature/PhotoLightbox';
 import { CategoryChipRow, CategoryChip } from '@/components/base/CategoryChip';
 import { resizeImageFile, thumbFileNameFor } from '@/lib/imageResize';

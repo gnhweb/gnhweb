@@ -363,6 +363,36 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<string | null>(todayKey());
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
 
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+  const calendarDays = getCalendarDays(calYear, calMonth, schedules);
+  const selectedDateEvents = selectedDate
+    ? schedules.filter((event) => event.event_date === selectedDate)
+    : [];
+  const prevMonth = useCallback(() => {
+    setCalMonth((month) => {
+      if (month === 0) {
+        setCalYear((year) => year - 1);
+        return 11;
+      }
+      return month - 1;
+    });
+  }, []);
+  const nextMonth = useCallback(() => {
+    setCalMonth((month) => {
+      if (month === 11) {
+        setCalYear((year) => year + 1);
+        return 0;
+      }
+      return month + 1;
+    });
+  }, []);
+
+  const slideVariants = {
+    enter: (slideDirection: number) => ({ x: slideDirection > 0 ? '100%' : '-100%', opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (slideDirection: number) => ({ x: slideDirection > 0 ? '-100%' : '100%', opacity: 0 }),
+  };
+
   // 캐러셀
   const [slideIndex, setSlideIndex] = useState(0);
   // 우선 캐시(또는 정적 데이터) 기준으로 즉시 표시한 뒤, DB에서 최신 활성 어록 목록을
