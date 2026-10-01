@@ -8,6 +8,14 @@ test.describe('production home calendar', () => {
 
     test.setTimeout(90_000);
 
+    const startedAt = Date.now();
+    const requestTimings = new Map<string, number>();
+    page.on('request', (request) => requestTimings.set(request.url(), Date.now()));
+    page.on('requestfinished', (request) => {
+      const started = requestTimings.get(request.url());
+      if (started !== undefined) requestTimings.set(request.url(), Date.now() - started);
+    });
+
     const injectedDate = new Date();
     injectedDate.setDate(injectedDate.getDate() + 2);
     const eventDate = [
@@ -84,9 +92,17 @@ test.describe('production home calendar', () => {
     };
 
     await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+    console.log(`[PERF] login-route-complete=${Date.now() - startedAt}ms`);
     await dismissPinPrompt();
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    console.log(`[PERF] home-domcontentloaded=${Date.now() - startedAt}ms`);
     await dismissPinPrompt();
+
+    const slowRequests = Array.from(requestTimings.entries())
+      .filter(([url, duration]) => typeof duration === 'number' && url.includes('gnhweb'))
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 20);
+    console.log(`[PERF] slow production requests=${JSON.stringify(slowRequests)}`);
 
     const scheduleTab = page.getByRole('button', { name: /일정$/ }).first();
     await expect(scheduleTab).toBeVisible({ timeout: 15_000 });
