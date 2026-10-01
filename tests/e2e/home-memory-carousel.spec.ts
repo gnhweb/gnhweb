@@ -8,26 +8,35 @@ test.describe('production home memory carousel', () => {
 
     test.setTimeout(90_000);
 
+    const timings: Record<string, number> = {};
+    const startedAt = Date.now();
+    const mark = (name: string) => { timings[name] = Date.now() - startedAt; };
+
     await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    mark('login-domcontentloaded');
     await page.locator('input[name="email"]').first().fill(email!);
     await page.locator('input[name="password"]').first().fill(password!);
     await page.locator('button[type="submit"]').first().click();
+    mark('login-submit-clicked');
 
     const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
     const dismissPinPrompt = async () => {
       if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) {
         await skipPin.click();
         await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+    mark('login-session-route-complete');
       }
     };
 
     await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
     await dismissPinPrompt();
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    mark('home-domcontentloaded');
     await dismissPinPrompt();
 
     const memoryLink = page.getByRole('link', { name: /^추억창 보러가기/ });
     await expect(memoryLink).toBeVisible({ timeout: 30_000 });
+    mark('home-memory-link-visible');
     await expect(memoryLink).toHaveAttribute('href', '/memory-board');
 
     const memoryHeading = page.getByRole('heading', { name: /우리의 추억을.*다시 만나보세요/s });
@@ -35,6 +44,8 @@ test.describe('production home memory carousel', () => {
 
     const firstSlideButton = page.getByRole('button', { name: '1번 슬라이드로 이동', exact: true });
     await expect(firstSlideButton).toBeVisible({ timeout: 20_000 });
+    mark('home-hero-visible');
+    console.log(`[PERF] production home timings ${JSON.stringify(timings)}`);
     await firstSlideButton.click();
 
     await expect(page.getByText('추억창', { exact: true })).toBeVisible({ timeout: 10_000 });
