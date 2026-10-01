@@ -116,124 +116,26 @@ export default function TeacherDashboard() {
         studentsQuery = studentsQuery.eq('club', effectiveClub);
       }
 
-      const clubMemberIdsPromise = memberIdsPromise.then((result) => (
-        result.data
-          ? (result.data as { user_id: string }[]).map((m) => m.user_id)
-          : []
-      ));
+      const qnaParallelPromise = effectiveClub === 'all' ? qnaQuery : Promise.resolve(null);
 
-      if (effectiveClub === 'all') {
-        const [memberIdsResult, weeklyResult, growthResult, qnaResult, marathonResult, attResult, studentsResult] = await Promise.all([
-          memberIdsPromise,
-          weeklyQuery,
-          growthQuery,
-          qnaQuery,
-          marathonQuery,
-          attQuery,
-          studentsQuery,
-        ]);
+      const [memberIdsResult, weeklyResult, growthResult, qnaParallelResult, marathonResult, attResult, studentsResult] = await Promise.all([
+        memberIdsPromise,
+        weeklyQuery,
+        growthQuery,
+        qnaParallelPromise,
+        marathonQuery,
+        attQuery,
+        studentsQuery,
+      ]);
 
-        setWeeklyReports(weeklyResult.data || []);
-        setGrowthRecords(growthResult.data || []);
-        setUnansweredQnA(qnaResult.data || []);
-        setPendingMarathon(marathonResult.data || []);
+      const clubMemberIds = memberIdsResult.data
+        ? (memberIdsResult.data as { user_id: string }[]).map((m) => m.user_id)
+        : [];
 
-        const attData = attResult.data || [];
-        const allStudentsRaw = studentsResult.data || [];
-        const uniqueStudents = new Map<string, { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }>();
-        for (const rawStudent of allStudentsRaw as { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }[]) {
-          if (rawStudent.is_expelled || rawStudent.is_active === false) continue;
-          const existing = uniqueStudents.get(rawStudent.user_id);
-          if (!existing || (!existing.club && rawStudent.club)) uniqueStudents.set(rawStudent.user_id, rawStudent);
-        }
-        const allStudents = Array.from(uniqueStudents.values());
-
-        const validUserIds = new Set(allStudents.map((s) => s.user_id));
-        const latestByUser = new Map<string, { user_id: string; user_name: string; club: string; status: string; absence_reason: string | null; checked_in_at?: string }>();
-        for (const record of attData as { user_id: string; user_name: string; club: string; status: string; absence_reason: string | null; checked_in_at?: string }[]) {
-          if (!validUserIds.has(record.user_id)) continue;
-          const prev = latestByUser.get(record.user_id);
-          if (!prev || new Date(record.checked_in_at || 0).getTime() >= new Date(prev.checked_in_at || 0).getTime()) latestByUser.set(record.user_id, record);
-        }
-        const validAttData = Array.from(latestByUser.values());
-        setAttendanceSummary({ total: allStudents.length, present: validAttData.filter((a) => a.status === 'attended').length });
-
-        const attendedUserIds = new Set(validAttData.filter((a) => a.status === 'attended').map((a) => a.user_id));
-        const absentUserIds = new Set(validAttData.filter((a) => a.status === 'absent').map((a) => a.user_id));
-        const attendedList: { name: string; club: string; clubName: string; user_id: string }[] = [];
-        const absentList: { name: string; club: string; clubName: string; reason: string; user_id: string }[] = [];
-        const unresponsiveList: { name: string; club: string; clubName: string; user_id: string }[] = [];
-        for (const a of validAttData) {
-          const clubName = CLUB_LABELS[a.club as ClubType]?.split(' ')[0] || a.club;
-          if (a.status === 'attended') attendedList.push({ name: a.user_name, club: a.club, clubName, user_id: a.user_id });
-          else if (a.status === 'absent') absentList.push({ name: a.user_name, club: a.club, clubName, reason: a.absence_reason || '', user_id: a.user_id });
-        }
-        for (const s of allStudents as { user_id: string; name: string; club: string }[]) {
-          if (!attendedUserIds.has(s.user_id) && !absentUserIds.has(s.user_id)) {
-            const clubName = CLUB_LABELS[s.club as ClubType]?.split(' ')[0] || s.club;
-            unresponsiveList.push({ name: s.name, club: s.club, clubName, user_id: s.user_id });
-          }
-        }
-        setAttendanceList({ attended: attendedList, absent: absentList, unresponsive: unresponsiveList });
-      } else {
-        const [memberIdsResult, weeklyResult, growthResult, marathonResult, attResult, studentsResult] = await Promise.all([
-          memberIdsPromise,
-          weeklyQuery,
-          growthQuery,
-          marathonQuery,
-          attQuery,
-          studentsQuery,
-        ]);
-        const clubMemberIds = memberIdsResult.data
-          ? (memberIdsResult.data as { user_id: string }[]).map((m) => m.user_id)
-          : [];
-        if (clubMemberIds.length > 0) {
-          qnaQuery = qnaQuery.in('author_id', clubMemberIds);
-        }
-        const qnaResult = await qnaQuery;
-
-        setWeeklyReports(weeklyResult.data || []);
-        setGrowthRecords(growthResult.data || []);
-        setUnansweredQnA(qnaResult.data || []);
-        setPendingMarathon(marathonResult.data || []);
-
-        const attData = attResult.data || [];
-        const allStudentsRaw = studentsResult.data || [];
-        const uniqueStudents = new Map<string, { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }>();
-        for (const rawStudent of allStudentsRaw as { user_id: string; name: string; club: string | null; is_expelled?: boolean; is_active?: boolean }[]) {
-          if (rawStudent.is_expelled || rawStudent.is_active === false) continue;
-          const existing = uniqueStudents.get(rawStudent.user_id);
-          if (!existing || (!existing.club && rawStudent.club)) uniqueStudents.set(rawStudent.user_id, rawStudent);
-        }
-        const allStudents = Array.from(uniqueStudents.values());
-
-        const validUserIds = new Set(allStudents.map((s) => s.user_id));
-        const latestByUser = new Map<string, { user_id: string; user_name: string; club: string; status: string; absence_reason: string | null; checked_in_at?: string }>();
-        for (const record of attData as { user_id: string; user_name: string; club: string; status: string; absence_reason: string | null; checked_in_at?: string }[]) {
-          if (!validUserIds.has(record.user_id)) continue;
-          const prev = latestByUser.get(record.user_id);
-          if (!prev || new Date(record.checked_in_at || 0).getTime() >= new Date(prev.checked_in_at || 0).getTime()) latestByUser.set(record.user_id, record);
-        }
-        const validAttData = Array.from(latestByUser.values());
-        setAttendanceSummary({ total: allStudents.length, present: validAttData.filter((a) => a.status === 'attended').length });
-
-        const attendedUserIds = new Set(validAttData.filter((a) => a.status === 'attended').map((a) => a.user_id));
-        const absentUserIds = new Set(validAttData.filter((a) => a.status === 'absent').map((a) => a.user_id));
-        const attendedList: { name: string; club: string; clubName: string; user_id: string }[] = [];
-        const absentList: { name: string; club: string; clubName: string; reason: string; user_id: string }[] = [];
-        const unresponsiveList: { name: string; club: string; clubName: string; user_id: string }[] = [];
-        for (const a of validAttData) {
-          const clubName = CLUB_LABELS[a.club as ClubType]?.split(' ')[0] || a.club;
-          if (a.status === 'attended') attendedList.push({ name: a.user_name, club: a.club, clubName, user_id: a.user_id });
-          else if (a.status === 'absent') absentList.push({ name: a.user_name, club: a.club, clubName, reason: a.absence_reason || '', user_id: a.user_id });
-        }
-        for (const s of allStudents as { user_id: string; name: string; club: string }[]) {
-          if (!attendedUserIds.has(s.user_id) && !absentUserIds.has(s.user_id)) {
-            const clubName = CLUB_LABELS[s.club as ClubType]?.split(' ')[0] || s.club;
-            unresponsiveList.push({ name: s.name, club: s.club, clubName, user_id: s.user_id });
-          }
-        }
-        setAttendanceList({ attended: attendedList, absent: absentList, unresponsive: unresponsiveList });
+      let qnaResult = qnaParallelResult;
+      if (effectiveClub !== 'all' && clubMemberIds.length > 0) {
+        qnaQuery = qnaQuery.in('author_id', clubMemberIds);
+        qnaResult = await qnaQuery;
       }
 
       setWeeklyReports(weeklyResult.data || []);
