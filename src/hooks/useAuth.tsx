@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import { neonAuth } from '@/lib/neonAuth';
 import type { User } from '@supabase/supabase-js';
 import type { UserProfile, UserRole } from '@/types/auth';
 import { ROLE_HIERARCHY } from '@/types/auth';
@@ -47,6 +46,11 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 let supabaseClientPromise: Promise<typeof import('@/lib/supabase').supabase> | null = null;
+let neonAuthClientPromise: Promise<typeof import('@/lib/neonAuth').neonAuth> | null = null;
+async function getNeonAuthClient() {
+  if (!neonAuthClientPromise) neonAuthClientPromise = import('@/lib/neonAuth').then(({ neonAuth }) => neonAuth);
+  return neonAuthClientPromise;
+}
 async function getSupabaseClient() {
   if (!supabaseClientPromise) {
     supabaseClientPromise = import('@/lib/supabase').then(({ supabase }) => supabase);
@@ -141,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // scope: 'local' avoids a server round-trip (which would fail anyway
     // with the expired refresh token), but still resets the in-memory
     // session and stops the auto-refresh timer.
-    neonAuth.signOut({ scope: 'local' }).catch(() => { /* ignore — we are already dead */ });
+    void getNeonAuthClient().then((neonAuth) => neonAuth.signOut({ scope: 'local' })).catch(() => { /* ignore — we are already dead */ });
 
     setUser(null);
     setProfile(null);
@@ -195,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (profileData.is_expelled) {
           setProfile(null);
           setProfileError('퇴출된 계정입니다. 관리자에게 문의하세요.');
+          const neonAuth = await getNeonAuthClient();
           await neonAuth.signOut();
           return;
         }
@@ -286,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const getSessionVersion = authEventVersionRef.current;
 
-    neonAuth.getSession()
+    getNeonAuthClient().then((neonAuth) => neonAuth.getSession())
       .then(({ data: { session }, error }) => {
         if (!isMounted) return;
         if (authEventVersionRef.current !== getSessionVersion) {
@@ -357,7 +362,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPinSetupNeeded(false);
       });
 
-    const { data: { subscription } } = neonAuth.onAuthStateChange((event, session) => {
+    let subscription: { unsubscribe: () => void } | null = null;
+    void getNeonAuthClient().then((neonAuth) => {
+      if (!isMounted) return;
+      const { data } = neonAuth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
       authEventVersionRef.current += 1;
 
@@ -408,11 +416,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPinLocked(false);
         setPinSetupNeeded(false);
       }
+      });
+      subscription = data.subscription;
     });
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, [fetchProfile, handleSessionDead]);
 
@@ -489,6 +499,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     try {
       refreshFailureHandledRef.current = false;
+      const neonAuth = await getNeonAuthClient();
       const { data, error } = await neonAuth.signInWithPassword({ email, password });
       if (error) return { error: error.message, user: null };
 
@@ -513,6 +524,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile]);
 
   const signUp = useCallback(async (email: string, password: string, name: string, role: UserRole, club?: string, birthYear?: number, gender?: string, birthMonth?: number, birthDay?: number, interests?: string, grade?: string) => {
+    const neonAuth = await getNeonAuthClient();
     const { data, error } = await neonAuth.signUp({
       email,
       password,
@@ -584,6 +596,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearPinSetupDismissedThisSession(user.id);
     }
     clearAllAuthStorage();
+    const neonAuth = await getNeonAuthClient();
     await neonAuth.signOut({ scope: 'local' }).catch(() => { /* already cleaned */ });
 
     try {
@@ -658,6 +671,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const pathPrefix = basePath ? `/${basePath}` : '';
       const redirectTo = `${window.location.origin}${pathPrefix}/reset-password`;
 
+      const neonAuth = await getNeonAuthClient();
       const { error } = await neonAuth.resetPasswordForEmail(email, {
         redirectTo,
       });
@@ -670,6 +684,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updatePassword = useCallback(async (newPassword: string) => {
     try {
+      const neonAuth = await getNeonAuthClient();
       const { error } = await neonAuth.updateUser({ password: newPassword });
       if (error) return { error: error.message };
       return { error: null };
@@ -680,6 +695,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateEmail = useCallback(async (newEmail: string) => {
     try {
+      const neonAuth = await getNeonAuthClient();
       const { error } = await neonAuth.updateUser({ email: newEmail });
       if (error) return { error: error.message };
       return { error: null };
