@@ -167,24 +167,31 @@ export default function Dashboard() {
           const pendingApproval = (wrR.count || 0) + (grR.count || 0) + (erR.count || 0);
           stats.pendingApproval = String(pendingApproval);
 
-          // 출석률: 이번 달 attendance
+          // 이번 달 집계는 서로 의존하지 않으므로 한 번에 시작한다.
           const monthStart = dateKey(new Date(now.getFullYear(), now.getMonth(), 1));
-          const { count: attTotal } = await sb.from('attendance').select('*', { count: 'exact', head: true }).gte('attendance_date', monthStart);
-          const { count: attPresent } = await sb.from('attendance').select('*', { count: 'exact', head: true }).gte('attendance_date', monthStart).eq('status', 'present');
-          const attRate = attTotal && attTotal > 0 ? Math.round(((attPresent || 0) / attTotal) * 100) : 0;
-          stats.attendanceRate = `${attRate}%`;
-
-          // 전체 사명자 수
-          const { count: totalMembers } = await sb.from('user_roles').select('*', { count: 'exact', head: true }).eq('role', 'member').eq('is_active', true);
-          const memberCount = totalMembers || 0;
-
-          // 보고서 제출률: 이번 달 보고서 수 / 전체 사명자 수 × 100%
           const monthIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-          const [wrMonth, grMonth, erMonth] = await Promise.all([
+          const [
+            { count: attTotal },
+            { count: attPresent },
+            { count: totalMembers },
+            wrMonth,
+            grMonth,
+            erMonth,
+          ] = await Promise.all([
+            sb.from('attendance').select('*', { count: 'exact', head: true }).gte('attendance_date', monthStart),
+            sb.from('attendance').select('*', { count: 'exact', head: true }).gte('attendance_date', monthStart).eq('status', 'present'),
+            sb.from('user_roles').select('*', { count: 'exact', head: true }).eq('role', 'member').eq('is_active', true),
             sb.from('weekly_reports').select('*', { count: 'exact', head: true }).gte('created_at', monthIso).neq('status', 'draft'),
             sb.from('growth_records').select('*', { count: 'exact', head: true }).gte('created_at', monthIso).neq('status', 'draft'),
             sb.from('event_reports').select('*', { count: 'exact', head: true }).gte('created_at', monthIso).neq('status', 'draft'),
           ]);
+
+          const attRate = attTotal && attTotal > 0 ? Math.round(((attPresent || 0) / attTotal) * 100) : 0;
+          stats.attendanceRate = `${attRate}%`;
+
+          const memberCount = totalMembers || 0;
+
+          // 보고서 제출률: 이번 달 보고서 수 / 전체 사명자 수 × 100%
           const monthReports = (wrMonth.count || 0) + (grMonth.count || 0) + (erMonth.count || 0);
           const reportRate = memberCount > 0 ? Math.round((monthReports / memberCount) * 100) : 0;
           stats.reportSubmitRate = `${reportRate}%`;
@@ -192,26 +199,32 @@ export default function Dashboard() {
           // 이번 달 보고서
           stats.monthReports = String(monthReports);
         } else if (role === 'teacher') {
-          // 교사 검토 대기: 3 tables, status = 'president_reviewed'
-          const [wrPR, grPR, erPR] = await Promise.all([
-            sb.from('weekly_reports').select('*', { count: 'exact', head: true }).eq('status', 'president_reviewed'),
-            sb.from('growth_records').select('*', { count: 'exact', head: true }).eq('status', 'president_reviewed'),
-            sb.from('event_reports').select('*', { count: 'exact', head: true }).eq('status', 'president_reviewed'),
+          // 서로 독립적인 교사 통계는 동시에 시작한다. 담당 동아리 조회만 인원수 계산의 선행 조건이다.
+          const [pendingResults, doneResults, teacherClubsResult, weekSubmittedResult] = await Promise.all([
+            Promise.all([
+              sb.from('weekly_reports').select('*', { count: 'exact', head: true }).eq('status', 'president_reviewed'),
+              sb.from('growth_records').select('*', { count: 'exact', head: true }).eq('status', 'president_reviewed'),
+              sb.from('event_reports').select('*', { count: 'exact', head: true }).eq('status', 'president_reviewed'),
+            ]),
+            Promise.all([
+              sb.from('weekly_reports').select('*', { count: 'exact', head: true }).in('status', ['reviewed', 'approved']),
+              sb.from('growth_records').select('*', { count: 'exact', head: true }).in('status', ['reviewed', 'approved']),
+              sb.from('event_reports').select('*', { count: 'exact', head: true }).in('status', ['reviewed', 'approved']),
+            ]),
+            sb.from('club_teachers').select('club').eq('teacher_id', profile.user_id),
+            sb.from('weekly_reports').select('*', { count: 'exact', head: true }).gte('created_at', monday.toISOString()).neq('status', 'draft'),
           ]);
+          const [wrPR, grPR, erPR] = pendingResults;
           const teacherPending = (wrPR.count || 0) + (grPR.count || 0) + (erPR.count || 0);
           stats.teacherPending = String(teacherPending);
 
-          // 검토 완료: 3 tables, status IN ('reviewed', 'approved')
-          const [wrDone, grDone, erDone] = await Promise.all([
-            sb.from('weekly_reports').select('*', { count: 'exact', head: true }).in('status', ['reviewed', 'approved']),
-            sb.from('growth_records').select('*', { count: 'exact', head: true }).in('status', ['reviewed', 'approved']),
-            sb.from('event_reports').select('*', { count: 'exact', head: true }).in('status', ['reviewed', 'approved']),
-          ]);
+          const [wrDone, grDone, erDone] = doneResults;
           const teacherDone = (wrDone.count || 0) + (grDone.count || 0) + (erDone.count || 0);
           stats.teacherDone = String(teacherDone);
 
+          const teacherClubs = teacherClubsResult.data;
+
           // 전체 사명자: teacher가 담당하는 club의 member count
-          const { data: teacherClubs } = await sb.from('club_teachers').select('club').eq('teacher_id', profile.user_id);
           let memberQuery = sb.from('user_roles').select('*', { count: 'exact', head: true }).eq('role', 'member').eq('is_active', true);
           if (teacherClubs && teacherClubs.length > 0) {
             const clubList = teacherClubs.map((c: { club: string }) => c.club);
@@ -221,11 +234,11 @@ export default function Dashboard() {
           const totalTeacherMembers = tMembers || 0;
           stats.totalMissionaries = String(totalTeacherMembers);
 
-          // 이번 주 제출률 (weekly_reports only)
+          // 이번 주 제출률 조회는 위의 병렬 조회에서 이미 시작했다.
           const monday = new Date(now);
           monday.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
           monday.setHours(0, 0, 0, 0);
-          const { count: weekSubmitted } = await sb.from('weekly_reports').select('*', { count: 'exact', head: true }).gte('created_at', monday.toISOString()).neq('status', 'draft');
+          const { count: weekSubmitted } = weekSubmittedResult;
           const weekRate = totalTeacherMembers > 0 ? Math.round(((weekSubmitted || 0) / totalTeacherMembers) * 100) : 0;
           stats.weekSubmitRate = `${weekRate}%`;
         } else if (role === 'president') {
