@@ -256,6 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const meta = authUser.user_metadata;
       if (meta?.name) {
+        const supabase = await getSupabaseClient();
         const safeRole = (meta.role === 'chief' || meta.role === 'teacher') ? 'member' : (meta.role || 'member');
         const { data: newProfile, error: insertError } = await supabase
           .from('user_roles')
