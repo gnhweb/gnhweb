@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/hooks/useAuth';
 import { useAuth } from '@/hooks/useAuth';
 import ImageCropModal from '@/components/feature/ImageCropModal';
 
@@ -28,6 +28,7 @@ export function useClubBanner(clubId: string) {
 
   const loadBanner = useCallback(async () => {
     if (!clubId) return;
+    const supabase = await getSupabaseClient();
     setLoading(true);
     try {
       const { data } = await supabase
@@ -87,6 +88,7 @@ export default function ClubBannerManager({ club, onBannerChange }: ClubBannerMa
 
   const handleCroppedUpload = async (blob: Blob) => {
     if (!user || !cropSlot) return;
+    const supabase = await getSupabaseClient();
     const type = cropSlot;
     setCropSlot(null);
     setCropFile(null);
@@ -138,6 +140,7 @@ export default function ClubBannerManager({ club, onBannerChange }: ClubBannerMa
 
   const handleRemove = async (type: 'hero' | 'card') => {
     if (!user) return;
+    const supabase = await getSupabaseClient();
     const url = type === 'hero' ? banner?.hero_image_url : banner?.card_image_url;
     if (!url) return;
 
