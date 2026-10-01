@@ -140,7 +140,7 @@ export default function TeacherDashboard() {
 
       setWeeklyReports(weeklyResult.data || []);
       setGrowthRecords(growthResult.data || []);
-      setUnansweredQnA(qnaResult.data || []);
+      setUnansweredQnA(qnaResult?.data || []);
       setPendingMarathon(marathonResult.data || []);
 
       const attData = attResult.data || [];
