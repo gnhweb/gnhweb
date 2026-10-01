@@ -336,12 +336,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const getSessionVersion = authEventVersionRef.current;
 
-    // The authenticated home is the default destination. Start its lazy module
-    // while Neon Auth is bootstrapping so route code and session lookup overlap.
-    if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '')) {
-      void import('@/pages/home/page');
-    }
-
     const neonAuthPromise = getNeonAuthClient();
     neonAuthPromise.then((neonAuth) => neonAuth.getSession())
       .then(({ data: { session }, error }) => {
