@@ -1,0 +1,154 @@
+name: Cloudflare Worker Usage Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_utc:
+        description: "Start time in UTC, e.g. 2026-10-01T00:00:00Z"
+        required: false
+        type: string
+      end_utc:
+        description: "End time in UTC, e.g. 2026-10-02T00:00:00Z"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  worker-usage:
+    name: Query Worker requests by script
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_ACCOUNT_ID: e005fccad53297f6ac5ca4d88472cd59
+    steps:
+      - name: Query Cloudflare GraphQL Workers metrics
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          START_INPUT: ${{ inputs.start_utc }}
+          END_INPUT: ${{ inputs.end_utc }}
+        run: |
+          set -euo pipefail
+
+          start="${START_INPUT}"
+          end="${END_INPUT}"
+
+          if [ -z "$end" ]; then
+            end="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          fi
+
+          if [ -z "$start" ]; then
+            start="$(date -u -d '24 hours ago' +'%Y-%m-%dT%H:%M:%SZ')"
+          fi
+
+          echo "Cloudflare Workers metrics window:"
+          echo "  start=$start"
+          echo "  end=$end"
+
+          payload="$(jq -n \
+            --arg accountTag "$CLOUDFLARE_ACCOUNT_ID" \
+            --arg datetimeStart "$start" \
+            --arg datetimeEnd "$end" \
+            '{
+              query: "query GetWorkersAnalytics($accountTag: string, $datetimeStart: string, $datetimeEnd: string) { viewer { accounts(filter: {accountTag: $accountTag}) { workersInvocationsAdaptive(limit: 10000, filter: {datetime_geq: $datetimeStart, datetime_leq: $datetimeEnd}) { sum { requests errors subrequests } dimensions { datetime scriptName status } } } } }",
+              variables: {
+                accountTag: $accountTag,
+                datetimeStart: $datetimeStart,
+                datetimeEnd: $datetimeEnd
+              }
+            }')"
+
+          curl --fail-with-body --silent --show-error \
+            https://api.cloudflare.com/client/v4/graphql \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --header "Accept: application/json" \
+            --header "Content-Type: application/json" \
+            --data "$payload" > /tmp/cloudflare-workers.json
+
+          if jq -e '.errors and (.errors | length > 0)' /tmp/cloudflare-workers.json >/dev/null; then
+            echo "Cloudflare GraphQL returned errors:"
+            jq '.errors' /tmp/cloudflare-workers.json
+            exit 1
+          fi
+
+          echo
+          echo "=== Worker request totals ==="
+          printf '%-36s %14s %14s %14s\n' "Worker" "Requests" "Errors" "Subrequests"
+          printf '%-36s %14s %14s %14s\n' "------------------------------------" "--------------" "--------------" "--------------"
+
+          jq -r '
+            .data.viewer.accounts[0].workersInvocationsAdaptive[]
+            | [
+                (.dimensions.scriptName // "(unknown)"),
+                (.sum.requests // 0),
+                (.sum.errors // 0),
+                (.sum.subrequests // 0)
+              ]
+            | @tsv
+          ' /tmp/cloudflare-workers.json |
+          awk -F '\t' '
+            {
+              req[$1]+=$2;
+              err[$1]+=$3;
+              sub[$1]+=$4;
+            }
+            END {
+              for (name in req) {
+                printf "%s\t%d\t%d\t%d\n", name, req[name], err[name], sub[name];
+                total+=req[name];
+              }
+              printf "__TOTAL__\t%d\t%d\t%d\n", total, 0, 0;
+            }
+          ' |
+          sort -t $'\t' -k2,2nr |
+          while IFS=$'\t' read -r worker requests errors subrequests; do
+            if [ "$worker" = "__TOTAL__" ]; then
+              printf '%-36s %14s %14s %14s\n' "ACCOUNT TOTAL" "$requests" "$errors" "$subrequests"
+            else
+              printf '%-36s %14s %14s %14s\n' "$worker" "$requests" "$errors" "$subrequests"
+            fi
+          done
+
+          total="$(jq '[.data.viewer.accounts[0].workersInvocationsAdaptive[].sum.requests // 0] | add // 0' /tmp/cloudflare-workers.json)"
+          echo
+          echo "Account total requests: $total"
+          echo "Free-plan daily limit: 100000"
+          if [ "$total" -ge 100000 ]; then
+            echo "RESULT: account-wide daily request limit is reached/exceeded in this window."
+          else
+            echo "RESULT: this window is below 100000 requests."
+          fi
+
+          {
+            echo "## Cloudflare Worker Usage"
+            echo
+            echo "- Window: `$start` → `$end`"
+            echo "- Account total requests: **$total**"
+            echo "- Workers Free daily limit: **100,000 requests/account/day**"
+            echo
+            echo "| Worker | Requests | Errors | Subrequests |"
+            echo "|---|---:|---:|---:|"
+            jq -r '
+              .data.viewer.accounts[0].workersInvocationsAdaptive[]
+              | [
+                  (.dimensions.scriptName // "(unknown)"),
+                  (.sum.requests // 0),
+                  (.sum.errors // 0),
+                  (.sum.subrequests // 0)
+                ]
+              | @tsv
+            ' /tmp/cloudflare-workers.json |
+            awk -F '\t' '
+              {
+                req[$1]+=$2; err[$1]+=$3; sub[$1]+=$4;
+              }
+              END {
+                for (name in req) printf "%s\t%d\t%d\t%d\n", name, req[name], err[name], sub[name];
+              }
+            ' |
+            sort -t $'\t' -k2,2nr |
+            while IFS=$'\t' read -r worker requests errors subrequests; do
+              printf '| %s | %s | %s | %s |\n' "$worker" "$requests" "$errors" "$subrequests"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
