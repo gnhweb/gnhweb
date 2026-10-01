@@ -39,9 +39,9 @@ export default function ApprovedReportsPanel() {
     (async () => {
       setLoading(true);
       const [w, g, e] = await Promise.all([
-        supabase.from('weekly_reports').select('*').eq('status', 'approved').is('deleted_at', null).order('finalized_at', { ascending: false }).limit(60),
-        supabase.from('growth_records').select('*').eq('status', 'approved').is('deleted_at', null).order('finalized_at', { ascending: false }).limit(60),
-        supabase.from('event_reports').select('*').eq('status', 'approved').is('deleted_at', null).order('finalized_at', { ascending: false }).limit(60),
+        supabase.from('weekly_reports').select('id, club, author_name, status, created_at, updated_at, finalized_at, week_start, progress_summary').eq('status', 'approved').is('deleted_at', null).order('finalized_at', { ascending: false }).limit(60),
+        supabase.from('growth_records').select('id, club, author_name, status, created_at, updated_at, finalized_at, record_date, student_name, spiritual_growth').eq('status', 'approved').is('deleted_at', null).order('finalized_at', { ascending: false }).limit(60),
+        supabase.from('event_reports').select('id, club, author_name, status, created_at, updated_at, finalized_at, event_date, event_name, participant_count').eq('status', 'approved').is('deleted_at', null).order('finalized_at', { ascending: false }).limit(60),
       ]);
       if (!active) return;
       const list: Item[] = [
