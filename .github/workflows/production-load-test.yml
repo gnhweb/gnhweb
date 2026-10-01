@@ -1,11 +1,6 @@
 name: Production Load Test
 
 on:
-  workflow_run:
-    workflows:
-      - Auto Deploy Cloudflare
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       base_url:
@@ -26,7 +21,7 @@ permissions:
 jobs:
   load-test:
     name: 50 → 100 → 200 concurrent production sessions
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -36,22 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
-      - name: Verify the site deployment job succeeded
-        if: ${{ github.event_name == 'workflow_run' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
-        run: |
-          set -euo pipefail
-          jobs_json=$(curl --fail-with-body --silent --show-error \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header 'Accept: application/vnd.github+json' \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${WORKFLOW_RUN_ID}/jobs?per_page=100")
-          deploy_conclusion=$(printf '%s' "$jobs_json" | jq -r '.jobs[] | select(.name == "Deploy gnhweb Cloudflare Pages site") | .conclusion' | head -n 1)
-          echo "Cloudflare Pages deploy conclusion=$deploy_conclusion"
-          test "$deploy_conclusion" = "success"
-
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
