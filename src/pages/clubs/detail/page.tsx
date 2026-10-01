@@ -257,12 +257,20 @@ export default function ClubDetail() {
   };
 
   const loadMembers = async () => {
-    const { data: memberData } = await supabase
-      .from('user_roles')
-      .select('user_id, name, role, club, birth_year, birth_month, birth_day, gender, profile_image, is_expelled')
-      .eq('club', id)
-      .order('role', { ascending: true });
+    const [memberResult, assignedTeacherResult] = await Promise.all([
+      supabase
+        .from('user_roles')
+        .select('user_id, name, role, club, birth_year, birth_month, birth_day, gender, profile_image, is_expelled')
+        .eq('club', id)
+        .order('role', { ascending: true }),
+      supabase
+        .from('club_teachers')
+        .select('teacher_id')
+        .eq('club', id),
+    ]);
 
+    const memberData = memberResult.data;
+    const assignedTeacherRows = assignedTeacherResult.data;
     let allMemberRows = memberData ? [...memberData].filter((m: any) => !m.is_expelled) : [];
 
     if (id === 'cheonhwarae_cheongmyeong') {
@@ -287,10 +295,7 @@ export default function ClubDetail() {
       }
     }
 
-    const { data: assignedTeacherRows } = await supabase
-      .from('club_teachers')
-      .select('teacher_id')
-      .eq('club', id);
+
     const assignedTeacherIds = new Set((assignedTeacherRows || []).map((r: any) => r.teacher_id as string));
     allMemberRows = allMemberRows.filter((m: any) => m.role !== 'teacher' || assignedTeacherIds.has(m.user_id));
 
