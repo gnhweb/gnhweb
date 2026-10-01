@@ -1,10 +1,9 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
+import { useAuth, getSupabaseClient } from '@/hooks/useAuth';
 import { clubs, clubIcons, type ClubData } from '@/mocks/clubs';
-import ClubBannerManager, { useClubBanner } from '@/components/feature/ClubBannerManager';
+import { useClubBanner } from '@/components/feature/ClubBannerManager';
 import PhotoLightbox from '@/components/feature/PhotoLightbox';
 import { CategoryChipRow, CategoryChip } from '@/components/base/CategoryChip';
 import { resizeImageFile, thumbFileNameFor } from '@/lib/imageResize';
@@ -205,6 +204,7 @@ export default function ClubDetail() {
   }, [club?.id]);
 
   const loadAllData = async () => {
+    const supabase = await getSupabaseClient();
     setLoading(true);
     setError(null);
     try {
@@ -257,6 +257,7 @@ export default function ClubDetail() {
   };
 
   const loadMembers = async () => {
+    const supabase = await getSupabaseClient();
     const [memberResult, assignedTeacherResult] = await Promise.all([
       supabase
         .from('user_roles')
@@ -332,26 +333,40 @@ export default function ClubDetail() {
 
   useEffect(() => {
     if (!id) return;
+    let channel: Awaited<ReturnType<typeof getSupabaseClient>> extends infer Client
+      ? Client extends { channel: (...args: never[]) => infer Channel } ? Channel : never
+      : never;
+    let cancelled = false;
 
-    const channel = supabase.channel(`club_roster_${id}`);
+    const subscribe = async () => {
+      const supabase = await getSupabaseClient();
+      if (cancelled) return;
 
-    if (id === 'cheonhwarae_cheongmyeong') {
-      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'user_club_assignments', filter: `club=eq.${id}` }, () => {
-        loadMembers();
-      });
-    }
+      channel = supabase.channel(`club_roster_${id}`);
 
-    channel
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'club_teachers', filter: `club=eq.${id}` }, () => {
-        loadMembers();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles', filter: `club=eq.${id}` }, () => {
-        loadMembers();
-      })
-      .subscribe();
+      if (id === 'cheonhwarae_cheongmyeong') {
+        channel.on('postgres_changes', { event: '*', schema: 'public', table: 'user_club_assignments', filter: `club=eq.${id}` }, () => {
+          void loadMembers();
+        });
+      }
+
+      channel
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'club_teachers', filter: `club=eq.${id}` }, () => {
+          void loadMembers();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles', filter: `club=eq.${id}` }, () => {
+          void loadMembers();
+        })
+        .subscribe();
+    };
+
+    void subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) {
+        void getSupabaseClient().then((supabase) => supabase.removeChannel(channel));
+      }
     };
   }, [id]);
 
@@ -364,6 +379,7 @@ export default function ClubDetail() {
       (profile?.role === 'zone_leader' || profile?.role === 'assistant_zone_leader'));
 
   const saveClubDetail = async (updates: Partial<ClubDetailData>): Promise<{ success: true } | { success: false; error: string }> => {
+    const supabase = await getSupabaseClient();
     if (!canEditClubDetail) {
       const message = '이 동아리의 정보를 수정할 권한이 없습니다.';
       setError(message);
@@ -443,6 +459,7 @@ export default function ClubDetail() {
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const supabase = await getSupabaseClient();
     const files = e.target.files;
     if (!files || files.length === 0 || !user) return;
     setUploading(true);
@@ -450,6 +467,7 @@ export default function ClubDetail() {
 
     const uploadedPaths: string[] = [];
     const removeUploadedFiles = async () => {
+    const supabase = await getSupabaseClient();
       if (uploadedPaths.length === 0) return;
       try {
         const { error: removeError } = await supabase.storage.from('Public').remove(uploadedPaths);
@@ -461,6 +479,7 @@ export default function ClubDetail() {
 
     try {
       const uploadOne = async (file: File): Promise<{ photo: ClubPhoto; paths: string[] }> => {
+    const supabase = await getSupabaseClient();
         const safeName = `${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
         const path = `club-photos/${safeName}`;
         const thumbPath = `club-photos/${thumbFileNameFor(safeName)}`;
@@ -557,6 +576,7 @@ export default function ClubDetail() {
   };
 
   const handleDeletePhoto = async (photoUrl: string) => {
+    const supabase = await getSupabaseClient();
     const target = clubDetail.photos.find(p => p.url === photoUrl);
     const updatedPhotos = clubDetail.photos.filter(p => p.url !== photoUrl);
     try {
@@ -568,6 +588,7 @@ export default function ClubDetail() {
   };
 
   const handleBatchDeletePhotos = async () => {
+    const supabase = await getSupabaseClient();
     if (selectedPhotos.size === 0) return;
     const targets = clubDetail.photos.filter(p => selectedPhotos.has(p.url));
     const updatedPhotos = clubDetail.photos.filter(p => !selectedPhotos.has(p.url));
@@ -593,6 +614,7 @@ export default function ClubDetail() {
   };
 
   const handleSubmitQuestion = async () => {
+    const supabase = await getSupabaseClient();
     if (!qnaQuestion.trim() || !profile || !user || qnaSubmitting) return;
     setQnaSubmitting(true);
     try {
@@ -630,6 +652,7 @@ export default function ClubDetail() {
   };
 
   const handleSubmitAnswer = async (qnaId: string) => {
+    const supabase = await getSupabaseClient();
     if (!qnaAnswer.trim() || !profile) return;
     try {
       const { error: updateError } = await supabase
@@ -668,6 +691,7 @@ export default function ClubDetail() {
   };
 
   const handleSaveEditQuestion = async (qnaId: string) => {
+    const supabase = await getSupabaseClient();
     if (!editQnaText.trim() || qnaActionLoading) return;
     setQnaActionLoading(true);
     try {
@@ -687,6 +711,7 @@ export default function ClubDetail() {
   };
 
   const handleDeleteQuestion = async (qnaId: string) => {
+    const supabase = await getSupabaseClient();
     if (qnaActionLoading) return;
     setQnaActionLoading(true);
     try {
@@ -715,6 +740,7 @@ export default function ClubDetail() {
   };
 
   const handleSaveEditAnswer = async (qnaId: string) => {
+    const supabase = await getSupabaseClient();
     if (!editAnswerText.trim() || qnaActionLoading) return;
     setQnaActionLoading(true);
     try {
@@ -734,6 +760,7 @@ export default function ClubDetail() {
   };
 
   const handleDeleteAnswer = async (qnaId: string) => {
+    const supabase = await getSupabaseClient();
     if (qnaActionLoading) return;
     setQnaActionLoading(true);
     try {
@@ -752,6 +779,7 @@ export default function ClubDetail() {
   };
 
   const loadQnA = async () => {
+    const supabase = await getSupabaseClient();
     if (!id) return;
     try {
       const { data, error: qnaError } = await supabase
