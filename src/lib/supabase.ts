@@ -261,7 +261,6 @@ const cloudflareFunctions = new Proxy(legacySupabase.functions, {
           'quiz-report',
           'streak-tracker',
           'bible-streak-update',
-          'bible-pick',
           'monthly-champion-snapshot',
           'passkey',
         ]).has(baseFunctionName);
