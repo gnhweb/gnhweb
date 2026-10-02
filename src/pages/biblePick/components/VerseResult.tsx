@@ -140,86 +140,51 @@ export default function VerseResult({ verseData, userText, onReset }: VerseResul
         </motion.div>
       )}
 
-      {revealed >= 1 && verseData.understanding && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6 rounded-card border border-background-200 bg-background-100 p-5 md:p-6">
+      {verseData.understanding && (
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-6 rounded-card border border-background-200 bg-background-100 p-5 md:p-6">
           <p className="text-xs font-bold text-primary-700 mb-2">네 고민을 이렇게 이해했어요</p>
           <p className="text-sm text-foreground-800 leading-relaxed">{verseData.understanding}</p>
         </motion.div>
       )}
 
-      {revealed >= 1 && verseData.whyThisVerse && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6">
+      {verseData.whyThisVerse && (
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-6">
           <p className="text-xs font-bold text-foreground-800 mb-2">왜 이 말씀이 지금 필요할까요?</p>
           <p className="text-sm text-foreground-700 leading-[1.85]">{verseData.whyThisVerse}</p>
-          {verseData.contextCaution && <p className="mt-2 text-xs text-foreground-500">이 말씀은 본문의 문맥을 함께 생각하며 적용해 주세요.</p>}
+          {verseData.contextCaution && (
+            <p className="mt-2 text-xs text-foreground-500">이 말씀은 본문의 문맥을 함께 생각하며 적용해 주세요.</p>
+          )}
         </motion.div>
       )}
 
-      {/* 흐르는 본문: 왜 이 말씀인지 → 오늘의 실천 → 기도 */}
-      {revealed >= 1 && verseData.recommendation && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6">
-          <p className="text-[15px] md:text-base text-foreground-800 leading-[1.85]">
-            {verseData.recommendation}
-          </p>
+      {(verseData.nextStep || verseData.practice) && (
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-7 rounded-card border border-background-200 bg-background-100 p-5 md:p-6">
+          <p className="text-xs font-bold text-foreground-800 mb-2">지금 할 수 있는 한 걸음</p>
+          <p className="text-sm text-foreground-700 leading-[1.85]">{verseData.nextStep || verseData.practice}</p>
         </motion.div>
       )}
 
-      {revealed >= 2 && (verseData.practice || verseData.prayers.length > 0) && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="border-t border-background-200 pt-7 mb-7">
-          <div className="space-y-7">
-            {verseData.practice && (
-              <div className="relative flex gap-4">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-white shadow-sm"
-                  style={{ background: 'linear-gradient(135deg, var(--grad-coral), var(--grad-rose))' }}
-                >
-                  <i className="ri-footprint-line text-sm"></i>
-                </div>
-                {verseData.prayers.length > 0 && (
-                  <span className="absolute left-[17px] top-9 bottom-[-28px] w-px bg-background-200"></span>
-                )}
-                <div>
-                  <p className="text-xs font-bold text-foreground-800 mb-1">지금 할 수 있는 한 걸음</p>
-                  <p className="text-sm text-foreground-700 leading-relaxed">{verseData.nextStep || verseData.practice}</p>
-                </div>
-              </div>
-            )}
-
-            {verseData.prayers.length > 0 && (
-              <div className="flex gap-4">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-white shadow-sm"
-                  style={{ background: 'linear-gradient(135deg, var(--grad-rose), var(--grad-blue))' }}
-                >
-                  <i className="ri-moon-line text-sm"></i>
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-foreground-800 mb-1.5">자기 전 기도</p>
-                  <div className="space-y-2">
-                    {verseData.prayers.map((prayer, idx) => (
-                      <p key={idx} className="text-sm text-foreground-700 leading-relaxed">
-                        {prayer}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      )}
-
-      {revealed >= 2 && verseData.takeaway && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-7 rounded-card bg-background-100 border border-background-200 px-5 py-4">
+      {verseData.takeaway && (
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-7 rounded-card border border-background-200 bg-background-100 px-5 py-4">
           <p className="text-xs font-bold text-foreground-800 mb-1.5">오늘 기억할 한 문장</p>
           <p className="text-sm font-semibold text-foreground-900 leading-relaxed">{verseData.takeaway}</p>
         </motion.div>
       )}
 
-      {revealed >= 2 && verseData.prayer && verseData.prayers.length === 0 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="border-t border-background-200 pt-6 mb-7">
+      {(verseData.prayer || verseData.prayers.length > 0) && (
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="border-t border-background-200 pt-6 mb-7">
           <p className="text-xs font-bold text-foreground-800 mb-1.5">하나님께 이렇게 기도해봐요</p>
-          <p className="text-sm text-foreground-700 leading-relaxed font-quote">{verseData.prayer}</p>
+          <div className="space-y-2">
+            {verseData.prayer ? (
+              <p className="text-sm text-foreground-700 leading-relaxed font-quote">{verseData.prayer}</p>
+            ) : (
+              verseData.prayers.map((prayer, idx) => (
+                <p key={idx} className="text-sm text-foreground-700 leading-relaxed font-quote">
+                  {prayer}
+                </p>
+              ))
+            )}
+          </div>
         </motion.div>
       )}
 
