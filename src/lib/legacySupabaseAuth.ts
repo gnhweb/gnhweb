@@ -38,6 +38,14 @@ export async function migrateLegacyAccountPassword(email: string, password: stri
       }
 
       if (response.ok) {
+        if (!body.status && endpoint !== migrationApiEndpoint) {
+          // Pages may serve the SPA HTML with HTTP 200 when the advanced
+          // worker route is not active. Treat that as a proxy miss and use
+          // the direct API Worker instead of reporting a false migration
+          // failure.
+          continue;
+        }
+
         return {
           migrated: body.status === 'migrated',
           alreadyMigrated: body.status === 'already_migrated',
