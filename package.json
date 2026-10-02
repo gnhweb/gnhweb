@@ -41,7 +41,8 @@
     "tailwindcss": "^3.4.17",
     "three": "^0.170.0",
     "@neondatabase/auth": "0.5.0-beta",
-    "@simplewebauthn/browser": "14.0.0"
+    "@simplewebauthn/browser": "14.0.0",
+    "@noble/hashes": "2.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
