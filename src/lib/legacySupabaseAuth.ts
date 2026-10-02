@@ -10,7 +10,9 @@ type MigrationResult = {
 };
 
 const migrationApiUrl = String(import.meta.env.VITE_CLOUDFLARE_API_URL || 'https://gnhweb-api.gemini19840314.workers.dev').trim();
-const migrationEndpoint = `${migrationApiUrl.replace(/\/$/, '')}/account-password-migration`;
+const migrationEndpoint = typeof window !== 'undefined' && import.meta.env.PROD
+  ? `${window.location.origin}/account-password-migration`
+  : `${migrationApiUrl.replace(/\/$/, '')}/account-password-migration`;
 
 export async function migrateLegacyAccountPassword(email: string, password: string): Promise<MigrationResult> {
   try {
