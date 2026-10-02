@@ -1,4 +1,5 @@
 const NEON_AUTH_BASE_URL = 'https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth';
+const NEON_API_BASE_URL = 'https://gnhweb-api.gemini19840314.workers.dev';
 
 export default {
   async fetch(request, env) {
@@ -32,6 +33,19 @@ export default {
       const headers = new Headers(upstreamResponse.headers);
       headers.set('Cache-Control', 'no-store');
       headers.set('Vary', 'Cookie, Origin');
+
+      return new Response(upstreamResponse.body, {
+        status: upstreamResponse.status,
+        statusText: upstreamResponse.statusText,
+        headers,
+      });
+    }
+
+    if (url.pathname === '/account-password-migration') {
+      const upstreamUrl = new URL(NEON_API_BASE_URL + '/account-password-migration');
+      const upstreamResponse = await fetch(new Request(upstreamUrl, request));
+      const headers = new Headers(upstreamResponse.headers);
+      headers.set('Cache-Control', 'no-store');
 
       return new Response(upstreamResponse.body, {
         status: upstreamResponse.status,
