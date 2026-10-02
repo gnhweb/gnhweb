@@ -1,8 +1,4 @@
 import { neon } from '@neondatabase/serverless';
-import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
-import { promisify } from 'node:util';
-
-const scrypt = promisify(scryptCallback);
 const ALLOWED_ORIGINS = new Set([
   'https://gnhweb.vercel.app',
   'https://gnhweb.pages.dev',
@@ -15,6 +11,7 @@ type MigrationEnv = Record<string, string | undefined>;
 type MigrationBody = {
   email?: unknown;
   password?: unknown;
+  passwordHash?: unknown;
 };
 
 function headers(origin: string) {
@@ -29,17 +26,6 @@ function headers(origin: string) {
 
 function json(body: unknown, status: number, origin: string) {
   return new Response(JSON.stringify(body), { status, headers: headers(origin) });
-}
-
-async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString('hex');
-  const derived = await scrypt(password.normalize('NFKC'), Buffer.from(salt, 'utf8'), 64, {
-    N: 16384,
-    r: 16,
-    p: 1,
-    maxmem: 128 * 16384 * 16 * 2,
-  });
-  return `${salt}:${Buffer.from(derived as Uint8Array).toString('hex')}`;
 }
 
 async function verifyLegacyPassword(
@@ -78,9 +64,11 @@ export async function handleAccountPasswordMigration(
 
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   const password = typeof body.password === 'string' ? body.password : '';
+  const passwordHash = typeof body.passwordHash === 'string' ? body.passwordHash : '';
   const databaseUrl = String(env.DATABASE_URL || '').trim();
 
-  if (!email || !password) return json({ error: 'Missing credentials' }, 400, origin);
+  if (!email || !password || !passwordHash) return json({ error: 'Missing credentials' }, 400, origin);
+  if (!/^[0-9a-f]{32}:[0-9a-f]{128}$/.test(passwordHash)) return json({ error: 'Invalid password hash' }, 400, origin);
   if (!databaseUrl) return json({ error: 'DATABASE_URL is not configured' }, 500, origin);
 
   try {
@@ -109,7 +97,6 @@ export async function handleAccountPasswordMigration(
       return json({ error: 'Legacy credentials are invalid' }, 401, origin);
     }
 
-    const passwordHash = await hashPassword(password);
     const updated = await sql<{ id: string }[]>`
       UPDATE neon_auth.account
       SET password = ${passwordHash}, "updatedAt" = now()
