@@ -1,3 +1,5 @@
+import { scryptAsync } from '@noble/hashes/scrypt.js';
+
 type MigrationResponseBody = {
   status?: string;
   error?: string;
@@ -15,20 +17,37 @@ const migrationEndpoints = typeof window !== 'undefined' && import.meta.env.PROD
   ? [`${window.location.origin}/account-password-migration`, migrationApiEndpoint]
   : [migrationApiEndpoint];
 
-async function requestMigration(endpoint: string, email: string, password: string): Promise<Response> {
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashForNeonAuth(password: string): Promise<string> {
+  const salt = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
+  const derived = await scryptAsync(password.normalize('NFKC'), salt, {
+    N: 16384,
+    r: 16,
+    p: 1,
+    dkLen: 64,
+    maxmem: 128 * 16384 * 16 * 2,
+  });
+  return `${salt}:${bytesToHex(derived)}`;
+}
+
+async function requestMigration(endpoint: string, email: string, password: string, passwordHash: string): Promise<Response> {
   return fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, passwordHash }),
   });
 }
 
 export async function migrateLegacyAccountPassword(email: string, password: string): Promise<MigrationResult> {
   let lastError: unknown;
+  const passwordHash = await hashForNeonAuth(password);
 
   for (const endpoint of migrationEndpoints) {
     try {
-      const response = await requestMigration(endpoint, email, password);
+      const response = await requestMigration(endpoint, email, password, passwordHash);
 
       let body: MigrationResponseBody = {};
       try {
