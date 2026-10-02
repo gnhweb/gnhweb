@@ -91,11 +91,11 @@ jobs:
             {
               req[$1]+=$2;
               err[$1]+=$3;
-              sub[$1]+=$4;
+              subs[$1]+=$4;
             }
             END {
               for (name in req) {
-                printf "%s\t%d\t%d\t%d\n", name, req[name], err[name], sub[name];
+                printf "%s\t%d\t%d\t%d\n", name, req[name], err[name], subs[name];
                 total+=req[name];
               }
               printf "__TOTAL__\t%d\t%d\t%d\n", total, 0, 0;
@@ -123,7 +123,7 @@ jobs:
           {
             echo "## Cloudflare Worker Usage"
             echo
-            echo "- Window: `$start` → `$end`"
+            echo "- Window: \`$start\` → \`$end\`"
             echo "- Account total requests: **$total**"
             echo "- Workers Free daily limit: **100,000 requests/account/day**"
             echo
@@ -137,18 +137,6 @@ jobs:
                   (.sum.errors // 0),
                   (.sum.subrequests // 0)
                 ]
-              | @tsv
-            ' /tmp/cloudflare-workers.json |
-            awk -F '\t' '
-              {
-                req[$1]+=$2; err[$1]+=$3; sub[$1]+=$4;
-              }
-              END {
-                for (name in req) printf "%s\t%d\t%d\t%d\n", name, req[name], err[name], sub[name];
-              }
-            ' |
-            sort -t $'\t' -k2,2nr |
-            while IFS=$'\t' read -r worker requests errors subrequests; do
-              printf '| %s | %s | %s | %s |\n' "$worker" "$requests" "$errors" "$subrequests"
-            done
+              | "| \(. [0]) | \(. [1]) | \(. [2]) | \(. [3]) |"
+            ' /tmp/cloudflare-workers.json
           } >> "$GITHUB_STEP_SUMMARY"
