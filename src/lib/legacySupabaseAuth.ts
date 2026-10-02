@@ -1,4 +1,5 @@
 import { scryptAsync } from '@noble/hashes/scrypt.js';
+import { utf8ToBytes } from '@noble/hashes/utils.js';
 
 type MigrationResponseBody = {
   status?: string;
@@ -23,7 +24,7 @@ function bytesToHex(bytes: Uint8Array): string {
 
 async function hashForNeonAuth(password: string): Promise<string> {
   const salt = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
-  const derived = await scryptAsync(password.normalize('NFKC'), salt, {
+  const derived = await scryptAsync(utf8ToBytes(password.normalize('NFKC')), utf8ToBytes(salt), {
     N: 16384,
     r: 16,
     p: 1,
