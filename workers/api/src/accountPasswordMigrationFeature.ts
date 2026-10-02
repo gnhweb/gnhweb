@@ -99,7 +99,7 @@ export async function handleAccountPasswordMigration(
     const legacyRows = await sql<{ encrypted_password: string }[]>`
       SELECT encrypted_password
       FROM legacy_migration.supabase_passwords
-      WHERE email = ${email}
+      WHERE lower(email) = ${email}
       LIMIT 1
     `;
     const legacyHash = legacyRows[0]?.encrypted_password || '';
