@@ -5,7 +5,7 @@ type VerseCandidate = { ref: VerseRef; text: string; score: number };
 type ConcernAnalysis = { emotions: string[]; topics: string[]; questionType: string; relationship: string; intent: string };
 
 const AI_GATEWAY_URL = 'https://gnhweb-ai-gateway.gemini19840314.workers.dev';
-const SENSITIVE_KEYWORDS = ['자살', '죽고싶', '죽고 싶', '자해', '극단적', '끝내고 싶', '살기 싫', '살기싫', '목숨'];
+const SENSITIVE_KEYWORDS = ['자살', '죽고싶', '죽고 싶', '죽어버리고', '죽어도', '자해', '극단적', '끝내고 싶', '사라지고 싶', '없어지고 싶', '살고 싶지', '살기 싫', '살기싫', '목숨'];
 const DEPRESSION_KEYWORDS = ['우울', '무기력', '의미없', '공허', '아무것도', '의욕', '사는게', '사는 게'];
 
 const VERSE_REFS: VerseRef[] = [
