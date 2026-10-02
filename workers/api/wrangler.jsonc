@@ -3,6 +3,9 @@
   "name": "gnhweb-api",
   "compatibility_date": "2026-09-12",
   "compatibility_flags": ["nodejs_compat"],
+  "limits": {
+    "cpu_ms": 30000
+  },
   "main": "src/index.ts",
   "vars": {
     "NEON_JWKS_URL": "https://ep-empty-surf-az87wypd.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
