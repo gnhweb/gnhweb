@@ -129,7 +129,7 @@ export default function VerseResult({ verseData, userText, onReset }: VerseResul
 
       {/* 위기 상황 특별 안내 — 기능적으로 구분되는 알림이라 별도 카드 유지 */}
       {hasCrisis && (
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-6 rounded-[20px] border-2 border-amber-300 bg-amber-50 p-5 md:p-6">
+        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-6 rounded-card border-2 border-amber-300 bg-amber-50 p-5 md:p-6">
           <div className="flex items-start gap-3">
             <i className="ri-heart-pulse-line text-amber-700 text-lg mt-0.5 flex-shrink-0"></i>
             <div>
@@ -141,7 +141,7 @@ export default function VerseResult({ verseData, userText, onReset }: VerseResul
       )}
 
       {revealed >= 1 && verseData.understanding && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6 rounded-[20px] border border-background-200 bg-background-100 p-5 md:p-6">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6 rounded-card border border-background-200 bg-background-100 p-5 md:p-6">
           <p className="text-xs font-bold text-primary-700 mb-2">네 고민을 이렇게 이해했어요</p>
           <p className="text-sm text-foreground-800 leading-relaxed">{verseData.understanding}</p>
         </motion.div>
@@ -210,7 +210,7 @@ export default function VerseResult({ verseData, userText, onReset }: VerseResul
       )}
 
       {revealed >= 2 && verseData.takeaway && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-7 rounded-[20px] bg-background-100 border border-background-200 px-5 py-4">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-7 rounded-card bg-background-100 border border-background-200 px-5 py-4">
           <p className="text-xs font-bold text-foreground-800 mb-1.5">오늘 기억할 한 문장</p>
           <p className="text-sm font-semibold text-foreground-900 leading-relaxed">{verseData.takeaway}</p>
         </motion.div>
