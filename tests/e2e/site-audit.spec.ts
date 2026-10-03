@@ -45,10 +45,12 @@ async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof
   for (const marker of NOT_FOUND_MARKERS) expect(body, `NotFound on ${path}`).not.toContain(marker);
   const effectivePageErrors = g.pageErrors.filter(message => {
     if (!g.isWebKit || !/ due to access control checks\.?$/.test(message)) return true;
-    const requestUrl = message.match(/https?:\/\/[^\s]+/g)?.[0];
-    if (!requestUrl || new URL(requestUrl).origin !== BASE_ORIGIN) return true;
-    if (requestUrl.endsWith('/auth/get-session') && g.successfulAuthProbes.has(requestUrl)) return false;
-    if (g.cancelledSameOriginRequests.has(requestUrl)) return false;
+    const requestUrl = message.match(/https?:\/\/[^\s]+|\/[^\s]+/)?.[0];
+    if (!requestUrl) return true;
+    const normalizedUrl = new URL(requestUrl, BASE_URL).toString();
+    if (new URL(normalizedUrl).origin !== BASE_ORIGIN) return true;
+    if (normalizedUrl.endsWith('/auth/get-session') && g.successfulAuthProbes.has(normalizedUrl)) return false;
+    if (g.cancelledSameOriginRequests.has(normalizedUrl)) return false;
     return true;
   });
   expect(g.consoleErrors, `Console errors on ${path}: ${g.consoleErrors.join(' | ')}`).toEqual([]); expect(effectivePageErrors, `Page errors on ${path}: ${effectivePageErrors.join(' | ')}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}: ${g.failedRequests.join(' | ')}`).toEqual([]);
