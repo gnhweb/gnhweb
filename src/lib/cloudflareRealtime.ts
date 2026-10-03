@@ -116,9 +116,19 @@ export class CloudflareRealtimeChannel {
         }
       });
       socket.addEventListener('message', (event) => this.handleMessage(event.data));
-      socket.addEventListener('error', () => this.notifySubscribe('CHANNEL_ERROR'));
+      socket.addEventListener('error', () => {
+        if (this.stableConnectionTimer) {
+          clearTimeout(this.stableConnectionTimer);
+          this.stableConnectionTimer = null;
+        }
+        this.notifySubscribe('CHANNEL_ERROR');
+      });
       socket.addEventListener('close', () => {
         if (this.socket !== socket) return;
+        if (this.stableConnectionTimer) {
+          clearTimeout(this.stableConnectionTimer);
+          this.stableConnectionTimer = null;
+        }
         this.subscribed = false;
         this.socket = null;
         this.notifySubscribe('CLOSED');
