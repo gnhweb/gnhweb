@@ -172,4 +172,4 @@ if (soakResult) {
 const output = { generatedAt: new Date().toISOString(), baseUrl, workload, holdMs, soakMinutes, navigationTimeoutMs, stages: allResults, soak: soakResult };
 console.log('\n=== LOAD_TEST_RESULT_JSON ===');
 console.log(JSON.stringify(output, null, 2));
-if (allResults.some((result) => result.failureRate >= 5)) process.exitCode = 1;
+if (allResults.some((result) => result.failureRate >= 5) || (soakResult && soakResult.failureRate >= 5)) process.exitCode = 1;
