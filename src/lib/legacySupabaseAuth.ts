@@ -14,9 +14,7 @@ type MigrationResult = {
 
 const migrationApiUrl = String(import.meta.env.VITE_CLOUDFLARE_API_URL || 'https://gnhweb-api.gemini19840314.workers.dev').trim();
 const migrationApiEndpoint = `${migrationApiUrl.replace(/\/$/, '')}/account-password-migration`;
-const migrationEndpoints = typeof window !== 'undefined' && import.meta.env.PROD
-  ? [`${window.location.origin}/account-password-migration`, migrationApiEndpoint]
-  : [migrationApiEndpoint];
+const migrationEndpoints = [migrationApiEndpoint];
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
