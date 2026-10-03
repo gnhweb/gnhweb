@@ -158,7 +158,7 @@ function extractEqFilter(filter?: string): { field: string; value: string } | nu
 type RealtimeSnapshotCacheEntry = {
   expiresAt: number;
   data?: Record<string, unknown>[];
-  promise?: Promise<Record<string, unknown>[]>;
+  promise?: Promise<Record<string, unknown>[] | null>;
 };
 
 const REALTIME_SNAPSHOT_CACHE_TTL_MS = 2000;
@@ -201,7 +201,11 @@ async function queryNeonRows(
       const cached = realtimeSnapshotCache.get(cacheKey);
       if (cached && cached.expiresAt > now) {
         if (cached.data) return cached.data;
-        if (cached.promise) return cached.promise;
+        if (cached.promise) {
+          const shared = await cached.promise;
+          if (shared) return shared;
+          realtimeSnapshotCache.delete(cacheKey);
+        }
       }
 
       const snapshotPromise = (async () => {
@@ -220,7 +224,7 @@ async function queryNeonRows(
         }];
       })();
 
-      const cachedPromise = snapshotPromise.then((data) => data ?? []);
+      const cachedPromise = snapshotPromise;
       realtimeSnapshotCache.set(cacheKey, { expiresAt: now + REALTIME_SNAPSHOT_CACHE_TTL_MS, promise: cachedPromise });
       const snapshotData = await snapshotPromise;
       if (snapshotData) {
