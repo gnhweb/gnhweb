@@ -126,10 +126,11 @@ jobs:
     name: Measure production homepage loading
     needs: deploy-site
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       LOAD_TEST_BASE_URL: https://gnhwebw.pages.dev
       LOAD_TEST_HOLD_SECONDS: '30'
+      LOAD_TEST_SOAK_MINUTES: '10'
       LOAD_TEST_NAVIGATION_TIMEOUT_MS: '30000'
       LOAD_TEST_WORKLOAD: mixed
     steps:
@@ -183,7 +184,8 @@ jobs:
             echo
             echo "- Target: $LOAD_TEST_BASE_URL"
             echo '- Stages: 1 → 10 → 30 → 50 → 75 → 100 concurrent sessions'
-            echo '- Mixed public-route navigation (schedule/clubs/notices/games/tools/faith/news/search)'
+            echo '- Mixed public-route navigation (schedule/clubs/notices/games/tools/faith/news/search)
+            - Sustained 100-session soak: 10 minutes (exercises realtime polling intervals)'
             echo
             echo '```text'
             cat load-test-results/result.txt
