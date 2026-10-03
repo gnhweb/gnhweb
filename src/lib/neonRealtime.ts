@@ -37,7 +37,17 @@ type ChannelState = {
 
 const states = new WeakMap<object, ChannelState>();
 const activeChannels = new Set<RealtimeChannel>();
-const POLL_INTERVAL_MS = 15000;
+const DEFAULT_POLL_INTERVAL_MS = 120000;
+
+function getPollIntervalMs(channelName: string): number {
+  if (channelName.startsWith('profile-realtime-')) return 300000;
+  if (channelName.startsWith('notifications-toast-')) return 120000;
+  if (channelName.startsWith('notifications-count-')) return 120000;
+  if (channelName.startsWith('notifications-menu-counts-')) return 120000;
+  if (channelName.startsWith('home-')) return 300000;
+  if (channelName.includes('attendance')) return 30000;
+  return DEFAULT_POLL_INTERVAL_MS;
+}
 
 function rowKey(row: Row): string {
   const id = row.id;
@@ -136,6 +146,7 @@ export function createNeonRealtimeChannel(
   channel: RealtimeChannel,
   queryRows: (table: string, filters: string[], lightweight: boolean) => Promise<Row[]>,
   lightweight: boolean,
+  channelName = '',
 ): RealtimeChannel {
   const state: ChannelState = {
     subscriptions: [],
@@ -159,7 +170,7 @@ export function createNeonRealtimeChannel(
             state.timer = setInterval(() => {
               if (typeof document !== 'undefined' && document.hidden) return;
               void poll(wrapped, queryRows);
-            }, POLL_INTERVAL_MS);
+            }, getPollIntervalMs(channelName));
           }
           return wrapped;
         };
