@@ -143,8 +143,6 @@ const LIGHTWEIGHT_REALTIME_CHANNELS = new Set([
 
 function isLightweightRealtimeChannel(name: string): boolean {
   return LIGHTWEIGHT_REALTIME_CHANNELS.has(name)
-    || name.startsWith('notifications-menu-counts-')
-    || name.startsWith('notifications-count-')
     || name.startsWith('profile-realtime-');
 }
 
