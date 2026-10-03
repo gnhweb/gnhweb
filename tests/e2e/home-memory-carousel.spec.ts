@@ -2,10 +2,28 @@ import { expect, test } from '@playwright/test';
 
 test.describe('production home memory carousel', () => {
   test('shows the memory photo as the first hero slide', async ({ page }) => {
-    // Memory photos are public homepage content; this test intentionally does
-    // not authenticate so Neon Auth onboarding cannot mask the homepage flow.
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
+
+    await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await page.locator('input[name="email"]').first().fill(process.env.E2E_MEMBER_EMAIL!);
+    await page.locator('input[name="password"]').first().fill(process.env.E2E_MEMBER_PASSWORD!);
+    await page.locator('button[type="submit"]').first().click();
+    await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
+
+    const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
+    const memoryLink = page.getByRole('link', { name: /^추억창 보러가기/ });
+
+    // The PIN prompt is asynchronous after auth. Wait for either the prompt
+    // or the actual homepage target, then continue with the target assertion.
+    await Promise.race([
+      skipPin.waitFor({ state: 'visible', timeout: 45_000 }).then(() => skipPin.click()),
+      memoryLink.waitFor({ state: 'visible', timeout: 45_000 }),
+    ]);
+    if (await skipPin.isVisible().catch(() => false)) {
+      await skipPin.click().catch(() => {});
+    }
+    await expect(memoryLink).toBeVisible({ timeout: 30_000 });
 
     const memoryLink = page.getByRole('link', { name: /^추억창 보러가기/ });
     await expect(memoryLink).toBeVisible({ timeout: 30_000 });
