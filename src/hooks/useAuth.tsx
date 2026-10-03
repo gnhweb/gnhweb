@@ -485,8 +485,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userId = user.id;
     let cancelled = false;
     let channel: ReturnType<Awaited<ReturnType<typeof getSupabaseClient>>['channel']> | null = null;
+    let deferTimer: ReturnType<typeof setTimeout> | null = null;
 
-    void getSupabaseClient().then((supabase) => {
+    const startRealtime = () => {
+      if (cancelled) return;
+      void getSupabaseClient().then((supabase) => {
       if (cancelled) return;
       channel = supabase
         .channel(`profile-realtime-${userId}`)
@@ -531,11 +534,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         )
         .subscribe();
 
-      realtimeSubRef.current = channel;
-    }).catch(() => {});
+        realtimeSubRef.current = channel;
+      }).catch(() => {});
+    };
 
+    // Profile realtime is non-critical for the first paint. Loading the
+    // compatibility/realtime stack during auth bootstrap competes with the
+    // initial route and page assets, so start it only after the browser has
+    // had an opportunity to finish the first render.
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(startRealtime, { timeout: 5000 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idleId);
+        if (channel) {
+          void getSupabaseClient().then((supabase) => supabase.removeChannel(channel!)).catch(() => {});
+        }
+        realtimeSubRef.current = null;
+      };
+    }
+
+    deferTimer = setTimeout(startRealtime, 2500);
     return () => {
       cancelled = true;
+      if (deferTimer) clearTimeout(deferTimer);
       if (channel) {
         void getSupabaseClient().then((supabase) => supabase.removeChannel(channel!)).catch(() => {});
       }
@@ -671,7 +693,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAssignedTeacherClub(null);
       return;
     }
-    getSupabaseClient()
+    const loadAssignedTeacherClub = () => getSupabaseClient()
       .then((supabase) => supabase
         .from('club_teachers')
         .select('club')
@@ -687,6 +709,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         setAssignedTeacherClub(profile.assigned_teacher_id || null);
       });
+
+    const timer = setTimeout(loadAssignedTeacherClub, 2500);
+    return () => clearTimeout(timer);
   }, [profile, user]);
 
   useEffect(() => {
@@ -694,7 +719,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSecondaryClubs([]);
       return;
     }
-    getSupabaseClient()
+    const loadSecondaryClubs = () => getSupabaseClient()
       .then((supabase) => supabase
         .from('user_club_assignments')
         .select('club')
@@ -708,6 +733,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => setSecondaryClubs([]));
+
+    const timer = setTimeout(loadSecondaryClubs, 2500);
+    return () => clearTimeout(timer);
   }, [profile, user]);
 
   const assignedTeacherClubValue = (hasRole('teacher') || hasRole('chief')) ? (profile?.assigned_teacher_id || null) : null;
