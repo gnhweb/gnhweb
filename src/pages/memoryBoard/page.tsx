@@ -299,7 +299,7 @@ export default function MemoryBoard() {
           <div className="md:hidden grid grid-cols-3 gap-0.5">
             {visiblePhotos.map((photo, idx) => (
               <motion.div key={`m-${photo.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(idx * 0.03, 0.3) }} whileTap={{ scale: 0.97 }} onClick={() => setLightboxIndex(idx)} className="relative aspect-square cursor-pointer overflow-hidden bg-background-100">
-                <img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" fetchPriority={idx < 3 ? 'high' : 'low'} className="w-full h-full object-cover" />
+                <img src={getMemoryThumbUrl(photo)} alt={photo.title} loading={idx < 6 ? 'eager' : 'lazy'} decoding="async" fetchPriority={idx < 6 ? 'high' : 'low'} className="w-full h-full object-cover" />
               </motion.div>
             ))}
           </div>
