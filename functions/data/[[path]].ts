@@ -6,7 +6,12 @@ export async function onRequest(context: { request: Request }): Promise<Response
   const upstreamUrl = new URL(NEON_DATA_API_BASE_URL + upstreamPath);
   upstreamUrl.search = url.search;
 
-  const upstreamResponse = await fetch(new Request(upstreamUrl, context.request));
+  const upstreamHeaders = new Headers(context.request.headers);
+  upstreamHeaders.set('Origin', url.origin);
+  const upstreamRequest = new Request(upstreamUrl, context.request);
+  upstreamRequest.headers.set('Origin', url.origin);
+
+  const upstreamResponse = await fetch(upstreamRequest);
   const headers = new Headers(upstreamResponse.headers);
   headers.set('Cache-Control', 'no-store');
   headers.set('Vary', 'Authorization');
