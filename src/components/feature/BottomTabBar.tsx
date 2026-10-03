@@ -150,7 +150,7 @@ export default function BottomTabBar() {
           </AnimatePresence>
 
           <div className="w-full rounded-t-[20px] border-t border-background-200 bg-background-100 pb-safe shadow-card-lg dark:bg-background-100">
-            <div className="grid grid-cols-6 px-1 pt-1.5 pb-1">
+            <div className="grid grid-cols-6 px-1 pt-2 pb-1.5">
               {TABS.map((tab) => {
                 const active = isTabActive(tab);
                 const isMenuTab = tab.key === "game" || tab.key === "suggestions";
@@ -159,14 +159,14 @@ export default function BottomTabBar() {
                   <motion.div
                     whileTap={{ scale: 0.94 }}
                     transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                    className="flex min-h-12 w-full flex-col items-center justify-center gap-0.5"
+                    className="flex min-h-14 w-full flex-col items-center justify-center gap-1"
                   >
                     <i
-                      className={`${active ? tab.activeIcon : tab.icon} text-[21px] ${active ? "text-primary-600 dark:text-primary-400" : "text-foreground-500 dark:text-foreground-400"}`}
+                      className={`${active ? tab.activeIcon : tab.icon} text-[24px] ${active ? "text-primary-600 dark:text-primary-400" : "text-foreground-500 dark:text-foreground-400"}`}
                       aria-hidden="true"
                     />
                     <span
-                      className={`whitespace-nowrap text-[10px] leading-tight ${active ? "font-bold text-primary-600 dark:text-primary-400" : "font-medium text-foreground-500 dark:text-foreground-400"}`}
+                      className={`whitespace-nowrap text-[11px] leading-tight ${active ? "font-bold text-primary-600 dark:text-primary-400" : "font-medium text-foreground-500 dark:text-foreground-400"}`}
                     >
                       {tab.label}
                     </span>
