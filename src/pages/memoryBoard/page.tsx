@@ -23,6 +23,20 @@ interface PhotoMemory {
 const PAGE_SIZE = 24;
 
 
+function getMemoryThumbUrl(photo: PhotoMemory): string {
+  if (photo.thumb_url) return photo.thumb_url;
+  try {
+    const url = new URL(photo.photo_url);
+    if (url.pathname.startsWith('/v1/storage/public/')) {
+      url.searchParams.set('transform', 'thumb');
+      return url.toString();
+    }
+  } catch {
+    // Keep non-Storage legacy URLs unchanged.
+  }
+  return photo.photo_url;
+}
+
 function extractMemoryStoragePath(value: string): string | null {
   try {
     const url = new URL(value);
@@ -272,7 +286,7 @@ export default function MemoryBoard() {
           <div className="hidden md:grid grid-cols-2 md:grid-cols-3 gap-4">
             {visiblePhotos.map((photo, idx) => (
               <motion.div key={photo.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} onClick={() => setLightboxIndex(idx)} className="group cursor-pointer rounded-xl overflow-hidden bg-background-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="aspect-[4/3] overflow-hidden"><img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" fetchPriority={idx < 3 ? 'high' : 'low'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div>
+                <div className="aspect-[4/3] overflow-hidden"><img src={getMemoryThumbUrl(photo)} alt={photo.title} loading={idx < 3 ? 'eager' : 'lazy'} decoding="async" fetchPriority={idx < 3 ? 'high' : 'low'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div>
                 <div className="p-3">
                   <p className="text-sm font-semibold text-foreground-800 truncate">{photo.title}</p>
                   <div className="flex items-center justify-between mt-1"><span className="text-xs text-foreground-600">{photo.author_name}</span><span className="text-xs text-foreground-500">{formatDateKey(photo.created_at)}</span></div>
@@ -304,7 +318,7 @@ export default function MemoryBoard() {
         </motion.div>
       </div>
 
-      {lightboxIndex !== null && <PhotoLightbox photos={visiblePhotos.map(p => p.photo_url)} thumbUrls={visiblePhotos.map(p => p.thumb_url || p.photo_url)} captions={visiblePhotos.map(p => p.title)} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onDelete={isEditor ? handleDeleteAtIndex : undefined} canDelete={isEditor ? (index) => visiblePhotos[index]?.author_id === user?.id : undefined} deletingIndex={deletingIndex} />}
+      {lightboxIndex !== null && <PhotoLightbox photos={visiblePhotos.map(p => p.photo_url)} thumbUrls={visiblePhotos.map(getMemoryThumbUrl)} captions={visiblePhotos.map(p => p.title)} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} onDelete={isEditor ? handleDeleteAtIndex : undefined} canDelete={isEditor ? (index) => visiblePhotos[index]?.author_id === user?.id : undefined} deletingIndex={deletingIndex} />}
 
       {showUpload && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
