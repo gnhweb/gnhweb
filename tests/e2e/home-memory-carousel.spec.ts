@@ -36,19 +36,19 @@ test.describe('production home memory carousel', () => {
     await expect(memoryLink).toBeVisible({ timeout: 30_000 });
     await expect(memoryLink).toHaveAttribute('href', '/memory-board');
 
-    const memoryHeading = page.getByRole('heading', { name: /우리의 추억을.*다시 만나보세요/s });
+    const memoryHeading = page.getByRole('heading', { name: '강학 추억 보러가기', exact: true });
     await expect(memoryHeading).toBeVisible({ timeout: 30_000 });
 
-    const firstSlideButton = page.getByRole('button', { name: '1번 슬라이드로 이동', exact: true });
-    await expect(firstSlideButton).toBeVisible({ timeout: 20_000 });
-    await firstSlideButton.click();
-
     await expect(page.getByText('추억창', { exact: true })).toBeVisible({ timeout: 10_000 });
-    await expect(memoryHeading).toBeVisible();
 
-    const heroImage = memoryHeading.locator('xpath=ancestor::section[1]').locator('img').first();
+    const heroSection = memoryHeading.locator('xpath=ancestor::section[1]');
+    const heroImage = heroSection.locator('img').first();
     await expect(heroImage).toBeVisible();
-    await expect(heroImage).toHaveAttribute('alt', /우리의 추억을.*다시 만나보세요/s);
+    await expect(heroImage).toHaveAttribute('alt', '강학 추억 보러가기');
     await expect(heroImage).not.toHaveAttribute('src', '/hero/main.svg');
+
+    const cta = heroSection.getByRole('link', { name: /^추억창 보러가기/ });
+    await expect(cta).toBeVisible();
+    await expect(cta).toHaveAttribute('href', '/memory-board');
   });
 });
