@@ -81,6 +81,11 @@ test.describe('production Small Mission authenticated flow', () => {
       }
       await expect(studentPage.getByRole('button', { name: /인증 검토/ })).toHaveCount(0);
 
+      const emptyState = studentPage.getByText('등록된 작은 사명이 없습니다', { exact: true });
+      if (await emptyState.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        test.skip(true, 'Production에 검증할 작은 사명 데이터가 없어 Small Mission E2E를 실행하지 않습니다.');
+      }
+
       const claimButton = studentPage.getByRole('button', { name: '작은 사명 하기', exact: true }).first();
       let missionTitle: string;
       let needsReviewerReset = false;
