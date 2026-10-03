@@ -36,6 +36,15 @@ test.describe('production memory board CRUD', () => {
       await page.goto(`${BASE_URL}/memory-board`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
 
       const uploadButton = page.getByRole('button', { name: '사진 올리기', exact: true });
+      const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
+
+      await Promise.race([
+        uploadButton.waitFor({ state: 'visible', timeout: 45_000 }),
+        skipPin.waitFor({ state: 'visible', timeout: 45_000 }).then(() => skipPin.click()),
+      ]);
+      if (await skipPin.isVisible().catch(() => false)) {
+        await skipPin.click().catch(() => {});
+      }
       await expect(uploadButton).toBeVisible({ timeout: 30_000 });
       await uploadButton.click();
 
