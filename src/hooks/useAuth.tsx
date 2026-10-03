@@ -173,9 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token) throw new Error('인증 토큰을 가져올 수 없습니다.');
 
     const configuredDataApiUrl = import.meta.env.VITE_NEON_DATA_API_URL || 'https://ep-empty-surf-az87wypd.apirest.c-3.ap-southeast-1.aws.neon.tech/neondb';
-    const baseUrl = import.meta.env.PROD && typeof window !== 'undefined'
-      ? window.location.origin + '/data'
-      : configuredDataApiUrl.replace(/\/rest\/v1\/?$/, '');
+    const baseUrl = configuredDataApiUrl.replace(/\/rest\/v1\/?$/, '');
     const url = new URL(baseUrl + '/' + table, typeof window !== 'undefined' ? window.location.origin : undefined);
     url.searchParams.set('select', select);
     url.searchParams.set('user_id', 'eq.' + userId);

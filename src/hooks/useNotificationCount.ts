@@ -38,11 +38,9 @@ export function useNotificationCount(user: User | null): number {
       .subscribe();
 
     channelRef.current = channel;
-    const interval = globalThis.setInterval(fetchCount, 60000);
 
     return () => {
       cancelled = true;
-      globalThis.clearInterval(interval);
       if (channelRef.current) {
         void supabase.removeChannel(channelRef.current);
         channelRef.current = null;

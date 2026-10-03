@@ -33,11 +33,22 @@ type ChannelState = {
   initializedTables: Set<string>;
   timer: ReturnType<typeof setInterval> | null;
   polling: boolean;
+  visibilityHandler: (() => void) | null;
 };
 
 const states = new WeakMap<object, ChannelState>();
 const activeChannels = new Set<RealtimeChannel>();
-const POLL_INTERVAL_MS = 15000;
+const DEFAULT_POLL_INTERVAL_MS = 600000;
+
+function getPollIntervalMs(channelName: string): number {
+  if (channelName.startsWith('profile-realtime-')) return 600000;
+  if (channelName.startsWith('notifications-toast-')) return 300000;
+  if (channelName.startsWith('notifications-count-')) return 300000;
+  if (channelName.startsWith('notifications-menu-counts-')) return 300000;
+  if (channelName.startsWith('home-')) return 600000;
+  if (channelName.includes('attendance')) return 30000;
+  return DEFAULT_POLL_INTERVAL_MS;
+}
 
 function rowKey(row: Row): string {
   const id = row.id;
@@ -136,6 +147,7 @@ export function createNeonRealtimeChannel(
   channel: RealtimeChannel,
   queryRows: (table: string, filters: string[], lightweight: boolean) => Promise<Row[]>,
   lightweight: boolean,
+  channelName = '',
 ): RealtimeChannel {
   const state: ChannelState = {
     subscriptions: [],
@@ -143,6 +155,7 @@ export function createNeonRealtimeChannel(
     initializedTables: new Set(),
     timer: null,
     polling: false,
+    visibilityHandler: null,
   };
   const wrapped = new Proxy(channel, {
     get(target, property, receiver) {
@@ -156,10 +169,16 @@ export function createNeonRealtimeChannel(
           });
           if (!state.timer) {
             void poll(wrapped, queryRows);
+            if (typeof document !== 'undefined') {
+              state.visibilityHandler = () => {
+                if (!document.hidden) void poll(wrapped, queryRows);
+              };
+              document.addEventListener('visibilitychange', state.visibilityHandler);
+            }
             state.timer = setInterval(() => {
               if (typeof document !== 'undefined' && document.hidden) return;
               void poll(wrapped, queryRows);
-            }, POLL_INTERVAL_MS);
+            }, getPollIntervalMs(channelName));
           }
           return wrapped;
         };
@@ -195,6 +214,10 @@ export function disposeNeonRealtimeChannel(channel: RealtimeChannel): void {
   if (!state) return;
   if (state.timer) clearInterval(state.timer);
   state.timer = null;
+  if (state.visibilityHandler && typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', state.visibilityHandler);
+    state.visibilityHandler = null;
+  }
   state.subscriptions = [];
   state.previousRows.clear();
   state.initializedTables.clear();

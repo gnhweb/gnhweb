@@ -17,7 +17,9 @@ type ChannelMessage =
 type HandlerMap = Map<string, Set<BroadcastHandler>>;
 
 const DEFAULT_REALTIME_URL = '';
-const RECONNECT_DELAY_MS = 1000;
+const RECONNECT_BASE_DELAY_MS = 1000;
+const RECONNECT_MAX_DELAY_MS = 300000;
+const CONNECTION_STABLE_MS = 30000;
 
 function getRealtimeUrl(): string {
   return String(import.meta.env.VITE_CF_REALTIME_URL || DEFAULT_REALTIME_URL).replace(/\/$/, '');
@@ -46,6 +48,8 @@ export class CloudflareRealtimeChannel {
   private subscribed = false;
   private destroyed = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private stableConnectionTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempt = 0;
   private presence: PresenceState = {};
   private trackedPresence: PresenceMeta | null = null;
   private readonly broadcastHandlers: HandlerMap = new Map();
@@ -101,15 +105,30 @@ export class CloudflareRealtimeChannel {
       socket.addEventListener('open', () => {
         if (this.destroyed || this.socket !== socket) return;
         this.subscribed = true;
+        if (this.stableConnectionTimer) clearTimeout(this.stableConnectionTimer);
+        this.stableConnectionTimer = setTimeout(() => {
+          this.reconnectAttempt = 0;
+          this.stableConnectionTimer = null;
+        }, CONNECTION_STABLE_MS);
         this.notifySubscribe('SUBSCRIBED');
         if (this.trackedPresence) {
           void this.sendRaw({ type: 'presence_track', payload: this.trackedPresence });
         }
       });
       socket.addEventListener('message', (event) => this.handleMessage(event.data));
-      socket.addEventListener('error', () => this.notifySubscribe('CHANNEL_ERROR'));
+      socket.addEventListener('error', () => {
+        if (this.stableConnectionTimer) {
+          clearTimeout(this.stableConnectionTimer);
+          this.stableConnectionTimer = null;
+        }
+        this.notifySubscribe('CHANNEL_ERROR');
+      });
       socket.addEventListener('close', () => {
         if (this.socket !== socket) return;
+        if (this.stableConnectionTimer) {
+          clearTimeout(this.stableConnectionTimer);
+          this.stableConnectionTimer = null;
+        }
         this.subscribed = false;
         this.socket = null;
         this.notifySubscribe('CLOSED');
@@ -125,10 +144,15 @@ export class CloudflareRealtimeChannel {
 
   private scheduleReconnect(baseUrl: string): void {
     if (this.destroyed || this.reconnectTimer) return;
+    const delay = Math.min(
+      RECONNECT_BASE_DELAY_MS * (2 ** this.reconnectAttempt),
+      RECONNECT_MAX_DELAY_MS,
+    );
+    this.reconnectAttempt = Math.min(this.reconnectAttempt + 1, 31);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (!this.destroyed && !this.socket) void this.connect(baseUrl);
-    }, RECONNECT_DELAY_MS);
+    }, delay);
   }
 
   private notifySubscribe(status: 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'): void {
@@ -224,6 +248,11 @@ export class CloudflareRealtimeChannel {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    if (this.stableConnectionTimer) {
+      clearTimeout(this.stableConnectionTimer);
+      this.stableConnectionTimer = null;
+    }
+    this.reconnectAttempt = 0;
     if (this.socket) this.socket.close(1000, 'client closed');
     this.socket = null;
     this.trackedPresence = null;

@@ -125,12 +125,9 @@ export function useNotificationCount(user: User | null): number {
 
     channelRef.current = channel;
 
-    // 실시간 연결이 끊기는 드문 경우를 대비한 안전망(60초 주기)
-    const interval = setInterval(fetchCount, 60000);
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;

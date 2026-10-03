@@ -115,8 +115,17 @@ export class RealtimeRoom extends DurableObject<Env> {
     }
 
     const room = parseRoom(request);
-    const claims = await requireAuth(request, this.env);
-    const userId = typeof claims.sub === 'string' ? claims.sub : '';
+    // The public Worker verifies the JWT before forwarding here. The Durable
+    // Object is only reachable through a Worker binding, so the verified
+    // subject can be carried in an internal header to avoid verifying the same
+    // JWT twice on every WebSocket connection. Keep the fallback verification
+    // for any future internal caller that does not provide the header.
+    const verifiedUserId = request.headers.get('x-gnhweb-verified-user-id');
+    let userId = verifiedUserId?.trim() ?? '';
+    if (!userId) {
+      const claims = await requireAuth(request, this.env);
+      userId = typeof claims.sub === 'string' ? claims.sub : '';
+    }
     if (!userId) return new Response('Invalid subject', { status: 401 });
 
     const webSocketPair = new WebSocketPair();
@@ -226,7 +235,13 @@ export default {
       if (!claims.sub) return json({ error: 'Invalid subject' }, 401, cors);
       const room = parseRoom(request);
       const id = env.REALTIME_ROOM.idFromName(room);
-      return env.REALTIME_ROOM.get(id).fetch(request);
+      // Strip any client-supplied internal identity header before replacing it
+      // with the subject we verified above.
+      const headers = new Headers(request.headers);
+      headers.delete('x-gnhweb-verified-user-id');
+      headers.set('x-gnhweb-verified-user-id', String(claims.sub));
+      const verifiedRequest = new Request(request, { headers });
+      return env.REALTIME_ROOM.get(id).fetch(verifiedRequest);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Realtime authentication failed';
       const status = message === 'Unauthorized' || message.includes('token') || message.includes('signature') ? 401 : 500;

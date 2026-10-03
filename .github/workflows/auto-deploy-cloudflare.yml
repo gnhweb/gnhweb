@@ -113,6 +113,8 @@ jobs:
         run: npm run build
         env:
           VITE_CF_REALTIME_URL: ${{ env.VITE_CF_REALTIME_URL }}
+      - name: Build Pages Functions
+        run: npx wrangler pages functions build functions --outfile out/_worker.js --output-routes-path out/_routes.json --minify
       - name: Deploy Cloudflare Pages
         uses: cloudflare/wrangler-action@v4
         with:
@@ -126,11 +128,13 @@ jobs:
     name: Measure production homepage loading
     needs: deploy-site
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       LOAD_TEST_BASE_URL: https://gnhwebw.pages.dev
-      LOAD_TEST_HOLD_SECONDS: '10'
+      LOAD_TEST_HOLD_SECONDS: '30'
+      LOAD_TEST_SOAK_MINUTES: '10'
       LOAD_TEST_NAVIGATION_TIMEOUT_MS: '30000'
+      LOAD_TEST_WORKLOAD: mixed
     steps:
       - uses: actions/checkout@v4
 
@@ -167,7 +171,7 @@ jobs:
           echo "Production did not become reachable: $LOAD_TEST_BASE_URL"
           exit 1
 
-      - name: Run 50 → 100 → 200 load test
+      - name: Run production load test
         run: |
           set -euo pipefail
           export LOAD_TEST_HOLD_MS=$((LOAD_TEST_HOLD_SECONDS * 1000))
@@ -181,8 +185,9 @@ jobs:
             echo '## Production Load Test'
             echo
             echo "- Target: $LOAD_TEST_BASE_URL"
-            echo '- Stages: 50 → 100 → 200 concurrent sessions'
-            echo '- Read-only homepage navigation'
+            echo '- Stages: 1 → 10 → 30 → 50 → 75 → 100 concurrent sessions'
+            echo '- Mixed public-route navigation (schedule/clubs/notices/games/tools/faith/news/search)
+            - Sustained 100-session soak: 10 minutes (exercises realtime polling intervals)'
             echo
             echo '```text'
             cat load-test-results/result.txt
@@ -234,6 +239,15 @@ jobs:
                       f"TTFB median/p95={result['ttfbMedianMs']}/{result['ttfbP95Ms']}ms, "
                       f"DCL median/p95={result['domContentLoadedMedianMs']}/{result['domContentLoadedP95Ms']}ms, "
                       f"total median/p95={result['medianMs']}/{result['p95Ms']}ms"
+                  )
+              soak = data.get("soak")
+              if soak:
+                  lines.append(
+                      f"- 100-session soak ({data.get('soakMinutes', 0)} min): "
+                      f"success={soak['success']}/{soak['total']}, "
+                      f"failure={soak['failureRate']}%, "
+                      f"TTFB median/p95={soak['ttfbMedianMs']}/{soak['ttfbP95Ms']}ms, "
+                      f"DCL median/p95={soak['domContentLoadedMedianMs']}/{soak['domContentLoadedP95Ms']}ms"
                   )
               body = "\n".join(lines)
           Path("/tmp/load-test-issue-body.md").write_text(body, encoding="utf-8")
