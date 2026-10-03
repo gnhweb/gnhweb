@@ -80,6 +80,7 @@ async function runStage(concurrency, stageHoldMs = holdMs) {
       if (!response || status >= 500) {
         error = `HTTP ${status || 'no-response'}`;
       } else {
+        await page.waitForTimeout(stageHoldMs);
         const timing = await page.evaluate(() => {
           const navigation = performance.getEntriesByType('navigation')[0];
           const paintEntries = performance.getEntriesByType('paint');
@@ -108,7 +109,6 @@ async function runStage(concurrency, stageHoldMs = holdMs) {
           longTaskCount = timing.longTaskCount;
           longTaskTotalMs = Math.round(timing.longTaskTotal);
         }
-        await page.waitForTimeout(stageHoldMs);
       }
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
