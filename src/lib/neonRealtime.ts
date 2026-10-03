@@ -33,6 +33,7 @@ type ChannelState = {
   initializedTables: Set<string>;
   timer: ReturnType<typeof setInterval> | null;
   polling: boolean;
+  visibilityHandler: (() => void) | null;
 };
 
 const states = new WeakMap<object, ChannelState>();
@@ -154,8 +155,8 @@ export function createNeonRealtimeChannel(
     initializedTables: new Set(),
     timer: null,
     polling: false,
+    visibilityHandler: null,
   };
-  let handleVisibilityChange: (() => void) | null = null;
   const wrapped = new Proxy(channel, {
     get(target, property, receiver) {
       if (property === 'on') {
@@ -169,10 +170,10 @@ export function createNeonRealtimeChannel(
           if (!state.timer) {
             void poll(wrapped, queryRows);
             if (typeof document !== 'undefined') {
-              handleVisibilityChange = () => {
+              state.visibilityHandler = () => {
                 if (!document.hidden) void poll(wrapped, queryRows);
               };
-              document.addEventListener('visibilitychange', handleVisibilityChange);
+              document.addEventListener('visibilitychange', state.visibilityHandler);
             }
             state.timer = setInterval(() => {
               if (typeof document !== 'undefined' && document.hidden) return;
@@ -213,9 +214,9 @@ export function disposeNeonRealtimeChannel(channel: RealtimeChannel): void {
   if (!state) return;
   if (state.timer) clearInterval(state.timer);
   state.timer = null;
-  if (handleVisibilityChange && typeof document !== 'undefined') {
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
-    handleVisibilityChange = null;
+  if (state.visibilityHandler && typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', state.visibilityHandler);
+    state.visibilityHandler = null;
   }
   state.subscriptions = [];
   state.previousRows.clear();
