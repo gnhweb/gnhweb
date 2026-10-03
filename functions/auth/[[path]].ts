@@ -11,8 +11,12 @@ export async function onRequest(context: { request: Request }): Promise<Response
 
   const upstreamResponse = await fetch(upstreamRequest);
   const headers = new Headers(upstreamResponse.headers);
+  headers.delete('Access-Control-Allow-Origin');
+  headers.delete('Access-Control-Allow-Credentials');
+  headers.delete('Access-Control-Allow-Headers');
+  headers.delete('Access-Control-Allow-Methods');
   headers.set('Cache-Control', 'no-store');
-  headers.set('Vary', 'Cookie, Origin');
+  headers.set('Vary', 'Cookie');
 
   return new Response(upstreamResponse.body, {
     status: upstreamResponse.status,
