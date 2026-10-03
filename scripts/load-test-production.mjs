@@ -5,6 +5,7 @@ import { performance } from 'node:perf_hooks';
 const baseUrl = (process.env.LOAD_TEST_BASE_URL || 'https://gnhwebw.pages.dev').replace(/\/$/, '');
 const stages = [1, 10, 30, 50, 75, 100];
 const holdMs = Number(process.env.LOAD_TEST_HOLD_MS || 10_000);
+const soakMinutes = Number(process.env.LOAD_TEST_SOAK_MINUTES || 0);
 const navigationTimeoutMs = Number(process.env.LOAD_TEST_NAVIGATION_TIMEOUT_MS || 30_000);
 const workload = process.env.LOAD_TEST_WORKLOAD || 'mixed';
 const mixedRoutes = [
@@ -28,7 +29,7 @@ function percentile(values, p) {
   return sorted[index];
 }
 
-async function runStage(concurrency) {
+async function runStage(concurrency, stageHoldMs = holdMs) {
   const browser = await chromium.launch({ headless: true });
   const startedAt = performance.now();
   const results = [];
@@ -88,7 +89,7 @@ async function runStage(concurrency) {
           ttfbMs = Math.round(timing.responseStart - timing.requestStart);
           domContentLoadedMs = Math.round(timing.domContentLoadedEventEnd - timing.startTime);
         }
-        await page.waitForTimeout(holdMs);
+        await page.waitForTimeout(stageHoldMs);
       }
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
@@ -161,7 +162,14 @@ for (const concurrency of stages) {
   allResults.push(result);
   console.log(JSON.stringify(result, null, 2));
 }
-const output = { generatedAt: new Date().toISOString(), baseUrl, workload, holdMs, navigationTimeoutMs, stages: allResults };
+const soakResult = soakMinutes > 0
+  ? await runStage(100, soakMinutes * 60_000)
+  : null;
+if (soakResult) {
+  console.log(`\n=== 100 concurrent session soak: ${soakMinutes} minutes ===`);
+  console.log(JSON.stringify(soakResult, null, 2));
+}
+const output = { generatedAt: new Date().toISOString(), baseUrl, workload, holdMs, soakMinutes, navigationTimeoutMs, stages: allResults, soak: soakResult };
 console.log('\n=== LOAD_TEST_RESULT_JSON ===');
 console.log(JSON.stringify(output, null, 2));
 if (allResults.some((result) => result.failureRate >= 5)) process.exitCode = 1;
