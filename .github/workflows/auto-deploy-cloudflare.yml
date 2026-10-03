@@ -99,10 +99,12 @@ jobs:
       - name: Cache npm downloads
         uses: actions/cache@v4
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('package.json') }}
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-node22-deps-${{ hashFiles('package.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-
+            ${{ runner.os }}-node22-deps-
       - name: Install site dependencies
         run: npm install --include=dev --no-audit --no-fund --prefer-offline
       - name: Type-check site
@@ -351,9 +353,10 @@ jobs:
           path: |
             ~/.npm
             ~/.cache/ms-playwright
-          key: ${{ runner.os }}-e2e-${{ hashFiles('package.json') }}
+            node_modules
+          key: ${{ runner.os }}-node20-e2e-${{ hashFiles('package.json') }}
           restore-keys: |
-            ${{ runner.os }}-e2e-
+            ${{ runner.os }}-node20-e2e-
       - name: Install test dependencies
         run: npm install --include=dev --no-audit --no-fund --prefer-offline
       - name: Install Playwright Chromium
