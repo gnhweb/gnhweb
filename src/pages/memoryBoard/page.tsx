@@ -22,6 +22,23 @@ interface PhotoMemory {
 
 const PAGE_SIZE = 24;
 
+
+function extractMemoryStoragePath(value: string): string | null {
+  try {
+    const url = new URL(value);
+    const segments = url.pathname
+      .split('/')
+      .filter(Boolean)
+      .map(segment => decodeURIComponent(segment));
+    const memoryIndex = segments.findIndex(segment => segment === 'memories');
+    if (memoryIndex === -1) return null;
+    const candidate = segments.slice(memoryIndex).join('/');
+    return /^memories\/[^/]+\/[^/]+$/.test(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function MemoryBoard() {
   const { user, profile, hasRole } = useAuth();
   const isEditor = user && (hasRole('assistant_zone_leader') || hasRole('teacher') || hasRole('chief'));
@@ -89,10 +106,22 @@ export default function MemoryBoard() {
 
       try {
         [displayBlob, thumbBlob] = await Promise.all([
-          resizeImageFile(uploadFile, { maxDimension: 1280, quality: 0.78, mimeType: 'image/jpeg' }),
-          resizeImageFile(uploadFile, { maxDimension: 480, quality: 0.68, mimeType: 'image/jpeg' }),
+          resizeImageFile(uploadFile, {
+            maxDimension: 1280,
+            quality: 0.76,
+            mimeType: 'image/jpeg',
+            maxBytes: 1_500_000,
+          }),
+          resizeImageFile(uploadFile, {
+            maxDimension: 480,
+            quality: 0.64,
+            mimeType: 'image/jpeg',
+            maxBytes: 220_000,
+          }),
         ]);
       } catch (resizeError) {
+        const message = resizeError instanceof Error ? resizeError.message : String(resizeError);
+        if (message.includes('[IMAGE_SIZE_LIMIT_ERROR]')) throw resizeError;
         usedOriginalFallback = true;
         console.warn('브라우저 이미지 디코딩/변환 실패, 원본 업로드 fallback 사용:', resizeError);
       }
@@ -156,30 +185,26 @@ export default function MemoryBoard() {
 
   const handleDeletePhoto = async (photo: PhotoMemory) => {
     try {
-      const storagePaths: string[] = [];
-      for (const url of [photo.photo_url, photo.thumb_url]) {
-        if (!url) continue;
-        try {
-          const urlObj = new URL(url);
-          const pathParts = urlObj.pathname.split('/');
-          const storageMarkerIndex = pathParts.findIndex((part) => part === 'public' || part === 'Public');
-          if (storageMarkerIndex !== -1) {
-            const marker = pathParts[storageMarkerIndex];
-            const v1Index = pathParts.lastIndexOf('storage');
-            const startIndex = marker.toLowerCase() === 'public' ? storageMarkerIndex + 1 : v1Index >= 0 ? storageMarkerIndex + 1 : storageMarkerIndex + 1;
-            const storagePath = pathParts.slice(startIndex).join('/');
-            if (storagePath) storagePaths.push(decodeURIComponent(storagePath));
-          }
-        } catch { /* ignore malformed url */ }
-      }
-      if (!storagePaths.length) {
-        throw new Error('사진 파일 경로를 확인할 수 없어 삭제를 중단했습니다.');
-      }
-      const { error: storageDeleteErr } = await r2Storage.from('Public').remove(storagePaths);
-      if (storageDeleteErr) throw new Error(`사진 파일 삭제 실패: ${storageDeleteErr.message}`);
+      const storagePaths = Array.from(new Set(
+        [photo.photo_url, photo.thumb_url]
+          .map(url => url ? extractMemoryStoragePath(url) : null)
+          .filter((path): path is string => Boolean(path)),
+      ));
+
+      // DB 레코드를 먼저 삭제해 "파일은 지워졌는데 DB 삭제가 실패한" 깨진 추억을 만들지 않는다.
       const { error: deleteErr } = await supabase.from('memory_photos').delete().eq('id', photo.id);
       if (deleteErr) throw new Error(`삭제 실패: ${deleteErr.message}`);
       setPhotos(prev => prev.filter(p => p.id !== photo.id));
+
+      // R2 정리는 DB 삭제와 분리한다. 일시적인 Storage 오류가 나도 추억 자체는
+      // 정상적으로 삭제하고, 다음 정리 작업에서 고아 파일을 회수할 수 있게 한다.
+      if (storagePaths.length) {
+        const { error: storageDeleteErr } = await r2Storage.from('Public').remove(storagePaths);
+        if (storageDeleteErr) {
+          console.error('추억 사진 R2 정리 실패:', storageDeleteErr);
+          setError('추억은 삭제되었지만 사진 파일 정리가 지연되고 있습니다.');
+        }
+      }
     } catch (e) {
       console.error('Delete error:', e);
       setError(e instanceof Error ? e.message : '삭제 중 오류가 발생했습니다.');
@@ -247,7 +272,7 @@ export default function MemoryBoard() {
           <div className="hidden md:grid grid-cols-2 md:grid-cols-3 gap-4">
             {visiblePhotos.map((photo, idx) => (
               <motion.div key={photo.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} onClick={() => setLightboxIndex(idx)} className="group cursor-pointer rounded-xl overflow-hidden bg-background-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="aspect-[4/3] overflow-hidden"><img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div>
+                <div className="aspect-[4/3] overflow-hidden"><img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" fetchPriority={idx < 3 ? 'high' : 'low'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div>
                 <div className="p-3">
                   <p className="text-sm font-semibold text-foreground-800 truncate">{photo.title}</p>
                   <div className="flex items-center justify-between mt-1"><span className="text-xs text-foreground-600">{photo.author_name}</span><span className="text-xs text-foreground-500">{formatDateKey(photo.created_at)}</span></div>
@@ -260,7 +285,7 @@ export default function MemoryBoard() {
           <div className="md:hidden grid grid-cols-3 gap-0.5">
             {visiblePhotos.map((photo, idx) => (
               <motion.div key={`m-${photo.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(idx * 0.03, 0.3) }} whileTap={{ scale: 0.97 }} onClick={() => setLightboxIndex(idx)} className="relative aspect-square cursor-pointer overflow-hidden bg-background-100">
-                <img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                <img src={photo.thumb_url || photo.photo_url} alt={photo.title} loading="lazy" decoding="async" fetchPriority={idx < 3 ? 'high' : 'low'} className="w-full h-full object-cover" />
               </motion.div>
             ))}
           </div>

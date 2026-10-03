@@ -90,7 +90,42 @@ async function verifyJwt(token: string, env: Env): Promise<Record<string, unknow
 }
 async function requireAuth(request: Request, env: Env): Promise<Record<string, unknown>> { const authorization = request.headers.get('authorization'); if (!authorization?.startsWith('Bearer ')) throw new Error('Unauthorized'); return verifyJwt(authorization.slice('Bearer '.length).trim(), env); }
 function objectKey(request: Request): string | null { const url = new URL(request.url); const prefix = '/v1/storage/'; if (!url.pathname.startsWith(prefix)) return null; const key = decodeURIComponent(url.pathname.slice(prefix.length)); return key || null; }
-function objectResponse(object: R2ObjectBody, origin: string, env: Env): Response { const headers = new Headers(corsHeaders(origin, env.ALLOWED_ORIGIN)); object.writeHttpMetadata(headers); headers.set('etag', object.httpEtag); headers.set('cache-control', 'public, max-age=31536000, immutable'); return new Response(object.body, { headers }); }
+function objectResponse(object: R2ObjectBody, origin: string, env: Env, publicObject = false): Response {
+  const headers = new Headers(corsHeaders(origin, env.ALLOWED_ORIGIN));
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('cache-control', 'public, max-age=31536000, immutable');
+  if (publicObject) headers.set('access-control-allow-origin', '*');
+  return new Response(object.body, { headers });
+}
+
+function publicCacheRequest(url: string): Request {
+  return new Request(url, { method: 'GET' });
+}
+
+function publicObjectUrls(request: Request, paths: string[]): string[] {
+  const base = new URL(request.url);
+  base.search = '';
+  const urls: string[] = [];
+  for (const path of new Set(paths.map(value => value.replace(/^public\//i, '').replace(/^Public\//, '')).filter(Boolean))) {
+    const encodedPath = path.split('/').filter(Boolean).map(segment => encodeURIComponent(segment)).join('/');
+    const objectUrl = new URL(base.toString());
+    objectUrl.pathname = `/v1/storage/public/${encodedPath}`;
+    urls.push(objectUrl.toString());
+    for (const transform of ['thumb', 'display']) {
+      const transformedUrl = new URL(objectUrl.toString());
+      transformedUrl.searchParams.set('transform', transform);
+      urls.push(transformedUrl.toString());
+    }
+  }
+  return urls;
+}
+
+async function purgePublicObjectCache(request: Request, paths: string[], ctx: ExecutionContext): Promise<void> {
+  const urls = publicObjectUrls(request, paths);
+  if (!urls.length) return;
+  ctx.waitUntil(Promise.all(urls.map(url => caches.default.delete(publicCacheRequest(url)))));
+}
 function toStorageItem(object: R2Object, name = object.key): Record<string, unknown> { return { name, id: object.httpEtag, metadata: { size: object.size, mimetype: object.httpMetadata?.contentType, lastModified: object.uploaded.toISOString() }, created_at: object.uploaded.toISOString() }; }
 function isOwnMemoryPath(path: string, userId: string): boolean { return path.startsWith(`memories/${userId}/`); }
 function isMissionProofPath(path: string): boolean { return path.startsWith('missions/proof/'); }
@@ -131,7 +166,7 @@ function getCanonicalUserId(payload: Record<string, unknown>): string {
 }
 async function hasOperationalStaffRole(userId: string, authorization: string): Promise<boolean> { const roleUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_roles?select=role&user_id=eq.${encodeURIComponent(userId)}&is_active=eq.true&role=in.(assistant_zone_leader,teacher,chief,president)&limit=1`; const roles = await fetchJson(roleUrl, authorization); return Array.isArray(roles) && roles.some(row => { const role = row as { role?: unknown }; return role.role === 'assistant_zone_leader' || role.role === 'teacher' || role.role === 'chief' || role.role === 'president'; }); }
 async function canManageMissionProof(path: string, userId: string, authorization: string): Promise<boolean> { const assignmentId = missionProofAssignmentId(path); if (!assignmentId) return false; const apiUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/mission_assignments?select=student_id&id=eq.${encodeURIComponent(assignmentId)}&limit=1`; const data = await fetchJson(apiUrl, authorization); const assignment = Array.isArray(data) ? data[0] as { student_id?: unknown } | undefined : undefined; if (typeof assignment?.student_id !== 'string') return false; if (assignment.student_id === userId) return true; const roleUrl = `${DEFAULT_NEON_DATA_API_URL}/rest/v1/user_roles?select=role&user_id=eq.${encodeURIComponent(userId)}&is_active=eq.true&role=in.(teacher,chief)&limit=1`; const roles = await fetchJson(roleUrl, authorization); return Array.isArray(roles) && roles.some(row => { const role = row as { role?: unknown }; return role.role === 'teacher' || role.role === 'chief'; }); }
-export default { async fetch(request: Request, env: Env): Promise<Response> { const origin = request.headers.get('origin') ?? ''; const requestedHeaders = request.headers.get('access-control-request-headers'); const cors = corsHeaders(origin, env.ALLOWED_ORIGIN, requestedHeaders); if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors }); const key = objectKey(request); if (!key) return json({ error: 'Not found' }, 404, cors); const normalizedKey = key.replace(/^public\//, 'Public/'); const isPublic = normalizedKey.startsWith('Public/'); const bucket = isPublic ? 'Public' : normalizedKey.split('/')[0]; const storageKey = isPublic ? normalizedKey.slice('Public/'.length) : normalizedKey; if (bucket !== 'Public' && bucket !== 'notebook-files') return json({ error: 'Forbidden' }, 403, cors); try { if (request.method === 'GET') { const url = new URL(request.url); const requiresPrivateAuth = url.searchParams.get('list') === 'true' || !isPublic; const authorization = request.headers.get('authorization') ?? '';  const userId = requiresPrivateAuth ? getCanonicalUserId(await requireAuth(request, env)) : ''; if (url.searchParams.get('list') === 'true') { const prefix = url.searchParams.get('prefix') ?? ''; const listPrefix = bucket === 'notebook-files' ? notebookStorageKey(isOwnNotebookPath(prefix, userId) ? prefix : `${userId}/${prefix}`) : prefix; const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? '1000'), 1), 1000); const listed = await env.STORAGE.list({ prefix: listPrefix, limit }); const files = listed.objects.map(object => { const name = bucket === 'notebook-files' ? object.key.slice('notebook-files/'.length) : object.key; return toStorageItem(object, name); }); const folders = listed.delimitedPrefixes.map(folder => ({ name: bucket === 'notebook-files' ? folder.replace(/^notebook-files\//, '').replace(/\/$/, '') : folder.replace(/\/$/, ''), id: null })); return json({ files: [...files, ...folders] }, 200, cors); } if (!isPublic && bucket === 'notebook-files' && (!userId || !isOwnNotebookPath(storageKey, userId))) return json({ error: 'Forbidden' }, 403, cors);
+export default { async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> { const origin = request.headers.get('origin') ?? ''; const requestedHeaders = request.headers.get('access-control-request-headers'); const cors = corsHeaders(origin, env.ALLOWED_ORIGIN, requestedHeaders); if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors }); const key = objectKey(request); if (!key) return json({ error: 'Not found' }, 404, cors); const normalizedKey = key.replace(/^public\//, 'Public/'); const isPublic = normalizedKey.startsWith('Public/'); const bucket = isPublic ? 'Public' : normalizedKey.split('/')[0]; const storageKey = isPublic ? normalizedKey.slice('Public/'.length) : normalizedKey; if (bucket !== 'Public' && bucket !== 'notebook-files') return json({ error: 'Forbidden' }, 403, cors); try { if (request.method === 'GET') { const url = new URL(request.url); const requiresPrivateAuth = url.searchParams.get('list') === 'true' || !isPublic; const authorization = request.headers.get('authorization') ?? '';  const userId = requiresPrivateAuth ? getCanonicalUserId(await requireAuth(request, env)) : ''; if (url.searchParams.get('list') === 'true') { const prefix = url.searchParams.get('prefix') ?? ''; const listPrefix = bucket === 'notebook-files' ? notebookStorageKey(isOwnNotebookPath(prefix, userId) ? prefix : `${userId}/${prefix}`) : prefix; const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? '1000'), 1), 1000); const listed = await env.STORAGE.list({ prefix: listPrefix, limit }); const files = listed.objects.map(object => { const name = bucket === 'notebook-files' ? object.key.slice('notebook-files/'.length) : object.key; return toStorageItem(object, name); }); const folders = listed.delimitedPrefixes.map(folder => ({ name: bucket === 'notebook-files' ? folder.replace(/^notebook-files\//, '').replace(/\/$/, '') : folder.replace(/\/$/, ''), id: null })); return json({ files: [...files, ...folders] }, 200, cors); } if (!isPublic && bucket === 'notebook-files' && (!userId || !isOwnNotebookPath(storageKey, userId))) return json({ error: 'Forbidden' }, 403, cors);
 const transform = new URL(request.url).searchParams.get('transform');
 if (isPublic && transform) {
   const imageOptions = transform === 'thumb'
@@ -140,17 +175,33 @@ if (isPublic && transform) {
       ? { fit: 'scale-down', width: 1280, quality: 78, format: 'baseline-jpeg' }
       : null;
   if (!imageOptions) return json({ error: 'Unsupported image transform' }, 400, cors);
+
+  const cacheKey = publicCacheRequest(request.url);
+  const cached = await caches.default.match(cacheKey);
+  if (cached) return cached;
+
   const originUrl = new URL(request.url);
   originUrl.searchParams.delete('transform');
   const transformedResponse = await fetch(originUrl.toString(), { cf: { image: imageOptions } });
   if (transformedResponse.ok || transformedResponse.status === 304) {
     const headers = new Headers(transformedResponse.headers);
     headers.set('cache-control', 'public, max-age=31536000, immutable');
-    return new Response(transformedResponse.body, { status: transformedResponse.status, headers });
+    headers.set('access-control-allow-origin', '*');
+    const response = new Response(transformedResponse.body, { status: transformedResponse.status, headers });
+    ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+    return response;
   }
   return transformedResponse;
 }
-const object = await env.STORAGE.get(storageKey); if (!object) return json({ error: 'Not found' }, 404, cors); return objectResponse(object, origin, env); }
+
+const cacheKey = publicCacheRequest(request.url);
+const cached = await caches.default.match(cacheKey);
+if (cached) return cached;
+const object = await env.STORAGE.get(storageKey);
+if (!object) return json({ error: 'Not found' }, 404, cors);
+const response = objectResponse(object, origin, env, true);
+ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+return response; }
 if (request.method === 'POST') {
   const form = await request.formData();
   const action = form.get('action');
@@ -192,6 +243,7 @@ if (request.method === 'POST') {
     const object = await env.STORAGE.put(postStorageKey, file, {
       httpMetadata: { contentType, ...(cacheControl ? { cacheControl } : {}) },
     });
+    await purgePublicObjectCache(request, [postStorageKey], ctx);
     return json({ data: { path: formPath, id: object.etag, etag: object.etag }, error: null }, 200, cors);
   }
 
@@ -216,12 +268,13 @@ if (request.method === 'POST') {
       return json({ error: 'Forbidden' }, 403, cors);
     }
     await Promise.all(normalizedPaths.map(path => env.STORAGE.delete(path)));
+    await purgePublicObjectCache(request, normalizedPaths, ctx);
     return json({ data: null, error: null }, 200, cors);
   }
 
   return json({ error: 'Unsupported storage action' }, 400, cors);
 }
 const authorization = request.headers.get('authorization') ?? ''; const tokenPayload = await requireAuth(request, env); const userId = getCanonicalUserId(tokenPayload); if (request.method === 'PUT') { if (bucket === 'notebook-files' && (!userId || !isOwnNotebookPath(storageKey, userId))) return json({ error: 'Forbidden' }, 403, cors); const contentType = request.headers.get('content-type') ?? 'application/octet-stream'; const cacheControl = request.headers.get('cache-control'); const upsert = request.headers.get('x-upsert') === 'true'; if (!upsert) { const existing = await env.STORAGE.head(storageKey); if (existing) return json({ error: 'The resource already exists' }, 409, cors); } const object = await env.STORAGE.put(storageKey, request.body, { httpMetadata: { contentType, ...(cacheControl ? { cacheControl } : {}) } }); return json({ data: { path: key, id: object.etag, etag: object.etag }, error: null }, 200, cors); }
-if (request.method === 'DELETE') { const body = request.headers.get('content-type')?.includes('application/json') ? await request.json() as { paths?: string[] } : null; const paths = body?.paths ?? [storageKey]; const normalizedPaths = paths.map(path => path.replace(/^public\//, '')); const canDeleteMemory = bucket === 'Public' && normalizedPaths.every(path => isOwnMemoryPath(path, userId)); const canDeleteMissionProof = bucket === 'Public' && normalizedPaths.every(isMissionProofPath) && await Promise.all(normalizedPaths.map(path => canManageMissionProof(path, userId, authorization!))).then(results => results.every(Boolean)); const canDeleteAvatar = bucket === 'Public' && normalizedPaths.every(path => isOwnAvatarPath(path, userId)); const canDeleteOperational = bucket === 'Public' && normalizedPaths.every(isOperationalStaffPath) && await hasOperationalStaffRole(userId, authorization!); const canDeleteClubPhoto = bucket === 'Public' && normalizedPaths.every(isClubPhotoPath) && await hasOperationalStaffRole(userId, authorization!); const canDeleteNotebook = bucket === 'notebook-files' && paths.every(path => isOwnNotebookPath(path, userId)); if (!userId || (!canDeleteMemory && !canDeleteMissionProof && !canDeleteAvatar && !canDeleteOperational && !canDeleteClubPhoto && !canDeleteNotebook)) return json({ error: 'Forbidden' }, 403, cors); const storagePaths = canDeleteNotebook ? paths.map(notebookStorageKey) : normalizedPaths; await Promise.all(storagePaths.map(path => env.STORAGE.delete(path))); return json({ data: null, error: null }, 200, cors); }
+if (request.method === 'DELETE') { const body = request.headers.get('content-type')?.includes('application/json') ? await request.json() as { paths?: string[] } : null; const paths = body?.paths ?? [storageKey]; const normalizedPaths = paths.map(path => path.replace(/^public\//, '')); const canDeleteMemory = bucket === 'Public' && normalizedPaths.every(path => isOwnMemoryPath(path, userId)); const canDeleteMissionProof = bucket === 'Public' && normalizedPaths.every(isMissionProofPath) && await Promise.all(normalizedPaths.map(path => canManageMissionProof(path, userId, authorization!))).then(results => results.every(Boolean)); const canDeleteAvatar = bucket === 'Public' && normalizedPaths.every(path => isOwnAvatarPath(path, userId)); const canDeleteOperational = bucket === 'Public' && normalizedPaths.every(isOperationalStaffPath) && await hasOperationalStaffRole(userId, authorization!); const canDeleteClubPhoto = bucket === 'Public' && normalizedPaths.every(isClubPhotoPath) && await hasOperationalStaffRole(userId, authorization!); const canDeleteNotebook = bucket === 'notebook-files' && paths.every(path => isOwnNotebookPath(path, userId)); if (!userId || (!canDeleteMemory && !canDeleteMissionProof && !canDeleteAvatar && !canDeleteOperational && !canDeleteClubPhoto && !canDeleteNotebook)) return json({ error: 'Forbidden' }, 403, cors); const storagePaths = canDeleteNotebook ? paths.map(notebookStorageKey) : normalizedPaths; await Promise.all(storagePaths.map(path => env.STORAGE.delete(path))); if (!canDeleteNotebook) await purgePublicObjectCache(request, storagePaths, ctx); return json({ data: null, error: null }, 200, cors); }
 return json({ error: 'Method not allowed' }, 405, cors); } catch (error) { const message = error instanceof Error ? error.message : 'Storage request failed'; const status = message === 'Unauthorized' || message.includes('token') || message.includes('signature') ? 401 : 500; return json({ error: message }, status, cors); } }, } satisfies ExportedHandler<Env>;
 
