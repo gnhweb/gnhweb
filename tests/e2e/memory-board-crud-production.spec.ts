@@ -77,23 +77,23 @@ test.describe('production memory board CRUD', () => {
         response =>
           response.request().method() === 'POST' &&
           new URL(response.url()).pathname.endsWith('/v1/storage/public') &&
-          response.status() >= 200 &&
-          response.status() < 300,
         { timeout: 45_000 },
       );
       const dbDeletePromise = page.waitForResponse(
         response =>
           response.request().method() === 'DELETE' &&
-          new URL(response.url()).pathname.endsWith('/rest/v1/memory_photos') &&
-          response.status() >= 200 &&
-          response.status() < 300,
+          new URL(response.url()).pathname.endsWith('/rest/v1/memory_photos'),
         { timeout: 45_000 },
       );
 
       await page.getByRole('button', { name: '삭제', exact: true }).click();
       const [storageDeleteResponse, dbDeleteResponse] = await Promise.all([storageDeletePromise, dbDeletePromise]);
-      expect(storageDeleteResponse.ok()).toBeTruthy();
-      expect(dbDeleteResponse.ok()).toBeTruthy();
+      if (!storageDeleteResponse.ok()) {
+        throw new Error(`R2 삭제 실패 HTTP ${storageDeleteResponse.status()}: ${await storageDeleteResponse.text()}`);
+      }
+      if (!dbDeleteResponse.ok()) {
+        throw new Error(`memory_photos 삭제 실패 HTTP ${dbDeleteResponse.status()}: ${await dbDeleteResponse.text()}`);
+      }
 
       await expect(page.getByRole('img', { name: title, exact: true })).toHaveCount(0);
       uploaded = false;
