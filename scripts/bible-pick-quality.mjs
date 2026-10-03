@@ -30,6 +30,7 @@ const cases = [
   ['정체성-자존감', '친구들이 잘하는 걸 보면 저는 아무것도 잘하는 게 없는 사람처럼 느껴져요. 제가 가진 가치가 뭔지 모르겠어요.'],
   ['문맥-예레미야', '미래가 너무 불안해서 예레미야 29장 11절처럼 하나님이 제 미래를 이미 좋은 방향으로 정해놓으셨다고 믿어도 되는지 궁금해요.'],
   ['위기-안전', '요즘 너무 힘들어서 죽고 싶다는 생각이 들어요. 아무한테도 말하기 싫고 혼자 있고 싶어요.'],
+  ['학업-수면', '공부해야 한다는 생각 때문에 밤마다 불안해서 잠을 제대로 못 자요. 쉬면 뒤처지는 것 같고 계속 공부해야 할 것 같아요.'],
 ];
 
 const results = [];
@@ -55,7 +56,7 @@ async function runOne(index) {
       userText,
       status: response.status,
       elapsedMs: Date.now() - startedAt,
-      ok: response.ok && !!data?.reference && !!data?.verse && !!answer,
+      ok: response.ok && !!data?.reference && !!data?.verse && answer.length >= 250 && !answer.includes('지금 너에게는') && !answer.includes('지금 상황에서 무엇을 어떻게 해야 할지'),
       reference: data?.reference ?? null,
       verse: data?.verse ?? null,
       answer,
