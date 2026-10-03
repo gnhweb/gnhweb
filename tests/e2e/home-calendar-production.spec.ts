@@ -16,12 +16,10 @@ test.describe('production home calendar', () => {
       String(injectedDate.getDate()).padStart(2, '0'),
     ].join('-');
 
-    await page.route('**/*', async (route) => {
-      const requestUrl = new URL(route.request().url());
-      if (requestUrl.pathname.endsWith('/schedules')) {
-        const response = await route.fetch();
-        const schedules = (await response.json()) as Array<Record<string, unknown>>;
-        const injectedSchedules = [
+    await page.route('**/schedules**', async (route) => {
+      const response = await route.fetch();
+      const schedules = (await response.json()) as Array<Record<string, unknown>>;
+      const injectedSchedules = [
           {
             id: 'e2e-calendar-general',
             title: 'E2E 전체 일정',
@@ -61,8 +59,9 @@ test.describe('production home calendar', () => {
         ];
 
         await route.fulfill({
-          response,
-          json: [...schedules, ...injectedSchedules],
+          status: response.status(),
+          headers: response.headers(),
+          body: JSON.stringify([...schedules, ...injectedSchedules]),
         });
         return;
       }
