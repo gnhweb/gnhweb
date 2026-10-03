@@ -265,7 +265,16 @@ if (request.method === 'POST') {
     const canDeleteOperational = normalizedPaths.length > 0 && normalizedPaths.every(isOperationalStaffPath) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
     const canDeleteClubPhoto = normalizedPaths.length > 0 && normalizedPaths.every(isClubPhotoPath) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
     if (!canDeleteMemory && !canDeleteMissionProof && !canDeleteAvatar && !canDeleteOperational && !canDeleteClubPhoto) {
-      return json({ error: 'Forbidden' }, 403, cors);
+      const memoryOwner = normalizedPaths[0]?.startsWith('memories/')
+        ? (normalizedPaths[0].split('/')[1] ?? '')
+        : '';
+      return json({
+        error: 'Forbidden',
+        reason: 'storage_delete_authorization_mismatch',
+        pathOwner: memoryOwner.slice(-8) || 'none',
+        tokenSub: userId.slice(-8) || 'none',
+        memoryMatch: canDeleteMemory,
+      }, 403, cors);
     }
     await Promise.all(normalizedPaths.map(path => env.STORAGE.delete(path)));
     await purgePublicObjectCache(request, normalizedPaths, ctx);
