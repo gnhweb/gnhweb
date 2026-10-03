@@ -2,11 +2,9 @@ import { expect, test } from '@playwright/test';
 
 test.describe('production home calendar', () => {
   test('renders general and club event dots together without clipping', async ({ page }) => {
-    const email = process.env.E2E_MEMBER_EMAIL;
-    const password = process.env.E2E_MEMBER_PASSWORD;
-    test.skip(!email || !password, 'E2E member credentials are not configured.');
-
-    test.setTimeout(90_000);
+    // The home calendar is public content; authentication is not part of this
+    // test and would only introduce unrelated Neon Auth onboarding state.
+    test.setTimeout(60_000);
 
     const injectedDate = new Date();
     injectedDate.setDate(injectedDate.getDate() + 2);
@@ -70,23 +68,7 @@ test.describe('production home calendar', () => {
       await route.continue();
     });
 
-    await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 45_000 });
-    await page.locator('input[name="email"]').first().fill(email!);
-    await page.locator('input[name="password"]').first().fill(password!);
-    await page.locator('button[type="submit"]').first().click();
-
-    const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
-    const dismissPinPrompt = async () => {
-      if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) {
-        await skipPin.click();
-        await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
-      }
-    };
-
-    await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
-    await dismissPinPrompt();
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45_000 });
-    await dismissPinPrompt();
 
     const scheduleTab = page.getByRole('button', { name: /일정$/ }).first();
     await expect(scheduleTab).toBeVisible({ timeout: 15_000 });
