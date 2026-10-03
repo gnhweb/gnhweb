@@ -238,6 +238,15 @@ jobs:
                       f"DCL median/p95={result['domContentLoadedMedianMs']}/{result['domContentLoadedP95Ms']}ms, "
                       f"total median/p95={result['medianMs']}/{result['p95Ms']}ms"
                   )
+              soak = data.get("soak")
+              if soak:
+                  lines.append(
+                      f"- 100-session soak ({data.get('soakMinutes', 0)} min): "
+                      f"success={soak['success']}/{soak['total']}, "
+                      f"failure={soak['failureRate']}%, "
+                      f"TTFB median/p95={soak['ttfbMedianMs']}/{soak['ttfbP95Ms']}ms, "
+                      f"DCL median/p95={soak['domContentLoadedMedianMs']}/{soak['domContentLoadedP95Ms']}ms"
+                  )
               body = "\n".join(lines)
           Path("/tmp/load-test-issue-body.md").write_text(body, encoding="utf-8")
           PY
