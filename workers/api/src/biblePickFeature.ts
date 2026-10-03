@@ -92,7 +92,7 @@ export async function handleBiblePick(request:Request,_env:Env):Promise<Response
       const crisisRef=VERSE_REFS.find((ref)=>ref.reference==='시편 34:18');
       if(!crisisRef)return json({error:'위기 안내를 준비하지 못했습니다. 잠시 후 다시 시도해주세요.'},503);
       let crisisVerse='';
-      try{crisisVerse=await fetchVerseText(crisisRef);}catch(error){console.error('[bible-pick] crisis verse failed',error);return json({error:'위기 안내를 준비하지 못했습니다. 잠시 후 다시 시도해주세요.'},503);}
+      try{crisisVerse=(await fetchVerseText(crisisRef)).text;}catch(error){console.error('[bible-pick] crisis verse failed',error);return json({error:'위기 안내를 준비하지 못했습니다. 잠시 후 다시 시도해주세요.'},503);}
       const crisisMessage='지금 많이 힘들다면 혼자 견디지 않아도 돼요. 믿을 수 있는 어른이나 선생님에게 지금 상태를 바로 알려주세요. 급하게 자신을 해칠 것 같다면 즉시 119 또는 112에 도움을 요청하세요.';
       return json({verse:crisisVerse,reference:crisisRef.reference,answer:'지금은 고민에 맞는 말씀을 고르는 것보다 네 안전과 곁에 있는 사람에게 도움을 요청하는 것이 먼저예요.',recommendation:'시편 34편은 고통받는 사람 가까이에 계시는 하나님을 말해요. 이 말씀을 혼자 견뎌야 한다는 뜻으로 사용하지 말고, 지금 곁의 사람에게 도움을 요청하는 것과 함께 읽어 주세요.',practice:'지금 믿을 수 있는 어른이나 선생님 한 사람에게 현재 상태를 그대로 알려주세요.',prayers:['아버지, 지금 제가 혼자 버티지 않게 하시고 곁에 도움을 요청할 용기를 주세요.'],understanding:'지금 네가 적어준 말에는 혼자 감당하기 어려운 고통이 담겨 있는 것 같아요. 이런 순간에는 말씀 한 구절만으로 버티려고 하지 않아도 돼요.',whyThisVerse:'시편 34:18은 마음이 상한 사람과 가까이 계시는 하나님을 말해요. 지금의 고통을 가볍게 여기지 않으면서, 혼자 견디지 않고 도움을 요청하는 것과 함께 읽어 주세요.',nextStep:'지금 바로 믿을 수 있는 어른이나 선생님 한 사람에게 “지금 내가 많이 힘들고 혼자 있으면 위험할 것 같다”고 알려주세요.',takeaway:'지금은 혼자 버티는 것보다 사람에게 도움을 요청하는 것이 한 걸음이에요.',prayer:'아버지, 지금 제가 혼자 버티지 않게 하시고 곁에 도움을 요청할 용기를 주세요.',analyzedEmotions:['슬픔'],primaryEmotion:'슬픔',questionType:'위기',relationship:'자기 자신',topics:[],contextCaution:false,crisisMessage});
     }
