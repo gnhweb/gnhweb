@@ -195,7 +195,7 @@ async function queryNeonRows(
 
       const { data, error } = await snapshotQuery;
       if (!error && Array.isArray(data)) {
-        const latest = data[0] as Record<string, unknown> | undefined;
+        const latest = data[0] as unknown as Record<string, unknown> | undefined;
         return [{
           id: String(latest?.[snapshot.key] ?? '__empty__'),
           updated_at: String(latest?.[snapshot.timestamp] ?? ''),
