@@ -113,6 +113,8 @@ jobs:
         run: npm run build
         env:
           VITE_CF_REALTIME_URL: ${{ env.VITE_CF_REALTIME_URL }}
+      - name: Build Pages Functions
+        run: npx wrangler pages functions build functions --outfile out/_worker.js --output-routes-path out/_routes.json --minify
       - name: Deploy Cloudflare Pages
         uses: cloudflare/wrangler-action@v4
         with:
