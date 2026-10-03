@@ -37,14 +37,14 @@ type ChannelState = {
 
 const states = new WeakMap<object, ChannelState>();
 const activeChannels = new Set<RealtimeChannel>();
-const DEFAULT_POLL_INTERVAL_MS = 120000;
+const DEFAULT_POLL_INTERVAL_MS = 600000;
 
 function getPollIntervalMs(channelName: string): number {
-  if (channelName.startsWith('profile-realtime-')) return 300000;
-  if (channelName.startsWith('notifications-toast-')) return 120000;
-  if (channelName.startsWith('notifications-count-')) return 120000;
-  if (channelName.startsWith('notifications-menu-counts-')) return 120000;
-  if (channelName.startsWith('home-')) return 300000;
+  if (channelName.startsWith('profile-realtime-')) return 600000;
+  if (channelName.startsWith('notifications-toast-')) return 300000;
+  if (channelName.startsWith('notifications-count-')) return 300000;
+  if (channelName.startsWith('notifications-menu-counts-')) return 300000;
+  if (channelName.startsWith('home-')) return 600000;
   if (channelName.includes('attendance')) return 30000;
   return DEFAULT_POLL_INTERVAL_MS;
 }
@@ -155,6 +155,7 @@ export function createNeonRealtimeChannel(
     timer: null,
     polling: false,
   };
+  let handleVisibilityChange: (() => void) | null = null;
   const wrapped = new Proxy(channel, {
     get(target, property, receiver) {
       if (property === 'on') {
@@ -167,6 +168,12 @@ export function createNeonRealtimeChannel(
           });
           if (!state.timer) {
             void poll(wrapped, queryRows);
+            if (typeof document !== 'undefined') {
+              handleVisibilityChange = () => {
+                if (!document.hidden) void poll(wrapped, queryRows);
+              };
+              document.addEventListener('visibilitychange', handleVisibilityChange);
+            }
             state.timer = setInterval(() => {
               if (typeof document !== 'undefined' && document.hidden) return;
               void poll(wrapped, queryRows);
@@ -206,6 +213,10 @@ export function disposeNeonRealtimeChannel(channel: RealtimeChannel): void {
   if (!state) return;
   if (state.timer) clearInterval(state.timer);
   state.timer = null;
+  if (handleVisibilityChange && typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    handleVisibilityChange = null;
+  }
   state.subscriptions = [];
   state.previousRows.clear();
   state.initializedTables.clear();
