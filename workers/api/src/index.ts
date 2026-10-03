@@ -83,7 +83,13 @@ export default {
   },
 
   async scheduled(_controller: ScheduledController, env: Record<string, string | undefined>): Promise<void> {
-    const result = await processWebPushQueue(env);
+    // The minute Cron is a safety-net drain, not a long-poll worker. User-facing
+    // write routes already trigger a short flush after successful writes, while
+    // this Cron only needs to pick up retries/orphaned queue rows.
+    const result = await processWebPushQueue(env, {
+      waitForNewRows: false,
+      maxDurationMs: 25_000,
+    });
     console.log('[web-push-queue] processed', result);
   },
 };
