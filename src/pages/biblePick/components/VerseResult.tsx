@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import type { Variants } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
 export interface BibleVerseData {
@@ -13,7 +12,9 @@ export interface BibleVerseData {
   primaryEmotion: string;
   crisisMessage?: string;
   understanding?: string;
+  biblicalContext?: string;
   whyThisVerse?: string;
+  application?: string;
   nextStep?: string;
   takeaway?: string;
   prayer?: string;
@@ -27,187 +28,140 @@ interface VerseResultProps {
 }
 
 export default function VerseResult({ verseData, userText, onReset }: VerseResultProps) {
-  const [revealed, setRevealed] = useState(0);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const timers = [200, 750, 1250].map((delay, i) =>
-      setTimeout(() => setRevealed(i + 1), delay)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, []);
-
-  const fadeUp: Variants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.25, 0.1, 0.25, 1] } },
-  };
-
-  const hasCrisis = Boolean(verseData.crisisMessage);
-  const brandGradient = 'linear-gradient(135deg, var(--grad-coral), var(--grad-rose) 55%, var(--grad-blue))';
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(`"${verseData.verse}" (${verseData.reference})`);
+      await navigator.clipboard.writeText('"'+verseData.verse+'" ('+verseData.reference+')');
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* 클립보드 접근 실패 시 조용히 무시 */
+      // ignore clipboard failures
     }
   };
 
   return (
-    <div>
-      {/* 상단: 오늘 나눈 마음 + 감정 태그 */}
-      <motion.div variants={fadeUp} initial="hidden" animate="visible" className="text-center mb-8">
-        <p className="text-xs text-foreground-500 mb-2 tracking-wide">당신이 나눠준 마음</p>
-        <p className="text-sm text-foreground-700 leading-relaxed max-w-md mx-auto px-4">
-          “{userText}”
-        </p>
+    <div className="space-y-6">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="text-center px-2">
+        <p className="text-xs font-label text-foreground-500 mb-2">네가 들려준 이야기</p>
+        <p className="text-sm md:text-base leading-7 text-foreground-700 max-w-xl mx-auto">“{userText}”</p>
         {verseData.analyzedEmotions.length > 0 && (
-          <div className="inline-flex items-center gap-1.5 flex-wrap justify-center mt-3.5">
-            {verseData.analyzedEmotions.map((em, i) => (
-              <span
-                key={em}
-                className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  i === 0 ? 'text-white shadow-sm' : 'bg-background-100 text-foreground-500'
-                }`}
-                style={i === 0 ? { background: brandGradient } : undefined}
-              >
-                {em}
+          <div className="flex flex-wrap items-center justify-center gap-1.5 mt-3">
+            {verseData.analyzedEmotions.slice(0, 3).map((emotion, index) => (
+              <span key={emotion} className={index === 0 ? 'rounded-chip px-2.5 py-1 text-xs font-label bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-200' : 'rounded-chip px-2.5 py-1 text-xs font-label bg-background-100 text-foreground-500'}>
+                {emotion}
               </span>
             ))}
           </div>
         )}
       </motion.div>
 
-      {/* 말씀 카드 — 시그니처 요소: 브랜드 그라디언트 프레임 + 후광 */}
-      <motion.div variants={fadeUp} initial="hidden" animate="visible" className="relative mb-7">
-        <div
-          className="absolute -inset-6 rounded-[36px] blur-3xl opacity-40 pointer-events-none"
-          style={{ background: brandGradient }}
-        ></div>
-        <div className="relative rounded-[28px] p-[1.5px]" style={{ background: brandGradient }}>
-          <div className="relative rounded-[27px] bg-background-50 px-7 py-11 md:px-12 md:py-14 overflow-hidden">
-            <span
-              className="absolute -top-3 left-4 select-none pointer-events-none font-quote"
-              style={{
-                fontSize: '6.5rem',
-                lineHeight: 1,
-                backgroundImage: brandGradient,
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                color: 'transparent',
-                opacity: 0.22,
-              }}
-            >
-              “
-            </span>
-            <p className="relative font-quote text-xl md:text-[1.65rem] leading-[1.75] text-foreground-900 text-center max-w-xl mx-auto">
-              {verseData.verse}
-            </p>
-            <div className="flex items-center justify-center mt-8">
-              <span
-                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold text-white tracking-wide shadow-sm whitespace-nowrap"
-                style={{ background: brandGradient }}
-              >
-                <i className="ri-book-open-line"></i>
-                {verseData.reference}
-              </span>
-            </div>
-            <div className="flex justify-center mt-5">
-              <button
-                onClick={handleCopy}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 hover:text-primary-600 transition-colors cursor-pointer"
-              >
-                <i className={copied ? 'ri-check-line' : 'ri-file-copy-line'}></i>
-                {copied ? '복사했어요' : '말씀 복사하기'}
-              </button>
-            </div>
+      <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="rounded-card border border-primary-200 bg-primary-50/70 p-6 md:p-10 dark:border-primary-800 dark:bg-primary-950/20">
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <div>
+            <p className="text-xs font-label font-semibold tracking-wide text-primary-700 dark:text-primary-300">오늘의 말씀</p>
+            <p className="mt-1 text-sm font-label text-foreground-500">성경 본문을 먼저 읽어봐요</p>
           </div>
+          <span className="rounded-chip bg-primary-100 px-3 py-1.5 text-xs font-label font-semibold text-primary-800 dark:bg-primary-900/50 dark:text-primary-200">{verseData.reference}</span>
         </div>
-      </motion.div>
+        <blockquote className="font-quote text-[1.2rem] md:text-[1.5rem] leading-[1.9] text-foreground-950 dark:text-foreground-50">{verseData.verse}</blockquote>
+        <div className="mt-6 flex justify-end">
+          <button type="button" onClick={handleCopy} className="inline-flex min-h-10 items-center gap-1.5 rounded-chip px-3 py-2 text-xs font-label text-foreground-600 transition-colors hover:bg-background-100 hover:text-primary-700 dark:hover:bg-background-200">
+            <i className={copied ? 'ri-check-line' : 'ri-file-copy-line'} />
+            {copied ? '복사했어요' : '말씀 복사'}
+          </button>
+        </div>
+      </motion.section>
 
-      {/* 위기 상황 특별 안내 — 기능적으로 구분되는 알림이라 별도 카드 유지 */}
-      {hasCrisis && (
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-6 rounded-card border-2 border-amber-300 bg-amber-50 p-5 md:p-6">
+      {verseData.crisisMessage && (
+        <section className="rounded-card border border-accent-300 bg-accent-50 p-5 dark:border-accent-800 dark:bg-accent-950/30">
           <div className="flex items-start gap-3">
-            <i className="ri-heart-pulse-line text-amber-700 text-lg mt-0.5 flex-shrink-0"></i>
+            <i className="ri-heart-pulse-line mt-0.5 text-lg text-accent-700 dark:text-accent-300" />
             <div>
-              <h3 className="text-sm font-bold text-amber-800 mb-1.5">당신은 혼자가 아니에요</h3>
-              <p className="text-sm text-amber-700 leading-relaxed">{verseData.crisisMessage}</p>
+              <h2 className="text-sm font-heading font-bold text-accent-900 dark:text-accent-100">혼자 버티지 않아도 돼요</h2>
+              <p className="mt-1.5 text-sm leading-7 text-accent-800 dark:text-accent-200">{verseData.crisisMessage}</p>
             </div>
           </div>
-        </motion.div>
+        </section>
       )}
 
       {verseData.understanding && (
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-6 rounded-card border border-background-200 bg-background-100 p-5 md:p-6">
-          <p className="text-xs font-bold text-primary-700 mb-2">네 고민을 이렇게 이해했어요</p>
-          <p className="text-sm text-foreground-800 leading-relaxed">{verseData.understanding}</p>
-        </motion.div>
+        <section className="rounded-card border border-background-200 bg-background-100 p-5 md:p-6 dark:border-background-700">
+          <p className="text-xs font-label font-semibold text-foreground-500">네 이야기에서 보이는 핵심</p>
+          <p className="mt-2 text-[0.95rem] leading-7 text-foreground-800 dark:text-foreground-100">{verseData.understanding}</p>
+        </section>
       )}
 
-      {verseData.whyThisVerse && (
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-6">
-          <p className="text-xs font-bold text-foreground-800 mb-2">왜 이 말씀이 지금 필요할까요?</p>
-          <p className="text-sm text-foreground-700 leading-[1.85]">{verseData.whyThisVerse}</p>
-          {verseData.contextCaution && (
-            <p className="mt-2 text-xs text-foreground-500">이 말씀은 본문의 문맥을 함께 생각하며 적용해 주세요.</p>
+      {(verseData.biblicalContext || verseData.whyThisVerse || verseData.application || verseData.nextStep) && (
+        <div className="rounded-card border border-background-200 bg-background-50 overflow-hidden dark:border-background-700">
+          {verseData.biblicalContext && (
+            <section className="p-5 md:p-6">
+              <div className="flex items-start gap-3">
+                <i className="ri-book-open-line mt-0.5 text-base text-primary-600 dark:text-primary-300" />
+                <div>
+                  <h2 className="text-sm font-heading font-bold text-foreground-900 dark:text-foreground-50">본문에서 먼저 볼 것</h2>
+                  <p className="mt-2 text-[0.95rem] leading-7 text-foreground-700 dark:text-foreground-100">{verseData.biblicalContext}</p>
+                </div>
+              </div>
+            </section>
           )}
-        </motion.div>
-      )}
-
-      {(verseData.nextStep || verseData.practice) && (
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-7 rounded-card border border-background-200 bg-background-100 p-5 md:p-6">
-          <p className="text-xs font-bold text-foreground-800 mb-2">지금 할 수 있는 한 걸음</p>
-          <p className="text-sm text-foreground-700 leading-[1.85]">{verseData.nextStep || verseData.practice}</p>
-        </motion.div>
+          {verseData.whyThisVerse && (
+            <section className="border-t border-background-200 p-5 md:p-6 dark:border-background-700">
+              <div className="flex items-start gap-3">
+                <i className="ri-links-line mt-0.5 text-base text-primary-600 dark:text-primary-300" />
+                <div>
+                  <h2 className="text-sm font-heading font-bold text-foreground-900 dark:text-foreground-50">이 말씀이 닿는 이유</h2>
+                  <p className="mt-2 text-[0.95rem] leading-7 text-foreground-700 dark:text-foreground-100">{verseData.whyThisVerse}</p>
+                </div>
+              </div>
+            </section>
+          )}
+          {(verseData.application || verseData.nextStep) && (
+            <section className="border-t border-background-200 p-5 md:p-6 dark:border-background-700">
+              <div className="flex items-start gap-3">
+                <i className="ri-footprint-line mt-0.5 text-base text-primary-600 dark:text-primary-300" />
+                <div>
+                  <h2 className="text-sm font-heading font-bold text-foreground-900 dark:text-foreground-50">오늘 여기서 해볼 것</h2>
+                  {verseData.application && <p className="mt-2 text-[0.95rem] leading-7 text-foreground-700 dark:text-foreground-100">{verseData.application}</p>}
+                  {verseData.nextStep && <p className="mt-3 rounded-input bg-background-100 px-4 py-3 text-sm font-semibold leading-6 text-foreground-800 dark:bg-background-200 dark:text-foreground-100">{verseData.nextStep}</p>}
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
       )}
 
       {verseData.takeaway && (
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="mb-7 rounded-card border border-background-200 bg-background-100 px-5 py-4">
-          <p className="text-xs font-bold text-foreground-800 mb-1.5">오늘 기억할 한 문장</p>
-          <p className="text-sm font-semibold text-foreground-900 leading-relaxed">{verseData.takeaway}</p>
-        </motion.div>
+        <section className="rounded-card bg-secondary-50 px-5 py-5 dark:bg-secondary-950/20">
+          <p className="text-xs font-label font-semibold text-secondary-700 dark:text-secondary-300">오늘 가져갈 한 문장</p>
+          <p className="mt-2 font-heading text-base md:text-lg font-semibold leading-7 text-foreground-900 dark:text-foreground-50">{verseData.takeaway}</p>
+        </section>
       )}
 
       {(verseData.prayer || verseData.prayers.length > 0) && (
-        <motion.div variants={fadeUp} initial="hidden" animate="visible" className="border-t border-background-200 pt-6 mb-7">
-          <p className="text-xs font-bold text-foreground-800 mb-1.5">하나님께 이렇게 기도해봐요</p>
-          <div className="space-y-2">
-            {verseData.prayer ? (
-              <p className="text-sm text-foreground-700 leading-relaxed font-quote">{verseData.prayer}</p>
-            ) : (
-              verseData.prayers.map((prayer, idx) => (
-                <p key={idx} className="text-sm text-foreground-700 leading-relaxed font-quote">
-                  {prayer}
-                </p>
-              ))
-            )}
+        <section className="rounded-card border border-background-200 bg-background-100 p-5 md:p-6 dark:border-background-700">
+          <div className="flex items-center gap-2">
+            <i className="ri-prayer-line text-base text-secondary-600 dark:text-secondary-300" />
+            <h2 className="text-sm font-heading font-bold text-foreground-900 dark:text-foreground-50">이렇게 기도해봐요</h2>
           </div>
-        </motion.div>
+          <p className="mt-3 font-quote text-[0.95rem] leading-8 text-foreground-700 dark:text-foreground-100">{verseData.prayer || verseData.prayers[0]}</p>
+        </section>
       )}
 
-      {/* 하단 버튼 */}
-      {revealed >= 3 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-          <button
-            onClick={onReset}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white font-semibold text-sm transition-all duration-300 hover:brightness-105 hover:-translate-y-0.5 cursor-pointer whitespace-nowrap shadow-sm"
-            style={{ background: 'linear-gradient(135deg, var(--grad-coral), var(--grad-rose) 55%, var(--grad-blue))' }}
-          >
-            <i className="ri-refresh-line"></i>
-            다시 뽑기
-          </button>
-          <Link
-            to="/bible-pick/history"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-background-200 text-foreground-600 font-medium text-sm hover:bg-background-100 transition-all duration-300 cursor-pointer whitespace-nowrap"
-          >
-            <i className="ri-history-line"></i>
-            히스토리 바로가기
-          </Link>
-        </motion.div>
+      {verseData.contextCaution && (
+        <p className="px-1 text-xs leading-6 text-foreground-500">이 구절은 한 문장만 떼어 읽기보다 앞뒤 문맥과 함께 읽어보면 더 정확하게 이해할 수 있어요.</p>
       )}
+
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 pt-1">
+        <button type="button" onClick={onReset} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-chip bg-primary-600 px-6 py-3 text-sm font-label font-semibold text-background-50 transition-colors hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-400">
+          <i className="ri-refresh-line" />
+          다시 말씀 찾아보기
+        </button>
+        <Link to="/bible-pick/history" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-chip border border-background-300 bg-background-50 px-6 py-3 text-sm font-label font-semibold text-foreground-700 transition-colors hover:bg-background-100 dark:border-background-600 dark:bg-background-50 dark:text-foreground-100">
+          <i className="ri-history-line" />
+          말씀 기록 보기
+        </Link>
+      </div>
     </div>
   );
 }
