@@ -134,11 +134,16 @@ class R2BucketClient {
     // 삭제도 업로드/목록과 동일하게 인증된 사용자 JWT만 사용한다.
     const token = await getAccessToken();
     if (!token) throw new Error('로그인이 필요합니다.');
-    const form = new FormData();
-    form.set('action', 'delete');
-    form.set('access_token', token);
-    form.set('paths', JSON.stringify(paths));
-    const response = await request(this.bucket, '', { method: 'POST', body: form }, false);
+    const response = await request(
+      this.bucket,
+      '',
+      {
+        method: 'DELETE',
+        headers: { accept: 'application/json', 'content-type': 'application/json' },
+        body: JSON.stringify({ paths }),
+      },
+      true,
+    );
     const error = await parseError(response);
     return { data: error ? null : paths.map((path) => ({ name: path })), error };
   }

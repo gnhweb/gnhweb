@@ -258,24 +258,19 @@ if (request.method === 'POST') {
     } catch {
       return json({ error: 'Invalid delete payload' }, 400, cors);
     }
-    const normalizedPaths = paths.map(path => path.replace(/^public\//, ''));
+    const normalizedPaths = paths.map(path => path.replace(/^public\//i, ''));
     const ownsMemoryPaths = normalizedPaths.length > 0 && normalizedPaths.every(path => isOwnMemoryPath(path, userId));
-    const canDeleteMemory = ownsMemoryPaths || (normalizedPaths.length > 0 && normalizedPaths.every(path => path.startsWith('memories/')) && await hasOperationalStaffRole(userId, `Bearer ${token}`));
+    const canDeleteMemory = ownsMemoryPaths || (
+      normalizedPaths.length > 0 &&
+      normalizedPaths.every(path => path.startsWith('memories/')) &&
+      await hasOperationalStaffRole(userId, `Bearer ${token}`)
+    );
     const canDeleteMissionProof = normalizedPaths.length > 0 && normalizedPaths.every(isMissionProofPath) && (await Promise.all(normalizedPaths.map(path => canManageMissionProof(path, userId, `Bearer ${token}`)))).every(Boolean);
     const canDeleteAvatar = normalizedPaths.length > 0 && normalizedPaths.every(path => isOwnAvatarPath(path, userId));
     const canDeleteOperational = normalizedPaths.length > 0 && normalizedPaths.every(isOperationalStaffPath) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
     const canDeleteClubPhoto = normalizedPaths.length > 0 && normalizedPaths.every(isClubPhotoPath) && await hasOperationalStaffRole(userId, `Bearer ${token}`);
     if (!canDeleteMemory && !canDeleteMissionProof && !canDeleteAvatar && !canDeleteOperational && !canDeleteClubPhoto) {
-      const memoryOwner = normalizedPaths[0]?.startsWith('memories/')
-        ? (normalizedPaths[0].split('/')[1] ?? '')
-        : '';
-      return json({
-        error: 'Forbidden',
-        reason: 'storage_delete_authorization_mismatch',
-        pathOwner: memoryOwner.slice(-8) || 'none',
-        tokenSub: userId.slice(-8) || 'none',
-        memoryMatch: canDeleteMemory,
-      }, 403, cors);
+      return json({ error: 'Forbidden', code: 'MEMORY_DELETE_NOT_ALLOWED' }, 403, cors);
     }
     await Promise.all(normalizedPaths.map(path => env.STORAGE.delete(path)));
     await purgePublicObjectCache(request, normalizedPaths, ctx);

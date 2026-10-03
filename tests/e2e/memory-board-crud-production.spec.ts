@@ -75,7 +75,7 @@ test.describe('production memory board CRUD', () => {
 
       const storageDeletePromise = page.waitForResponse(
         response =>
-          response.request().method() === 'POST' &&
+          response.request().method() === 'DELETE' &&
           new URL(response.url()).pathname.endsWith('/v1/storage/public') &&
         { timeout: 45_000 },
       );
