@@ -155,6 +155,15 @@ function extractEqFilter(filter?: string): { field: string; value: string } | nu
   return { field: match[1], value: decodeURIComponent(match[2]) };
 }
 
+type RealtimeSnapshotCacheEntry = {
+  expiresAt: number;
+  data?: Record<string, unknown>[];
+  promise?: Promise<Record<string, unknown>[]>;
+};
+
+const REALTIME_SNAPSHOT_CACHE_TTL_MS = 2000;
+const realtimeSnapshotCache = new Map<string, RealtimeSnapshotCacheEntry>();
+
 const REALTIME_SNAPSHOT_COLUMNS: Record<string, { key: string; timestamp: string }> = {
   user_roles: { key: 'user_id', timestamp: 'updated_at' },
   user_role_assignments: { key: 'id', timestamp: 'created_at' },
@@ -187,20 +196,38 @@ async function queryNeonRows(
   if (lightweight) {
     const snapshot = REALTIME_SNAPSHOT_COLUMNS[table];
     if (snapshot) {
-      let snapshotQuery = buildQuery(`${snapshot.key},${snapshot.timestamp}`);
-      snapshotQuery = snapshotQuery
-        .order(snapshot.timestamp, { ascending: false })
-        .order(snapshot.key, { ascending: false })
-        .limit(1);
+      const cacheKey = JSON.stringify([table, parsedFilters]);
+      const now = Date.now();
+      const cached = realtimeSnapshotCache.get(cacheKey);
+      if (cached && cached.expiresAt > now) {
+        if (cached.data) return cached.data;
+        if (cached.promise) return cached.promise;
+      }
 
-      const { data, error } = await snapshotQuery;
-      if (!error && Array.isArray(data)) {
+      const snapshotPromise = (async () => {
+        let snapshotQuery = buildQuery(`${snapshot.key},${snapshot.timestamp}`);
+        snapshotQuery = snapshotQuery
+          .order(snapshot.timestamp, { ascending: false })
+          .order(snapshot.key, { ascending: false })
+          .limit(1);
+
+        const { data, error } = await snapshotQuery;
+        if (error || !Array.isArray(data)) return null;
         const latest = data[0] as unknown as Record<string, unknown> | undefined;
         return [{
           id: String(latest?.[snapshot.key] ?? '__empty__'),
           updated_at: String(latest?.[snapshot.timestamp] ?? ''),
         }];
+      })();
+
+      const cachedPromise = snapshotPromise.then((data) => data ?? []);
+      realtimeSnapshotCache.set(cacheKey, { expiresAt: now + REALTIME_SNAPSHOT_CACHE_TTL_MS, promise: cachedPromise });
+      const snapshotData = await snapshotPromise;
+      if (snapshotData) {
+        realtimeSnapshotCache.set(cacheKey, { expiresAt: Date.now() + REALTIME_SNAPSHOT_CACHE_TTL_MS, data: snapshotData });
+        return snapshotData;
       }
+      realtimeSnapshotCache.delete(cacheKey);
     }
   }
 
