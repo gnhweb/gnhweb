@@ -30,22 +30,9 @@ async function guards(page: Page) {
     } catch {}
   });
   page.on('console', m => { if (m.type() === 'error' && !/favicon|ResizeObserver|ERR_BLOCKED_BY_CLIENT/i.test(m.text())) consoleErrors.push(m.text()); });
-  page.on('pageerror', e => {
-    if (isWebKit && /\/auth\/get-session due to access control checks\.?$/.test(e.message)) {
-      const authUrl = e.message.match(/https?:\/\/[^\s]+\/auth\/get-session/)?.[0];
-      if (authUrl) {
-        setTimeout(() => {
-          if (successfulAuthProbes.has(authUrl)) {
-            const index = pageErrors.indexOf(e.message);
-            if (index >= 0) pageErrors.splice(index, 1);
-          }
-        }, 400);
-      }
-    }
-    pageErrors.push(e.message);
-  });
+  page.on('pageerror', e => pageErrors.push(e.message));
   page.on('requestfailed', r => { try { const u = new URL(r.url()); const errorText = r.failure()?.errorText || 'unknown'; if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico') && !/Load request cancelled/i.test(errorText)) failedRequests.push(`${r.url()} :: ${errorText}`); } catch {} });
-  return { consoleErrors, pageErrors, failedRequests, successfulAuthProbes };
+  return { consoleErrors, pageErrors, failedRequests, successfulAuthProbes, isWebKit };
 }
 async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof guards>>, allowGuard = true) {
   g.consoleErrors.length = 0; g.pageErrors.length = 0; g.failedRequests.length = 0; g.successfulAuthProbes.clear();
@@ -55,7 +42,12 @@ async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof
   for (const marker of ERROR_MARKERS) expect(body, `${marker} on ${path}`).not.toContain(marker);
   const actual = new URL(page.url()).pathname; expect(actual === path || (allowGuard && GUARD_REDIRECTS.has(actual)), `Unexpected redirect: ${path} -> ${actual}`).toBeTruthy();
   for (const marker of NOT_FOUND_MARKERS) expect(body, `NotFound on ${path}`).not.toContain(marker);
-  expect(g.consoleErrors, `Console errors on ${path}: ${g.consoleErrors.join(' | ')}`).toEqual([]); expect(g.pageErrors, `Page errors on ${path}: ${g.pageErrors.join(' | ')}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}: ${g.failedRequests.join(' | ')}`).toEqual([]);
+  const effectivePageErrors = g.pageErrors.filter(message => {
+    if (!g.isWebKit || !/\/auth\/get-session due to access control checks\.?$/.test(message)) return true;
+    const authUrl = message.match(/https?:\/\/[^\s]+\/auth\/get-session/)?.[0];
+    return !authUrl || !g.successfulAuthProbes.has(authUrl);
+  });
+  expect(g.consoleErrors, `Console errors on ${path}: ${g.consoleErrors.join(' | ')}`).toEqual([]); expect(effectivePageErrors, `Page errors on ${path}: ${effectivePageErrors.join(' | ')}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}: ${g.failedRequests.join(' | ')}`).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), `Horizontal overflow on ${path}`).toBeTruthy();
 }
 async function signIn(page: Page, role: RoleKey) {
