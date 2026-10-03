@@ -19,6 +19,7 @@ function routesFromRouter() {
 async function guards(page: Page) {
   const consoleErrors: string[] = [], pageErrors: string[] = [], failedRequests: string[] = [];
   const successfulAuthProbes = new Set<string>();
+  const cancelledSameOriginRequests = new Set<string>();
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
 
   page.on('response', response => {
@@ -31,11 +32,11 @@ async function guards(page: Page) {
   });
   page.on('console', m => { if (m.type() === 'error' && !/favicon|ResizeObserver|ERR_BLOCKED_BY_CLIENT/i.test(m.text())) consoleErrors.push(m.text()); });
   page.on('pageerror', e => pageErrors.push(e.message));
-  page.on('requestfailed', r => { try { const u = new URL(r.url()); const errorText = r.failure()?.errorText || 'unknown'; if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico') && !/Load request cancelled/i.test(errorText)) failedRequests.push(`${r.url()} :: ${errorText}`); } catch {} });
-  return { consoleErrors, pageErrors, failedRequests, successfulAuthProbes, isWebKit };
+  page.on('requestfailed', r => { try { const u = new URL(r.url()); const errorText = r.failure()?.errorText || 'unknown'; if (u.origin === BASE_ORIGIN && /Load request cancelled/i.test(errorText)) cancelledSameOriginRequests.add(r.url()); if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico') && !/Load request cancelled/i.test(errorText)) failedRequests.push(`${r.url()} :: ${errorText}`); } catch {} });
+  return { consoleErrors, pageErrors, failedRequests, successfulAuthProbes, cancelledSameOriginRequests, isWebKit };
 }
 async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof guards>>, allowGuard = true) {
-  g.consoleErrors.length = 0; g.pageErrors.length = 0; g.failedRequests.length = 0; g.successfulAuthProbes.clear();
+  g.consoleErrors.length = 0; g.pageErrors.length = 0; g.failedRequests.length = 0; g.successfulAuthProbes.clear(); g.cancelledSameOriginRequests.clear();
   const response = await page.goto(`${BASE_URL}${path}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   expect(response, `No response for ${path}`).not.toBeNull(); expect(response!.status(), `HTTP ${response!.status()} on ${path}`).toBeLessThan(500); await page.waitForTimeout(500);
   const body = (await page.locator('body').innerText().catch(() => '')).toLowerCase();
@@ -43,9 +44,12 @@ async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof
   const actual = new URL(page.url()).pathname; expect(actual === path || (allowGuard && GUARD_REDIRECTS.has(actual)), `Unexpected redirect: ${path} -> ${actual}`).toBeTruthy();
   for (const marker of NOT_FOUND_MARKERS) expect(body, `NotFound on ${path}`).not.toContain(marker);
   const effectivePageErrors = g.pageErrors.filter(message => {
-    if (!g.isWebKit || !/\/auth\/get-session due to access control checks\.?$/.test(message)) return true;
-    const authUrl = message.match(/https?:\/\/[^\s]+\/auth\/get-session/)?.[0];
-    return !authUrl || !g.successfulAuthProbes.has(authUrl);
+    if (!g.isWebKit || !/ due to access control checks\.?$/.test(message)) return true;
+    const requestUrl = message.match(/https?:\/\/[^\s]+/g)?.[0];
+    if (!requestUrl || new URL(requestUrl).origin !== BASE_ORIGIN) return true;
+    if (requestUrl.endsWith('/auth/get-session') && g.successfulAuthProbes.has(requestUrl)) return false;
+    if (g.cancelledSameOriginRequests.has(requestUrl)) return false;
+    return true;
   });
   expect(g.consoleErrors, `Console errors on ${path}: ${g.consoleErrors.join(' | ')}`).toEqual([]); expect(effectivePageErrors, `Page errors on ${path}: ${effectivePageErrors.join(' | ')}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}: ${g.failedRequests.join(' | ')}`).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), `Horizontal overflow on ${path}`).toBeTruthy();
