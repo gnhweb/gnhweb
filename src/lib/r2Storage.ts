@@ -5,6 +5,7 @@ type ListOptions = { limit?: number; sortBy?: { column: 'created_at' | 'name'; o
 
 const DEFAULT_R2_STORAGE_URL = 'https://gnhweb-storage.gemini19840314.workers.dev';
 const configuredStorageUrl = (import.meta.env.VITE_R2_STORAGE_URL as string | undefined)?.trim();
+const configuredPublicStorageUrl = (import.meta.env.VITE_R2_PUBLIC_URL as string | undefined)?.trim();
 const baseUrl = (() => {
   if (!configuredStorageUrl) return DEFAULT_R2_STORAGE_URL;
   try {
@@ -34,6 +35,15 @@ const buildUrl = (bucket: string, path: string, params?: URLSearchParams) => {
   // Keep the public bucket segment lowercase so the existing URL-path parser in
   // legacy photo-management screens can extract R2 object paths correctly.
   const urlBucket = normalizedBucket === 'Public' ? 'public' : encodeURIComponent(normalizedBucket);
+  // Public reads can bypass the Storage Worker once an R2 Custom Domain is
+  // configured. Authenticated list/upload/delete operations continue using the
+  // Storage Worker because they require authorization.
+  if (normalizedBucket === 'Public' && configuredPublicStorageUrl) {
+    const publicBaseUrl = configuredPublicStorageUrl.replace(/\/$/, '');
+    const publicUrl = `${publicBaseUrl}/${encodedPath}`;
+    const query = params?.toString();
+    return query ? `${publicUrl}?${query}` : publicUrl;
+  }
   const url = `${baseUrl}/v1/storage/${urlBucket}${encodedPath ? `/${encodedPath}` : ''}`;
   const query = params?.toString();
   return query ? `${url}?${query}` : url;
