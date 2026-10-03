@@ -124,5 +124,6 @@ test.describe('production home calendar', () => {
     await expect(calendar.getByText(eventDate, { exact: true })).toBeVisible();
     await expect(calendar.getByText('E2E 전체 일정', { exact: true })).toBeVisible();
     await expect(calendar.getByText('E2E 새울림 일정', { exact: true })).toBeVisible();
+    await page.unrouteAll({ behavior: 'wait' });
   });
 });
