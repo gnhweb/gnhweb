@@ -15,9 +15,15 @@ test.describe('production home memory carousel', () => {
 
     const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
     const dismissPinPrompt = async () => {
-      if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) {
-        await skipPin.click();
-        await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+      // Neon Auth may render the first-device PIN prompt after the login
+      // redirect. Poll briefly instead of checking visibility only once.
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        if (await skipPin.isVisible({ timeout: 5_000 }).catch(() => false)) {
+          await skipPin.click();
+          await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
+          return;
+        }
+        await page.waitForTimeout(500);
       }
     };
 
