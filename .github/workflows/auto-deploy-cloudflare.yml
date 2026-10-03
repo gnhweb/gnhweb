@@ -125,69 +125,6 @@ jobs:
 
 
 
-  production-home-e2e:
-    name: Verify production home after Pages deploy
-    needs: deploy-site
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      NODE_ENV: development
-      E2E_BASE_URL: https://gnhwebw.pages.dev
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Cache npm and Playwright downloads
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            ~/.cache/ms-playwright
-          key: ${{ runner.os }}-e2e-${{ hashFiles('package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-e2e-${{ hashFiles('package.json') }}-
-            ${{ runner.os }}-e2e-
-      - name: Install test dependencies
-        run: npm install --include=dev --no-audit --no-fund --prefer-offline
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Check production reachability
-        run: |
-          set -euo pipefail
-          for attempt in {1..30}; do
-            status=$(curl -L -s -o /dev/null -w '%{http_code}' "$E2E_BASE_URL")
-            echo "attempt=$attempt status=$status"
-            if [ "$status" -ge 200 ] && [ "$status" -lt 500 ]; then exit 0; fi
-            sleep 10
-          done
-          echo "Production did not become reachable: $E2E_BASE_URL"
-          exit 1
-
-      - name: Verify home memory carousel
-        env:
-          E2E_MISSION_EMAIL: ${{ secrets.E2E_MISSION_EMAIL }}
-          E2E_MISSION_PASSWORD: ${{ secrets.E2E_MISSION_PASSWORD }}
-        run: npx playwright test tests/e2e/home-memory-carousel.spec.ts --project=mobile-chromium
-
-      - name: Verify home calendar event dots
-        env:
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-        run: npx playwright test tests/e2e/home-calendar-production.spec.ts --project=mobile-chromium
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-home-memory-carousel-report
-          path: playwright-report/
-          if-no-files-found: ignore
-
   deploy-realtime:
     name: Deploy gnhweb realtime Worker
     needs: regression-guard
@@ -390,8 +327,8 @@ jobs:
           workingDirectory: workers/ai-gateway
           command: deploy --config wrangler.jsonc
 
-  verify-production-quiz:
-    name: Verify authenticated production Bible quiz
+  verify-production-smoke:
+    name: Verify critical production flows
     needs: [deploy-site, deploy-ai-gateway]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -399,43 +336,6 @@ jobs:
       E2E_BASE_URL: https://gnhwebw.pages.dev
       E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
       E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Cache npm and Playwright downloads
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            ~/.cache/ms-playwright
-          key: ${{ runner.os }}-e2e-${{ hashFiles('package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-e2e-
-      - name: Install test dependencies
-        run: npm install --include=dev --no-audit --no-fund --prefer-offline
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Run authenticated Bible quiz smoke test
-        run: npx playwright test tests/e2e/bible-quiz-production.spec.ts --project=mobile-chromium
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-bible-quiz-report
-          path: playwright-report/
-          if-no-files-found: ignore
-
-  verify-production-attendance:
-    name: Verify authenticated production attendance
-    # E2E_MISSION_* is shared by the home memory and Small Mission tests.
-    # Attendance starts only after the shared-account flow has finished.
-    needs: [deploy-site, verify-production-small-mission]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      E2E_BASE_URL: https://gnhwebw.pages.dev
       E2E_MISSION_EMAIL: ${{ secrets.E2E_MISSION_EMAIL }}
       E2E_MISSION_PASSWORD: ${{ secrets.E2E_MISSION_PASSWORD }}
       E2E_TEACHER_EMAIL: ${{ secrets.E2E_TEACHER_EMAIL }}
@@ -458,57 +358,35 @@ jobs:
         run: npm install --include=dev --no-audit --no-fund --prefer-offline
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run authenticated attendance smoke test
-        run: npx playwright test tests/e2e/attendance-production.spec.ts --project=mobile-chromium
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-attendance-report
-          path: playwright-report/
-          if-no-files-found: ignore
-
-  verify-production-small-mission:
-    name: Verify authenticated production Small Mission
-    # This job shares E2E_MISSION_* with the production home memory test.
-    # Keep the shared Neon Auth account out of concurrent browser sessions.
-    needs: [deploy-site, production-home-e2e]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      E2E_BASE_URL: https://gnhwebw.pages.dev
-      E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-      E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-      E2E_TEACHER_EMAIL: ${{ secrets.E2E_TEACHER_EMAIL }}
-      E2E_TEACHER_PASSWORD: ${{ secrets.E2E_TEACHER_PASSWORD }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Cache npm and Playwright downloads
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            ~/.cache/ms-playwright
-          key: ${{ runner.os }}-e2e-${{ hashFiles('package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-e2e-
-      - name: Install test dependencies
-        run: npm install --include=dev --no-audit --no-fund --prefer-offline
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Run authenticated Small Mission smoke test
+      - name: Check production reachability
+        run: |
+          set -euo pipefail
+          for attempt in {1..18}; do
+            status=$(curl -L -s -o /dev/null -w '%{http_code}' "$E2E_BASE_URL")
+            echo "attempt=$attempt status=$status"
+            if [ "$status" -ge 200 ] && [ "$status" -lt 500 ]; then exit 0; fi
+            sleep 5
+          done
+          echo "Production did not become reachable: $E2E_BASE_URL"
+          exit 1
+      # Shared E2E accounts are intentionally exercised serially.
+      - name: Verify home memory carousel
+        run: npx playwright test tests/e2e/home-memory-carousel.spec.ts --project=mobile-chromium
+      - name: Verify home calendar event dots
+        run: npx playwright test tests/e2e/home-calendar-production.spec.ts --project=mobile-chromium
+      - name: Verify authenticated Small Mission
         run: npx playwright test tests/e2e/small-mission-production.spec.ts --project=mobile-chromium
+      - name: Verify authenticated attendance
+        run: npx playwright test tests/e2e/attendance-production.spec.ts --project=mobile-chromium
+      - name: Verify authenticated Bible quiz
+        run: npx playwright test tests/e2e/bible-quiz-production.spec.ts --project=mobile-chromium
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: production-small-mission-report
+          name: production-critical-smoke-report
           path: playwright-report/
           if-no-files-found: ignore
-
   verify-ai-gateway:
     name: Verify AI gateway
     needs: deploy-ai-gateway
