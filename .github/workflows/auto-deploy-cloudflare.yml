@@ -360,7 +360,7 @@ jobs:
       - name: Install test dependencies
         run: npm install --include=dev --no-audit --no-fund --prefer-offline
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
       - name: Check production reachability
         run: |
           set -euo pipefail
