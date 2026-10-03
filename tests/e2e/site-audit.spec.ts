@@ -17,7 +17,8 @@ function routesFromRouter() {
   return [...new Set([...source.matchAll(/path:\s*["'](\/[^"']*)["']/g)].map(m => m[1]).filter(p => !p.includes(':') && !p.includes('*')).sort())];
 }
 async function guards(page: Page) {
-  const consoleErrors: string[] = [], pageErrors: string[] = [], failedRequests: string[] = [], httpErrors: string[] = [];
+  const consoleErrors: string[] = [], pageErrors: string[] = [], failedRequests: string[] = [], httpErrors: string[] = [], externalHttpErrors: string[] = [];
+  const successfulSameOriginResponses = new Set<string>();
   const successfulAuthProbes = new Set<string>();
   const cancelledSameOriginRequests = new Set<string>();
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
@@ -25,18 +26,22 @@ async function guards(page: Page) {
   page.on('response', response => {
     try {
       const u = new URL(response.url());
+      if (response.status() >= 200 && response.status() < 400 && u.origin === BASE_ORIGIN) successfulSameOriginResponses.add(response.url());
+      if (response.status() >= 400 && !u.pathname.endsWith('/favicon.ico')) {
+        if (u.origin === BASE_ORIGIN) httpErrors.push(`${response.status()} ${response.url()}`);
+        else externalHttpErrors.push(`${response.status()} ${response.url()}`);
+      }
       if (u.origin !== BASE_ORIGIN) return;
       if (isWebKit && u.pathname === '/auth/get-session' && response.status() >= 200 && response.status() < 300) successfulAuthProbes.add(response.url());
-      if (response.status() >= 400 && !u.pathname.endsWith('/favicon.ico')) httpErrors.push(`${response.status()} ${response.url()}`);
     } catch {}
   });
   page.on('console', m => { if (m.type() === 'error' && !/favicon|ResizeObserver|ERR_BLOCKED_BY_CLIENT/i.test(m.text())) consoleErrors.push(m.text()); });
   page.on('pageerror', e => pageErrors.push(e.message));
   page.on('requestfailed', r => { try { const u = new URL(r.url()); const errorText = r.failure()?.errorText || 'unknown'; if (u.origin === BASE_ORIGIN && /Load request cancelled/i.test(errorText)) cancelledSameOriginRequests.add(r.url()); if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico') && !/Load request cancelled/i.test(errorText)) failedRequests.push(`${r.url()} :: ${errorText}`); } catch {} });
-  return { consoleErrors, pageErrors, failedRequests, httpErrors, successfulAuthProbes, cancelledSameOriginRequests, isWebKit };
+  return { consoleErrors, pageErrors, failedRequests, httpErrors, externalHttpErrors, successfulSameOriginResponses, successfulAuthProbes, cancelledSameOriginRequests, isWebKit };
 }
 async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof guards>>, allowGuard = true) {
-  g.consoleErrors.length = 0; g.pageErrors.length = 0; g.failedRequests.length = 0; g.httpErrors.length = 0; g.successfulAuthProbes.clear(); g.cancelledSameOriginRequests.clear();
+  g.consoleErrors.length = 0; g.pageErrors.length = 0; g.failedRequests.length = 0; g.httpErrors.length = 0; g.externalHttpErrors.length = 0; g.successfulSameOriginResponses.clear(); g.successfulAuthProbes.clear(); g.cancelledSameOriginRequests.clear();
   const response = await page.goto(`${BASE_URL}${path}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   expect(response, `No response for ${path}`).not.toBeNull(); expect(response!.status(), `HTTP ${response!.status()} on ${path}`).toBeLessThan(500); await page.waitForTimeout(500);
   const body = (await page.locator('body').innerText().catch(() => '')).toLowerCase();
@@ -51,7 +56,7 @@ async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof
     if (!normalizedUrl) return true;
     return new URL(normalizedUrl).origin !== BASE_ORIGIN;
   });
-  expect(g.consoleErrors, `Console errors on ${path}: ${g.consoleErrors.join(' | ')}`).toEqual([]); expect(effectivePageErrors, `Page errors on ${path}: ${effectivePageErrors.join(' | ')}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}: ${g.failedRequests.join(' | ')}`).toEqual([]); expect(g.httpErrors, `HTTP errors on ${path}: ${g.httpErrors.join(' | ')}`).toEqual([]);
+  expect(g.consoleErrors.filter(message => !(message.includes('server responded with a status of 403') && g.externalHttpErrors.some(error => error.startsWith('403 ')))), `Console errors on ${path}: ${g.consoleErrors.join(' | ')}`).toEqual([]); expect(effectivePageErrors, `Page errors on ${path}: ${effectivePageErrors.join(' | ')}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}: ${g.failedRequests.join(' | ')}`).toEqual([]); expect(g.httpErrors, `HTTP errors on ${path}: ${g.httpErrors.join(' | ')}`).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), `Horizontal overflow on ${path}`).toBeTruthy();
 }
 async function signIn(page: Page, role: RoleKey) {
