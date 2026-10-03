@@ -43,6 +43,11 @@ async function runStage(concurrency, stageHoldMs = holdMs) {
     let domContentLoadedMs = 0;
     let requestCount = 0;
     let serverErrorCount = 0;
+    let firstPaintMs = 0;
+    let firstContentfulPaintMs = 0;
+    let largestContentfulPaintMs = 0;
+    let longTaskCount = 0;
+    let longTaskTotalMs = 0;
     const requestTargets = new Map();
     const failedRequests = [];
     const recordResponse = (response) => {
@@ -76,18 +81,32 @@ async function runStage(concurrency, stageHoldMs = holdMs) {
         error = `HTTP ${status || 'no-response'}`;
       } else {
         const timing = await page.evaluate(() => {
-          const entry = performance.getEntriesByType('navigation')[0];
-          if (!entry) return null;
+          const navigation = performance.getEntriesByType('navigation')[0];
+          const paintEntries = performance.getEntriesByType('paint');
+          const fcp = paintEntries.find((entry) => entry.name === 'first-contentful-paint');
+          const lcpEntries = performance.getEntriesByType('largest-contentful-paint');
+          const lcp = lcpEntries[lcpEntries.length - 1];
+          const longTasks = performance.getEntriesByType('longtask');
           return {
-            responseStart: entry.responseStart,
-            requestStart: entry.requestStart,
-            domContentLoadedEventEnd: entry.domContentLoadedEventEnd,
-            startTime: entry.startTime,
+            responseStart: navigation?.responseStart ?? 0,
+            requestStart: navigation?.requestStart ?? 0,
+            domContentLoadedEventEnd: navigation?.domContentLoadedEventEnd ?? 0,
+            startTime: navigation?.startTime ?? 0,
+            firstPaint: paintEntries.find((entry) => entry.name === 'first-paint')?.startTime ?? 0,
+            firstContentfulPaint: fcp?.startTime ?? 0,
+            largestContentfulPaint: lcp?.startTime ?? 0,
+            longTaskCount: longTasks.length,
+            longTaskTotal: longTasks.reduce((sum, entry) => sum + entry.duration, 0),
           };
         });
         if (timing) {
           ttfbMs = Math.round(timing.responseStart - timing.requestStart);
           domContentLoadedMs = Math.round(timing.domContentLoadedEventEnd - timing.startTime);
+          firstPaintMs = Math.round(timing.firstPaint);
+          firstContentfulPaintMs = Math.round(timing.firstContentfulPaint);
+          largestContentfulPaintMs = Math.round(timing.largestContentfulPaint);
+          longTaskCount = timing.longTaskCount;
+          longTaskTotalMs = Math.round(timing.longTaskTotal);
         }
         await page.waitForTimeout(stageHoldMs);
       }
@@ -98,6 +117,11 @@ async function runStage(concurrency, stageHoldMs = holdMs) {
         durationMs: Math.round(performance.now() - start),
         ttfbMs,
         domContentLoadedMs,
+        firstPaintMs,
+        firstContentfulPaintMs,
+        largestContentfulPaintMs,
+        longTaskCount,
+        longTaskTotalMs,
         status,
         error,
         requestCount,
@@ -115,6 +139,11 @@ async function runStage(concurrency, stageHoldMs = holdMs) {
   const durations = results.map((result) => result.durationMs);
   const ttfbValues = results.map((result) => result.ttfbMs).filter((value) => value > 0);
   const domContentLoadedValues = results.map((result) => result.domContentLoadedMs).filter((value) => value > 0);
+  const firstPaintValues = results.map((result) => result.firstPaintMs).filter((value) => value > 0);
+  const firstContentfulPaintValues = results.map((result) => result.firstContentfulPaintMs).filter((value) => value > 0);
+  const largestContentfulPaintValues = results.map((result) => result.largestContentfulPaintMs).filter((value) => value > 0);
+  const longTaskCounts = results.map((result) => result.longTaskCount);
+  const longTaskTotals = results.map((result) => result.longTaskTotalMs);
   const failures = results.filter((result) => result.error || result.status >= 500 || result.serverErrorCount > 0);
   const totalRequests = results.reduce((sum, result) => sum + result.requestCount, 0);
   const requestTargets = {};
@@ -146,6 +175,16 @@ async function runStage(concurrency, stageHoldMs = holdMs) {
     ttfbP95Ms: percentile(ttfbValues, 95),
     domContentLoadedMedianMs: percentile(domContentLoadedValues, 50),
     domContentLoadedP95Ms: percentile(domContentLoadedValues, 95),
+    firstPaintMedianMs: percentile(firstPaintValues, 50),
+    firstPaintP95Ms: percentile(firstPaintValues, 95),
+    firstContentfulPaintMedianMs: percentile(firstContentfulPaintValues, 50),
+    firstContentfulPaintP95Ms: percentile(firstContentfulPaintValues, 95),
+    largestContentfulPaintMedianMs: percentile(largestContentfulPaintValues, 50),
+    largestContentfulPaintP95Ms: percentile(largestContentfulPaintValues, 95),
+    longTaskCountMedian: percentile(longTaskCounts, 50),
+    longTaskCountP95: percentile(longTaskCounts, 95),
+    longTaskTotalMedianMs: percentile(longTaskTotals, 50),
+    longTaskTotalP95Ms: percentile(longTaskTotals, 95),
     elapsedMs: Math.round(performance.now() - startedAt),
     serverErrorCount: results.reduce((sum, result) => sum + result.serverErrorCount, 0),
     sampleErrors: failures.slice(0, 5).flatMap((result) => result.failedRequests.length ? result.failedRequests : [result.error || `HTTP ${result.status}`]).slice(0, 10),
