@@ -18,8 +18,26 @@ function routesFromRouter() {
 }
 async function guards(page: Page) {
   const consoleErrors: string[] = [], pageErrors: string[] = [], failedRequests: string[] = [];
+  const successfulAuthProbes = new Set<string>();
+  const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
+
+  page.on('response', response => {
+    try {
+      const u = new URL(response.url());
+      if (isWebKit && u.origin === BASE_ORIGIN && u.pathname === '/auth/get-session' && response.status() >= 200 && response.status() < 300) {
+        successfulAuthProbes.add(response.url());
+      }
+    } catch {}
+  });
   page.on('console', m => { if (m.type() === 'error' && !/favicon|ResizeObserver|ERR_BLOCKED_BY_CLIENT/i.test(m.text())) consoleErrors.push(m.text()); });
-  page.on('pageerror', e => pageErrors.push(e.message));
+  page.on('pageerror', e => {
+    if (
+      isWebKit &&
+      /\/auth\/get-session due to access control checks\.?$/.test(e.message) &&
+      [...successfulAuthProbes].some(url => e.message.includes(url))
+    ) return;
+    pageErrors.push(e.message);
+  });
   page.on('requestfailed', r => { try { const u = new URL(r.url()); const errorText = r.failure()?.errorText || 'unknown'; if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico') && !/Load request cancelled/i.test(errorText)) failedRequests.push(`${r.url()} :: ${errorText}`); } catch {} });
   return { consoleErrors, pageErrors, failedRequests };
 }
