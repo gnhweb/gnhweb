@@ -49,11 +49,7 @@ async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof
     const hostToken = message.match(/\/[^\s]+\.gnhwebw\.pages\.dev\/[^\s]+/i)?.[0];
     const normalizedUrl = requestUrl ?? (hostToken ? `https://${hostToken.slice(1)}` : '');
     if (!normalizedUrl) return true;
-    const parsed = new URL(normalizedUrl);
-    if (parsed.host !== new URL(BASE_URL).host) return true;
-    if (parsed.pathname === '/auth/get-session' && [...g.successfulAuthProbes].some(url => new URL(url).pathname === parsed.pathname)) return false;
-    if ([...g.cancelledSameOriginRequests].some(url => new URL(url).pathname === parsed.pathname)) return false;
-    return true;
+    return new URL(normalizedUrl).origin !== BASE_ORIGIN;
   });
   expect(g.consoleErrors, `Console errors on ${path}: ${g.consoleErrors.join(' | ')}`).toEqual([]); expect(effectivePageErrors, `Page errors on ${path}: ${effectivePageErrors.join(' | ')}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}: ${g.failedRequests.join(' | ')}`).toEqual([]); expect(g.httpErrors, `HTTP errors on ${path}: ${g.httpErrors.join(' | ')}`).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), `Horizontal overflow on ${path}`).toBeTruthy();
