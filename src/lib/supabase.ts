@@ -142,7 +142,10 @@ const LIGHTWEIGHT_REALTIME_CHANNELS = new Set([
 ]);
 
 function isLightweightRealtimeChannel(name: string): boolean {
-  return LIGHTWEIGHT_REALTIME_CHANNELS.has(name) || name.startsWith('notifications-menu-counts-');
+  return LIGHTWEIGHT_REALTIME_CHANNELS.has(name)
+    || name.startsWith('notifications-menu-counts-')
+    || name.startsWith('notifications-count-')
+    || name.startsWith('profile-realtime-');
 }
 
 function extractEqFilter(filter?: string): { field: string; value: string } | null {
@@ -151,6 +154,18 @@ function extractEqFilter(filter?: string): { field: string; value: string } | nu
   if (!match) return null;
   return { field: match[1], value: decodeURIComponent(match[2]) };
 }
+
+const REALTIME_SNAPSHOT_COLUMNS: Record<string, { key: string; timestamp: string }> = {
+  user_roles: { key: 'user_id', timestamp: 'updated_at' },
+  user_role_assignments: { key: 'id', timestamp: 'created_at' },
+  user_club_assignments: { key: 'id', timestamp: 'created_at' },
+  quiz_scores: { key: 'id', timestamp: 'created_at' },
+  bible_marathon_entries: { key: 'id', timestamp: 'created_at' },
+  schedules: { key: 'id', timestamp: 'updated_at' },
+  attendance: { key: 'id', timestamp: 'checked_in_at' },
+  attendance_locations: { key: 'id', timestamp: 'updated_at' },
+  notifications: { key: 'id', timestamp: 'created_at' },
+};
 
 async function queryNeonRows(
   table: string,
@@ -169,9 +184,27 @@ async function queryNeonRows(
     return query;
   };
 
-  const columns = lightweight
-    ? ['id', 'updated_at', ...parsedFilters.map((filter) => filter.field)]
-    : ['*'];
+  if (lightweight) {
+    const snapshot = REALTIME_SNAPSHOT_COLUMNS[table];
+    if (snapshot) {
+      let snapshotQuery = buildQuery(`${snapshot.key},${snapshot.timestamp}`);
+      snapshotQuery = snapshotQuery
+        .order(snapshot.timestamp, { ascending: false })
+        .order(snapshot.key, { ascending: false })
+        .limit(1);
+
+      const { data, error } = await snapshotQuery;
+      if (!error && Array.isArray(data)) {
+        const latest = data[0] as Record<string, unknown> | undefined;
+        return [{
+          id: String(latest?.[snapshot.key] ?? '__empty__'),
+          updated_at: String(latest?.[snapshot.timestamp] ?? ''),
+        }];
+      }
+    }
+  }
+
+  const columns = ['*'];
   const uniqueColumns = [...new Set(columns)].join(',');
 
   const { data, error } = await buildQuery(uniqueColumns);
@@ -321,6 +354,7 @@ export const supabase = new Proxy(neonDataClient, {
             neonDataClient.channel(name, options),
             queryNeonRows,
             isLightweightRealtimeChannel(name),
+            name,
           );
         };
       case 'removeChannel':
