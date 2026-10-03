@@ -39,7 +39,7 @@ async function guards(page: Page) {
             const index = pageErrors.indexOf(e.message);
             if (index >= 0) pageErrors.splice(index, 1);
           }
-        }, 750);
+        }, 400);
       }
     }
     pageErrors.push(e.message);
