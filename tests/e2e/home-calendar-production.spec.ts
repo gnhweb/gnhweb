@@ -20,53 +20,49 @@ test.describe('production home calendar', () => {
       const response = await route.fetch();
       const schedules = (await response.json()) as Array<Record<string, unknown>>;
       const injectedSchedules = [
-          {
-            id: 'e2e-calendar-general',
-            title: 'E2E 전체 일정',
-            description: null,
-            event_date: eventDate,
-            event_time: null,
-            location: null,
-            target_club: null,
-          },
-          {
-            id: 'e2e-calendar-saeullim',
-            title: 'E2E 새울림 일정',
-            description: null,
-            event_date: eventDate,
-            event_time: null,
-            location: null,
-            target_club: 'saeullim',
-          },
-          {
-            id: 'e2e-calendar-cheonjipoong',
-            title: 'E2E 천지풍 일정',
-            description: null,
-            event_date: eventDate,
-            event_time: null,
-            location: null,
-            target_club: 'cheonjipoong',
-          },
-          {
-            id: 'e2e-calendar-cheonjihu',
-            title: 'E2E 천지후 일정',
-            description: null,
-            event_date: eventDate,
-            event_time: null,
-            location: null,
-            target_club: 'cheonjihu',
-          },
-        ];
+        {
+          id: 'e2e-calendar-general',
+          title: 'E2E 전체 일정',
+          description: null,
+          event_date: eventDate,
+          event_time: null,
+          location: null,
+          target_club: null,
+        },
+        {
+          id: 'e2e-calendar-saeullim',
+          title: 'E2E 새울림 일정',
+          description: null,
+          event_date: eventDate,
+          event_time: null,
+          location: null,
+          target_club: 'saeullim',
+        },
+        {
+          id: 'e2e-calendar-cheonjipoong',
+          title: 'E2E 천지풍 일정',
+          description: null,
+          event_date: eventDate,
+          event_time: null,
+          location: null,
+          target_club: 'cheonjipoong',
+        },
+        {
+          id: 'e2e-calendar-cheonjihu',
+          title: 'E2E 천지후 일정',
+          description: null,
+          event_date: eventDate,
+          event_time: null,
+          location: null,
+          target_club: 'cheonjihu',
+        },
+      ];
 
-        await route.fulfill({
-          status: response.status(),
-          headers: response.headers(),
-          body: JSON.stringify([...schedules, ...injectedSchedules]),
-        });
-        return;
-      }
-
-      await route.continue();
+      await route.fulfill({
+        status: response.status(),
+        headers: response.headers(),
+        body: JSON.stringify([...schedules, ...injectedSchedules]),
+      });
     });
 
     await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: 45_000 });
