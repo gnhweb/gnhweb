@@ -69,8 +69,9 @@ test.describe('production memory board CRUD', () => {
       expect(insertResponse.ok()).toBeTruthy();
 
       uploaded = true;
-      await expect(page.getByText(title, { exact: true })).toBeVisible({ timeout: 30_000 });
-      await page.getByText(title, { exact: true }).click();
+      const uploadedPhoto = page.getByRole('img', { name: title, exact: true });
+      await expect(uploadedPhoto).toBeVisible({ timeout: 30_000 });
+      await uploadedPhoto.click();
 
       const storageDeletePromise = page.waitForResponse(
         response =>
@@ -98,7 +99,7 @@ test.describe('production memory board CRUD', () => {
       uploaded = false;
     } finally {
       if (uploaded) {
-        const card = page.getByText(title, { exact: true }).first();
+        const card = page.getByRole('img', { name: title, exact: true }).first();
         if (await card.isVisible().catch(() => false)) {
           await card.click().catch(() => {});
           await page.getByRole('button', { name: '삭제', exact: true }).click().catch(() => {});
