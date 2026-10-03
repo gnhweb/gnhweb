@@ -3,7 +3,7 @@ import { chromium } from '@playwright/test';
 import { performance } from 'node:perf_hooks';
 
 const baseUrl = (process.env.LOAD_TEST_BASE_URL || 'https://gnhwebw.pages.dev').replace(/\/$/, '');
-const stages = [1, 10, 30, 50, 100, 200];
+const stages = [1, 10, 30, 50, 75, 100];
 const holdMs = Number(process.env.LOAD_TEST_HOLD_MS || 10_000);
 const navigationTimeoutMs = Number(process.env.LOAD_TEST_NAVIGATION_TIMEOUT_MS || 30_000);
 
