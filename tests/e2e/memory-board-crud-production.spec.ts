@@ -35,7 +35,7 @@ test.describe('production memory board CRUD', () => {
       await signIn(page, email!, password!);
       await page.goto(`${BASE_URL}/memory-board`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
 
-      const uploadButton = page.getByRole('button', { name: '사진 올리기', exact: true });
+      const uploadButton = page.getByRole('button', { name: /사진 올리기/ });
       const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
 
       await Promise.race([
