@@ -18,10 +18,10 @@ const baseUrl = (() => {
   }
 })();
 
-const getAccessToken = async (): Promise<string | null> => {
+const getAccessToken = async (forceRefresh = false): Promise<string | null> => {
   const auth = (await import('@/lib/neon')).neon.auth;
   try {
-    return (await auth.getJWTToken?.(false)) ?? null;
+    return (await auth.getJWTToken?.(forceRefresh)) ?? null;
   } catch {
     return null;
   }
@@ -130,7 +130,9 @@ class R2BucketClient {
   getPublicUrl(path: string) { return { data: { publicUrl: buildUrl(this.bucket, path) } }; }
 
   async remove(paths: string[]) {
-    const token = await getAccessToken();
+    // 삭제는 장시간 열어 둔 관리자 화면에서도 실패하지 않도록
+    // 최신 JWT를 확인한다. 업로드/목록은 기존 세션 토큰 경로를 유지한다.
+    const token = await getAccessToken(true);
     if (!token) throw new Error('로그인이 필요합니다.');
     const form = new FormData();
     form.set('action', 'delete');
