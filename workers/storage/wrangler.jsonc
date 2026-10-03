@@ -3,6 +3,9 @@
   "name": "gnhweb-storage",
   "compatibility_date": "2026-09-09",
   "main": "src/index.ts",
+  "cache": {
+    "enabled": true
+  },
   "r2_buckets": [
     {
       "binding": "STORAGE",

@@ -90,13 +90,21 @@ async function verifyJwt(token: string, env: Env): Promise<Record<string, unknow
 }
 async function requireAuth(request: Request, env: Env): Promise<Record<string, unknown>> { const authorization = request.headers.get('authorization'); if (!authorization?.startsWith('Bearer ')) throw new Error('Unauthorized'); return verifyJwt(authorization.slice('Bearer '.length).trim(), env); }
 function objectKey(request: Request): string | null { const url = new URL(request.url); const prefix = '/v1/storage/'; if (!url.pathname.startsWith(prefix)) return null; const key = decodeURIComponent(url.pathname.slice(prefix.length)); return key || null; }
-function objectResponse(object: R2ObjectBody, origin: string, env: Env, publicObject = false): Response {
+function objectResponse(object: R2ObjectBody, origin: string, env: Env, publicObject = false, cacheTag?: string): Response {
   const headers = new Headers(corsHeaders(origin, env.ALLOWED_ORIGIN));
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
   headers.set('cache-control', 'public, max-age=31536000, immutable');
-  if (publicObject) headers.set('access-control-allow-origin', '*');
+  if (publicObject) {
+    headers.set('access-control-allow-origin', '*');
+    if (cacheTag) headers.set('cache-tag', cacheTag);
+  }
   return new Response(object.body, { headers });
+}
+
+function publicObjectCacheTag(path: string): string {
+  const normalized = path.replace(/^public\//i, '').replace(/^Public\//, '');
+  return `storage-${normalized.replace(/[^A-Za-z0-9_-]/g, '_')}`;
 }
 
 function publicCacheRequest(url: string): Request {
@@ -122,9 +130,13 @@ function publicObjectUrls(request: Request, paths: string[]): string[] {
 }
 
 async function purgePublicObjectCache(request: Request, paths: string[], ctx: ExecutionContext): Promise<void> {
-  const urls = publicObjectUrls(request, paths);
-  if (!urls.length) return;
-  ctx.waitUntil(Promise.all(urls.map(url => caches.default.delete(publicCacheRequest(url)))));
+  const normalizedPaths = [...new Set(paths.map(value => value.replace(/^public\//i, '').replace(/^Public\//, '')).filter(Boolean))];
+  if (!normalizedPaths.length) return;
+  const urls = publicObjectUrls(request, normalizedPaths);
+  const tags = normalizedPaths.map(publicObjectCacheTag);
+  const manualPurge = Promise.all(urls.map(url => caches.default.delete(publicCacheRequest(url)))).catch(() => undefined);
+  const workersCachePurge = ctx.cache.purge({ tags }).catch(() => undefined);
+  ctx.waitUntil(Promise.all([manualPurge, workersCachePurge]));
 }
 function toStorageItem(object: R2Object, name = object.key): Record<string, unknown> { return { name, id: object.httpEtag, metadata: { size: object.size, mimetype: object.httpMetadata?.contentType, lastModified: object.uploaded.toISOString() }, created_at: object.uploaded.toISOString() }; }
 function isOwnMemoryPath(path: string, userId: string): boolean { return path.startsWith(`memories/${userId}/`); }
@@ -187,6 +199,7 @@ if (isPublic && transform) {
     const headers = new Headers(transformedResponse.headers);
     headers.set('cache-control', 'public, max-age=31536000, immutable');
     headers.set('access-control-allow-origin', '*');
+    headers.set('cache-tag', publicObjectCacheTag(storageKey));
     const response = new Response(transformedResponse.body, { status: transformedResponse.status, headers });
     ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
     return response;
@@ -199,7 +212,7 @@ const cached = await caches.default.match(cacheKey);
 if (cached) return cached;
 const object = await env.STORAGE.get(storageKey);
 if (!object) return json({ error: 'Not found' }, 404, cors);
-const response = objectResponse(object, origin, env, true);
+const response = objectResponse(object, origin, env, true, publicObjectCacheTag(storageKey));
 ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
 return response; }
 if (request.method === 'POST') {
