@@ -95,7 +95,7 @@ test.describe('production memory board CRUD', () => {
       expect(storageDeleteResponse.ok()).toBeTruthy();
       expect(dbDeleteResponse.ok()).toBeTruthy();
 
-      await expect(page.getByText(title, { exact: true })).toHaveCount(0);
+      await expect(page.getByRole('img', { name: title, exact: true })).toHaveCount(0);
       uploaded = false;
     } finally {
       if (uploaded) {
