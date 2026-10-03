@@ -17,7 +17,7 @@ function routesFromRouter() {
   return [...new Set([...source.matchAll(/path:\s*["'](\/[^"']*)["']/g)].map(m => m[1]).filter(p => !p.includes(':') && !p.includes('*')).sort())];
 }
 async function guards(page: Page) {
-  const consoleErrors: string[] = [], pageErrors: string[] = [], failedRequests: string[] = [];
+  const consoleErrors: string[] = [], pageErrors: string[] = [], failedRequests: string[] = [], httpErrors: string[] = [];
   const successfulAuthProbes = new Set<string>();
   const cancelledSameOriginRequests = new Set<string>();
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
@@ -25,18 +25,18 @@ async function guards(page: Page) {
   page.on('response', response => {
     try {
       const u = new URL(response.url());
-      if (isWebKit && u.origin === BASE_ORIGIN && u.pathname === '/auth/get-session' && response.status() >= 200 && response.status() < 300) {
-        successfulAuthProbes.add(response.url());
-      }
+      if (u.origin !== BASE_ORIGIN) return;
+      if (isWebKit && u.pathname === '/auth/get-session' && response.status() >= 200 && response.status() < 300) successfulAuthProbes.add(response.url());
+      if (response.status() >= 400 && !u.pathname.endsWith('/favicon.ico')) httpErrors.push(`${response.status()} ${response.url()}`);
     } catch {}
   });
   page.on('console', m => { if (m.type() === 'error' && !/favicon|ResizeObserver|ERR_BLOCKED_BY_CLIENT/i.test(m.text())) consoleErrors.push(m.text()); });
   page.on('pageerror', e => pageErrors.push(e.message));
   page.on('requestfailed', r => { try { const u = new URL(r.url()); const errorText = r.failure()?.errorText || 'unknown'; if (u.origin === BASE_ORIGIN && /Load request cancelled/i.test(errorText)) cancelledSameOriginRequests.add(r.url()); if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico') && !/Load request cancelled/i.test(errorText)) failedRequests.push(`${r.url()} :: ${errorText}`); } catch {} });
-  return { consoleErrors, pageErrors, failedRequests, successfulAuthProbes, cancelledSameOriginRequests, isWebKit };
+  return { consoleErrors, pageErrors, failedRequests, httpErrors, successfulAuthProbes, cancelledSameOriginRequests, isWebKit };
 }
 async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof guards>>, allowGuard = true) {
-  g.consoleErrors.length = 0; g.pageErrors.length = 0; g.failedRequests.length = 0; g.successfulAuthProbes.clear(); g.cancelledSameOriginRequests.clear();
+  g.consoleErrors.length = 0; g.pageErrors.length = 0; g.failedRequests.length = 0; g.httpErrors.length = 0; g.successfulAuthProbes.clear(); g.cancelledSameOriginRequests.clear();
   const response = await page.goto(`${BASE_URL}${path}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   expect(response, `No response for ${path}`).not.toBeNull(); expect(response!.status(), `HTTP ${response!.status()} on ${path}`).toBeLessThan(500); await page.waitForTimeout(500);
   const body = (await page.locator('body').innerText().catch(() => '')).toLowerCase();
@@ -45,15 +45,17 @@ async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof
   for (const marker of NOT_FOUND_MARKERS) expect(body, `NotFound on ${path}`).not.toContain(marker);
   const effectivePageErrors = g.pageErrors.filter(message => {
     if (!g.isWebKit || !/ due to access control checks\.?$/.test(message)) return true;
-    const requestUrl = message.match(/https?:\/\/[^\s]+|\/[^\s]+/)?.[0];
-    if (!requestUrl) return true;
-    const normalizedUrl = new URL(requestUrl, BASE_URL).toString();
-    if (new URL(normalizedUrl).origin !== BASE_ORIGIN) return true;
-    if (normalizedUrl.endsWith('/auth/get-session') && g.successfulAuthProbes.has(normalizedUrl)) return false;
-    if (g.cancelledSameOriginRequests.has(normalizedUrl)) return false;
+    const requestUrl = message.match(/https?:\/\/[^\s]+/i)?.[0];
+    const hostToken = message.match(/\/[^\s]+\.gnhwebw\.pages\.dev\/[^\s]+/i)?.[0];
+    const normalizedUrl = requestUrl ?? (hostToken ? `https://${hostToken.slice(1)}` : '');
+    if (!normalizedUrl) return true;
+    const parsed = new URL(normalizedUrl);
+    if (parsed.host !== new URL(BASE_URL).host) return true;
+    if (parsed.pathname === '/auth/get-session' && [...g.successfulAuthProbes].some(url => new URL(url).pathname === parsed.pathname)) return false;
+    if ([...g.cancelledSameOriginRequests].some(url => new URL(url).pathname === parsed.pathname)) return false;
     return true;
   });
-  expect(g.consoleErrors, `Console errors on ${path}: ${g.consoleErrors.join(' | ')}`).toEqual([]); expect(effectivePageErrors, `Page errors on ${path}: ${effectivePageErrors.join(' | ')}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}: ${g.failedRequests.join(' | ')}`).toEqual([]);
+  expect(g.consoleErrors, `Console errors on ${path}: ${g.consoleErrors.join(' | ')}`).toEqual([]); expect(effectivePageErrors, `Page errors on ${path}: ${effectivePageErrors.join(' | ')}`).toEqual([]); expect(g.failedRequests, `Failed same-origin requests on ${path}: ${g.failedRequests.join(' | ')}`).toEqual([]); expect(g.httpErrors, `HTTP errors on ${path}: ${g.httpErrors.join(' | ')}`).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2), `Horizontal overflow on ${path}`).toBeTruthy();
 }
 async function signIn(page: Page, role: RoleKey) {
