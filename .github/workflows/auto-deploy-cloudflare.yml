@@ -397,6 +397,10 @@ jobs:
     needs: deploy-ai-gateway
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: POST /nim-mbti smoke test
         run: |
           set -euo pipefail
@@ -423,3 +427,12 @@ jobs:
             echo 'Fallback response detected'
             exit 1
           fi
+      - name: Run Bible pick quality scenarios
+        run: node scripts/bible-pick-quality.mjs
+      - name: Upload Bible pick quality report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bible-pick-quality-results
+          path: bible-pick-quality-results.json
+          if-no-files-found: ignore
