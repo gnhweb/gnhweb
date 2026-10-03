@@ -6,8 +6,6 @@ export async function onRequest(context: { request: Request }): Promise<Response
   const upstreamUrl = new URL(NEON_AUTH_BASE_URL + upstreamPath);
   upstreamUrl.search = url.search;
 
-  const upstreamHeaders = new Headers(context.request.headers);
-  upstreamHeaders.set('Origin', url.origin);
   const upstreamRequest = new Request(upstreamUrl, context.request);
   upstreamRequest.headers.set('Origin', url.origin);
 
