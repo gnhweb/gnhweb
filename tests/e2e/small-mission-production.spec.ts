@@ -101,6 +101,12 @@ test.describe('production Small Mission authenticated flow', () => {
         // inserting or deleting production test data.
         await studentPage.goto(`${BASE_URL}/missions/board`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
         await expect(studentPage.getByRole('heading', { name: '내 작은 사명', exact: true })).toBeVisible({ timeout: 30_000 });
+
+        const noAssignedMission = studentPage.getByText('맡은 작은 사명이 없습니다', { exact: true });
+        if (await noAssignedMission.isVisible({ timeout: 5_000 }).catch(() => false)) {
+          test.skip(true, 'E2E 학생 계정에 맡겨진 작은 사명이 없어 Small Mission 상태 전환을 검증할 수 없습니다.');
+        }
+
         const reusableCard = studentPage
           .locator('div.bg-background-100.border.rounded-card.p-4')
           .first();
