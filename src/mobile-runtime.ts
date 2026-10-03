@@ -103,7 +103,6 @@ function enableLazyImages() {
 function addExternalResourceHints() {
   if (typeof document === 'undefined') return;
   const hosts = [
-    'https://readdy.ai',
     'https://cdnjs.cloudflare.com',
     'https://fonts.googleapis.com',
     'https://fonts.gstatic.com',
