@@ -129,8 +129,9 @@ jobs:
     timeout-minutes: 30
     env:
       LOAD_TEST_BASE_URL: https://gnhwebw.pages.dev
-      LOAD_TEST_HOLD_SECONDS: '10'
+      LOAD_TEST_HOLD_SECONDS: '30'
       LOAD_TEST_NAVIGATION_TIMEOUT_MS: '30000'
+      LOAD_TEST_WORKLOAD: mixed
     steps:
       - uses: actions/checkout@v4
 
@@ -182,7 +183,7 @@ jobs:
             echo
             echo "- Target: $LOAD_TEST_BASE_URL"
             echo '- Stages: 1 → 10 → 30 → 50 → 75 → 100 concurrent sessions'
-            echo '- Read-only homepage navigation'
+            echo '- Mixed public-route navigation (schedule/clubs/notices/games/tools/faith/news/search)'
             echo
             echo '```text'
             cat load-test-results/result.txt
