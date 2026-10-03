@@ -14,7 +14,10 @@ create trigger suggestions_null_anonymous_author_name before insert or update on
 
 drop policy if exists "Non-member can delete photos" on public.memory_photos;
 drop policy if exists "memory_photos_delete_own" on public.memory_photos;
-create policy "memory_photos_delete_own" on public.memory_photos for delete using (auth.uid() = author_id);
+create policy "memory_photos_delete_own" on public.memory_photos for delete using (
+  auth.uid() = author_id
+  or public.has_any_active_role(array['assistant_zone_leader','teacher','chief','president'])
+);
 drop policy if exists "get_public_bucket 13pqkcp_2" on storage.objects;
 drop policy if exists "memory_objects_delete_own" on storage.objects;
 create policy "memory_objects_delete_own" on storage.objects for delete to authenticated using (bucket_id = 'Public' and name like 'memories/' || auth.uid()::text || '/%');
