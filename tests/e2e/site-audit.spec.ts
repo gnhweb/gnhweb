@@ -31,18 +31,24 @@ async function guards(page: Page) {
   });
   page.on('console', m => { if (m.type() === 'error' && !/favicon|ResizeObserver|ERR_BLOCKED_BY_CLIENT/i.test(m.text())) consoleErrors.push(m.text()); });
   page.on('pageerror', e => {
-    if (
-      isWebKit &&
-      /\/auth\/get-session due to access control checks\.?$/.test(e.message) &&
-      [...successfulAuthProbes].some(url => e.message.includes(url))
-    ) return;
+    if (isWebKit && /\/auth\/get-session due to access control checks\.?$/.test(e.message)) {
+      const authUrl = e.message.match(/https?:\/\/[^\s]+\/auth\/get-session/)?.[0];
+      if (authUrl) {
+        setTimeout(() => {
+          if (successfulAuthProbes.has(authUrl)) {
+            const index = pageErrors.indexOf(e.message);
+            if (index >= 0) pageErrors.splice(index, 1);
+          }
+        }, 750);
+      }
+    }
     pageErrors.push(e.message);
   });
   page.on('requestfailed', r => { try { const u = new URL(r.url()); const errorText = r.failure()?.errorText || 'unknown'; if (u.origin === BASE_ORIGIN && !u.pathname.endsWith('/favicon.ico') && !/Load request cancelled/i.test(errorText)) failedRequests.push(`${r.url()} :: ${errorText}`); } catch {} });
-  return { consoleErrors, pageErrors, failedRequests };
+  return { consoleErrors, pageErrors, failedRequests, successfulAuthProbes };
 }
 async function assertPage(page: Page, path: string, g: Awaited<ReturnType<typeof guards>>, allowGuard = true) {
-  g.consoleErrors.length = 0; g.pageErrors.length = 0; g.failedRequests.length = 0;
+  g.consoleErrors.length = 0; g.pageErrors.length = 0; g.failedRequests.length = 0; g.successfulAuthProbes.clear();
   const response = await page.goto(`${BASE_URL}${path}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   expect(response, `No response for ${path}`).not.toBeNull(); expect(response!.status(), `HTTP ${response!.status()} on ${path}`).toBeLessThan(500); await page.waitForTimeout(500);
   const body = (await page.locator('body').innerText().catch(() => '')).toLowerCase();
