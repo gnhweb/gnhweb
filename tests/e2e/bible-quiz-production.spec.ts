@@ -11,22 +11,23 @@ test.describe('production Bible quiz', () => {
     await page.locator('input[name="email"]').first().fill(email!);
     await page.locator('input[name="password"]').first().fill(password!);
     await page.locator('button[type="submit"]').first().click();
-
-    const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
-    const dismissPinPrompt = async () => {
-      if (await skipPin.isVisible({ timeout: 15_000 }).catch(() => false)) {
-        await skipPin.click();
-        await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
-      }
-    };
-
     await expect(page).not.toHaveURL(/\/login(?:$|[?#])/, { timeout: 30_000 });
-    await dismissPinPrompt();
 
     await page.goto('/bible-quiz', { waitUntil: 'domcontentloaded', timeout: 45_000 });
-    await expect(page.getByRole('heading', { name: 'AI 성경 퀴즈', exact: true })).toBeVisible({
-      timeout: 30_000,
-    });
+
+    const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
+    const quizHeading = page.getByRole('heading', { name: 'AI 성경 퀴즈', exact: true });
+
+    await Promise.race([
+      quizHeading.waitFor({ state: 'visible', timeout: 45_000 }),
+      skipPin.waitFor({ state: 'visible', timeout: 45_000 }).then(() => skipPin.click()),
+    ]);
+
+    if (await skipPin.isVisible().catch(() => false)) {
+      await skipPin.click().catch(() => {});
+    }
+
+    await expect(quizHeading).toBeVisible({ timeout: 30_000 });
 
     const startButton = page.getByRole('button', { name: /퀴즈 시작하기/ });
     await expect(startButton).toBeVisible({ timeout: 15_000 });
