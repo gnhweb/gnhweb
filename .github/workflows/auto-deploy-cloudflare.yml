@@ -167,7 +167,7 @@ jobs:
           echo "Production did not become reachable: $LOAD_TEST_BASE_URL"
           exit 1
 
-      - name: Run 50 → 100 → 200 load test
+      - name: Run production load test
         run: |
           set -euo pipefail
           export LOAD_TEST_HOLD_MS=$((LOAD_TEST_HOLD_SECONDS * 1000))
