@@ -84,7 +84,7 @@ async function runStage(concurrency) {
 }
 
 console.log(`Production load target: ${baseUrl}`);
-console.log('Read-only homepage load test. Stages: 1 -> 10 -> 30 -> 50 -> 100 -> 200 concurrent sessions.');
+console.log('Read-only homepage load test. Stages: 1 -> 10 -> 30 -> 50 -> 75 -> 100 concurrent sessions.');
 console.log('Reports total duration, browser TTFB, and DOMContentLoaded separately.');
 const allResults = [];
 for (const concurrency of stages) {
