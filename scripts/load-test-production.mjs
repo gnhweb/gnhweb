@@ -26,6 +26,19 @@ async function runStage(concurrency) {
     let error = '';
     let ttfbMs = 0;
     let domContentLoadedMs = 0;
+    let requestCount = 0;
+    const requestTargets = new Map();
+    const recordRequest = (request) => {
+      requestCount += 1;
+      try {
+        const url = new URL(request.url());
+        const key = `${url.host}${url.pathname}`;
+        requestTargets.set(key, (requestTargets.get(key) || 0) + 1);
+      } catch {
+        // Ignore malformed request URLs; Playwright will still report the navigation result.
+      }
+    };
+    page.on('request', recordRequest);
     try {
       const response = await page.goto(baseUrl + '/', { waitUntil: 'domcontentloaded', timeout: navigationTimeoutMs });
       status = response?.status() ?? 0;
@@ -51,7 +64,15 @@ async function runStage(concurrency) {
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
-      results[index] = { durationMs: Math.round(performance.now() - start), ttfbMs, domContentLoadedMs, status, error };
+      results[index] = {
+        durationMs: Math.round(performance.now() - start),
+        ttfbMs,
+        domContentLoadedMs,
+        status,
+        error,
+        requestCount,
+        requestTargets: Object.fromEntries(requestTargets),
+      };
       await context.close().catch(() => {});
     }
   });
@@ -62,10 +83,24 @@ async function runStage(concurrency) {
   const ttfbValues = results.map((result) => result.ttfbMs).filter((value) => value > 0);
   const domContentLoadedValues = results.map((result) => result.domContentLoadedMs).filter((value) => value > 0);
   const failures = results.filter((result) => result.error || result.status >= 500);
+  const totalRequests = results.reduce((sum, result) => sum + result.requestCount, 0);
+  const requestTargets = {};
+  for (const result of results) {
+    for (const [target, count] of Object.entries(result.requestTargets)) {
+      requestTargets[target] = (requestTargets[target] || 0) + count;
+    }
+  }
+  const topRequestTargets = Object.entries(requestTargets)
+    .sort(([, left], [, right]) => right - left)
+    .slice(0, 30)
+    .map(([target, count]) => ({ target, count }));
 
   return {
     concurrency,
     total: results.length,
+    totalRequests,
+    requestsPerSession: Number((totalRequests / results.length).toFixed(2)),
+    topRequestTargets,
     success: results.length - failures.length,
     failures: failures.length,
     failureRate: Number(((failures.length / results.length) * 100).toFixed(2)),
