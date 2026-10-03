@@ -24,9 +24,6 @@ test.describe('production home memory carousel', () => {
       await skipPin.click().catch(() => {});
     }
     await expect(memoryLink).toBeVisible({ timeout: 30_000 });
-
-    const memoryLink = page.getByRole('link', { name: /^추억창 보러가기/ });
-    await expect(memoryLink).toBeVisible({ timeout: 30_000 });
     await expect(memoryLink).toHaveAttribute('href', '/memory-board');
 
     const memoryHeading = page.getByRole('heading', { name: '강학 추억 보러가기', exact: true });
