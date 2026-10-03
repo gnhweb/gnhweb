@@ -1,6 +1,6 @@
 const NEON_API_BASE_URL = 'https://gnhweb-api.gemini19840314.workers.dev';
 
-export async function onRequest(context: EventContext<unknown, never, unknown>): Promise<Response> {
+export async function onRequest(context: { request: Request }): Promise<Response> {
   const upstreamResponse = await fetch(
     new Request(NEON_API_BASE_URL + '/account-password-migration', context.request),
   );
