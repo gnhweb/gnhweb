@@ -108,4 +108,60 @@ test.describe('production memory board CRUD', () => {
       }
     }
   });
+
+  test('cleans up known stale E2E memory records', async ({ page }) => {
+    test.setTimeout(120_000);
+
+    const email = process.env.E2E_TEACHER_EMAIL;
+    const password = process.env.E2E_TEACHER_PASSWORD;
+    test.skip(!email || !password, 'Memory cleanup E2E requires E2E_TEACHER_* credentials.');
+
+    const staleTitles = [
+      'E2E 추억창 CRUD 1791022848134',
+      'E2E 추억창 CRUD 1791022887485',
+      'E2E 추억창 CRUD 1791022927412',
+    ];
+
+    page.on('dialog', async dialog => {
+      if (dialog.type() === 'confirm') await dialog.accept();
+      else await dialog.dismiss();
+    });
+
+    await signIn(page, email!, password!);
+    await page.goto(`${BASE_URL}/memory-board`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+
+    const uploadButton = page.getByRole('button', { name: /사진 올리기/ });
+    const skipPin = page.getByRole('button', { name: '나중에 하기', exact: true });
+    await Promise.race([
+      uploadButton.waitFor({ state: 'visible', timeout: 45_000 }),
+      skipPin.waitFor({ state: 'visible', timeout: 45_000 }).then(() => skipPin.click()),
+    ]);
+    if (await skipPin.isVisible().catch(() => false)) await skipPin.click().catch(() => {});
+    await expect(uploadButton).toBeVisible({ timeout: 30_000 });
+
+    for (const title of staleTitles) {
+      const photo = page.getByRole('img', { name: title, exact: true }).first();
+      if (!(await photo.isVisible({ timeout: 3_000 }).catch(() => false))) continue;
+      await photo.click();
+
+      const storageDeletePromise = page.waitForResponse(
+        response =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname.endsWith('/v1/storage/public'),
+        { timeout: 45_000 },
+      );
+      const dbDeletePromise = page.waitForResponse(
+        response =>
+          response.request().method() === 'DELETE' &&
+          new URL(response.url()).pathname.endsWith('/rest/v1/memory_photos'),
+        { timeout: 45_000 },
+      );
+
+      await page.getByRole('button', { name: '삭제', exact: true }).click();
+      const [storageDeleteResponse, dbDeleteResponse] = await Promise.all([storageDeletePromise, dbDeletePromise]);
+      expect(storageDeleteResponse.ok()).toBeTruthy();
+      expect(dbDeleteResponse.ok()).toBeTruthy();
+      await expect(page.getByRole('img', { name: title, exact: true })).toHaveCount(0);
+    }
+  });
 });
