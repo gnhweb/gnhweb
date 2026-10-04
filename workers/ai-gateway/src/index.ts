@@ -67,7 +67,7 @@ function describeError(error:unknown):string {
 }
 function providerCooldownMs(error:string|undefined,status?:number){
   if(error==="no-api-key"||status===401||status===402||status===403||status===404)return 10*60*1000;
-  if(status===429)return 30*1000;
+  if(status===429)return 5*1000;
   if(status===503)return 15*1000;
   return 5*1000;
 }
@@ -104,7 +104,7 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
   if(!apiKey){providerCooldownUntil.set(cfg.name,Date.now()+providerCooldownMs("no-api-key"));return{ok:false,error:"no-api-key"};}
   const model=cfg.name==="gemini"?"gemini-3.8-flash":(env[cfg.modelEnvKey]||cfg.defaultModel).trim();
   const controller=new AbortController();
-  const timeoutMs=cfg.name==="gemini"?(reasoningEffort==="high"?30000:reasoningEffort==="medium"?25000:20000):10000;
+  const timeoutMs=cfg.name==="gemini"?(reasoningEffort==="high"?30000:reasoningEffort==="medium"?25000:20000):30000;
   const timeout=setTimeout(()=>controller.abort(),timeoutMs);
   try{
     const response=await fetch(cfg.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`,...(cfg.extraHeaders||{})},body:JSON.stringify({model,messages,...(model==="gemini-3.8-flash"?{}:{temperature}),...(model==="gemini-3.8-flash"&&reasoningEffort?{reasoning_effort:reasoningEffort}:{}),max_tokens:maxTokens}),signal:controller.signal});
