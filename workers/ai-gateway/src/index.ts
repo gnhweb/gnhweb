@@ -47,8 +47,8 @@ function passesQualityGate(content:string,userText:string,task?:string){
    if(specificWords.length>=2 && matchedSpecificWords===0)return false;
    const parsed=JSON.parse(stripJsonFence(clean)) as Record<string,unknown>;
    const answer=typeof parsed.answer==="string"?parsed.answer.trim():"";
-   const reference=typeof parsed.reference==="string"?parsed.reference.trim():"";
-   if(answer.length<250||!reference)return false;
+   const chosenIndex=Number(parsed.chosenIndex);
+   if(answer.length<250||!Number.isInteger(chosenIndex))return false;
  }
  if(userWords.length===1)return normalized.includes(userWords[0].toLowerCase())||clean.length>=80;
  return matchedSpecificWords>0||normalized.includes(userWords[0].toLowerCase())||clean.length>=80;
