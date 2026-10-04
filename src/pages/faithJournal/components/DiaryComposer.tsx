@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -34,10 +35,10 @@ export default function DiaryComposer({userId,onClose,onSaved}:Props){
   }catch{if(uploadedPath){try{await supabase.storage.from('Public').remove([uploadedPath])}catch{}}setError('저장 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.');}finally{setSaving(false);setUploading(false);}
  };
 
- const section=(title:string,icon:string,children:React.ReactNode)=> <section className="rounded-card border border-background-200 bg-background-100 p-4"><div className="mb-3 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-input bg-primary-100 text-primary-600"><i className={icon}/></span><h4 className="text-sm font-bold text-foreground-950">{title}</h4></div>{children}</section>;
+ const section=(title:string,icon:string,children:ReactNode)=> <section className="rounded-card border border-background-200 bg-background-100 p-4"><div className="mb-3 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-input bg-primary-100 text-primary-600"><i className={icon}/></span><h4 className="text-sm font-bold text-foreground-950">{title}</h4></div>{children}</section>;
 
  return <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-end justify-center bg-foreground-950/30 p-0 backdrop-blur-sm md:items-center md:p-4" onClick={()=>!saving&&onClose()}>
-  <motion.div initial={{opacity:0,y:24}} animate={{opacity:1,y:0}} exit={{opacity:0,y:24}} className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-card border border-background-200 bg-background-50 shadow-card-lg md:max-w-lg md:rounded-card" onClick={e=>e.stopPropagation()}>
+  <motion.div initial={{opacity:0,y:24}} animate={{opacity:1,y:0}} exit={{opacity:0,y:24}} className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-card border border-background-200 bg-background-50 shadow-card-lg md:max-w-lg md:rounded-card" onClick={e=>e.stopPropagation()}>
    <div className="flex items-center justify-between border-b border-background-200 px-5 py-4"><div><p className="text-xs font-bold text-primary-600">비공개 기록</p><h3 className="mt-1 text-base font-black text-foreground-950">오늘의 신앙일기</h3></div><button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-chip text-foreground-500 hover:bg-background-100 cursor-pointer"><i className="ri-close-line text-xl"/></button></div>
    <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
     {section('말씀과 묵상','ri-book-open-line',<div className="space-y-3">
