@@ -106,25 +106,43 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
   const apiKey=env[cfg.envKey]?.trim();
   if(!apiKey){providerCooldownUntil.set(cfg.name,Date.now()+providerCooldownMs("no-api-key"));return{ok:false,error:"no-api-key"};}
   const model=cfg.name==="gemini"?"gemini-3.8-flash":(env[cfg.modelEnvKey]||cfg.defaultModel).trim();
-  const controller=new AbortController();
   const timeoutMs=cfg.name==="gemini"?(reasoningEffort==="high"?30000:reasoningEffort==="medium"?25000:20000):30000;
-  const timeout=setTimeout(()=>controller.abort(),timeoutMs);
+  const request=async():Promise<{response:Response}|{error:"timeout"|"request-error"}>=>{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),timeoutMs);
+    try{
+      const response=await fetch(cfg.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`,...(cfg.extraHeaders||{})},body:JSON.stringify({model,messages,...(model==="gemini-3.8-flash"?{}:{temperature}),...(model==="gemini-3.8-flash"&&reasoningEffort?{reasoning_effort:reasoningEffort}:{}),max_tokens:maxTokens}),signal:controller.signal});
+      return{response};
+    }catch(error){
+      console.error(`[ai-gateway] ${cfg.name} error:`,error);
+      return{error:controller.signal.aborted?"timeout":"request-error"};
+    }finally{clearTimeout(timeout);}
+  };
   try{
-    const response=await fetch(cfg.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`,...(cfg.extraHeaders||{})},body:JSON.stringify({model,messages,...(model==="gemini-3.8-flash"?{}:{temperature}),...(model==="gemini-3.8-flash"&&reasoningEffort?{reasoning_effort:reasoningEffort}:{}),max_tokens:maxTokens}),signal:controller.signal});
-    if(!response.ok){
-      const errorText=await response.text().catch(()=>"");
-      console.error(`[ai-gateway] ${cfg.name} HTTP ${response.status}: ${errorText.slice(0,300)}`);
-      providerCooldownUntil.set(cfg.name,Date.now()+providerCooldownMs(undefined,response.status));
-      return{ok:false,status:response.status,error:`http-${response.status}`};
+    let attempt=await request();
+    if("error" in attempt)return{ok:false,error:attempt.error};
+    if(attempt.response.status===429){
+      // Providers commonly enforce short per-minute limits. Give the same
+      // provider one delayed retry before abandoning an otherwise healthy route.
+      providerCooldownUntil.set(cfg.name,Date.now()+5*1000);
+      await new Promise(resolve=>setTimeout(resolve,5000));
+      attempt=await request();
+      if("error" in attempt)return{ok:false,error:attempt.error};
     }
-    const data=await response.json();
+    if(!attempt.response.ok){
+      const errorText=await attempt.response.text().catch(()=>"");
+      console.error(`[ai-gateway] ${cfg.name} HTTP ${attempt.response.status}: ${errorText.slice(0,300)}`);
+      providerCooldownUntil.set(cfg.name,Date.now()+providerCooldownMs(undefined,attempt.response.status));
+      return{ok:false,status:attempt.response.status,error:`http-${attempt.response.status}`};
+    }
+    const data=await attempt.response.json();
     const content=extractContent(data);
     if(!content)return{ok:false,error:"empty-content"};
     return{ok:true,content,provider:cfg.name};
   }catch(error){
     console.error(`[ai-gateway] ${cfg.name} error:`,error);
-    return{ok:false,error:controller.signal.aborted?"timeout":"request-error"};
-  }finally{clearTimeout(timeout);}
+    return{ok:false,error:"request-error"};
+  }
 }
 export default { async fetch(req:Request,env:Record<string,string|undefined>):Promise<Response>{const pathname=new URL(req.url).pathname.replace(/\/+$/,"");if(pathname==="/meeting-ideas")return handleMeetingIdeas(req,env);if(pathname==="/meeting-insight")return handleMeetingInsight(req);if(pathname==="/nim-letter")return handleNimLetter(req);if(pathname==="/nim-coaching")return handleNimCoaching(req,env);if(pathname==="/nim-counseling")return handleNimCounseling(req,env);if(pathname==="/nim-quiz")return handleNimQuiz(req,env);if(pathname==="/nim-mbti")return handleNimMbti(req,env);if(req.method==="OPTIONS")return new Response("ok",{headers:CORS_HEADERS});if(req.method!=="POST")return new Response(JSON.stringify({error:"POST only"}),{status:405,headers:CORS_HEADERS});try{const body=await req.json() as {task?:unknown;messages?:unknown;temperature?:unknown;max_tokens?:unknown};const task=typeof body?.task==="string"?body.task:undefined;const messages:Array<GatewayMessage>=Array.isArray(body?.messages)?body.messages.filter((message:unknown):message is GatewayMessage=>!!message&&typeof message==="object"&&["system","user","assistant"].includes(String((message as {role?:unknown}).role))&&typeof(message as {content?:unknown}).content==="string"):[];if(messages.length===0)return new Response(JSON.stringify({error:"messages가 필요합니다."}),{status:400,headers:CORS_HEADERS});const taskInstruction=buildTaskInstruction(task);const effectiveMessages=taskInstruction?[...messages,{role:"system",content:taskInstruction}]:messages;const temperature=typeof body?.temperature==="number"?body.temperature:0.3;const requestedMaxTokens=typeof body?.max_tokens==="number"?Math.min(Math.max(body.max_tokens,64),4096):1000;const maxTokens=task==="coaching"?Math.max(requestedMaxTokens,2600):task==="bible-pick"?Math.min(Math.max(requestedMaxTokens,1800),2600):requestedMaxTokens;const reasoningEffort=task==="coaching"?"medium":task==="bible-pick"?"low":"medium";const lastUserMessage=[...messages].reverse().find(message=>message.role==="user")?.content||"";const category=classify(task,lastUserMessage);const attempts:{provider:string;reason:string}[]=[];
 if(task==="bible-pick"){
