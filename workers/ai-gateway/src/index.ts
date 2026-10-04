@@ -94,7 +94,7 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
   }catch(error){
     const detail=describeError(error);
     console.error("[ai-gateway] workers-ai error:",error);
-    return{ok:false,error:"workers-ai-request-error",status:undefined};
+    return{ok:false,error:`workers-ai-request-error:${detail}`};
   }
 }
 async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"low"|"medium"|"high"):Promise<CallResult>{
