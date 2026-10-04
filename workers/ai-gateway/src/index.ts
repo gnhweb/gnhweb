@@ -31,9 +31,18 @@ function passesQualityGate(content:string,userText:string,task?:string){
  if(task==="bible-pick"){
    let parsed:Record<string,unknown>;
    try{parsed=JSON.parse(stripJsonFence(clean)) as Record<string,unknown>;}catch{return false;}
-   const answer=typeof parsed.answer==="string"?parsed.answer.trim():"";
    const chosenIndex=Number(parsed.chosenIndex);
-   if(answer.length<250||!Number.isInteger(chosenIndex)||chosenIndex<0)return false;
+   const recommendation=typeof parsed.recommendation==="string"?parsed.recommendation.trim():"";
+   const practice=typeof parsed.practice==="string"?parsed.practice.trim():"";
+   const prayers=Array.isArray(parsed.prayers)?parsed.prayers.filter((v):v is string=>typeof v==="string"&&v.trim()):[];
+   const emotions=Array.isArray(parsed.analyzedEmotions)?parsed.analyzedEmotions.filter((v):v is string=>typeof v==="string"&&v.trim()):[];
+   const answer=typeof parsed.answer==="string"?parsed.answer.trim():"";
+   if(!Number.isInteger(chosenIndex)||chosenIndex<0)return false;
+   if(recommendation.length<80||recommendation.length>700)return false;
+   if(practice.length<25||practice.length>450)return false;
+   if(prayers.length<1||prayers.length>2||prayers.some(prayer=>prayer.length<15||prayer.length>300))return false;
+   if(emotions.length<1||emotions.length>3)return false;
+   if(answer.length<80)return false;
    return true;
  }
  if(looksLikeStructuredJson(clean))return true;
@@ -55,7 +64,27 @@ function passesQualityGate(content:string,userText:string,task?:string){
  if(userWords.length===1)return normalized.includes(userWords[0].toLowerCase())||clean.length>=80;
  return matchedSpecificWords>0||normalized.includes(userWords[0].toLowerCase())||clean.length>=80;
 }
-function buildTaskInstruction(task:string|undefined):string { if(task==="coaching") return `\n[최우선: 질문에 직접 답하기]\n사용자의 질문을 먼저 정확히 이해하고, 답변의 첫 1~2문단에서 그 질문에 대한 판단과 답을 직접 말한다. 일반적인 리더십 원칙을 질문보다 앞세우지 않는다.\n- 사용자가 "어떻게 해야 해?"라고 물으면 실제로 어떻게 해야 하는지 먼저 답한다.\n- 사용자가 "내가 잘못했어?"라고 물으면 잘못한 부분과 아닌 부분을 구분해 직접 판단한다.\n- 사용자가 "왜 그런 것 같아?"라고 물으면 가능한 원인을 질문 내용에 근거해 구분한다.\n- 사용자가 두 선택지를 비교하면 어느 쪽이 더 적절한지와 그 이유를 먼저 말한다.\n- 사용자가 특정 상황을 설명하면 그 상황의 핵심 인물·행동·관계를 그대로 반영한다. 질문과 무관한 일반론이나 준비된 문구를 반복하지 않는다.\n- 질문에 정보가 부족하더라도 가능한 범위에서 먼저 답하고, 정말 결론을 바꾸는 정보가 있을 때만 짧게 확인한다.\n- 답변은 "직접적인 결론 → 왜 그런지 → 지금 무엇을 할지 → 필요하면 대화 예시 → 질문과 관련된 성경의 관점" 순서를 우선한다.\n- 사용자가 잘못한 부분이 있으면 위로만 하지 말고 분명히 말한다. 반대로 상대방의 잘못도 근거 없이 사용자의 책임으로 돌리지 않는다.\n- 질문의 핵심을 답한 뒤에만 추가적인 리더십 성장 조언을 덧붙인다.`; if(task==="bible-pick") return `\n[최우선: 성경 본문을 중심으로 실제 고민에 답하기]\n- 답변은 분석 보고서나 상담 챗봇처럼 쓰지 말고, 교회 선생님이 학생에게 말씀을 건네듯 자연스럽게 쓴다.\n- 학생의 고민을 억지로 '핵심은 ~입니다'처럼 요약하지 않는다.\n- 성경 본문의 의미와 개인에게 적용해볼 수 있는 내용을 구분한다.\n- 하나님이 학생의 미래를 직접 알려주는 것처럼 말하지 않는다.\n- 특정 구절을 만능 위로 문구처럼 사용하지 않는다.\n- 학생이 쓴 구체적인 상황을 자연스럽게 한두 번 반영한다.\n- 같은 의미의 위로, 권면, 적용을 반복하지 않는다.\n- 여러 소제목이나 체크리스트처럼 보이는 문장을 피한다.\n- 답변은 고민에서 시작해 말씀으로 이어지고, 말씀의 의미를 설명한 뒤 현실에서 해볼 수 있는 한 가지로 끝나는 자연스러운 흐름을 만든다.\n`; return ""; }
+function buildTaskInstruction(task:string|undefined):string { if(task==="coaching") return `
+[최우선: 질문에 직접 답하기]
+사용자의 질문을 먼저 정확히 이해하고, 답변의 첫 1~2문단에서 그 질문에 대한 판단과 답을 직접 말한다. 일반적인 리더십 원칙을 질문보다 앞세우지 않는다.
+- 사용자가 "어떻게 해야 해?"라고 물으면 실제로 어떻게 해야 하는지 먼저 답한다.
+- 사용자가 "내가 잘못했어?"라고 물으면 잘못한 부분과 아닌 부분을 구분해 직접 판단한다.
+- 사용자가 "왜 그런 것 같아?"라고 물으면 가능한 원인을 질문 내용에 근거해 구분한다.
+- 사용자가 두 선택지를 비교하면 어느 쪽이 더 적절한지와 그 이유를 먼저 말한다.
+- 사용자가 특정 상황을 설명하면 그 상황의 핵심 인물·행동·관계를 그대로 반영한다. 질문과 무관한 일반론이나 준비된 문구를 반복하지 않는다.
+- 질문에 정보가 부족하더라도 가능한 범위에서 먼저 답하고, 정말 결론을 바꾸는 정보가 있을 때만 짧게 확인한다.
+- 답변은 "직접적인 결론 → 왜 그런지 → 지금 무엇을 할지 → 필요하면 대화 예시 → 질문과 관련된 성경의 관점" 순서를 우선한다.
+- 사용자가 잘못한 부분이 있으면 위로만 하지 말고 분명히 말한다. 반대로 상대방의 잘못도 근거 없이 사용자의 책임으로 돌리지 않는다.
+- 질문의 핵심을 답한 뒤에만 추가적인 리더십 성장 조언을 덧붙인다.
+`; if(task==="bible-pick") return `
+[최우선: 말씀 뽑기 화면의 다섯 결과를 직접 품질 관리하기]
+- 화면에는 감정 분석, 말씀, 왜 이 말씀일까요?, 오늘의 실천 방법, 자기 전 기도가 표시된다.
+- 다섯 부분 각각을 독립적으로 완성도 있게 작성한다. 하나의 긴 answer를 잘 쓰는 것으로 대신하지 않는다.
+- 학생의 구체적인 상황을 반영하되 상담 보고서 말투나 AI가 만든 섹션 문구를 사용하지 않는다.
+- 성경 본문의 의미와 학생에게 적용해볼 수 있는 방향을 구분한다.
+- 개인의 미래, 하나님의 의도, 특정 결과를 단정하지 않는다.
+- 빈 위로보다 실제 상황에 맞는 설명과 행동을 우선한다.
+`; return ""; }
 interface WorkersAiBinding {
   run(model:string,input:Record<string,unknown>,options?:{rejectIfBusy?:boolean}):Promise<unknown>;
 }
