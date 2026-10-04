@@ -87,9 +87,116 @@ jobs:
             fi
           done
 
+
+  preflight-production:
+    name: Preflight production deployment
+    needs: regression-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+      E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+      E2E_MISSION_EMAIL: ${{ secrets.E2E_MISSION_EMAIL }}
+      E2E_MISSION_PASSWORD: ${{ secrets.E2E_MISSION_PASSWORD }}
+      E2E_TEACHER_EMAIL: ${{ secrets.E2E_TEACHER_EMAIL }}
+      E2E_TEACHER_PASSWORD: ${{ secrets.E2E_TEACHER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate required CI secrets
+        run: |
+          set -euo pipefail
+          missing=0
+          check_secret() {
+            local name="$1"
+            local value="$2"
+            if [ -z "$value" ]; then
+              echo "ERROR: Missing GitHub Actions secret: $name"
+              missing=1
+            fi
+          }
+          check_secret "CLOUDFLARE_API_TOKEN" "$CLOUDFLARE_API_TOKEN"
+          check_secret "NEON_DATABASE_URL" "$NEON_DATABASE_URL"
+          check_secret "E2E_MEMBER_EMAIL" "$E2E_MEMBER_EMAIL"
+          check_secret "E2E_MEMBER_PASSWORD" "$E2E_MEMBER_PASSWORD"
+          check_secret "E2E_MISSION_EMAIL" "$E2E_MISSION_EMAIL"
+          check_secret "E2E_MISSION_PASSWORD" "$E2E_MISSION_PASSWORD"
+          check_secret "E2E_TEACHER_EMAIL" "$E2E_TEACHER_EMAIL"
+          check_secret "E2E_TEACHER_PASSWORD" "$E2E_TEACHER_PASSWORD"
+          if [ "$missing" -ne 0 ]; then
+            echo "Production deployment stopped before any Cloudflare deployment."
+            exit 1
+          fi
+          case "$NEON_DATABASE_URL" in
+            postgres://*|postgresql://*) ;;
+            *)
+              echo "ERROR: NEON_DATABASE_URL is not a PostgreSQL connection URL."
+              exit 1
+              ;;
+          esac
+
+      - name: Validate Cloudflare authentication
+        run: npx wrangler@4 whoami
+
+      - name: Validate existing API Worker secrets
+        working-directory: workers/api
+        run: |
+          set -euo pipefail
+          secrets="$(npx wrangler@4 secret list --config wrangler.jsonc --format json)"
+          printf '%s\n' "$secrets"
+          for name in WEB_PUSH_VAPID_PUBLIC_KEY WEB_PUSH_VAPID_PRIVATE_KEY WEB_PUSH_VAPID_SUBJECT; do
+            if ! printf '%s\n' "$secrets" | grep -q "\"name": \"$name"\""; then
+              echo "ERROR: Missing production API Worker secret: $name"
+              echo "Production deployment stopped before any Cloudflare deployment."
+              exit 1
+            fi
+          done
+
+      - name: Install site dependencies
+        run: npm install --include=dev --no-audit --no-fund --prefer-offline
+      - name: Type-check site before deployment
+        run: npm run type-check
+      - name: Lint site before deployment
+        run: npm run lint
+      - name: Build site before deployment
+        run: npm run build
+        env:
+          VITE_CF_REALTIME_URL: ${{ env.VITE_CF_REALTIME_URL }}
+      - name: Build Pages Functions before deployment
+        run: npx wrangler@4 pages functions build functions --outdir out --output-routes-path out/_routes.json --minify
+
+      - name: Upload verified Pages build
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-pages-build-${{ github.sha }}
+          path: out
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Dry-run API Worker
+        working-directory: workers/api
+        run: npx wrangler@4 deploy --config wrangler.jsonc --dry-run
+      - name: Dry-run AI Gateway Worker
+        working-directory: workers/ai-gateway
+        run: npx wrangler@4 deploy --config wrangler.jsonc --dry-run
+      - name: Dry-run realtime Worker
+        working-directory: workers/realtime
+        run: npx wrangler@4 deploy --config wrangler.jsonc --dry-run
+      - name: Dry-run storage Worker
+        working-directory: workers/storage
+        run: npx wrangler@4 deploy --config wrangler.jsonc --dry-run
+      - name: Dry-run storage migration Worker
+        working-directory: workers/storage-migrate
+        run: npx wrangler@4 deploy --config wrangler.jsonc --dry-run
+
   deploy-site:
     name: Deploy gnhweb Cloudflare Pages site
-    needs: regression-guard
+    needs: [verify-api, verify-storage-cors, deploy-realtime, deploy-storage-migrate, verify-ai-gateway]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -117,6 +224,12 @@ jobs:
           VITE_CF_REALTIME_URL: ${{ env.VITE_CF_REALTIME_URL }}
       - name: Build Pages Functions
         run: npx wrangler pages functions build functions --outdir out --output-routes-path out/_routes.json --minify
+      - name: Download verified Pages build
+        uses: actions/download-artifact@v4
+        with:
+          name: production-pages-build-${{ github.sha }}
+          path: out
+
       - name: Deploy Cloudflare Pages
         uses: cloudflare/wrangler-action@v4
         with:
@@ -129,7 +242,7 @@ jobs:
 
   deploy-realtime:
     name: Deploy gnhweb realtime Worker
-    needs: regression-guard
+    needs: [regression-guard, preflight-production]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -143,7 +256,7 @@ jobs:
 
   deploy-storage:
     name: Deploy gnhweb storage Worker
-    needs: regression-guard
+    needs: [regression-guard, preflight-production]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -213,7 +326,7 @@ jobs:
 
   deploy-storage-migrate:
     name: Deploy gnhweb storage migration Worker
-    needs: regression-guard
+    needs: [regression-guard, preflight-production]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -230,39 +343,41 @@ jobs:
 
   deploy-api:
     name: Deploy gnhweb API Worker
-    needs: regression-guard
+    needs: [regression-guard, preflight-production]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: e005fccad53297f6ac5ca4d88472cd59
-          wranglerVersion: "4"
-          workingDirectory: workers/api
-          command: deploy --config wrangler.jsonc
-      - name: Sync production API Worker secrets
+      - name: Sync production API Worker database secret
         working-directory: workers/api
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
         run: |
           set -euo pipefail
-          test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$NEON_DATABASE_URL"
+          printf '%s' "$NEON_DATABASE_URL" | npx wrangler@4 secret put DATABASE_URL --config wrangler.jsonc
 
-          printf '%s' "$NEON_DATABASE_URL" | npx wrangler secret put DATABASE_URL --config wrangler.jsonc
+      - name: Deploy API Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: e005fccad53297f6ac5ca4d88472cd59
+          wranglerVersion: "4"
+          workingDirectory: workers/api
+          command: deploy --config wrangler.jsonc
 
-          existing="$(npx wrangler secret list --config wrangler.jsonc)"
+      - name: Verify production API Worker secret state
+        working-directory: workers/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          existing="$(npx wrangler@4 secret list --config wrangler.jsonc --format json)"
           printf '%s\n' "$existing"
-          for name in WEB_PUSH_VAPID_PUBLIC_KEY WEB_PUSH_VAPID_PRIVATE_KEY WEB_PUSH_VAPID_SUBJECT; do
-            if ! printf '%s\n' "$existing" | grep -q "\"name\": \"$name\""; then
-              echo "ERROR: Missing Cloudflare Worker secret: $name"
-              echo "Run the one-time Bootstrap Web Push VAPID workflow before deploying the API Worker."
-              exit 1
-            fi
-          done
-
+          printf '%s\n' "$existing" | grep -q "\"name": \"DATABASE_URL\"" || {
+            echo "ERROR: DATABASE_URL is missing after synchronization."
+            exit 1
+          }
 
   verify-api:
     name: Verify gnhweb API public routes
@@ -317,7 +432,7 @@ jobs:
 
   deploy-ai-gateway:
     name: Deploy gnhweb AI gateway Worker
-    needs: regression-guard
+    needs: [regression-guard, preflight-production]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
