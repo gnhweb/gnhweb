@@ -57,23 +57,52 @@ const CORS_HEADERS = { 'Access-Control-Allow-Origin':'*','Access-Control-Allow-H
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: CORS_HEADERS });
 const sensitive = (text: string) => { const lower=text.toLowerCase(); return { isCrisis:SENSITIVE_KEYWORDS.some(k=>lower.includes(k)), isDepression:DEPRESSION_KEYWORDS.some(k=>lower.includes(k))&&!SENSITIVE_KEYWORDS.some(k=>lower.includes(k)) }; };
 
+const KRV_BOOK_NAMES: Record<string,string> = {
+  PSA:'시편', JOB:'욥기', PHP:'빌립보서', NEH:'느헤미야', JHN:'요한복음',
+  '1CH':'역대상', '1TH':'데살로니가전서', COL:'골로새서', ECC:'전도서',
+  ISA:'이사야', '2CO':'고린도후서', LUK:'누가복음', REV:'요한계시록',
+  MAT:'마태복음', '1PE':'베드로전서', PRO:'잠언', '2TI':'디모데후서',
+  JOS:'여호수아', JER:'예레미야', ROM:'로마서', MIC:'미가', EPH:'에베소서',
+  JAS:'야고보서', GAL:'갈라디아서', DEU:'신명기', ACT:'사도행전', HEB:'히브리서',
+};
+
+type KrvBook = {
+  book?: string;
+  chapters?: Array<{
+    chapter?: number;
+    verses?: Array<{verse?: number;text?: string}>;
+  }>;
+};
+
+const krvBookCache=new Map<string,Promise<KrvBook>>();
+
+function fetchKrvBook(book:string):Promise<KrvBook>{
+  const cached=krvBookCache.get(book);
+  if(cached)return cached;
+  const bookName=KRV_BOOK_NAMES[book];
+  if(!bookName)throw new Error(`개역한글 책 코드 매핑이 없습니다: ${book}`);
+  const request=fetch(`https://raw.githubusercontent.com/yuhwan/Bible-krv/master/${encodeURIComponent(bookName)}.json`,{headers:{Accept:'application/json'}})
+    .then(async response=>{
+      if(!response.ok)throw new Error(`개역한글 본문 로딩 실패 (HTTP ${response.status})`);
+      return await response.json() as KrvBook;
+    });
+  krvBookCache.set(book,request);
+  return request;
+}
+
 async function fetchVerseText(ref: VerseRef): Promise<{text:string;context:string}> {
-  const response = await fetch(`https://bible.helloao.org/api/kor_old/${ref.book}/${ref.chapter}.json`, { headers:{Accept:'application/json'} });
-  if (!response.ok) throw new Error(`성경 본문 로딩 실패 (HTTP ${response.status})`);
-  const data = await response.json() as { chapter?: { content?: Array<{type?:unknown; number?:unknown; content?:unknown}> } };
-  const content=data.chapter?.content;
-  if(!Array.isArray(content)) throw new Error('본문 형식 오류');
-  const verses=content.filter((item)=>item?.type==='verse'&&typeof item.number==='number'&&Array.isArray(item.content)).map((item)=>({
-    number:item.number as number,
-    text:(item.content as unknown[]).filter((part):part is string=>typeof part==='string').join(' ').replace(/\s+/g,' ').trim()
-  })).filter((item)=>item.text);
-  const selected=verses.filter((item)=>ref.verses.includes(item.number));
-  const text=selected.map((item)=>item.text).join(' ').trim();
-  if(!text)throw new Error('해당 구절을 찾지 못했습니다.');
+  const data=await fetchKrvBook(ref.book);
+  const chapter=data.chapters?.find(item=>item.chapter===ref.chapter);
+  const verses=(chapter?.verses||[])
+    .filter(item=>typeof item.verse==='number'&&typeof item.text==='string'&&item.text.trim())
+    .map(item=>({number:item.verse as number,text:(item.text as string).replace(/\\s+/g,' ').trim()}));
+  const selected=verses.filter(item=>ref.verses.includes(item.number));
+  const text=selected.map(item=>item.text).join(' ').trim();
+  if(!text)throw new Error(`개역한글에서 해당 구절을 찾지 못했습니다: ${ref.reference}`);
   const minVerse=Math.min(...ref.verses);
   const maxVerse=Math.max(...ref.verses);
-  const surrounding=verses.filter((item)=>item.number>=Math.max(1,minVerse-2)&&item.number<=maxVerse+2);
-  const context=surrounding.map((item)=>`[${item.number}] ${item.text}`).join(' ');
+  const surrounding=verses.filter(item=>item.number>=Math.max(1,minVerse-2)&&item.number<=maxVerse+2);
+  const context=surrounding.map(item=>`[${item.number}] ${item.text}`).join(' ');
   return {text,context};
 }
 
