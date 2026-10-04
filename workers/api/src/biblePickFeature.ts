@@ -115,6 +115,38 @@ async function analyzeWithAI(text:string,fallback:ConcernAnalysis):Promise<Conce
 
 async function collectCandidates(text:string,analysis:ConcernAnalysis,count:number):Promise<VerseCandidate[]>{const ranked=VERSE_REFS.map(ref=>({ref,score:scoreCandidate({ref,text:'',context:'',score:0},analysis)})).sort((a,b)=>b.score-a.score||stableHash(text+a.ref.reference)-stableHash(text+b.ref.reference));const uniqueTargets=ranked.filter((item,index,array)=>array.findIndex(candidate=>candidate.ref.reference===item.ref.reference)===index).slice(0,count);const aiTargets=uniqueTargets.slice(0,AI_CANDIDATE_LIMIT);const fetched=await Promise.allSettled(aiTargets.map(async(item)=>{const verse=await fetchVerseText(item.ref);return {ref:item.ref,text:verse.text,context:verse.context,score:item.score};}));return fetched.flatMap(result=>result.status==='fulfilled'?[result.value]:[]);}
 const extractJson=(content:string):Record<string,unknown>|null=>{try{return JSON.parse(content) as Record<string,unknown>}catch{}const fenced=content.match(/```(?:json)?\s*([\s\S]*?)```/);if(fenced)try{return JSON.parse(fenced[1].trim()) as Record<string,unknown>}catch{}const object=content.match(/\{[\s\S]*\}/);if(object)try{return JSON.parse(object[0]) as Record<string,unknown>}catch{}return null;};
+
+function buildCompatibilityAnswer(
+  understanding:string,
+  whyThisVerse:string,
+  nextStep:string,
+  takeaway:string,
+  prayer:string,
+  recommendation:string,
+  practice:string,
+  prayers:string[],
+):string{
+  const primary=[understanding,whyThisVerse,nextStep,takeaway,prayer].map(s=>s.trim()).filter(Boolean);
+  let paragraphs:string[]=[];
+  if(primary.length>=3){
+    paragraphs=[
+      primary.slice(0,2).join(' '),
+      primary.slice(2,4).join(' '),
+      primary.slice(4).join(' '),
+    ].map(s=>s.trim()).filter(Boolean);
+  }
+  const supplements=[recommendation,practice,...prayers].map(s=>s.trim()).filter(Boolean);
+  for(const supplement of supplements){
+    if(paragraphs.join(' ').includes(supplement))continue;
+    if(paragraphs.join(' ').length<250&&supplement.length>=20)paragraphs[paragraphs.length-1]=(paragraphs[paragraphs.length-1]+' '+supplement).trim();
+  }
+  let result=paragraphs.join('\n\n').trim();
+  if(result.length<250){
+    result=[...primary,...supplements].filter(Boolean).join(' ').trim();
+  }
+  return result.slice(0,600).trim();
+}
+
 const sanitize=(text:string)=>text.replace(/[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]/g,'').replace(/[\u2018\u2019\u201C\u201D]/g,"'").replace(/[\u2013\u2014]/g,'-').replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
 
 export async function handleBiblePick(request:Request,_env:Env):Promise<Response>{
@@ -188,7 +220,7 @@ understanding, whyThisVerse, nextStep, takeaway, prayer도 작성하되 recommen
 JSON 이외의 텍스트는 출력하지 마세요.
 형식: {"chosenIndex":0,"analyzedEmotions":[""],"recommendation":"","practice":"","prayers":[""],"answer":"","understanding":"","whyThisVerse":"","nextStep":"","takeaway":"","prayer":""}`;
     const response=await fetch(`${AI_GATEWAY_URL}/`,{method:'POST',headers:{...(auth?{Authorization:auth}:{}),'Content-Type':'application/json'},body:JSON.stringify({task:'bible-pick',model:'google/gemma-4-31b-it',messages:[{role:'system',content:systemPrompt},{role:'user',content:`학생의 질문과 상황:\n${text}\n\n분석 참고 정보(정답이 아니라 보조 힌트):\n- 감정: ${analysis.emotions.join(", ")}\n- 주제: ${analysis.topics.join(", ") || "명확하지 않음"}\n- 질문 유형: ${analysis.questionType}\n- 의도: ${analysis.intent}\n- 관계: ${analysis.relationship}\n- 상황 이해: ${analysis.situation}\n- 핵심 고민으로 추정되는 질문: ${analysis.coreQuestion}\n- 필요한 도움: ${analysis.needs.join(", ")}\n- 답변에서 다룰 핵심: ${analysis.responsePlan.join(" / ")}\n\n후보 말씀(100개 후보 풀에서 상황·주제 점수로 추린 상위 후보입니다. 제공된 후보들을 비교할 때 감정 단어보다 본문 의미와 문맥을 우선):\n${candidateList}` }],temperature:.55,max_tokens:3200})});if(!response.ok){const errorBody=await response.text().catch(()=> '');console.error('[bible-pick] AI gateway HTTP failure',response.status,errorBody.slice(0,1000));if(debugGateway){try{gatewayDebug=JSON.parse(errorBody);}catch{gatewayDebug={status:response.status,body:errorBody.slice(0,1000)};}}}else{const data=await response.json() as {choices?:Array<{message?:{content?:unknown}}>;_meta?:unknown};gatewayMeta=data._meta;const content=data.choices?.[0]?.message?.content;if(typeof content==='string'){const parsed=extractJson(content);if(parsed){const index=Number(parsed.chosenIndex);if(Number.isInteger(index)&&index>=0&&index<candidates.length)chosenIndex=index;const allowedEmotions=new Set(['기쁨','감사','설렘','평안','슬픔','불안','걱정','두려움','답답함','화남','지침','외로움','무기력','혼란','후회','미안함','희망','좌절','용기']);const aiEmotions=Array.isArray(parsed.analyzedEmotions)?parsed.analyzedEmotions.filter((v):v is string=>typeof v==='string'&&allowedEmotions.has(v)).slice(0,3):[];if(aiEmotions.length)analysis.emotions.splice(0,analysis.emotions.length,...aiEmotions);understanding=typeof parsed.understanding==='string'?sanitize(parsed.understanding):'';whyThisVerse=typeof parsed.whyThisVerse==='string'?sanitize(parsed.whyThisVerse):'';nextStep=typeof parsed.nextStep==='string'?sanitize(parsed.nextStep):'';takeaway=typeof parsed.takeaway==='string'?sanitize(parsed.takeaway):'';prayer=typeof parsed.prayer==='string'?sanitize(parsed.prayer):'';answer=typeof parsed.answer==='string'?sanitize(parsed.answer):'';recommendation=typeof parsed.recommendation==='string'?sanitize(parsed.recommendation):'';practice=typeof parsed.practice==='string'?sanitize(parsed.practice):'';prayers=(Array.isArray(parsed.prayers)?parsed.prayers:[]).filter((v):v is string=>typeof v==='string'&&v.trim()).map(v=>sanitize(v).replace(/^하나님,\s*/,'아버지, ')).slice(0,2);}}}}catch(error){console.error('[bible-pick] AI gateway failed',error);}
-    const chosen=candidates[chosenIndex];const primary=chosen.ref.emotion;if(!understanding)understanding=analysis.topics.length?'지금 너에게는 '+analysis.topics.join(', ')+'와 관련된 고민이 가장 크게 걸려 있는 것 같아요.':'지금 상황에서 무엇을 어떻게 해야 할지 답을 찾고 있는 것 같아요.';if(!whyThisVerse)whyThisVerse='이 말씀은 단순히 '+primary+'이라는 감정을 달래는 데서 끝나지 않고, 지금 고민에서 취할 수 있는 방향을 보여줘요.';if(!nextStep)nextStep=analysis.questionType==='관계'?'감정이 가장 올라온 상태에서는 결론을 내리지 말고, 상대에게 확인하고 싶은 사실 한 가지를 먼저 적어보세요.':analysis.questionType==='선택'?'선택지를 두 개로 줄이고 각각에서 내가 책임질 수 있는 다음 행동 하나씩을 적어보세요.':'오늘 이 말씀을 천천히 읽고 지금 할 수 있는 가장 작은 행동 하나를 정해보세요.';if(!takeaway)takeaway='말씀을 아는 것에서 멈추지 않고, 오늘 할 수 있는 한 걸음으로 옮겨보자.';if(!prayer)prayer='아버지, 제가 지금 겪는 일을 솔직하게 내려놓습니다. 제게 필요한 지혜와 힘을 주세요.';if(!recommendation)recommendation='이 말씀은 지금 네가 겪는 '+(analysis.topics[0]||'고민')+'을 단순히 감정으로만 넘기지 않고, 말씀의 뜻 안에서 어떻게 바라볼지 생각하게 해줘요.';if(!practice)practice=analysis.questionType==='관계'?'오늘 바로 결론내리지 말고, 상대에게 확인하고 싶은 사실 한 가지를 먼저 정리한 뒤 차분하게 물어보세요.':analysis.questionType==='선택'?'지금 고민하는 선택지를 적고, 각각에서 내가 중요하게 생각하는 기준 한 가지씩만 적어보세요.':'오늘 이 말씀을 한 번 천천히 읽고, 지금 내 상황에서 실제로 옮길 수 있는 행동 하나를 정해보세요.';if(!prayer)prayer='아버지, 제가 지금 겪는 일을 숨기지 않고 내려놓습니다. 제게 필요한 지혜와 용기를 주세요.';if(!prayers.length)prayers=[prayer];if(!answer)answer=recommendation+'\n\n'+practice;let crisisMessage:string|undefined;if(state.isDepression)crisisMessage='요즘 마음이 오래 가라앉아 있다면 혼자 버티지 않아도 돼요. 가까운 어른이나 선생님에게 지금의 상태를 이야기하고 함께 도움을 찾아보세요.';
+    const chosen=candidates[chosenIndex];const primary=chosen.ref.emotion;if(!understanding)understanding=analysis.topics.length?'지금 너에게는 '+analysis.topics.join(', ')+'와 관련된 고민이 가장 크게 걸려 있는 것 같아요.':'지금 상황에서 무엇을 어떻게 해야 할지 답을 찾고 있는 것 같아요.';if(!whyThisVerse)whyThisVerse='이 말씀은 단순히 '+primary+'이라는 감정을 달래는 데서 끝나지 않고, 지금 고민에서 취할 수 있는 방향을 보여줘요.';if(!nextStep)nextStep=analysis.questionType==='관계'?'감정이 가장 올라온 상태에서는 결론을 내리지 말고, 상대에게 확인하고 싶은 사실 한 가지를 먼저 적어보세요.':analysis.questionType==='선택'?'선택지를 두 개로 줄이고 각각에서 내가 책임질 수 있는 다음 행동 하나씩을 적어보세요.':'오늘 이 말씀을 천천히 읽고 지금 할 수 있는 가장 작은 행동 하나를 정해보세요.';if(!takeaway)takeaway='말씀을 아는 것에서 멈추지 않고, 오늘 할 수 있는 한 걸음으로 옮겨보자.';if(!prayer)prayer='아버지, 제가 지금 겪는 일을 솔직하게 내려놓습니다. 제게 필요한 지혜와 힘을 주세요.';if(!recommendation)recommendation='이 말씀은 지금 네가 겪는 '+(analysis.topics[0]||'고민')+'을 단순히 감정으로만 넘기지 않고, 말씀의 뜻 안에서 어떻게 바라볼지 생각하게 해줘요.';if(!practice)practice=analysis.questionType==='관계'?'오늘 바로 결론내리지 말고, 상대에게 확인하고 싶은 사실 한 가지를 먼저 정리한 뒤 차분하게 물어보세요.':analysis.questionType==='선택'?'지금 고민하는 선택지를 적고, 각각에서 내가 중요하게 생각하는 기준 한 가지씩만 적어보세요.':'오늘 이 말씀을 한 번 천천히 읽고, 지금 내 상황에서 실제로 옮길 수 있는 행동 하나를 정해보세요.';if(!prayer)prayer='아버지, 제가 지금 겪는 일을 숨기지 않고 내려놓습니다. 제게 필요한 지혜와 용기를 주세요.';if(!prayers.length)prayers=[prayer];if(answer.length<250)answer=buildCompatibilityAnswer(understanding,whyThisVerse,nextStep,takeaway,prayer,recommendation,practice,prayers);if(!answer)answer=recommendation+'\n\n'+practice;let crisisMessage:string|undefined;if(state.isDepression)crisisMessage='요즘 마음이 오래 가라앉아 있다면 혼자 버티지 않아도 돼요. 가까운 어른이나 선생님에게 지금의 상태를 이야기하고 함께 도움을 찾아보세요.';
     return json({verse:chosen.text,reference:chosen.ref.reference,answer,recommendation,practice,prayers,understanding,whyThisVerse,nextStep,takeaway,prayer,analyzedEmotions:[primary,...analyzed.filter(e=>e!==primary)].slice(0,3),primaryEmotion:primary,questionType:analysis.questionType,relationship:analysis.relationship,topics:analysis.topics,contextCaution:CONTEXT_CAUTION_REFERENCES.has(chosen.ref.reference),crisisMessage,...(debugGateway?{_debugGateway:gatewayDebug??gatewayMeta}: {})});
   }catch(error){console.error('[bible-pick]',error);return json({error:'말씀을 준비하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'},503);}
 }
