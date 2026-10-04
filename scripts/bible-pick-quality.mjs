@@ -43,7 +43,7 @@ async function runOne(index) {
   try {
     const response = await fetch(ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Bible-Pick': '1' },
       body: JSON.stringify({ userText }),
     });
     const raw = await response.text();
@@ -67,6 +67,7 @@ async function runOne(index) {
       prayer: data?.prayer ?? '',
       crisisMessage: data?.crisisMessage ?? null,
       error: data?.error ?? null,
+      debugGateway: data?._debugGateway ?? null,
     };
     results[index] = result;
     console.log(JSON.stringify({
@@ -77,6 +78,7 @@ async function runOne(index) {
       reference: result.reference,
       answerLength: answer.length,
       elapsedMs: result.elapsedMs,
+      debugGateway: result.debugGateway,
     }));
   } catch (error) {
     results[index] = {
