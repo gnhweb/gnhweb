@@ -127,37 +127,11 @@ function isCompleteCoachingDraft(content: string | null): boolean {
   return /[.!?。！？다요죠습니다함]$/.test(clean);
 }
 
-async function requestGateway(
+export type CoachingGenerator = (
   messages: Array<{ role: "system" | "user"; content: string }>,
-  _env: Record<string, string | undefined>,
-  maxTokens = 5000,
-) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
-  try {
-    const response = await fetch("https://gnhweb-ai-gateway.gemini19840314.workers.dev", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        task: "coaching",
-        messages,
-        max_tokens: maxTokens,
-      }),
-      signal: controller.signal,
-    });
-    if (!response.ok) return null;
-    const data = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
-    const content = data.choices?.[0]?.message?.content;
-    return typeof content === "string" && content.trim().length >= 40 ? content.trim() : null;
-  } catch (error) {
-    console.error("[ai-gateway] coaching provider error", error);
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+) => Promise<string | null>;
 
-export async function handleNimCoaching(req: Request, env: Record<string, string | undefined>) {
+export async function handleNimCoaching(req: Request, _env: Record<string, string | undefined>, generate: CoachingGenerator) {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
@@ -181,7 +155,7 @@ export async function handleNimCoaching(req: Request, env: Record<string, string
       },
     ];
 
-    const finalDraft = await requestGateway(messages, env, 5000);
+    const finalDraft = await generate(messages);
 
     if (finalDraft && isCompleteCoachingDraft(finalDraft)) {
       return json({ advice: finalDraft });
