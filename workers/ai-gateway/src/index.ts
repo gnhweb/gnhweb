@@ -164,12 +164,19 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
     let attempt=await request();
     if("error" in attempt)return{ok:false,error:attempt.error};
     if(attempt.response.status===429){
-      // 429 is request-scoped capacity/rate limiting. Do not put the provider
-      // into a shared global cooldown or wait 5 seconds here; the caller can
-      // immediately fall through to the next independent provider.
-      const errorText=await attempt.response.text().catch(()=>"");
-      console.error(`[ai-gateway] ${cfg.name} HTTP 429: ${errorText.slice(0,300)}`);
-      return{ok:false,status:429,error:"http-429"};
+      // Retry once inside this request only. Never cache 429 in the module-level
+      // cooldown map: one user's rate limit must not suppress the provider for
+      // unrelated users sharing the same Worker isolate.
+      const firstError=await attempt.response.text().catch(()=>"");
+      console.error(`[ai-gateway] ${cfg.name} HTTP 429 (first attempt): ${firstError.slice(0,300)}`);
+      await new Promise(resolve=>setTimeout(resolve,1000));
+      attempt=await request();
+      if("error" in attempt)return{ok:false,error:attempt.error};
+      if(attempt.response.status===429){
+        const secondError=await attempt.response.text().catch(()=>"");
+        console.error(`[ai-gateway] ${cfg.name} HTTP 429 (retry): ${secondError.slice(0,300)}`);
+        return{ok:false,status:429,error:"http-429"};
+      }
     }
     if(!attempt.response.ok){
       const errorText=await attempt.response.text().catch(()=>"");
