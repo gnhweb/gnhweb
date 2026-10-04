@@ -83,13 +83,7 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
       temperature:0.55,
       chat_template_kwargs:{enable_thinking:false},
     };
-    let response:unknown;
-    try{
-      response=await ai.run("@cf/google/gemma-4-26b-a4b-it",input,{rejectIfBusy:true});
-    }catch(firstError){
-      console.error("[ai-gateway] workers-ai busy-retry:",firstError);
-      response=await ai.run("@cf/google/gemma-4-26b-a4b-it",input);
-    }
+    const response=await ai.run("@cf/google/gemma-4-26b-a4b-it",input,{rejectIfBusy:true});
     const content=extractContent(response);
     if(!content)return{ok:false,error:"workers-ai-empty-content"};
     return{ok:true,content};
