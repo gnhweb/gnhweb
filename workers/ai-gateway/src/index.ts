@@ -191,7 +191,7 @@ if(task==="bible-pick"||task==="bible-pick-analysis"||task==="faith-diary-questi
   }
   attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"quality-gate-failed"});
 }
-const order=CATEGORY_PRIORITY[category].slice(0,task==="bible-pick"?CATEGORY_PRIORITY[category].length:3);
+const order=task==="bible-pick"?["openrouter","groq","mistral","gemini","nvidia","deepseek","xai","sambanova","cohere","modelscope"]:CATEGORY_PRIORITY[category].slice(0,3);
 for(const providerName of order){
   const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,reasoningEffort);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
