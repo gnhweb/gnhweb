@@ -60,6 +60,11 @@ interface WorkersAiBinding {
   run(model:string,input:Record<string,unknown>,options?:{rejectIfBusy?:boolean}):Promise<unknown>;
 }
 const providerCooldownUntil=new Map<ProviderName,number>();
+function describeError(error:unknown):string {
+  if(error instanceof Error)return error.message.slice(0,500);
+  if(typeof error==="string")return error.slice(0,500);
+  try{return JSON.stringify(error).slice(0,500);}catch{return "unknown-error";}
+}
 function providerCooldownMs(error:string|undefined,status?:number){
   if(error==="no-api-key"||status===401||status===402||status===403||status===404)return 10*60*1000;
   if(status===429)return 30*1000;
@@ -87,8 +92,9 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
     if(!content)return{ok:false,error:"workers-ai-empty-content"};
     return{ok:true,content};
   }catch(error){
+    const detail=describeError(error);
     console.error("[ai-gateway] workers-ai error:",error);
-    return{ok:false,error:"workers-ai-request-error"};
+    return{ok:false,error:"workers-ai-request-error",status:undefined};
   }
 }
 async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"low"|"medium"|"high"):Promise<CallResult>{
