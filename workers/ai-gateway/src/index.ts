@@ -60,6 +60,7 @@ interface WorkersAiBinding {
   run(model:string,input:Record<string,unknown>,options?:{rejectIfBusy?:boolean}):Promise<unknown>;
 }
 const providerCooldownUntil=new Map<ProviderName,number>();
+let workersAiCooldownUntil=0;
 function describeError(error:unknown):string {
   if(error instanceof Error)return error.message.slice(0,500);
   if(typeof error==="string")return error.slice(0,500);
@@ -72,6 +73,7 @@ function providerCooldownMs(error:string|undefined,status?:number){
   return 5*1000;
 }
 async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Record<string,string|undefined>):Promise<CallResult>{
+  if(workersAiCooldownUntil>Date.now())return{ok:false,error:"workers-ai-cooldown"};
   const ai=(env as unknown as {AI?:WorkersAiBinding}).AI;
   if(!ai)return{ok:false,error:"workers-ai-unavailable"};
   try{
@@ -94,6 +96,7 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
   }catch(error){
     const detail=describeError(error);
     console.error("[ai-gateway] workers-ai error:",error);
+    if(detail.includes("daily free allocation")||detail.includes("4006"))workersAiCooldownUntil=10*60*1000+Date.now();
     return{ok:false,error:`workers-ai-request-error:${detail}`};
   }
 }
