@@ -147,15 +147,48 @@ jobs:
         working-directory: workers/api
         run: |
           set -euo pipefail
+
           secrets="$(npx wrangler@4 secret list --config wrangler.jsonc --format json)"
           printf '%s\n' "$secrets"
-          for name in WEB_PUSH_VAPID_PUBLIC_KEY WEB_PUSH_VAPID_PRIVATE_KEY WEB_PUSH_VAPID_SUBJECT; do
-            if ! printf '%s\n' "$secrets" | grep -q "\"name": \"$name"\""; then
-              echo "ERROR: Missing production API Worker secret: $name"
-              echo "Production deployment stopped before any Cloudflare deployment."
-              exit 1
-            fi
-          done
+
+          SECRET_LIST_JSON="$secrets" node <<'NODE'
+          const required = [
+            'WEB_PUSH_VAPID_PUBLIC_KEY',
+            'WEB_PUSH_VAPID_PRIVATE_KEY',
+            'WEB_PUSH_VAPID_SUBJECT',
+          ];
+
+          let payload;
+          try {
+            payload = JSON.parse(process.env.SECRET_LIST_JSON ?? '');
+          } catch (error) {
+            console.error('ERROR: Cloudflare secret list was not valid JSON.');
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          }
+
+          if (!Array.isArray(payload)) {
+            console.error('ERROR: Cloudflare secret list response is not an array.');
+            process.exit(1);
+          }
+
+          const names = new Set(
+            payload
+              .filter((entry) => entry && typeof entry === 'object')
+              .map((entry) => entry.name)
+              .filter((name) => typeof name === 'string'),
+          );
+
+          const missing = required.filter((name) => !names.has(name));
+
+          if (missing.length > 0) {
+            console.error(`ERROR: Missing production API Worker secrets: ${missing.join(', ')}`);
+            console.error('Production deployment stopped before any Cloudflare deployment.');
+            process.exit(1);
+          }
+
+          console.log('Production API Worker required secrets verified.');
+          NODE
 
       - name: Install site dependencies
         run: npm install --include=dev --no-audit --no-fund --prefer-offline
