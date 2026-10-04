@@ -28,6 +28,14 @@ function passesQualityGate(content:string,userText:string,task?:string){
  if(clean.length<15)return false;
  const badPatterns=[/^죄송하지만.{0,20}(할 수 없|불가능|도와드릴 수 없)/,/as an ai language model/i,/i cannot help with that/i];
  if(badPatterns.some(pattern=>pattern.test(clean)))return false;
+ if(task==="bible-pick"){
+   let parsed:Record<string,unknown>;
+   try{parsed=JSON.parse(stripJsonFence(clean)) as Record<string,unknown>;}catch{return false;}
+   const answer=typeof parsed.answer==="string"?parsed.answer.trim():"";
+   const chosenIndex=Number(parsed.chosenIndex);
+   if(answer.length<250||!Number.isInteger(chosenIndex)||chosenIndex<0)return false;
+   return true;
+ }
  if(looksLikeStructuredJson(clean))return true;
  const normalized=clean.toLowerCase();
  const userWords=userText.replace(/[^\p{L}\p{N}\s]/gu," ").split(/\s+/).map(word=>word.trim()).filter(word=>word.length>=2);
@@ -43,13 +51,7 @@ function passesQualityGate(content:string,userText:string,task?:string){
    if(clean.length<120)return false;
    return true;
  }
- if(task==="bible-pick"){
-   if(specificWords.length>=2 && matchedSpecificWords===0)return false;
-   const parsed=JSON.parse(stripJsonFence(clean)) as Record<string,unknown>;
-   const answer=typeof parsed.answer==="string"?parsed.answer.trim():"";
-   const chosenIndex=Number(parsed.chosenIndex);
-   if(answer.length<250||!Number.isInteger(chosenIndex))return false;
- }
+ if(task==="bible-pick")return true;
  if(userWords.length===1)return normalized.includes(userWords[0].toLowerCase())||clean.length>=80;
  return matchedSpecificWords>0||normalized.includes(userWords[0].toLowerCase())||clean.length>=80;
 }
@@ -71,8 +73,8 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
     const response=await ai.run("@cf/google/gemma-4-26b-a4b-it",{
       messages,
       max_completion_tokens:maxTokens,
-      chat_template_kwargs:{enable_thinking:true},
-      response_format:{type:"json_object"},
+      temperature:0.55,
+      reasoning_effort:"low",
     },{rejectIfBusy:true});
     const content=extractContent(response);
     if(!content)return{ok:false,error:"workers-ai-empty-content"};
