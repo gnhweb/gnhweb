@@ -155,13 +155,8 @@ export default function BiblePick() {
                   className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full opacity-60 pointer-events-none"
                   style={{ background: 'radial-gradient(circle, oklch(var(--primary-200) / 0.55) 0%, transparent 70%)' }}
                 ></div>
-                <div
-                  className="relative inline-flex items-center justify-center w-16 h-16 rounded-full p-[2px] mb-4"
-                  style={{ background: 'linear-gradient(135deg, var(--grad-coral), var(--grad-rose) 55%, var(--grad-blue))' }}
-                >
-                  <div className="w-full h-full rounded-full bg-background-50 flex items-center justify-center">
-                    <i className="ri-book-open-line text-2xl text-primary-600"></i>
-                  </div>
+                <div className="relative inline-flex items-center justify-center w-16 h-16 rounded-card bg-primary-100 border border-primary-200 mb-4 dark:bg-primary-950/30 dark:border-primary-800">
+                  <i className="ri-book-open-line text-2xl text-primary-600 dark:text-primary-300"></i>
                 </div>
                 <h1 className="relative text-2xl md:text-3xl font-bold text-foreground-950 mb-2.5">말씀 뽑기</h1>
                 <p className="relative text-foreground-600 text-sm md:text-base leading-relaxed">
@@ -213,8 +208,7 @@ export default function BiblePick() {
                   <button
                     type="submit"
                     disabled={userText.trim().length === 0}
-                    className="mt-5 w-full py-3.5 rounded-[20px] text-white font-semibold text-base transition-all duration-300 hover:brightness-105 hover:-translate-y-0.5 disabled:opacity-40 disabled:hover:translate-y-0 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer shadow-sm"
-                    style={{ background: 'linear-gradient(135deg, var(--grad-coral), var(--grad-rose) 55%, var(--grad-blue))' }}
+                    className="mt-5 w-full min-h-12 rounded-card bg-primary-600 px-4 py-3.5 text-background-50 font-semibold text-base transition-colors hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-400 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer shadow-card"
                   >
                     <i className="ri-book-open-line text-lg"></i>
                     나를 위한 말씀 뽑기
@@ -239,16 +233,13 @@ export default function BiblePick() {
         {/* Loading overlay */}
         {isDrawing && (
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center px-4">
-            <div className="bg-background-50 rounded-[24px] p-10 md:p-14 text-center max-w-sm w-full shadow-card-lg">
+            <div className="bg-background-50 rounded-card p-10 md:p-14 text-center max-w-sm w-full shadow-card-lg">
               <motion.div
                 className="relative w-16 h-16 mx-auto mb-6"
                 animate={{ scale: [1, 1.08, 1], rotate: [0, 6, 0] }}
                 transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <div
-                  className="absolute inset-0 rounded-full opacity-90"
-                  style={{ background: 'linear-gradient(135deg, var(--grad-coral), var(--grad-rose) 55%, var(--grad-blue))' }}
-                ></div>
+                <div className="absolute inset-0 rounded-full bg-primary-200 dark:bg-primary-800"></div>
                 <div className="absolute inset-[3px] rounded-full bg-background-50 flex items-center justify-center">
                   <i className="ri-book-open-line text-2xl text-primary-600"></i>
                 </div>
