@@ -182,7 +182,7 @@ export async function handleBiblePick(request:Request,_env:Env):Promise<Response
 - 명확하지 않다면 억지로 새 감정을 만들지 말고 후보 분석 정보의 감정을 사용하세요.
 
 [호환 필드]
-answer는 기존 호환용으로 2~4개의 짧은 문단으로 작성하세요. 다섯 부분을 단순 복사해 이어붙이지 마세요.
+answer는 기존 호환용으로 2~4개의 문단으로 작성하세요. 반드시 250~600자 정도로 충분히 작성하고, recommendation/practice/prayers의 핵심을 자연스럽게 연결하되 문장을 그대로 반복하지 마세요. 다섯 부분을 단순 복사해 이어붙이지 마세요.
 understanding, whyThisVerse, nextStep, takeaway, prayer도 작성하되 recommendation/practice/prayers와 같은 문장을 반복하지 마세요.
 
 JSON 이외의 텍스트는 출력하지 마세요.
