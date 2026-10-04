@@ -211,6 +211,10 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
+      - name: Install API Worker dependencies
+        working-directory: workers/api
+        run: npm install --no-audit --no-fund --prefer-offline
+
       - name: Dry-run API Worker
         working-directory: workers/api
         run: npx wrangler@4 deploy --config wrangler.jsonc --dry-run
