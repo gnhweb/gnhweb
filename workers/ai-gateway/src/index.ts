@@ -74,7 +74,7 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
       messages,
       max_completion_tokens:maxTokens,
       temperature:0.55,
-      reasoning_effort:"low",
+      chat_template_kwargs:{enable_thinking:false},
     },{rejectIfBusy:true});
     const content=extractContent(response);
     if(!content)return{ok:false,error:"workers-ai-empty-content"};
