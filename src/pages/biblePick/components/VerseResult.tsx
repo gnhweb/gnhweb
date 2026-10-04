@@ -46,7 +46,7 @@ export default function VerseResult({ verseData, userText: _userText, onReset }:
   const prayer = verseData.prayer || verseData.prayers[0];
 
   const answerParagraphs = answer
-    ? answer.split(/\\n{2,}/).map((part) => part.trim()).filter(Boolean)
+    ? answer.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean)
     : [];
 
   return (
