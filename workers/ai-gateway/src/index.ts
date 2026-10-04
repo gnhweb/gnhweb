@@ -112,10 +112,13 @@ function describeError(error:unknown):string {
   try{return JSON.stringify(error).slice(0,500);}catch{return "unknown-error";}
 }
 function providerCooldownMs(error:string|undefined,status?:number){
+  // Configuration/auth failures are stable and should not be retried on every
+  // request. Rate limits are deliberately not cached globally: a cooldown map
+  // lives across requests inside a Worker isolate and can otherwise make one
+  // user's 429 suppress the provider for every other user.
   if(error==="no-api-key"||status===401||status===402||status===403||status===404)return 10*60*1000;
-  if(status===429)return 5*1000;
-  if(status===503)return 15*1000;
-  return 5*1000;
+  if(status===503)return 2*1000;
+  return 0;
 }
 async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Record<string,string|undefined>):Promise<CallResult>{
   if(workersAiCooldownUntil>Date.now())return{ok:false,error:"workers-ai-cooldown"};
@@ -161,12 +164,12 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
     let attempt=await request();
     if("error" in attempt)return{ok:false,error:attempt.error};
     if(attempt.response.status===429){
-      // Providers commonly enforce short per-minute limits. Give the same
-      // provider one delayed retry before abandoning an otherwise healthy route.
-      providerCooldownUntil.set(cfg.name,Date.now()+5*1000);
-      await new Promise(resolve=>setTimeout(resolve,5000));
-      attempt=await request();
-      if("error" in attempt)return{ok:false,error:attempt.error};
+      // 429 is request-scoped capacity/rate limiting. Do not put the provider
+      // into a shared global cooldown or wait 5 seconds here; the caller can
+      // immediately fall through to the next independent provider.
+      const errorText=await attempt.response.text().catch(()=>"");
+      console.error(`[ai-gateway] ${cfg.name} HTTP 429: ${errorText.slice(0,300)}`);
+      return{ok:false,status:429,error:"http-429"};
     }
     if(!attempt.response.ok){
       const errorText=await attempt.response.text().catch(()=>"");
