@@ -75,7 +75,10 @@ type KrvChapter = {
 
 const krvChapterCache=new Map<string,Promise<KrvChapter>>();
 const CANDIDATE_POOL_SIZE=100;
-const AI_CANDIDATE_LIMIT=24;
+// Keep the broad 100-reference ranking, but send only the strongest candidates
+// to the model so provider payload/rate limits do not turn a good shortlist into
+// a 413 before the model can reason about it.
+const AI_CANDIDATE_LIMIT=12;
 
 function fetchKrvChapter(book:string,chapter:number):Promise<KrvChapter>{
   const key=`${book}:${chapter}`;
