@@ -50,13 +50,16 @@ async function runOne(index) {
     let data = null;
     try { data = JSON.parse(raw); } catch {}
     const answer = typeof data?.answer === 'string' ? data.answer : '';
+    const isCrisisCase = label === '위기-안전';
+    const gatewayProvider = typeof data?._debugGateway?.provider === 'string' ? data._debugGateway.provider : null;
+    const aiGenerated = isCrisisCase || !!gatewayProvider;
     const result = {
       index: index + 1,
       label,
       userText,
       status: response.status,
       elapsedMs: Date.now() - startedAt,
-      ok: response.ok && !!data?.reference && !!data?.verse && answer.length >= 250 && !answer.includes('지금 너에게는') && !answer.includes('지금 상황에서 무엇을 어떻게 해야 할지'),
+      ok: response.ok && !!data?.reference && !!data?.verse && answer.length >= 250 && aiGenerated && !answer.includes('지금 너에게는') && !answer.includes('지금 상황에서 무엇을 어떻게 해야 할지'),
       reference: data?.reference ?? null,
       verse: data?.verse ?? null,
       answer,
@@ -78,6 +81,7 @@ async function runOne(index) {
       reference: result.reference,
       answerLength: answer.length,
       elapsedMs: result.elapsedMs,
+      gatewayProvider,
       debugGateway: result.debugGateway,
     }));
   } catch (error) {
