@@ -34,7 +34,7 @@ const cases = [
 ];
 
 const results = [];
-const concurrency = 3;
+const concurrency = 1;
 let cursor = 0;
 
 async function runOne(index) {
