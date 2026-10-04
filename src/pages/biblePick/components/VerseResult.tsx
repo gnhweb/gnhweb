@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 export interface BibleVerseData {
   verse: string;
   reference: string;
+  answer?: string;
   recommendation: string;
   practice: string;
   prayers: string[];
@@ -40,11 +41,14 @@ export default function VerseResult({ verseData, userText: _userText, onReset }:
     }
   };
 
-  const explanation = verseData.biblicalContext || verseData.recommendation;
-  const connection = verseData.whyThisVerse || verseData.understanding;
-  const application = verseData.application || verseData.practice;
-  const action = verseData.nextStep;
+  const answer = verseData.answer?.trim() || verseData.biblicalContext || verseData.recommendation;
+  const reason = verseData.whyThisVerse || verseData.understanding;
+  const practice = verseData.nextStep || verseData.application || verseData.practice;
   const prayer = verseData.prayer || verseData.prayers[0];
+
+  const answerParagraphs = answer
+    ? answer.split(/\\n{2,}|(?<=[.!?다요])\\s+(?=그런데|그래서|이제|다만|그러니|오늘|먼저|그리고)/).map((part) => part.trim()).filter(Boolean)
+    : [];
 
   return (
     <div className="space-y-7">
@@ -80,17 +84,21 @@ export default function VerseResult({ verseData, userText: _userText, onReset }:
         </section>
       )}
 
-      {(explanation || connection || application || action) && (
+      {(answerParagraphs.length > 0 || reason) && (
         <motion.article
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
-          className="rounded-card border border-background-200 bg-background-50 p-6 md:p-8 dark:border-background-700"
+          className="rounded-card border border-background-200 bg-background-50 p-6 md:p-8 dark:border-background-700 dark:bg-background-50"
         >
-          {explanation && <p className="text-[0.95rem] leading-8 text-foreground-800 dark:text-foreground-100">{explanation}</p>}
-          {connection && <p className="mt-5 text-[0.95rem] leading-8 text-foreground-800 dark:text-foreground-100">{connection}</p>}
-          {application && <p className="mt-5 text-[0.95rem] leading-8 text-foreground-800 dark:text-foreground-100">{application}</p>}
-          {action && <p className="mt-6 border-l-2 border-primary-300 pl-4 text-sm font-semibold leading-7 text-foreground-800 dark:border-primary-700 dark:text-foreground-100">{action}</p>}
+          {answerParagraphs.map((paragraph, index) => (
+            <p key={index} className={index === 0 ? "text-[0.98rem] leading-8 text-foreground-900 dark:text-foreground-50" : "mt-5 text-[0.98rem] leading-8 text-foreground-800 dark:text-foreground-100"}>
+              {paragraph}
+            </p>
+          ))}
+          {reason && answerParagraphs.length === 0 && (
+            <p className="text-[0.98rem] leading-8 text-foreground-800 dark:text-foreground-100">{reason}</p>
+          )}
         </motion.article>
       )}
 
