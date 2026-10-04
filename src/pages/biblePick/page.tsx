@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 const HISTORY_STORAGE_KEY = 'bible_picks_history';
 
-async function savePick(verseData: BibleVerseData, userText: string, userId?: string) {
+async function savePick(verseData: BibleVerseData, userText: string, userId?: string): Promise<void> {
   const record = {
     emotion: verseData.primaryEmotion || verseData.analyzedEmotions?.[0] || '평안',
     situation: userText,
@@ -24,14 +24,31 @@ async function savePick(verseData: BibleVerseData, userText: string, userId?: st
       user_id: userId,
       ...record,
     });
-    if (error) console.error('Failed to save bible pick:', error);
-  } else {
+
+    if (error) {
+      console.error('[bible-pick] Failed to save history:', error);
+      return;
+    }
+
+    return;
+  }
+
+  try {
+    const existingValue = localStorage.getItem(HISTORY_STORAGE_KEY);
+    const existing = existingValue ? JSON.parse(existingValue) : [];
+
+    if (!Array.isArray(existing)) {
+      throw new Error('Invalid local bible-pick history format');
+    }
+
+    existing.unshift(record);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(existing));
+  } catch (error) {
+    console.warn('[bible-pick] Local history write failed; resetting history:', error);
     try {
-      const existing = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]');
-      existing.unshift(record);
-      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(existing));
-    } catch {
       localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify([record]));
+    } catch (storageError) {
+      console.error('[bible-pick] Local history recovery failed:', storageError);
     }
   }
 }
@@ -53,9 +70,14 @@ export default function BiblePick() {
       let errMsg = '';
       try {
         if (fnError && typeof fnError === 'object' && 'context' in fnError) {
-          const response = (fnError as any).context as Response;
-          const body = await response.json();
-          errMsg = body?.error || body?.message || '';
+          const context = (fnError as { context?: unknown }).context;
+          if (context instanceof Response) {
+            const body = (await context.json().catch(() => null)) as
+              | { error?: unknown; message?: unknown }
+              | null;
+            if (typeof body?.error === 'string') errMsg = body.error;
+            else if (typeof body?.message === 'string') errMsg = body.message;
+          }
         }
       } catch { /* fallback */ }
       if (!errMsg) errMsg = fnError instanceof Error ? fnError.message : String(fnError);
@@ -78,7 +100,7 @@ export default function BiblePick() {
       const verse = await fetchVerseFromAI(userText.trim());
       setVerseData(verse);
       setIsSubmitted(true);
-      savePick(verse, userText.trim(), user?.id);
+      await savePick(verse, userText.trim(), user?.id);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : '알 수 없는 오류';
       setError(errMsg);
