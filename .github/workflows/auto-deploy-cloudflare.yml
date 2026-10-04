@@ -407,10 +407,32 @@ jobs:
           set -euo pipefail
           existing="$(npx wrangler@4 secret list --config wrangler.jsonc --format json)"
           printf '%s\n' "$existing"
-          printf '%s\n' "$existing" | grep -q "\"name": \"DATABASE_URL\"" || {
-            echo "ERROR: DATABASE_URL is missing after synchronization."
-            exit 1
+          SECRET_LIST_JSON="$existing" node <<'NODE'
+          let payload;
+          try {
+            payload = JSON.parse(process.env.SECRET_LIST_JSON ?? '');
+          } catch (error) {
+            console.error('ERROR: Cloudflare secret list was not valid JSON after synchronization.');
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
           }
+
+          if (!Array.isArray(payload)) {
+            console.error('ERROR: Cloudflare secret list response is not an array after synchronization.');
+            process.exit(1);
+          }
+
+          const hasDatabaseUrl = payload.some(
+            (entry) => entry && typeof entry === 'object' && entry.name === 'DATABASE_URL',
+          );
+
+          if (!hasDatabaseUrl) {
+            console.error('ERROR: DATABASE_URL is missing after synchronization.');
+            process.exit(1);
+          }
+
+          console.log('Production API Worker DATABASE_URL secret verified after synchronization.');
+          NODE
 
   verify-api:
     name: Verify gnhweb API public routes
