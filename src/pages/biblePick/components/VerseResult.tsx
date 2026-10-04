@@ -42,12 +42,11 @@ export default function VerseResult({ verseData, userText: _userText, onReset }:
   };
 
   const answer = verseData.answer?.trim() || verseData.biblicalContext || verseData.recommendation;
-  const reason = verseData.whyThisVerse || verseData.understanding;
   const practice = verseData.nextStep || verseData.application || verseData.practice;
   const prayer = verseData.prayer || verseData.prayers[0];
 
   const answerParagraphs = answer
-    ? answer.split(/\\n{2,}|(?<=[.!?다요])\\s+(?=그런데|그래서|이제|다만|그러니|오늘|먼저|그리고)/).map((part) => part.trim()).filter(Boolean)
+    ? answer.split(/\\n{2,}/).map((part) => part.trim()).filter(Boolean)
     : [];
 
   return (
@@ -84,7 +83,7 @@ export default function VerseResult({ verseData, userText: _userText, onReset }:
         </section>
       )}
 
-      {(answerParagraphs.length > 0 || reason) && (
+      {answerParagraphs.length > 0 && (
         <motion.article
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -96,10 +95,17 @@ export default function VerseResult({ verseData, userText: _userText, onReset }:
               {paragraph}
             </p>
           ))}
-          {reason && answerParagraphs.length === 0 && (
-            <p className="text-[0.98rem] leading-8 text-foreground-800 dark:text-foreground-100">{reason}</p>
-          )}
         </motion.article>
+      )}
+
+      {practice && (
+        <section className="rounded-card border border-secondary-200 bg-secondary-50 p-5 md:p-6 dark:border-secondary-800 dark:bg-secondary-950/20">
+          <div className="flex items-center gap-2 mb-3">
+            <i className="ri-footprint-line text-secondary-600 dark:text-secondary-300" />
+            <h2 className="text-sm font-heading font-bold text-foreground-900 dark:text-foreground-50">오늘 한 가지 해볼 것</h2>
+          </div>
+          <p className="text-[0.95rem] leading-8 text-foreground-800 dark:text-foreground-100">{practice}</p>
+        </section>
       )}
 
       {verseData.takeaway && (
