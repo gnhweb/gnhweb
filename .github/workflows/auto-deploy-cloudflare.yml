@@ -143,6 +143,55 @@ jobs:
       - name: Validate Cloudflare authentication
         run: npx wrangler@4 whoami
 
+      - name: Validate AI Gateway provider secrets
+        working-directory: workers/ai-gateway
+        run: |
+          set -euo pipefail
+
+          secrets="$(npx wrangler@4 secret list --config wrangler.jsonc --format json)"
+          printf '%s\n' "$secrets"
+
+          SECRET_LIST_JSON="$secrets" node <<'NODE'
+          const requiredAnyOf = [
+            'OPENROUTER_API_KEY',
+            'GEMINI_API_KEY',
+            'MISTRAL_API_KEY',
+            'XAI_API_KEY',
+          ];
+
+          let payload;
+          try {
+            payload = JSON.parse(process.env.SECRET_LIST_JSON ?? '');
+          } catch (error) {
+            console.error('ERROR: Cloudflare AI Gateway secret list was not valid JSON.');
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          }
+
+          if (!Array.isArray(payload)) {
+            console.error('ERROR: Cloudflare AI Gateway secret list response is not an array.');
+            process.exit(1);
+          }
+
+          const names = new Set(
+            payload
+              .filter((entry) => entry && typeof entry === 'object')
+              .map((entry) => entry.name)
+              .filter((name) => typeof name === 'string'),
+          );
+
+          const available = requiredAnyOf.filter((name) => names.has(name));
+
+          if (available.length === 0) {
+            console.error(
+              `ERROR: No production coaching provider secret is configured. Expected at least one of: ${requiredAnyOf.join(', ')}`,
+            );
+            process.exit(1);
+          }
+
+          console.log(`Production AI Gateway provider secret(s) verified: ${available.join(', ')}`);
+          NODE
+
       - name: Validate existing API Worker secrets
         working-directory: workers/api
         run: |
@@ -578,7 +627,7 @@ jobs:
       - name: POST /nim-mbti smoke test
         run: |
           set -euo pipefail
-          response=$(curl --fail-with-body --silent --show-error --request POST --header 'Content-Type: application/json' --data '{"answers":["1"]}' 'https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-mbti')
+          response=$(curl --fail-with-body --silent --show-error --request POST --header 'Content-Type: application/json' --data '{"answers":["친구와 갈등이 생겼을 때 먼저 대화하려고 해요.","맡은 일은 끝까지 책임지려고 해요.","새로운 일을 시작할 때는 조금 걱정하지만 도전해요.","사람의 마음을 이해하려고 노력해요.","힘든 일이 있어도 다시 해보려고 해요.","모임에서 필요한 일이 있으면 먼저 찾아요.","혼자 결정하기보다 다른 사람의 의견도 들어요.","하나님을 믿는 마음을 행동으로 보여주고 싶어요."]}' 'https://gnhweb-ai-gateway.gemini19840314.workers.dev/nim-mbti')
           printf '%s\n' "$response"
           printf '%s' "$response" | grep -q '\"character\"'
       - name: POST /nim-coaching production smoke test
