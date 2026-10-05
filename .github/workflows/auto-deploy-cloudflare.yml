@@ -155,7 +155,7 @@ jobs:
           const fs = require('node:fs');
           const config = fs.readFileSync('wrangler.jsonc', 'utf8');
 
-          if (!/"ai"\\s*:\\s*\\{[\\s\\S]*?"binding"\\s*:\\s*"AI"/.test(config)) {
+          if (!/"ai"\s*:\s*\{[\s\S]*?"binding"\s*:\s*"AI"/.test(config)) {
             console.error('ERROR: workers/ai-gateway/wrangler.jsonc does not declare the required AI binding.');
             process.exit(1);
           }
