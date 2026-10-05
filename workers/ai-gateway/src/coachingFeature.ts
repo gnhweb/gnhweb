@@ -167,6 +167,7 @@ function isCompleteCoachingDraft(content: string | null): boolean {
 
 export interface CoachingGenerationResult {
   content: string | null;
+  provider?: string;
   attempts: Array<{ provider: string; reason: string }>;
 }
 
@@ -202,7 +203,14 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
     const finalDraft = generation.content;
 
     if (finalDraft && isCompleteCoachingDraft(finalDraft)) {
-      return json({ advice: finalDraft });
+      return json({
+        advice: finalDraft,
+        _meta: {
+          provider: generation.provider || "unknown",
+          aiUnavailable: false,
+          attempts: generation.attempts.map(({ provider, reason }) => ({ provider, reason })),
+        },
+      });
     }
 
     console.error("[nim-coaching] providers produced no complete draft:", generation.attempts);
