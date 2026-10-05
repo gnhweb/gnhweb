@@ -199,7 +199,17 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
       },
     ];
 
-    const generation = await generate(messages);
+    let generation: CoachingGenerationResult;
+    try {
+      generation = await generate(messages);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500);
+      console.error("[nim-coaching] generator failed before returning attempts:", error);
+      generation = {
+        content: null,
+        attempts: [{ provider: "generator", reason: `generator-error:${reason}` }],
+      };
+    }
     const finalDraft = generation.content;
 
     if (finalDraft && isCompleteCoachingDraft(finalDraft)) {
