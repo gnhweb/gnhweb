@@ -654,10 +654,16 @@ jobs:
           test "$http_code" = "200"
           grep -q '\"advice\"' "$response_file"
           advice_length=$(python -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get("advice", "").strip()))' "$response_file")
+          provider=$(python -c 'import json,sys; print(json.load(open(sys.argv[1])).get("_meta", {}).get("provider", ""))' "$response_file")
+          ai_unavailable=$(python -c 'import json,sys; print(str(json.load(open(sys.argv[1])).get("_meta", {}).get("aiUnavailable", False)).lower())' "$response_file")
           echo "advice_length=$advice_length"
+          echo "provider=$provider"
+          echo "aiUnavailable=$ai_unavailable"
           test "$advice_length" -ge 120
-          if grep -q 'AI 코칭을 일시적으로 완료하지 못했어' "$response_file"; then
-            echo 'Fallback response detected'
+          test "$ai_unavailable" = "false"
+          test -n "$provider"
+          if grep -Eq 'User Safety: safe|Response Safety: safe|AI 코칭을 일시적으로 완료하지 못했어' "$response_file"; then
+            echo 'Invalid/safety-marker coaching response detected'
             exit 1
           fi
       - name: Run Bible pick quality scenarios
