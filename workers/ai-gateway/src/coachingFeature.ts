@@ -127,9 +127,14 @@ function isCompleteCoachingDraft(content: string | null): boolean {
   return /[.!?。！？다요죠습니다함]$/.test(clean);
 }
 
+export interface CoachingGenerationResult {
+  content: string | null;
+  attempts: Array<{ provider: string; reason: string }>;
+}
+
 export type CoachingGenerator = (
   messages: Array<{ role: "system" | "user"; content: string }>,
-) => Promise<string | null>;
+) => Promise<CoachingGenerationResult>;
 
 export async function handleNimCoaching(req: Request, _env: Record<string, string | undefined>, generate: CoachingGenerator) {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -155,7 +160,8 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
       },
     ];
 
-    const finalDraft = await generate(messages);
+    const generation = await generate(messages);
+    const finalDraft = generation.content;
 
     if (finalDraft && isCompleteCoachingDraft(finalDraft)) {
       return json({ advice: finalDraft });
@@ -165,7 +171,17 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
       return json({ advice: finalDraft });
     }
 
-    return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
+    console.error("[nim-coaching] all providers failed:", generation.attempts);
+    return json(
+      {
+        error: "모든 AI 공급자가 코칭 답변을 생성하지 못했습니다.",
+        fallbackAdvice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC,
+        _meta: {
+          attempts: generation.attempts.map(({ provider, reason }) => ({ provider, reason })),
+        },
+      },
+      503,
+    );
   } catch (error) {
     console.error("nim-coaching error", error);
     return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
