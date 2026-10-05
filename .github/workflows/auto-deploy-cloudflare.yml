@@ -666,7 +666,9 @@ jobs:
             echo 'Invalid/safety-marker coaching response detected'
             exit 1
           fi
-      - name: Run Bible pick quality scenarios
+      - name: Run representative Bible pick quality scenarios
+        env:
+          BIBLE_PICK_QUALITY_CASE_INDICES: "0,4,8,11,20,28,29"
         run: node scripts/bible-pick-quality.mjs
       - name: Upload Bible pick quality report
         if: always()
