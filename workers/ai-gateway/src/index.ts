@@ -275,7 +275,12 @@ for(const providerName of order){
   const responseFormat=task==="bible-pick"&&providerName==="openrouter"?{type:"json_object" as const}:undefined;
   const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,reasoningEffort,modelOverride,responseFormat);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
-  if(!passesQualityGate(result.content!,lastUserMessage,task)){attempts.push({provider:providerName,reason:"quality-gate-failed"});continue;}
+  if(!passesQualityGate(result.content!,lastUserMessage,task)){
+    const diagnostic=result.content!.slice(0,1500).replace(/\\n/g,"\\\\n");
+    console.error(`[ai-gateway] ${providerName} quality-gate-failed task=${task} content=${diagnostic}`);
+    attempts.push({provider:providerName,reason:"quality-gate-failed"});
+    continue;
+  }
   return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:result.content}}],_meta:{category,provider:result.provider,attempts:attempts.map(attempt=>attempt.provider)}}),{headers:CORS_HEADERS});
 }
 return new Response(JSON.stringify({error:"모든 AI 공급자 호출에 실패했습니다.",_meta:{category,attempts}}),{status:503,headers:CORS_HEADERS});}catch(error){console.error("[ai-gateway] fatal:",error);return new Response(JSON.stringify({error:"게이트웨이 처리 중 오류가 발생했습니다."}),{status:500,headers:CORS_HEADERS});}}};
