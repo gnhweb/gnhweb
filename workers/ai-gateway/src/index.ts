@@ -197,23 +197,20 @@ export default { async fetch(req:Request,env:Record<string,string|undefined>):Pr
   const effectiveMessages=[...messages,{role:"system",content:buildTaskInstruction("coaching")}];
   const attempts:{provider:string;reason:string}[]=[];
 
-  // Workers AI is a real Cloudflare binding on this Worker and does not depend
-  // on an external provider secret. Use it first so the feature remains
-  // functional when optional external provider keys are absent or expired.
-  const workersResult=await callWorkersAi(effectiveMessages,1800,env);
-  if(workersResult.ok&&workersResult.content&&passesQualityGate(workersResult.content,"","coaching")){
-    return {content:workersResult.content,attempts};
-  }
-  attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"quality-gate-failed"});
-
-  // External providers are optional fallbacks. Each model is explicit so a
-  // stale provider-level model secret cannot silently redirect production
-  // coaching to an incompatible model.
+  // Coaching should not spend the Workers AI free allocation before trying
+  // configured external providers. Workers AI is the last AI fallback because
+  // its free daily neuron quota is finite.
   const order=[
-    {provider:"openrouter" as ProviderName,model:"google/gemma-4-31b-it:free"},
+    {provider:"openrouter" as ProviderName,model:"openrouter/free"},
     {provider:"gemini" as ProviderName,model:"gemini-3.8-flash"},
     {provider:"mistral" as ProviderName,model:"mistral-large-latest"},
+    {provider:"deepseek" as ProviderName,model:"deepseek-v4-flash"},
+    {provider:"groq" as ProviderName,model:"openai/gpt-oss-120b"},
+    {provider:"nvidia" as ProviderName,model:"google/gemma-4-31b-it"},
     {provider:"xai" as ProviderName,model:"grok-4.6"},
+    {provider:"sambanova" as ProviderName,model:"Meta-Llama-3.3-70B-Instruct"},
+    {provider:"cohere" as ProviderName,model:"command-r-plus"},
+    {provider:"modelscope" as ProviderName,model:"Qwen/Qwen2.5-72B-Instruct"},
   ];
   for(const {provider,model} of order){
     const result=await callProvider(PROVIDERS[provider],effectiveMessages,0.3,1800,env,"low",model);
@@ -227,6 +224,15 @@ export default { async fetch(req:Request,env:Record<string,string|undefined>):Pr
     }
     return {content:result.content,attempts};
   }
+
+  // Only after all configured external providers fail, try Workers AI. This
+  // preserves the Cloudflare-native fallback without burning its free quota
+  // when another provider can answer the request.
+  const workersResult=await callWorkersAi(effectiveMessages,1800,env);
+  if(workersResult.ok&&workersResult.content&&passesQualityGate(workersResult.content,"","coaching")){
+    return {content:workersResult.content,attempts};
+  }
+  attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"quality-gate-failed"});
   return {content:null,attempts};
 });if(pathname==="/nim-counseling")return handleNimCounseling(req,env);if(pathname==="/nim-quiz")return handleNimQuiz(req,env);if(pathname==="/nim-mbti")return handleNimMbti(req,env);if(req.method==="OPTIONS")return new Response("ok",{headers:CORS_HEADERS});if(req.method!=="POST")return new Response(JSON.stringify({error:"POST only"}),{status:405,headers:CORS_HEADERS});try{const body=await req.json() as {task?:unknown;messages?:unknown;temperature?:unknown;max_tokens?:unknown};const task=typeof body?.task==="string"?body.task:undefined;const messages:Array<GatewayMessage>=Array.isArray(body?.messages)?body.messages.filter((message:unknown):message is GatewayMessage=>!!message&&typeof message==="object"&&["system","user","assistant"].includes(String((message as {role?:unknown}).role))&&typeof(message as {content?:unknown}).content==="string"):[];if(messages.length===0)return new Response(JSON.stringify({error:"messages가 필요합니다."}),{status:400,headers:CORS_HEADERS});const taskInstruction=buildTaskInstruction(task);const effectiveMessages=taskInstruction?[...messages,{role:"system",content:taskInstruction}]:messages;const temperature=typeof body?.temperature==="number"?body.temperature:0.3;const requestedMaxTokens=typeof body?.max_tokens==="number"?Math.min(Math.max(body.max_tokens,64),4096):1000;const maxTokens=task==="coaching"?Math.min(Math.max(requestedMaxTokens,900),1800):task==="bible-pick"?Math.min(Math.max(requestedMaxTokens,1800),2600):(task==="faith-diary-weekly-summary"?Math.min(Math.max(requestedMaxTokens,700),1400):task==="bible-pick-analysis"?Math.min(Math.max(requestedMaxTokens,500),900):requestedMaxTokens);const reasoningEffort=task==="coaching"?"medium":(task==="bible-pick"||task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-diary-weekly-summary")?"low":"medium";const lastUserMessage=[...messages].reverse().find(message=>message.role==="user")?.content||"";const category=classify(task,lastUserMessage);const attempts:{provider:string;reason:string}[]=[];
 if(task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-diary-weekly-summary"){
