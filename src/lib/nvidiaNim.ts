@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase';
+export { fetchDiaryQuestions, fetchDiaryWeeklySummary } from '@/lib/faithDiaryAi';
+export type { DiaryWeekEntryPayload, DiaryWeekSummary } from '@/lib/faithDiaryAi';
 
 // ============================================================
 // NVIDIA NIM API → Supabase Edge Functions (서버사이드 호출)
