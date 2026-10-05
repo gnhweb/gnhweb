@@ -143,16 +143,29 @@ jobs:
       - name: Validate Cloudflare authentication
         run: npx wrangler@4 whoami
 
-      - name: Validate AI Gateway provider secrets
+      - name: Validate AI Gateway runtime configuration
         working-directory: workers/ai-gateway
         run: |
           set -euo pipefail
 
-          secrets="$(npx wrangler@4 secret list --config wrangler.jsonc --format json)"
-          printf '%s\n' "$secrets"
+          # Coaching uses the Cloudflare Workers AI binding as its primary
+          # provider. External API keys are optional fallbacks, so their
+          # absence must not block a deployment.
+          node <<'NODE'
+          const fs = require('node:fs');
+          const config = fs.readFileSync('wrangler.jsonc', 'utf8');
 
+          if (!/"ai"\\s*:\\s*\\{[\\s\\S]*?"binding"\\s*:\\s*"AI"/.test(config)) {
+            console.error('ERROR: workers/ai-gateway/wrangler.jsonc does not declare the required AI binding.');
+            process.exit(1);
+          }
+
+          console.log('Cloudflare Workers AI binding verified: env.AI');
+          NODE
+
+          secrets="$(npx wrangler@4 secret list --config wrangler.jsonc --format json)"
           SECRET_LIST_JSON="$secrets" node <<'NODE'
-          const requiredAnyOf = [
+          const optionalFallbacks = [
             'OPENROUTER_API_KEY',
             'GEMINI_API_KEY',
             'MISTRAL_API_KEY',
@@ -180,16 +193,13 @@ jobs:
               .filter((name) => typeof name === 'string'),
           );
 
-          const available = requiredAnyOf.filter((name) => names.has(name));
+          const available = optionalFallbacks.filter((name) => names.has(name));
 
           if (available.length === 0) {
-            console.error(
-              `ERROR: No production coaching provider secret is configured. Expected at least one of: ${requiredAnyOf.join(', ')}`,
-            );
-            process.exit(1);
+            console.log('No optional external coaching provider secrets configured; Workers AI will be the only coaching provider.');
+          } else {
+            console.log(`Optional external coaching fallback secret(s) configured: ${available.join(', ')}`);
           }
-
-          console.log(`Production AI Gateway provider secret(s) verified: ${available.join(', ')}`);
           NODE
 
       - name: Validate existing API Worker secrets
