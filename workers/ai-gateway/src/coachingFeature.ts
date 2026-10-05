@@ -223,7 +223,16 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
       },
     });
   } catch (error) {
+    const reason = error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500);
     console.error("nim-coaching error", error);
-    return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
+    return json({
+      advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC,
+      _meta: {
+        provider: "gateway-error-fallback",
+        aiUnavailable: true,
+        reason,
+        attempts: [],
+      },
+    });
   }
 }
