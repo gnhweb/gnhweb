@@ -1,6 +1,8 @@
 name: Cloudflare Admin
 
 on:
+  pull_request:
+    types: [opened, synchronize]
   issue_comment:
     types: [created]
   workflow_dispatch:
@@ -67,13 +69,29 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
           COMMENT_BODY: ${{ github.event.comment.body }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           set -euo pipefail
 
           operation="$INPUT_OPERATION"
           worker="$INPUT_WORKER"
 
-          if [ "$EVENT_NAME" = "issue_comment" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            test "$PR_HEAD_REF" = "cloudflare-admin"
+            test "$PR_AUTHOR" = "gnhweb"
+            operation="inventory"
+            case "$PR_TITLE" in
+              *"[cf-admin:health]"*) operation="health" ;;
+              *"[cf-admin:worker-deploy:"*)
+                operation="worker-deploy"
+                worker="$(printf '%s' "$PR_TITLE" | sed -n 's/.*\[cf-admin:worker-deploy:\([^]]*\)\].*/\1/p')"
+                ;;
+              *"[cf-admin:inventory]"*) operation="inventory" ;;
+              *) echo "No valid Cloudflare admin command in this PR title."; exit 78 ;;
+            esac
+          elif [ "$EVENT_NAME" = "issue_comment" ]; then
             test "$ISSUE_NUMBER" = "67"
             test "$COMMENT_AUTHOR" = "gnhweb"
 
