@@ -23,63 +23,78 @@ function classify(task:string|undefined,lastUserText:string):Category { if(task&
 function extractContent(data:unknown):string { const content=(data as {choices?:Array<{message?:{content?:unknown}}>})?.choices?.[0]?.message?.content; if(typeof content==="string")return content.trim(); if(Array.isArray(content))return content.map((part)=>typeof part==="string"?part:String((part as {text?:unknown})?.text||"")).join("").trim(); return ""; }
 function stripJsonFence(content:string){return content.replace(/```json/gi,"").replace(/```/g,"").trim();}
 function looksLikeStructuredJson(content:string){const clean=stripJsonFence(content);if(!clean.startsWith("{")||!clean.endsWith("}"))return false;try{const parsed=JSON.parse(clean);return parsed!==null&&typeof parsed==="object"&&!Array.isArray(parsed);}catch{return false;}}
-function passesQualityGate(content:string,userText:string,task?:string){
+function qualityGateReason(content:string,userText:string,task?:string):string|null{
  const clean=content.trim();
- if(clean.length<15)return false;
+ if(clean.length<15)return "content-too-short";
  const badPatterns=[/^죄송하지만.{0,20}(할 수 없|불가능|도와드릴 수 없)/,/as an ai language model/i,/i cannot help with that/i];
- if(badPatterns.some(pattern=>pattern.test(clean)))return false;
- if(task==="faith-diary-questions"||task==="faith-diary-weekly-summary"||task==="bible-pick-analysis"){ 
+ if(badPatterns.some(pattern=>pattern.test(clean)))return "refusal-marker";
+ if(task==="faith-diary-questions"||task==="faith-diary-weekly-summary"||task==="bible-pick-analysis"){
    let parsed:Record<string,unknown>;
-   try{parsed=JSON.parse(stripJsonFence(clean)) as Record<string,unknown>;}catch{return false;}
+   try{parsed=JSON.parse(stripJsonFence(clean)) as Record<string,unknown>;}catch{return "invalid-json";}
    if(task==="bible-pick-analysis"){
-   try{const parsed=JSON.parse(stripJsonFence(clean)) as Record<string,unknown>; const situation=typeof parsed.situation==="string"?parsed.situation.trim():""; const coreQuestion=typeof parsed.coreQuestion==="string"?parsed.coreQuestion.trim():""; const emotions=Array.isArray(parsed.emotions)?parsed.emotions.filter((v):v is string=>typeof v==="string"&&v.trim()):[]; const needs=Array.isArray(parsed.needs)?parsed.needs.filter((v):v is string=>typeof v==="string"&&v.trim()):[]; const intent=typeof parsed.intent==="string"?parsed.intent.trim():""; const responsePlan=Array.isArray(parsed.responsePlan)?parsed.responsePlan.filter((v):v is string=>typeof v==="string"&&v.trim()):[]; return situation.length>=20&&coreQuestion.length>=10&&emotions.length>=1&&emotions.length<=3&&needs.length>=1&&needs.length<=3&&intent.length>=2&&responsePlan.length>=2&&responsePlan.length<=5;}catch{return false;}
- }
- if(task==="faith-diary-questions"){
+     const situation=typeof parsed.situation==="string"?parsed.situation.trim():"";
+     const coreQuestion=typeof parsed.coreQuestion==="string"?parsed.coreQuestion.trim():"";
+     const emotions=Array.isArray(parsed.emotions)?parsed.emotions.filter((v):v is string=>typeof v==="string"&&v.trim()):[];
+     const needs=Array.isArray(parsed.needs)?parsed.needs.filter((v):v is string=>typeof v==="string"&&v.trim()):[];
+     const intent=typeof parsed.intent==="string"?parsed.intent.trim():"";
+     const responsePlan=Array.isArray(parsed.responsePlan)?parsed.responsePlan.filter((v):v is string=>typeof v==="string"&&v.trim()):[];
+     if(situation.length<20)return "analysis-situation-too-short";
+     if(coreQuestion.length<10)return "analysis-coreQuestion-too-short";
+     if(emotions.length<1||emotions.length>3)return "analysis-emotions-count";
+     if(needs.length<1||needs.length>3)return "analysis-needs-count";
+     if(intent.length<2)return "analysis-intent-too-short";
+     if(responsePlan.length<2||responsePlan.length>5)return "analysis-responsePlan-count";
+     return null;
+   }
+   if(task==="faith-diary-questions"){
      const questions=Array.isArray(parsed.questions)?parsed.questions.filter((v):v is string=>typeof v==="string"&&v.trim()):[];
-     return questions.length===3&&questions.every(q=>q.length>=12&&q.length<=120);
+     if(questions.length!==3)return "faith-diary-questions-count";
+     if(!questions.every(q=>q.length>=12&&q.length<=120))return "faith-diary-question-length";
+     return null;
    }
    const summary=typeof parsed.summary==="string"?parsed.summary.trim():"";
    const themes=Array.isArray(parsed.themes)?parsed.themes.filter((v):v is string=>typeof v==="string"&&v.trim()):[];
    const highlights=Array.isArray(parsed.highlights)?parsed.highlights.filter((v):v is string=>typeof v==="string"&&v.trim()):[];
    const nextFocus=typeof parsed.nextFocus==="string"?parsed.nextFocus.trim():"";
-   return summary.length>=80&&summary.length<=700&&themes.length>=2&&themes.length<=4&&highlights.length<=3&&nextFocus.length>=20&&nextFocus.length<=300;
+   if(summary.length<80||summary.length>700)return "weekly-summary-length";
+   if(themes.length<2||themes.length>4)return "weekly-themes-count";
+   if(highlights.length>3)return "weekly-highlights-count";
+   if(nextFocus.length<20||nextFocus.length>300)return "weekly-nextFocus-length";
+   return null;
  }
  if(task==="bible-pick"){
    let parsed:Record<string,unknown>;
-   try{parsed=JSON.parse(stripJsonFence(clean)) as Record<string,unknown>;}catch{return false;}
+   try{parsed=JSON.parse(stripJsonFence(clean)) as Record<string,unknown>;}catch{return "invalid-json";}
    const chosenIndex=Number(parsed.chosenIndex);
    const recommendation=typeof parsed.recommendation==="string"?parsed.recommendation.trim():"";
    const practice=typeof parsed.practice==="string"?parsed.practice.trim():"";
    const prayers=Array.isArray(parsed.prayers)?parsed.prayers.filter((v):v is string=>typeof v==="string"&&v.trim()):[];
    const emotions=Array.isArray(parsed.analyzedEmotions)?parsed.analyzedEmotions.filter((v):v is string=>typeof v==="string"&&v.trim()):[];
    const answer=typeof parsed.answer==="string"?parsed.answer.trim():"";
-   if(!Number.isInteger(chosenIndex)||chosenIndex<0)return false;
-   if(recommendation.length<80||recommendation.length>700)return false;
-   if(practice.length<25||practice.length>450)return false;
-   if(prayers.length<1||prayers.length>2||prayers.some(prayer=>prayer.length<15||prayer.length>300))return false;
-   if(emotions.length<1||emotions.length>3)return false;
-   if(answer.length<80)return false;
-   return true;
+   if(!Number.isInteger(chosenIndex)||chosenIndex<0)return "chosenIndex-invalid";
+   if(recommendation.length<80||recommendation.length>700)return `recommendation-length:${recommendation.length}`;
+   if(practice.length<25||practice.length>450)return `practice-length:${practice.length}`;
+   if(prayers.length<1||prayers.length>2)return `prayers-count:${prayers.length}`;
+   const invalidPrayer=prayers.find(prayer=>prayer.length<15||prayer.length>300);
+   if(invalidPrayer)return `prayer-length:${invalidPrayer.length}`;
+   if(emotions.length<1||emotions.length>3)return `emotions-count:${emotions.length}`;
+   if(answer.length<80)return `answer-length:${answer.length}`;
+   return null;
  }
- if(looksLikeStructuredJson(clean))return true;
+ if(looksLikeStructuredJson(clean))return null;
  const normalized=clean.toLowerCase();
- const userWords=userText.replace(/[^\p{L}\p{N}\s]/gu," ").split(/\s+/).map(word=>word.trim()).filter(word=>word.length>=2);
- if(userWords.length===0)return true;
+ const userWords=userText.replace(/[^\\p{L}\\p{N}\\s]/gu," ").split(/\\s+/).map(word=>word.trim()).filter(word=>word.length>=2);
+ if(userWords.length===0)return null;
  const genericWords=new Set(["어떻게","해야","할까요","하면","좋을까요","좋을지","방법","문제","상황","생각","것","같아요","같습니다","알려줘","해주세요","부탁","리더십","리더","학생회","사명자"]);
  const specificWords=[...new Set(userWords.filter(word=>!genericWords.has(word)))];
  const matchedSpecificWords=specificWords.filter(word=>normalized.includes(word.toLowerCase())).length;
- const directAnswerPattern=/(해야|하는 게|하는것이|하는 것이|추천|권해|좋습니다|좋아요|먼저|바로|이렇게|하지 마|하지 않는|말해보|확인해보|정리해보|시도해보|필요합니다|필요해요|권합니다)/;
- if(task==="coaching"){
-   // Coaching is already constrained by its dedicated prompt. Do not reject
-   // otherwise-valid answers just because Korean inflection or phrasing differs
-   // from the user's wording.
-   if(clean.length<120)return false;
-   return true;
- }
- if(task==="bible-pick")return true;
- if(userWords.length===1)return normalized.includes(userWords[0].toLowerCase())||clean.length>=80;
- return matchedSpecificWords>0||normalized.includes(userWords[0].toLowerCase())||clean.length>=80;
+ if(task==="coaching")return clean.length<120?`coaching-length:${clean.length}`:null;
+ if(task==="bible-pick")return null;
+ if(userWords.length===1)return normalized.includes(userWords[0].toLowerCase())||clean.length>=80?null:"single-word-no-match";
+ return matchedSpecificWords>0||normalized.includes(userWords[0].toLowerCase())||clean.length>=80?null:"generic-or-no-match";
 }
+function passesQualityGate(content:string,userText:string,task?:string){return qualityGateReason(content,userText,task)===null;}
+
 function buildTaskInstruction(task:string|undefined):string { if(task==="bible-pick-analysis") return `\n[말씀 뽑기 내부 상황 분석]\n학생의 글을 성급하게 해석하지 말고, 답변을 만들기 전에 다음을 구조화한다.\n- situation: 학생이 실제로 말한 사실과 상황. 추측은 넣지 않는다.\n- coreQuestion: 학생이 겉으로 묻지 않았더라도 글에서 가장 중요해 보이는 질문. 단정하지 말고 실제 고민에 가장 가까운 형태로 쓴다.\n- emotions: 글에 드러난 감정 1~3개.\n- needs: 지금 필요한 도움 1~3개. 예: 위로, 정리, 행동, 결정, 관계회복, 신앙적 관점, 안전.\n- intent: COMFORT/CLARIFY/GUIDE/DECIDE/RECONCILE/ENCOURAGE/REFLECT/FAITH/SAFETY 중 가장 가까운 것.\n- responsePlan: 최종 답변에서 반드시 다뤄야 할 핵심 2~5개.\n- 없는 사건, 상대방 의도, 하나님의 뜻을 만들어내지 않는다.\n반드시 JSON 하나만 출력한다: {"situation":"","coreQuestion":"","emotions":[""],"needs":[""],"intent":"GUIDE","responsePlan":["",""]}\n`; if(task==="coaching") return `
 [최우선: 질문에 직접 답하기]
 사용자의 질문을 먼저 정확히 이해하고, 답변의 첫 1~2문단에서 그 질문에 대한 판단과 답을 직접 말한다. 일반적인 리더십 원칙을 질문보다 앞세우지 않는다.
@@ -277,8 +292,9 @@ for(const providerName of order){
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){
     const diagnostic=result.content!.slice(0,1500).replace(/\\n/g,"\\\\n");
-    console.error(`[ai-gateway] ${providerName} quality-gate-failed task=${task} content=${diagnostic}`);
-    attempts.push({provider:providerName,reason:"quality-gate-failed"});
+    const qualityReason=qualityGateReason(result.content!,lastUserMessage,task)||"unknown";
+    console.error(`[ai-gateway] ${providerName} quality-gate-failed task=${task} reason=${qualityReason} content=${diagnostic}`);
+    attempts.push({provider:providerName,reason:`quality-gate-failed:${qualityReason}`});
     continue;
   }
   return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:result.content}}],_meta:{category,provider:result.provider,attempts:attempts.map(attempt=>attempt.provider)}}),{headers:CORS_HEADERS});
