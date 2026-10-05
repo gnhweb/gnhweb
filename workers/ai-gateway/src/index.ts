@@ -273,8 +273,6 @@ export default { async fetch(req:Request,env:Record<string,string|undefined>):Pr
   attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"quality-gate-failed"});
   return {content:null,attempts};
 });if(pathname==="/nim-counseling")return handleNimCounseling(req,env);if(pathname==="/nim-quiz")return handleNimQuiz(req,env);if(pathname==="/nim-mbti")return handleNimMbti(req,env);if(req.method==="OPTIONS")return new Response("ok",{headers:CORS_HEADERS});if(req.method!=="POST")return new Response(JSON.stringify({error:"POST only"}),{status:405,headers:CORS_HEADERS});try{const body=await req.json() as {task?:unknown;messages?:unknown;temperature?:unknown;max_tokens?:unknown};const task=typeof body?.task==="string"?body.task:undefined;const messages:Array<GatewayMessage>=Array.isArray(body?.messages)?body.messages.filter((message:unknown):message is GatewayMessage=>!!message&&typeof message==="object"&&["system","user","assistant"].includes(String((message as {role?:unknown}).role))&&typeof(message as {content?:unknown}).content==="string"):[];if(messages.length===0)return new Response(JSON.stringify({error:"messages가 필요합니다."}),{status:400,headers:CORS_HEADERS});const taskInstruction=buildTaskInstruction(task);const effectiveMessages=taskInstruction?[...messages,{role:"system",content:taskInstruction}]:messages;const temperature=typeof body?.temperature==="number"?body.temperature:0.3;const requestedMaxTokens=typeof body?.max_tokens==="number"?Math.min(Math.max(body.max_tokens,64),4096):1000;const maxTokens=task==="coaching"?Math.min(Math.max(requestedMaxTokens,900),1800):task==="bible-pick"?Math.min(Math.max(requestedMaxTokens,1800),2600):(task==="faith-diary-weekly-summary"?Math.min(Math.max(requestedMaxTokens,700),1400):task==="bible-pick-analysis"?Math.min(Math.max(requestedMaxTokens,500),900):requestedMaxTokens);const reasoningEffort=task==="coaching"?"medium":(task==="bible-pick"||task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-diary-weekly-summary")?"low":"medium";const lastUserMessage=[...messages].reverse().find(message=>message.role==="user")?.content||"";const category=classify(task,lastUserMessage);const attempts:{provider:string;reason:string}[]=[];
-const debugBiblePick=task==="bible-pick"&&req.headers.get("X-Debug-Bible-Pick")==="1";
-const debugProviderSamples:Record<string,string>={};
 if(task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-diary-weekly-summary"){
   const workersResult=await callWorkersAi(effectiveMessages,maxTokens,env);
   if(workersResult.ok&&passesQualityGate(workersResult.content!,lastUserMessage,task)){
@@ -315,13 +313,11 @@ for(const providerName of order){
   const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,providerReasoningEffort,modelOverride,responseFormat);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){
-    const diagnostic=result.content!.slice(0,1500).replace(/\\n/g,"\\\\n");
-    if(debugBiblePick)debugProviderSamples[providerName]=result.content!.slice(0,3000);
     const qualityReason=qualityGateReason(result.content!,lastUserMessage,task)||"unknown";
-    console.error(`[ai-gateway] ${providerName} quality-gate-failed task=${task} reason=${qualityReason} content=${diagnostic}`);
+    console.error(`[ai-gateway] ${providerName} quality-gate-failed task=${task} reason=${qualityReason}`);
     attempts.push({provider:providerName,reason:`quality-gate-failed:${qualityReason}`});
     continue;
   }
   return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:result.content}}],_meta:{category,provider:result.provider,attempts:attempts.map(attempt=>attempt.provider)}}),{headers:CORS_HEADERS});
 }
-return new Response(JSON.stringify({error:"모든 AI 공급자 호출에 실패했습니다.",_meta:{category,attempts,...(debugBiblePick?{providerSamples:debugProviderSamples}: {})}}),{status:503,headers:CORS_HEADERS});}catch(error){console.error("[ai-gateway] fatal:",error);return new Response(JSON.stringify({error:"게이트웨이 처리 중 오류가 발생했습니다."}),{status:500,headers:CORS_HEADERS});}}};
+return new Response(JSON.stringify({error:"모든 AI 공급자 호출에 실패했습니다.",_meta:{category,attempts}}),{status:503,headers:CORS_HEADERS});}catch(error){console.error("[ai-gateway] fatal:",error);return new Response(JSON.stringify({error:"게이트웨이 처리 중 오류가 발생했습니다."}),{status:500,headers:CORS_HEADERS});}}};
