@@ -142,12 +142,12 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
     return{ok:false,error:`workers-ai-request-error:${detail}`};
   }
 }
-async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"low"|"medium"|"high"):Promise<CallResult>{
+async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"low"|"medium"|"high",modelOverride?:string):Promise<CallResult>{
   const cooldownUntil=providerCooldownUntil.get(cfg.name)||0;
   if(cooldownUntil>Date.now())return{ok:false,error:"cooldown"};
   const apiKey=env[cfg.envKey]?.trim();
   if(!apiKey){providerCooldownUntil.set(cfg.name,Date.now()+providerCooldownMs("no-api-key"));return{ok:false,error:"no-api-key"};}
-  const model=cfg.name==="gemini"?"gemini-3.8-flash":(env[cfg.modelEnvKey]||cfg.defaultModel).trim();
+  const model=(modelOverride||(cfg.name==="gemini"?"gemini-3.8-flash":(env[cfg.modelEnvKey]||cfg.defaultModel))).trim();
   const timeoutMs=cfg.name==="gemini"?(reasoningEffort==="high"?30000:reasoningEffort==="medium"?25000:20000):30000;
   const request=async():Promise<{response:Response}|{error:"timeout"|"request-error"}>=>{
     const controller=new AbortController();
@@ -213,7 +213,8 @@ if(task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-d
 }
 const order=task==="bible-pick"?["openrouter","groq","mistral","gemini","nvidia","deepseek","xai","sambanova","cohere","modelscope"]:task==="coaching"?["openrouter","gemini","deepseek","mistral","xai","groq","nvidia","sambanova","cohere","modelscope"]:CATEGORY_PRIORITY[category].slice(0,3);
 for(const providerName of order){
-  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,reasoningEffort);
+  const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"openrouter/free":undefined;
+  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,reasoningEffort,modelOverride);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){attempts.push({provider:providerName,reason:"quality-gate-failed"});continue;}
   return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:result.content}}],_meta:{category,provider:result.provider,attempts:attempts.map(attempt=>attempt.provider)}}),{headers:CORS_HEADERS});
