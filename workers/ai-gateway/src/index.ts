@@ -288,7 +288,7 @@ const order=task==="bible-pick"
     ? ["openrouter","gemini","deepseek","mistral","xai","groq","nvidia","sambanova","cohere","modelscope"]
     : CATEGORY_PRIORITY[category].slice(0,3);
 for(const providerName of order){
-  const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"google/gemma-4-31b-it:free":task==="bible-pick"&&providerName==="cohere"?"command-a-plus-05-2026":undefined;
+  const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"google/gemma-4-31b-it:free":task==="bible-pick"&&providerName==="cohere"?"command-a-03-2025":undefined;
   const biblePickCohereSchema=task==="bible-pick"&&providerName==="cohere"?{
     type:"object",
     properties:{
