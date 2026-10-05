@@ -35,10 +35,12 @@ const cases = [
 
 const results = [];
 const concurrency = 1;
+const ciCaseLimit = Number.parseInt(process.env.BIBLE_PICK_QUALITY_CASE_LIMIT || '0', 10);
+const selectedCases = ciCaseLimit > 0 ? cases.slice(0, ciCaseLimit) : cases;
 let cursor = 0;
 
 async function runOne(index) {
-  const [label, userText] = cases[index];
+  const [label, userText] = selectedCases[index];
   const startedAt = Date.now();
   try {
     const response = await fetch(ENDPOINT, {
@@ -119,7 +121,7 @@ const averageAnswerLength = completed
 const report = {
   generatedAt: new Date().toISOString(),
   endpoint: ENDPOINT,
-  caseCount: cases.length,
+  caseCount: selectedCases.length,
   passed,
   failed,
   averageAnswerLength: Math.round(averageAnswerLength),
@@ -132,7 +134,7 @@ await import('node:fs/promises').then((fs) =>
 
 console.log(JSON.stringify({
   summary: {
-    caseCount: cases.length,
+    caseCount: selectedCases.length,
     passed,
     failed,
     averageAnswerLength: Math.round(averageAnswerLength),
