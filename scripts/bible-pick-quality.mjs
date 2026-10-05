@@ -104,7 +104,7 @@ async function runOne(index) {
 async function worker() {
   while (true) {
     const index = cursor++;
-    if (index >= cases.length) return;
+    if (index >= selectedCases.length) return;
     await runOne(index);
   }
 }
