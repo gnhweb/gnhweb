@@ -222,7 +222,7 @@ export default { async fetch(req:Request,env:Record<string,string|undefined>):Pr
       attempts.push({provider,reason:"quality-gate-failed"});
       continue;
     }
-    return {content:result.content,attempts};
+    return {content:result.content,provider:result.provider||provider,attempts};
   }
 
   // Only after all configured external providers fail, try Workers AI. This
@@ -230,7 +230,7 @@ export default { async fetch(req:Request,env:Record<string,string|undefined>):Pr
   // when another provider can answer the request.
   const workersResult=await callWorkersAi(effectiveMessages,1800,env);
   if(workersResult.ok&&workersResult.content&&passesQualityGate(workersResult.content,"","coaching")){
-    return {content:workersResult.content,attempts};
+    return {content:workersResult.content,provider:"cloudflare-workers-ai",attempts};
   }
   attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"quality-gate-failed"});
   return {content:null,attempts};
