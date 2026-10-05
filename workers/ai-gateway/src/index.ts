@@ -157,7 +157,7 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
     return{ok:false,error:`workers-ai-request-error:${detail}`};
   }
 }
-async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"low"|"medium"|"high",modelOverride?:string,responseFormat?:{type:"json_object"}):Promise<CallResult>{
+async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"low"|"medium"|"high",modelOverride?:string,responseFormat?:{type:"json_object";schema?:Record<string,unknown>}):Promise<CallResult>{
   const cooldownUntil=providerCooldownUntil.get(cfg.name)||0;
   if(cooldownUntil>Date.now())return{ok:false,error:"cooldown"};
   const apiKey=env[cfg.envKey]?.trim();
@@ -286,8 +286,29 @@ const order=task==="bible-pick"
     ? ["openrouter","gemini","deepseek","mistral","xai","groq","nvidia","sambanova","cohere","modelscope"]
     : CATEGORY_PRIORITY[category].slice(0,3);
 for(const providerName of order){
-  const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"google/gemma-4-31b-it:free":undefined;
-  const responseFormat=task==="bible-pick"&&(providerName==="openrouter"||providerName==="cohere")?{type:"json_object" as const}:undefined;
+  const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"google/gemma-4-31b-it:free":task==="bible-pick"&&providerName==="cohere"?"command-a-plus-05-2026":undefined;
+  const biblePickCohereSchema=task==="bible-pick"&&providerName==="cohere"?{
+    type:"object",
+    properties:{
+      chosenIndex:{type:"integer"},
+      analyzedEmotions:{type:"array",items:{type:"string"}},
+      recommendation:{type:"string"},
+      practice:{type:"string"},
+      prayers:{type:"array",items:{type:"string"}},
+      answer:{type:"string"},
+      understanding:{type:"string"},
+      whyThisVerse:{type:"string"},
+      nextStep:{type:"string"},
+      takeaway:{type:"string"},
+      prayer:{type:"string"},
+    },
+    required:["chosenIndex","analyzedEmotions","recommendation","practice","prayers","answer","understanding","whyThisVerse","nextStep","takeaway","prayer"],
+  }:undefined;
+  const responseFormat=task==="bible-pick"&&providerName==="cohere"
+    ?{type:"json_object" as const,schema:biblePickCohereSchema}
+    :task==="bible-pick"&&providerName==="openrouter"
+      ?{type:"json_object" as const}
+      :undefined;
   const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,reasoningEffort,modelOverride,responseFormat);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){
