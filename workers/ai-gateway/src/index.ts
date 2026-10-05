@@ -196,9 +196,19 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
 export default { async fetch(req:Request,env:Record<string,string|undefined>):Promise<Response>{const pathname=new URL(req.url).pathname.replace(/\/+$/,"");if(pathname==="/meeting-ideas")return handleMeetingIdeas(req,env);if(pathname==="/meeting-insight")return handleMeetingInsight(req);if(pathname==="/nim-letter")return handleNimLetter(req);if(pathname==="/nim-coaching")return handleNimCoaching(req,env,async(messages)=>{
   const effectiveMessages=[...messages,{role:"system",content:buildTaskInstruction("coaching")}];
   const attempts:{provider:string;reason:string}[]=[];
-  // Coaching is long-form and must prefer providers/models verified for the
-  // current production configuration. Do not depend on experimental/default
-  // model aliases from unrelated tasks.
+
+  // Workers AI is a real Cloudflare binding on this Worker and does not depend
+  // on an external provider secret. Use it first so the feature remains
+  // functional when optional external provider keys are absent or expired.
+  const workersResult=await callWorkersAi(effectiveMessages,1800,env);
+  if(workersResult.ok&&workersResult.content&&passesQualityGate(workersResult.content,"","coaching")){
+    return {content:workersResult.content,attempts};
+  }
+  attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"quality-gate-failed"});
+
+  // External providers are optional fallbacks. Each model is explicit so a
+  // stale provider-level model secret cannot silently redirect production
+  // coaching to an incompatible model.
   const order=[
     {provider:"openrouter" as ProviderName,model:"google/gemma-4-31b-it:free"},
     {provider:"gemini" as ProviderName,model:"gemini-3.8-flash"},
@@ -208,11 +218,11 @@ export default { async fetch(req:Request,env:Record<string,string|undefined>):Pr
   for(const {provider,model} of order){
     const result=await callProvider(PROVIDERS[provider],effectiveMessages,0.3,1800,env,"low",model);
     if(!result.ok||!result.content){
-      attempts.push({provider:provider,reason:result.error||`http-${result.status||0}`});
+      attempts.push({provider,reason:result.error||`http-${result.status||0}`});
       continue;
     }
     if(!passesQualityGate(result.content,"","coaching")){
-      attempts.push({provider:provider,reason:"quality-gate-failed"});
+      attempts.push({provider,reason:"quality-gate-failed"});
       continue;
     }
     return {content:result.content,attempts};
