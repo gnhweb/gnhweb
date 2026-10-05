@@ -52,6 +52,7 @@ env:
 jobs:
   admin:
     name: Cloudflare Admin
+    if: github.event_name != 'issue_comment' || (github.event.issue.number == 67 && github.event.comment.user.login == 'gnhweb')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -159,7 +160,7 @@ jobs:
             node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{for(const x of JSON.parse(s).result??[])console.log(x.title+" ("+x.id+")")})'
 
       - name: Inventory Worker secret names
-        if: inputs.operation == 'inventory'
+        if: steps.resolve.outputs.operation == 'inventory'
         run: |
           set -euo pipefail
           for spec in \
