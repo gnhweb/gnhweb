@@ -205,11 +205,7 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
       return json({ advice: finalDraft });
     }
 
-    if (finalDraft) {
-      return json({ advice: finalDraft });
-    }
-
-    console.error("[nim-coaching] all providers failed:", generation.attempts);
+    console.error("[nim-coaching] providers produced no complete draft:", generation.attempts);
     return json({
       advice: buildEmergencyCoachingFallback(concern, tone),
       _meta: {
