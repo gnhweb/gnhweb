@@ -35,8 +35,13 @@ const cases = [
 
 const results = [];
 const concurrency = 1;
-const ciCaseLimit = Number.parseInt(process.env.BIBLE_PICK_QUALITY_CASE_LIMIT || '0', 10);
-const selectedCases = ciCaseLimit > 0 ? cases.slice(0, ciCaseLimit) : cases;
+const ciCaseIndices = (process.env.BIBLE_PICK_QUALITY_CASE_INDICES || '')
+  .split(',')
+  .map((value) => Number.parseInt(value.trim(), 10))
+  .filter((index) => Number.isInteger(index) && index >= 0 && index < cases.length);
+const selectedCases = ciCaseIndices.length > 0
+  ? ciCaseIndices.map((index) => cases[index])
+  : cases;
 let cursor = 0;
 
 async function runOne(index) {
