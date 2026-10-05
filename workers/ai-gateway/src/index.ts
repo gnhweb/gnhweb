@@ -168,7 +168,7 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),timeoutMs);
     try{
-      const response=await fetch(cfg.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`,...(cfg.extraHeaders||{})},body:JSON.stringify({model,messages,...(model==="gemini-3.8-flash"?{}:{temperature}),...(model==="gemini-3.8-flash"&&reasoningEffort?{reasoning_effort:reasoningEffort}:{}),...(responseFormat?{response_format:responseFormat}:{}),max_tokens:maxTokens}),signal:controller.signal});
+      const response=await fetch(cfg.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`,...(cfg.extraHeaders||{})},body:JSON.stringify({model,messages,...(model==="gemini-3.8-flash"?{}:{temperature}),...((model==="gemini-3.8-flash"||cfg.name==="cohere")&&reasoningEffort?{reasoning_effort:reasoningEffort}:{}),...(responseFormat?{response_format:responseFormat}:{}),max_tokens:maxTokens}),signal:controller.signal});
       return{response};
     }catch(error){
       console.error(`[ai-gateway] ${cfg.name} error:`,error);
