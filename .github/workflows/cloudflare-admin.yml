@@ -1,0 +1,155 @@
+name: Cloudflare Admin
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Cloudflare operation"
+        required: true
+        type: choice
+        options: [inventory, health, worker-deploy]
+        default: inventory
+      worker:
+        description: "Allowlisted Worker for worker-deploy"
+        required: false
+        type: choice
+        options:
+          - gnhweb-api
+          - gnhweb-ai-gateway
+          - gnhweb-realtime
+          - gnhweb-storage
+          - gnhweb-storage-migrate
+        default: gnhweb-ai-gateway
+  workflow_call:
+    inputs:
+      operation:
+        required: false
+        type: string
+        default: inventory
+      worker:
+        required: false
+        type: string
+        default: gnhweb-ai-gateway
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-admin
+  cancel-in-progress: false
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: e005fccad53297f6ac5ca4d88472cd59
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+jobs:
+  admin:
+    name: Cloudflare Admin
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate operation
+        env:
+          OPERATION: ${{ inputs.operation }}
+          WORKER: ${{ inputs.worker }}
+        run: |
+          set -euo pipefail
+          case "$OPERATION" in
+            inventory|health) ;;
+            worker-deploy)
+              case "$WORKER" in
+                gnhweb-api|gnhweb-ai-gateway|gnhweb-realtime|gnhweb-storage|gnhweb-storage-migrate) ;;
+                *) echo "ERROR: Worker is not allowlisted: $WORKER"; exit 1 ;;
+              esac
+              ;;
+            *) echo "ERROR: Unsupported operation: $OPERATION"; exit 1 ;;
+          esac
+
+      - name: Validate Cloudflare authentication
+        run: npx wrangler@4 whoami
+
+      - name: Inventory Workers, Pages, R2 and KV
+        if: inputs.operation == 'inventory'
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID"
+
+          echo "=== Workers ==="
+          curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "$api/workers/scripts" |
+            node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{for(const x of JSON.parse(s).result??[])console.log(x.id)})'
+
+          echo "=== Pages ==="
+          curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "$api/pages/projects" |
+            node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{for(const x of JSON.parse(s).result??[])console.log(x.name)})'
+
+          echo "=== R2 ==="
+          curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "$api/r2/buckets" |
+            node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{for(const x of JSON.parse(s).result?.buckets??[])console.log(x.name)})'
+
+          echo "=== KV ==="
+          curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "$api/storage/kv/namespaces" |
+            node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{for(const x of JSON.parse(s).result??[])console.log(x.title+" ("+x.id+")")})'
+
+      - name: Inventory Worker secret names
+        if: inputs.operation == 'inventory'
+        run: |
+          set -euo pipefail
+          for spec in \
+            "gnhweb-api:workers/api" \
+            "gnhweb-ai-gateway:workers/ai-gateway" \
+            "gnhweb-realtime:workers/realtime" \
+            "gnhweb-storage:workers/storage" \
+            "gnhweb-storage-migrate:workers/storage-migrate"; do
+            name="${spec%%:*}"
+            dir="${spec#*:}"
+            echo "=== Secrets: $name ==="
+            (cd "$dir" && npx wrangler@4 secret list --config wrangler.jsonc --format json |
+              node -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{for(const x of JSON.parse(s))console.log(x.name)})')
+          done
+
+      - name: Production health checks
+        if: inputs.operation == 'health'
+        run: |
+          set -euo pipefail
+          check() {
+            url="$1"
+            expected="$2"
+            status="$(curl --silent --show-error --output /tmp/health-body --write-out '%{http_code}' "$url")"
+            echo "$url -> HTTP $status"
+            if [ "$status" != "$expected" ]; then cat /tmp/health-body; exit 1; fi
+          }
+          check "https://gnhwebw.pages.dev" "200"
+          check "https://gnhweb-api.gemini19840314.workers.dev/web-push-public-key" "200"
+
+      - name: Deploy allowlisted Worker
+        if: inputs.operation == 'worker-deploy'
+        env:
+          WORKER: ${{ inputs.worker }}
+        run: |
+          set -euo pipefail
+          case "$WORKER" in
+            gnhweb-api) dir="workers/api" ;;
+            gnhweb-ai-gateway) dir="workers/ai-gateway" ;;
+            gnhweb-realtime) dir="workers/realtime" ;;
+            gnhweb-storage) dir="workers/storage" ;;
+            gnhweb-storage-migrate) dir="workers/storage-migrate" ;;
+            *) echo "ERROR: Worker is not allowlisted"; exit 1 ;;
+          esac
+          cd "$dir"
+          npx wrangler@4 deploy --config wrangler.jsonc
