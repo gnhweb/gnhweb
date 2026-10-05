@@ -200,29 +200,52 @@ export default { async fetch(req:Request,env:Record<string,string|undefined>):Pr
   // Coaching should not spend the Workers AI free allocation before trying
   // configured external providers. Workers AI is the last AI fallback because
   // its free daily neuron quota is finite.
-  const order=[
-    {provider:"openrouter" as ProviderName,model:"openrouter/free"},
-    {provider:"gemini" as ProviderName,model:"gemini-3.8-flash"},
-    {provider:"mistral" as ProviderName,model:"mistral-large-latest"},
-    {provider:"deepseek" as ProviderName,model:"deepseek-v4-flash"},
-    {provider:"groq" as ProviderName,model:"openai/gpt-oss-120b"},
-    {provider:"nvidia" as ProviderName,model:"google/gemma-4-31b-it"},
-    {provider:"xai" as ProviderName,model:"grok-4.6"},
-    {provider:"sambanova" as ProviderName,model:"Meta-Llama-3.3-70B-Instruct"},
-    {provider:"cohere" as ProviderName,model:"command-r-plus"},
-    {provider:"modelscope" as ProviderName,model:"Qwen/Qwen2.5-72B-Instruct"},
+  // Prefer providers that are actually configured and have a production-safe
+  // model. The previous order spent the request budget on OpenRouter/Gemini
+  // first even when they were rate-limited, while a known-good configured
+  // provider such as Groq was only reached later.
+  const order:ProviderName[]=[
+    "groq",
+    "deepseek",
+    "sambanova",
+    "modelscope",
+    "cohere",
+    "gemini",
+    "openrouter",
+    "mistral",
+    "nvidia",
+    "xai",
   ];
-  for(const {provider,model} of order){
-    const result=await callProvider(PROVIDERS[provider],effectiveMessages,0.3,1800,env,"low",model);
-    if(!result.ok||!result.content){
-      attempts.push({provider,reason:result.error||`http-${result.status||0}`});
-      continue;
+  for(const provider of order){
+    try{
+      // Do not hard-code a per-request model here. callProvider already honors
+      // the provider's *_MODEL secret/environment override and then falls back
+      // to the provider-specific default.
+      const result=await callProvider(
+        PROVIDERS[provider],
+        effectiveMessages,
+        0.3,
+        1800,
+        env,
+        "low",
+      );
+      if(!result.ok||!result.content){
+        attempts.push({
+          provider,
+          reason:result.error||`http-${result.status||0}`,
+        });
+        continue;
+      }
+      if(!passesQualityGate(result.content,"","coaching")){
+        attempts.push({provider,reason:"quality-gate-failed"});
+        continue;
+      }
+      return {content:result.content,provider:result.provider||provider,attempts};
+    }catch(error){
+      const reason=error instanceof Error?error.message.slice(0,300):String(error).slice(0,300);
+      console.error(`[ai-gateway] coaching provider ${provider} unexpected error:`,error);
+      attempts.push({provider,reason:`unexpected-error:${reason}`});
     }
-    if(!passesQualityGate(result.content,"","coaching")){
-      attempts.push({provider,reason:"quality-gate-failed"});
-      continue;
-    }
-    return {content:result.content,provider:result.provider||provider,attempts};
   }
 
   // Only after all configured external providers fail, try Workers AI. This
