@@ -195,15 +195,30 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
 }
 export default { async fetch(req:Request,env:Record<string,string|undefined>):Promise<Response>{const pathname=new URL(req.url).pathname.replace(/\/+$/,"");if(pathname==="/meeting-ideas")return handleMeetingIdeas(req,env);if(pathname==="/meeting-insight")return handleMeetingInsight(req);if(pathname==="/nim-letter")return handleNimLetter(req);if(pathname==="/nim-coaching")return handleNimCoaching(req,env,async(messages)=>{
   const effectiveMessages=[...messages,{role:"system",content:buildTaskInstruction("coaching")}];
-  const order=["openrouter","gemini","deepseek","mistral","xai","groq","nvidia","sambanova","cohere","modelscope"] as ProviderName[];
-  for(const providerName of order){
-    const result=await callProvider(PROVIDERS[providerName],effectiveMessages,0.3,2600,env,"medium");
-    if(!result.ok||!result.content)continue;
-    if(!passesQualityGate(result.content,"","coaching"))continue;
-    return result.content;
+  const attempts:{provider:string;reason:string}[]=[];
+  // Coaching is long-form and must prefer providers/models verified for the
+  // current production configuration. Do not depend on experimental/default
+  // model aliases from unrelated tasks.
+  const order=[
+    {provider:"openrouter" as ProviderName,model:"google/gemma-4-31b-it:free"},
+    {provider:"gemini" as ProviderName,model:"gemini-3.8-flash"},
+    {provider:"mistral" as ProviderName,model:"mistral-large-latest"},
+    {provider:"xai" as ProviderName,model:"grok-4.6"},
+  ];
+  for(const {provider,model} of order){
+    const result=await callProvider(PROVIDERS[provider],effectiveMessages,0.3,1800,env,"low",model);
+    if(!result.ok||!result.content){
+      attempts.push({provider:provider,reason:result.error||`http-${result.status||0}`});
+      continue;
+    }
+    if(!passesQualityGate(result.content,"","coaching")){
+      attempts.push({provider:provider,reason:"quality-gate-failed"});
+      continue;
+    }
+    return {content:result.content,attempts};
   }
-  return null;
-});if(pathname==="/nim-counseling")return handleNimCounseling(req,env);if(pathname==="/nim-quiz")return handleNimQuiz(req,env);if(pathname==="/nim-mbti")return handleNimMbti(req,env);if(req.method==="OPTIONS")return new Response("ok",{headers:CORS_HEADERS});if(req.method!=="POST")return new Response(JSON.stringify({error:"POST only"}),{status:405,headers:CORS_HEADERS});try{const body=await req.json() as {task?:unknown;messages?:unknown;temperature?:unknown;max_tokens?:unknown};const task=typeof body?.task==="string"?body.task:undefined;const messages:Array<GatewayMessage>=Array.isArray(body?.messages)?body.messages.filter((message:unknown):message is GatewayMessage=>!!message&&typeof message==="object"&&["system","user","assistant"].includes(String((message as {role?:unknown}).role))&&typeof(message as {content?:unknown}).content==="string"):[];if(messages.length===0)return new Response(JSON.stringify({error:"messages가 필요합니다."}),{status:400,headers:CORS_HEADERS});const taskInstruction=buildTaskInstruction(task);const effectiveMessages=taskInstruction?[...messages,{role:"system",content:taskInstruction}]:messages;const temperature=typeof body?.temperature==="number"?body.temperature:0.3;const requestedMaxTokens=typeof body?.max_tokens==="number"?Math.min(Math.max(body.max_tokens,64),4096):1000;const maxTokens=task==="coaching"?Math.max(requestedMaxTokens,2600):task==="bible-pick"?Math.min(Math.max(requestedMaxTokens,1800),2600):(task==="faith-diary-weekly-summary"?Math.min(Math.max(requestedMaxTokens,700),1400):task==="bible-pick-analysis"?Math.min(Math.max(requestedMaxTokens,500),900):requestedMaxTokens);const reasoningEffort=task==="coaching"?"medium":(task==="bible-pick"||task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-diary-weekly-summary")?"low":"medium";const lastUserMessage=[...messages].reverse().find(message=>message.role==="user")?.content||"";const category=classify(task,lastUserMessage);const attempts:{provider:string;reason:string}[]=[];
+  return {content:null,attempts};
+});if(pathname==="/nim-counseling")return handleNimCounseling(req,env);if(pathname==="/nim-quiz")return handleNimQuiz(req,env);if(pathname==="/nim-mbti")return handleNimMbti(req,env);if(req.method==="OPTIONS")return new Response("ok",{headers:CORS_HEADERS});if(req.method!=="POST")return new Response(JSON.stringify({error:"POST only"}),{status:405,headers:CORS_HEADERS});try{const body=await req.json() as {task?:unknown;messages?:unknown;temperature?:unknown;max_tokens?:unknown};const task=typeof body?.task==="string"?body.task:undefined;const messages:Array<GatewayMessage>=Array.isArray(body?.messages)?body.messages.filter((message:unknown):message is GatewayMessage=>!!message&&typeof message==="object"&&["system","user","assistant"].includes(String((message as {role?:unknown}).role))&&typeof(message as {content?:unknown}).content==="string"):[];if(messages.length===0)return new Response(JSON.stringify({error:"messages가 필요합니다."}),{status:400,headers:CORS_HEADERS});const taskInstruction=buildTaskInstruction(task);const effectiveMessages=taskInstruction?[...messages,{role:"system",content:taskInstruction}]:messages;const temperature=typeof body?.temperature==="number"?body.temperature:0.3;const requestedMaxTokens=typeof body?.max_tokens==="number"?Math.min(Math.max(body.max_tokens,64),4096):1000;const maxTokens=task==="coaching"?Math.min(Math.max(requestedMaxTokens,900),1800):task==="bible-pick"?Math.min(Math.max(requestedMaxTokens,1800),2600):(task==="faith-diary-weekly-summary"?Math.min(Math.max(requestedMaxTokens,700),1400):task==="bible-pick-analysis"?Math.min(Math.max(requestedMaxTokens,500),900):requestedMaxTokens);const reasoningEffort=task==="coaching"?"medium":(task==="bible-pick"||task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-diary-weekly-summary")?"low":"medium";const lastUserMessage=[...messages].reverse().find(message=>message.role==="user")?.content||"";const category=classify(task,lastUserMessage);const attempts:{provider:string;reason:string}[]=[];
 if(task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-diary-weekly-summary"){
   const workersResult=await callWorkersAi(effectiveMessages,maxTokens,env);
   if(workersResult.ok&&passesQualityGate(workersResult.content!,lastUserMessage,task)){
