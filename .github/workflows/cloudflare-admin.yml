@@ -1,6 +1,8 @@
 name: Cloudflare Admin
 
 on:
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       operation:
@@ -56,28 +58,60 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate operation
+      - name: Resolve requested operation
+        id: resolve
         env:
-          OPERATION: ${{ inputs.operation }}
-          WORKER: ${{ inputs.worker }}
+          INPUT_OPERATION: ${{ inputs.operation }}
+          INPUT_WORKER: ${{ inputs.worker }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           set -euo pipefail
-          case "$OPERATION" in
+
+          operation="$INPUT_OPERATION"
+          worker="$INPUT_WORKER"
+
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            test "$ISSUE_NUMBER" = "67"
+            test "$COMMENT_AUTHOR" = "gnhweb"
+
+            case "$COMMENT_BODY" in
+              "[cf-admin:inventory]"*) operation="inventory" ;;
+              "[cf-admin:health]"*) operation="health" ;;
+              "[cf-admin:worker-deploy:"*"]"*)
+                operation="worker-deploy"
+                worker="$(printf '%s' "$COMMENT_BODY" | sed -n 's/^\[cf-admin:worker-deploy:\([^]]*\)\].*/\1/p')"
+                ;;
+              *)
+                echo "No valid Cloudflare admin command in this comment."
+                exit 78
+                ;;
+            esac
+          fi
+
+          case "$operation" in
             inventory|health) ;;
             worker-deploy)
-              case "$WORKER" in
+              case "$worker" in
                 gnhweb-api|gnhweb-ai-gateway|gnhweb-realtime|gnhweb-storage|gnhweb-storage-migrate) ;;
-                *) echo "ERROR: Worker is not allowlisted: $WORKER"; exit 1 ;;
+                *) echo "ERROR: Worker is not allowlisted: $worker"; exit 1 ;;
               esac
               ;;
-            *) echo "ERROR: Unsupported operation: $OPERATION"; exit 1 ;;
+            *) echo "ERROR: Unsupported operation: $operation"; exit 1 ;;
           esac
+
+          {
+            echo "operation=$operation"
+            echo "worker=$worker"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Validate Cloudflare authentication
         run: npx wrangler@4 whoami
 
       - name: Inventory Workers, Pages, R2 and KV
-        if: inputs.operation == 'inventory'
+        if: steps.resolve.outputs.operation == 'inventory'
         run: |
           set -euo pipefail
           api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID"
@@ -124,7 +158,7 @@ jobs:
           done
 
       - name: Production health checks
-        if: inputs.operation == 'health'
+        if: steps.resolve.outputs.operation == 'health'
         run: |
           set -euo pipefail
           check() {
@@ -138,9 +172,9 @@ jobs:
           check "https://gnhweb-api.gemini19840314.workers.dev/web-push-public-key" "200"
 
       - name: Deploy allowlisted Worker
-        if: inputs.operation == 'worker-deploy'
+        if: steps.resolve.outputs.operation == 'worker-deploy'
         env:
-          WORKER: ${{ inputs.worker }}
+          WORKER: ${{ steps.resolve.outputs.worker }}
         run: |
           set -euo pipefail
           case "$WORKER" in
