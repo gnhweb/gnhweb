@@ -564,7 +564,7 @@ jobs:
 
   verify-production-smoke:
     name: Verify critical production flows
-    needs: [deploy-site, deploy-ai-gateway, cloudflare-health]
+    needs: [deploy-site, deploy-ai-gateway]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
