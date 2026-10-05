@@ -142,7 +142,7 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
     return{ok:false,error:`workers-ai-request-error:${detail}`};
   }
 }
-async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"low"|"medium"|"high",modelOverride?:string):Promise<CallResult>{
+async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"low"|"medium"|"high",modelOverride?:string,responseFormat?:{type:"json_object"}):Promise<CallResult>{
   const cooldownUntil=providerCooldownUntil.get(cfg.name)||0;
   if(cooldownUntil>Date.now())return{ok:false,error:"cooldown"};
   const apiKey=env[cfg.envKey]?.trim();
@@ -153,7 +153,7 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),timeoutMs);
     try{
-      const response=await fetch(cfg.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`,...(cfg.extraHeaders||{})},body:JSON.stringify({model,messages,...(model==="gemini-3.8-flash"?{}:{temperature}),...(model==="gemini-3.8-flash"&&reasoningEffort?{reasoning_effort:reasoningEffort}:{}),max_tokens:maxTokens}),signal:controller.signal});
+      const response=await fetch(cfg.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`,...(cfg.extraHeaders||{})},body:JSON.stringify({model,messages,...(model==="gemini-3.8-flash"?{}:{temperature}),...(model==="gemini-3.8-flash"&&reasoningEffort?{reasoning_effort:reasoningEffort}:{}),...(responseFormat?{response_format:responseFormat}:{}),max_tokens:maxTokens}),signal:controller.signal});
       return{response};
     }catch(error){
       console.error(`[ai-gateway] ${cfg.name} error:`,error);
@@ -213,8 +213,9 @@ if(task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-d
 }
 const order=task==="bible-pick"?["openrouter","groq","mistral","gemini","nvidia","deepseek","xai","sambanova","cohere","modelscope"]:task==="coaching"?["openrouter","gemini","deepseek","mistral","xai","groq","nvidia","sambanova","cohere","modelscope"]:CATEGORY_PRIORITY[category].slice(0,3);
 for(const providerName of order){
-  const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"openrouter/free":undefined;
-  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,reasoningEffort,modelOverride);
+  const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"google/gemma-4-31b-it:free":undefined;
+  const responseFormat=task==="bible-pick"&&providerName==="openrouter"?{type:"json_object" as const}:undefined;
+  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,reasoningEffort,modelOverride,responseFormat);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){attempts.push({provider:providerName,reason:"quality-gate-failed"});continue;}
   return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:result.content}}],_meta:{category,provider:result.provider,attempts:attempts.map(attempt=>attempt.provider)}}),{headers:CORS_HEADERS});
