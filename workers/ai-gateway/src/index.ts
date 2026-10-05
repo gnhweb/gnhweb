@@ -265,7 +265,11 @@ if(task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-d
   }
   attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"quality-gate-failed"});
 }
-const order=task==="bible-pick"?["openrouter","groq","mistral","gemini","nvidia","deepseek","xai","sambanova","cohere","modelscope"]:task==="coaching"?["openrouter","gemini","deepseek","mistral","xai","groq","nvidia","sambanova","cohere","modelscope"]:CATEGORY_PRIORITY[category].slice(0,3);
+const order=task==="bible-pick"
+  ? ["gemini","groq","openrouter","deepseek","mistral","sambanova","modelscope","cohere","nvidia","xai"]
+  : task==="coaching"
+    ? ["openrouter","gemini","deepseek","mistral","xai","groq","nvidia","sambanova","cohere","modelscope"]
+    : CATEGORY_PRIORITY[category].slice(0,3);
 for(const providerName of order){
   const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"google/gemma-4-31b-it:free":undefined;
   const responseFormat=task==="bible-pick"&&providerName==="openrouter"?{type:"json_object" as const}:undefined;
