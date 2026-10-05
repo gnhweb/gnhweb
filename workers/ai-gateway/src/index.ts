@@ -157,7 +157,7 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
     return{ok:false,error:`workers-ai-request-error:${detail}`};
   }
 }
-async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"low"|"medium"|"high",modelOverride?:string,responseFormat?:{type:"json_object";schema?:Record<string,unknown>}):Promise<CallResult>{
+async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"none"|"low"|"medium"|"high",modelOverride?:string,responseFormat?:{type:"json_object";schema?:Record<string,unknown>}):Promise<CallResult>{
   const cooldownUntil=providerCooldownUntil.get(cfg.name)||0;
   if(cooldownUntil>Date.now())return{ok:false,error:"cooldown"};
   const apiKey=env[cfg.envKey]?.trim();
@@ -311,7 +311,8 @@ for(const providerName of order){
     :task==="bible-pick"&&providerName==="openrouter"
       ?{type:"json_object" as const}
       :undefined;
-  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,reasoningEffort,modelOverride,responseFormat);
+  const providerReasoningEffort=task==="bible-pick"&&providerName==="cohere"?"none":reasoningEffort;
+  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,providerReasoningEffort,modelOverride,responseFormat);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){
     const diagnostic=result.content!.slice(0,1500).replace(/\\n/g,"\\\\n");
