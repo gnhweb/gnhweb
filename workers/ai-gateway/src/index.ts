@@ -287,7 +287,7 @@ const order=task==="bible-pick"
     : CATEGORY_PRIORITY[category].slice(0,3);
 for(const providerName of order){
   const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"google/gemma-4-31b-it:free":undefined;
-  const responseFormat=task==="bible-pick"&&providerName==="openrouter"?{type:"json_object" as const}:undefined;
+  const responseFormat=task==="bible-pick"&&(providerName==="openrouter"||providerName==="cohere")?{type:"json_object" as const}:undefined;
   const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,reasoningEffort,modelOverride,responseFormat);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){
