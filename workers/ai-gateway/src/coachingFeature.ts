@@ -210,16 +210,14 @@ export async function handleNimCoaching(req: Request, _env: Record<string, strin
     }
 
     console.error("[nim-coaching] all providers failed:", generation.attempts);
-    return json(
-      {
-        error: "모든 AI 공급자가 코칭 답변을 생성하지 못했습니다.",
-        fallbackAdvice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC,
-        _meta: {
-          attempts: generation.attempts.map(({ provider, reason }) => ({ provider, reason })),
-        },
+    return json({
+      advice: buildEmergencyCoachingFallback(concern, tone),
+      _meta: {
+        provider: "emergency-rule-fallback",
+        aiUnavailable: true,
+        attempts: generation.attempts.map(({ provider, reason }) => ({ provider, reason })),
       },
-      503,
-    );
+    });
   } catch (error) {
     console.error("nim-coaching error", error);
     return json({ advice: tone === "direct" ? FALLBACK_DIRECT : FALLBACK_EMPATHETIC });
