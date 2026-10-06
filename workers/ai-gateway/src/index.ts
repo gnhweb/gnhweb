@@ -165,7 +165,7 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
   const apiKey=env[cfg.envKey]?.trim();
   if(!apiKey){providerCooldownUntil.set(cfg.name,Date.now()+providerCooldownMs("no-api-key"));return{ok:false,error:"no-api-key"};}
   const model=(modelOverride||(cfg.name==="gemini"?"gemini-3.8-flash":(env[cfg.modelEnvKey]||cfg.defaultModel))).trim();
-  const timeoutMs=cfg.name==="gemini"?(reasoningEffort==="high"?30000:reasoningEffort==="medium"?25000:20000):30000;
+  const timeoutMs=cfg.name==="gemini"?(reasoningEffort==="high"?30000:reasoningEffort==="medium"?25000:20000):cfg.name==="cohere"?45000:30000;
   const request=async():Promise<{response:Response}|{error:"timeout"|"request-error"}>=>{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),timeoutMs);
