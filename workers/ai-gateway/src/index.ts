@@ -115,6 +115,8 @@ function buildTaskInstruction(task:string|undefined):string { if(task==="bible-p
 - 성경 본문의 의미와 학생에게 적용해볼 수 있는 방향을 구분한다.
 - 개인의 미래, 하나님의 의도, 특정 결과를 단정하지 않는다.
 - 빈 위로보다 실제 상황에 맞는 설명과 행동을 우선한다.
+- 반드시 JSON 객체 하나만 생성한다. 마크다운, 설명 문장, 코드펜스는 JSON 앞뒤에 절대 붙이지 않는다.
+- JSON 객체에는 다음 필드를 반드시 포함한다: chosenIndex, analyzedEmotions, recommendation, practice, prayers, answer, understanding, whyThisVerse, nextStep, takeaway, prayer.
 `; return ""; }
 interface WorkersAiBinding {
   run(model:string,input:Record<string,unknown>,options?:{rejectIfBusy?:boolean}):Promise<unknown>;
