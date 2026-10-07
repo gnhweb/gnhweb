@@ -288,7 +288,7 @@ const order=task==="bible-pick"
     ? ["openrouter","gemini","deepseek","mistral","xai","groq","nvidia","sambanova","cohere","modelscope"]
     : CATEGORY_PRIORITY[category].slice(0,3);
 for(const providerName of order){
-  const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"google/gemma-4-31b-it:free":task==="bible-pick"&&providerName==="cohere"?"command-a-03-2025":undefined;
+  const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"google/gemma-4-31b-it:free":task==="bible-pick"&&providerName==="cohere"?"command-a-plus-05-2026":undefined;
   const biblePickCohereSchema=task==="bible-pick"&&providerName==="cohere"?{
     type:"object",
     properties:{
@@ -312,11 +312,13 @@ for(const providerName of order){
       ?{type:"json_object" as const}
       :undefined;
   const providerReasoningEffort=task==="bible-pick"&&providerName==="cohere"?"none":reasoningEffort;
-  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,temperature,maxTokens,env,providerReasoningEffort,modelOverride,responseFormat);
+  const providerTemperature=task==="bible-pick"&&providerName==="cohere"?0:temperature;
+  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,providerTemperature,maxTokens,env,providerReasoningEffort,modelOverride,responseFormat);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){
     const qualityReason=qualityGateReason(result.content!,lastUserMessage,task)||"unknown";
-    console.error(`[ai-gateway] ${providerName} quality-gate-failed task=${task} reason=${qualityReason}`);
+    const diagnostic=result.content!.slice(0,2000).replace(/\\n/g,"\\\\n");
+    console.error(`[ai-gateway] ${providerName} quality-gate-failed task=${task} reason=${qualityReason} content=${diagnostic}`);
     attempts.push({provider:providerName,reason:`quality-gate-failed:${qualityReason}`});
     continue;
   }
