@@ -269,12 +269,30 @@ if(task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-d
   }
   attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"quality-gate-failed"});
 }
-const order=task==="bible-pick"
-  ? ["gemini","groq","openrouter","deepseek","mistral","sambanova","modelscope","cohere","nvidia","xai"]
-  : task==="coaching"
-    ? ["openrouter","gemini","deepseek","mistral","xai","groq","nvidia","sambanova","cohere","modelscope"]
-    : CATEGORY_PRIORITY[category].slice(0,3);
-for(const providerName of order){
+const order=task==="coaching"
+  ? ["openrouter","gemini","deepseek","mistral","xai","groq","nvidia","sambanova","cohere","modelscope"]
+  : CATEGORY_PRIORITY[category].slice(0,3);
+// Production quality runs show Groq is currently the most reliable Bible Pick
+// provider, so try it first and retain Gemini/OpenRouter as the first backups.
+const biblePickOrder:ProviderName[]=["groq","gemini","openrouter","deepseek","mistral","sambanova","modelscope","cohere","nvidia","xai"];
+const providerOrder:ProviderName[]=task==="bible-pick"?biblePickOrder:order as ProviderName[];
+const maxProviderAttempts=task==="bible-pick"?2:providerOrder.length;
+let providerAttempts=0;
+for(const providerName of providerOrder){
+  // Missing credentials and known cooldowns should not consume the limited
+  // Bible Pick attempt budget; move to the next configured provider instead.
+  const providerConfig=PROVIDERS[providerName];
+  if(!env[providerConfig.envKey]?.trim()){
+    attempts.push({provider:providerName,reason:"no-api-key"});
+    continue;
+  }
+  const cooldownUntil=providerCooldownUntil.get(providerName)||0;
+  if(cooldownUntil>Date.now()){
+    attempts.push({provider:providerName,reason:"cooldown"});
+    continue;
+  }
+  if(providerAttempts>=maxProviderAttempts)break;
+  providerAttempts+=1;
   const modelOverride=task==="bible-pick"&&providerName==="openrouter"?"google/gemma-4-31b-it:free":task==="bible-pick"&&providerName==="cohere"?"command-a-plus-05-2026":undefined;
   const biblePickCohereSchema=task==="bible-pick"&&providerName==="cohere"?{
     type:"object",
