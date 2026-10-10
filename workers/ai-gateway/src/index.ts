@@ -18,9 +18,9 @@ const CORS_HEADERS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow
 const PROVIDERS: Record<ProviderName, ProviderConfig> = { gemini:{name:"gemini",envKey:"GEMINI_API_KEY",url:"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",defaultModel:"gemini-3.8-flash",modelEnvKey:"GEMINI_MODEL"}, deepseek:{name:"deepseek",envKey:"DEEPSEEK_API_KEY",url:"https://api.deepseek.com/chat/completions",defaultModel:"deepseek-flash",modelEnvKey:"DEEPSEEK_MODEL"}, xai:{name:"xai",envKey:"XAI_API_KEY",url:"https://api.x.ai/v1/chat/completions",defaultModel:"grok-4.7",modelEnvKey:"XAI_MODEL"}, groq:{name:"groq",envKey:"GROQ_API_KEY",url:"https://api.groq.com/openai/v1/chat/completions",defaultModel:"openai/gpt-oss-120b",modelEnvKey:"GROQ_MODEL"}, mistral:{name:"mistral",envKey:"MISTRAL_API_KEY",url:"https://api.mistral.ai/v1/chat/completions",defaultModel:"mistral-large-latest",modelEnvKey:"MISTRAL_MODEL"}, nvidia:{name:"nvidia",envKey:"NVIDIA_API_KEY",url:"https://integrate.api.nvidia.com/v1/chat/completions",defaultModel:"google/gemma-4-31b-it",modelEnvKey:"NVIDIA_GATEWAY_MODEL"}, openrouter:{name:"openrouter",envKey:"OPENROUTER_API_KEY",url:"https://openrouter.ai/api/v1/chat/completions",defaultModel:"openai/gpt-oss-120b",modelEnvKey:"OPENROUTER_MODEL",extraHeaders:{"X-Title":"gnhweb-ai-gateway"}}, sambanova:{name:"sambanova",envKey:"SAMBANOVA_API_KEY",url:"https://api.sambanova.ai/v1/chat/completions",defaultModel:"Meta-Llama-3.3-70B-Instruct",modelEnvKey:"SAMBANOVA_MODEL"}, cohere:{name:"cohere",envKey:"COHERE_API_KEY",url:"https://api.cohere.ai/v2/chat",defaultModel:"command-a-plus-05-2026",modelEnvKey:"COHERE_MODEL"}, modelscope:{name:"modelscope",envKey:"MODELSCOPE_API_KEY",url:"https://api-inference.modelscope.cn/v1/chat/completions",defaultModel:"Qwen/Qwen2.5-72B-Instruct",modelEnvKey:"MODELSCOPE_MODEL"} };
 const TASK_CATEGORY_MAP: Record<string, Category> = { "faith-diary-questions":"신앙", "faith-diary-weekly-summary":"신앙", "bible-pick-analysis":"신앙", "bible-pick":"신앙", "bible-mbti":"신앙", "quiz-options":"신앙", "event-plan":"기획", "event-ideas":"기획", counseling:"상담", "pastoral-letter":"상담", coaching:"학생회", "student-council":"학생회", "meeting-insight":"학생회", "meeting-ideas":"학생회" };
 const CATEGORY_KEYWORDS: Record<Category,string[]> = { 상담:["고민","힘들","위로","상담","불안","우울","외로","관계","친구","가족"], 신앙:["성경","말씀","기도","하나님","예수","신앙","묵상","큐티","찬양","은혜"], 학생회:["동아리","학생회","출석","회의","보고서","부장","회장","임원","구역"], 기획:["행사","기획","계획","일정","예산","장소","프로그램","준비"], 정보:["알려줘","뭐야","설명","정보","찾아줘","언제","어디"], 일반:[] };
-const CATEGORY_PRIORITY: Record<Category,ProviderName[]> = { 신앙:["groq","openrouter","mistral","nvidia","gemini","deepseek","xai","sambanova","cohere","modelscope"], 상담:["gemini","mistral","deepseek","groq","nvidia","xai","openrouter","sambanova","cohere","modelscope"], 학생회:["nvidia","deepseek","groq","mistral","openrouter","gemini","xai","sambanova","cohere","modelscope"], 기획:["deepseek","groq","mistral","xai","nvidia","gemini","openrouter","sambanova","cohere","modelscope"], 정보:["groq","mistral","deepseek","openrouter","cohere","gemini","xai","nvidia","sambanova","cohere","modelscope"], 일반:["groq","mistral","deepseek","nvidia","openrouter","gemini","xai","sambanova","cohere","modelscope"] };
+const CATEGORY_PRIORITY: Record<Category,ProviderName[]> = { 신앙:["groq","openrouter","mistral","nvidia","gemini","deepseek","xai","sambanova","cohere","modelscope"], 상담:["gemini","mistral","deepseek","groq","nvidia","xai","openrouter","sambanova","cohere","modelscope"], 학생회:["nvidia","deepseek","groq","mistral","openrouter","gemini","xai","sambanova","cohere","modelscope"], 기획:["deepseek","groq","mistral","xai","nvidia","gemini","openrouter","sambanova","cohere","modelscope"], 정보:["groq","mistral","deepseek","openrouter","cohere","gemini","xai","nvidia","sambanova","modelscope"], 일반:["groq","mistral","deepseek","nvidia","openrouter","gemini","xai","sambanova","cohere","modelscope"] };
 function classify(task:string|undefined,lastUserText:string):Category { if(task&&TASK_CATEGORY_MAP[task])return TASK_CATEGORY_MAP[task]; const text=lastUserText.toLowerCase(); let best:Category="일반",bestScore=0; for(const [category,keywords] of Object.entries(CATEGORY_KEYWORDS) as [Category,string[]][]) { const score=keywords.reduce((sum,keyword)=>text.includes(keyword)?sum+1:sum,0); if(score>bestScore){bestScore=score;best=category;} } return best; }
-function extractContent(data:unknown):string { const content=(data as {choices?:Array<{message?:{content?:unknown}}>})?.choices?.[0]?.message?.content; if(typeof content==="string")return content.trim(); if(Array.isArray(content))return content.map((part)=>typeof part==="string"?part:String((part as {text?:unknown})?.text||"")).join("").trim(); return ""; }
+function extractContent(data:unknown):string { if(!data||typeof data!=="object")return ""; const record=data as {response?:unknown;output?:unknown;choices?:Array<{message?:{content?:unknown}}>}; if(typeof record.response==="string")return record.response.trim(); if(typeof record.output==="string")return record.output.trim(); const content=record.choices?.[0]?.message?.content; if(typeof content==="string")return content.trim(); if(Array.isArray(content))return content.map((part)=>typeof part==="string"?part:String((part as {text?:unknown})?.text||"")).join("").trim(); return ""; }
 function stripJsonFence(content:string){return content.replace(/```json/gi,"").replace(/```/g,"").trim();}
 function looksLikeStructuredJson(content:string){const clean=stripJsonFence(content);if(!clean.startsWith("{")||!clean.endsWith("}"))return false;try{const parsed=JSON.parse(clean);return parsed!==null&&typeof parsed==="object"&&!Array.isArray(parsed);}catch{return false;}}
 function qualityGateReason(content:string,userText:string,task?:string):string|null{
@@ -129,12 +129,9 @@ function describeError(error:unknown):string {
   try{return JSON.stringify(error).slice(0,500);}catch{return "unknown-error";}
 }
 function providerCooldownMs(error:string|undefined,status?:number){
-  // Configuration/auth failures are stable and should not be retried on every
-  // request. Rate limits are deliberately not cached globally: a cooldown map
-  // lives across requests inside a Worker isolate and can otherwise make one
-  // user's 429 suppress the provider for every other user.
   if(error==="no-api-key"||status===401||status===402||status===403||status===404)return 10*60*1000;
-  if(status===503)return 2*1000;
+  if(status===429)return 30*1000;
+  if(status===503)return 5*1000;
   return 0;
 }
 async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Record<string,string|undefined>):Promise<CallResult>{
@@ -144,7 +141,7 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
   try{
     const input={
       messages,
-      max_completion_tokens:maxTokens,
+      max_tokens:maxTokens,
       temperature:0.55,
       chat_template_kwargs:{enable_thinking:false},
     };
@@ -159,18 +156,18 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
     return{ok:false,error:`workers-ai-request-error:${detail}`};
   }
 }
-async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,reasoningEffort?:"none"|"low"|"medium"|"high",modelOverride?:string,responseFormat?:{type:"json_object";schema?:Record<string,unknown>}):Promise<CallResult>{
+async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,modelOverride?:string,responseFormat?:{type:"json_object";schema?:Record<string,unknown>}):Promise<CallResult>{
   const cooldownUntil=providerCooldownUntil.get(cfg.name)||0;
   if(cooldownUntil>Date.now())return{ok:false,error:"cooldown"};
   const apiKey=env[cfg.envKey]?.trim();
   if(!apiKey){providerCooldownUntil.set(cfg.name,Date.now()+providerCooldownMs("no-api-key"));return{ok:false,error:"no-api-key"};}
-  const model=(modelOverride||(cfg.name==="gemini"?"gemini-3.8-flash":(env[cfg.modelEnvKey]||cfg.defaultModel))).trim();
-  const timeoutMs=cfg.name==="gemini"?(reasoningEffort==="high"?30000:reasoningEffort==="medium"?25000:20000):cfg.name==="cohere"?45000:30000;
+  const model=(modelOverride||(env[cfg.modelEnvKey]||cfg.defaultModel)).trim();
+  const timeoutMs=cfg.name==="cohere"?20000:15000;
   const request=async():Promise<{response:Response}|{error:"timeout"|"request-error"}>=>{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),timeoutMs);
     try{
-      const response=await fetch(cfg.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`,...(cfg.extraHeaders||{})},body:JSON.stringify({model,messages,...(model==="gemini-3.8-flash"?{}:{temperature}),...(cfg.name==="cohere"?{}:((model==="gemini-3.8-flash"||reasoningEffort)&&reasoningEffort?{reasoning_effort:reasoningEffort}:{})),...(responseFormat?{response_format:responseFormat}:{}),max_tokens:maxTokens}),signal:controller.signal});
+      const response=await fetch(cfg.url,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`,...(cfg.extraHeaders||{})},body:JSON.stringify({model,messages,...(cfg.name==="gemini"&&model==="gemini-3.8-flash"?{}:{temperature}),...(responseFormat?{response_format:responseFormat}:{}),max_tokens:maxTokens}),signal:controller.signal});
       return{response};
     }catch(error){
       console.error(`[ai-gateway] ${cfg.name} error:`,error);
@@ -180,25 +177,10 @@ async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],tempera
   try{
     let attempt=await request();
     if("error" in attempt)return{ok:false,error:attempt.error};
-    if(attempt.response.status===429){
-      // Retry once inside this request only. Never cache 429 in the module-level
-      // cooldown map: one user's rate limit must not suppress the provider for
-      // unrelated users sharing the same Worker isolate.
-      const firstError=await attempt.response.text().catch(()=>"");
-      console.error(`[ai-gateway] ${cfg.name} HTTP 429 (first attempt): ${firstError.slice(0,300)}`);
-      await new Promise(resolve=>setTimeout(resolve,1000));
-      attempt=await request();
-      if("error" in attempt)return{ok:false,error:attempt.error};
-      if(attempt.response.status===429){
-        const secondError=await attempt.response.text().catch(()=>"");
-        console.error(`[ai-gateway] ${cfg.name} HTTP 429 (retry): ${secondError.slice(0,300)}`);
-        return{ok:false,status:429,error:"http-429"};
-      }
-    }
     if(!attempt.response.ok){
       const errorText=await attempt.response.text().catch(()=>"");
-      console.error(`[ai-gateway] ${cfg.name} HTTP ${attempt.response.status}: ${errorText.slice(0,300)}`);
-      providerCooldownUntil.set(cfg.name,Date.now()+providerCooldownMs(undefined,attempt.response.status));
+      console.error(`[ai-gateway] ${cfg.name} HTTP ${attempt.response.status}`);
+      const retryAfterSeconds=Number(attempt.response.headers.get("retry-after")); const cooldownMs=attempt.response.status===429&&Number.isFinite(retryAfterSeconds)&&retryAfterSeconds>0?Math.min(120000,Math.max(15000,retryAfterSeconds*1000)):providerCooldownMs(undefined,attempt.response.status); providerCooldownUntil.set(cfg.name,Date.now()+cooldownMs);
       return{ok:false,status:attempt.response.status,error:`http-${attempt.response.status}`};
     }
     const data=await attempt.response.json();
@@ -248,7 +230,6 @@ export default { async fetch(req:Request,env:Record<string,string|undefined>):Pr
         0.3,
         1800,
         env,
-        "low",
       );
       if(!result.ok||!result.content){
         attempts.push({
@@ -278,8 +259,10 @@ export default { async fetch(req:Request,env:Record<string,string|undefined>):Pr
   }
   attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"quality-gate-failed"});
   return {content:null,attempts};
-});if(pathname==="/nim-counseling")return handleNimCounseling(req,env);if(pathname==="/nim-quiz")return handleNimQuiz(req,env);if(pathname==="/nim-mbti")return handleNimMbti(req,env);if(req.method==="OPTIONS")return new Response("ok",{headers:CORS_HEADERS});if(req.method!=="POST")return new Response(JSON.stringify({error:"POST only"}),{status:405,headers:CORS_HEADERS});try{const body=await req.json() as {task?:unknown;messages?:unknown;temperature?:unknown;max_tokens?:unknown};const task=typeof body?.task==="string"?body.task:undefined;const messages:Array<GatewayMessage>=Array.isArray(body?.messages)?body.messages.filter((message:unknown):message is GatewayMessage=>!!message&&typeof message==="object"&&["system","user","assistant"].includes(String((message as {role?:unknown}).role))&&typeof(message as {content?:unknown}).content==="string"):[];if(messages.length===0)return new Response(JSON.stringify({error:"messages가 필요합니다."}),{status:400,headers:CORS_HEADERS});const taskInstruction=buildTaskInstruction(task);const effectiveMessages=taskInstruction?[...messages,{role:"system",content:taskInstruction}]:messages;const temperature=typeof body?.temperature==="number"?body.temperature:0.3;const requestedMaxTokens=typeof body?.max_tokens==="number"?Math.min(Math.max(body.max_tokens,64),4096):1000;const maxTokens=task==="coaching"?Math.min(Math.max(requestedMaxTokens,900),1800):task==="bible-pick"?Math.min(Math.max(requestedMaxTokens,1800),2600):(task==="faith-diary-weekly-summary"?Math.min(Math.max(requestedMaxTokens,700),1400):task==="bible-pick-analysis"?Math.min(Math.max(requestedMaxTokens,500),900):requestedMaxTokens);const reasoningEffort=task==="coaching"?"medium":(task==="bible-pick"||task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-diary-weekly-summary")?"low":"medium";const lastUserMessage=[...messages].reverse().find(message=>message.role==="user")?.content||"";const category=classify(task,lastUserMessage);const attempts:{provider:string;reason:string}[]=[];
+});if(pathname==="/nim-counseling")return handleNimCounseling(req,env);if(pathname==="/nim-quiz")return handleNimQuiz(req,env);if(pathname==="/nim-mbti")return handleNimMbti(req,env);if(req.method==="OPTIONS")return new Response("ok",{headers:CORS_HEADERS});if(req.method!=="POST")return new Response(JSON.stringify({error:"POST only"}),{status:405,headers:CORS_HEADERS});try{const body=await req.json() as {task?:unknown;messages?:unknown;temperature?:unknown;max_tokens?:unknown};const task=typeof body?.task==="string"?body.task:undefined;const messages:Array<GatewayMessage>=Array.isArray(body?.messages)?body.messages.filter((message:unknown):message is GatewayMessage=>!!message&&typeof message==="object"&&["system","user","assistant"].includes(String((message as {role?:unknown}).role))&&typeof(message as {content?:unknown}).content==="string"):[];if(messages.length===0)return new Response(JSON.stringify({error:"messages가 필요합니다."}),{status:400,headers:CORS_HEADERS});const taskInstruction=buildTaskInstruction(task);const effectiveMessages=taskInstruction?[...messages,{role:"system",content:taskInstruction}]:messages;const temperature=typeof body?.temperature==="number"?body.temperature:0.3;const requestedMaxTokens=typeof body?.max_tokens==="number"?Math.min(Math.max(body.max_tokens,64),4096):1000;const maxTokens=task==="coaching"?Math.min(Math.max(requestedMaxTokens,900),1800):task==="bible-pick"?Math.min(Math.max(requestedMaxTokens,1800),2600):(task==="faith-diary-weekly-summary"?Math.min(Math.max(requestedMaxTokens,700),1400):task==="bible-pick-analysis"?Math.min(Math.max(requestedMaxTokens,500),900):requestedMaxTokens);const lastUserMessage=[...messages].reverse().find(message=>message.role==="user")?.content||"";const category=classify(task,lastUserMessage);const attempts:{provider:string;reason:string}[]=[];
+let workersAiAttempted=false;
 if(task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-diary-weekly-summary"){
+  workersAiAttempted=true;
   const workersResult=await callWorkersAi(effectiveMessages,maxTokens,env);
   if(workersResult.ok&&passesQualityGate(workersResult.content!,lastUserMessage,task)){
     return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:workersResult.content}}],_meta:{category,provider:"cloudflare-workers-ai",attempts:[]}}),{headers:CORS_HEADERS});
@@ -315,17 +298,31 @@ for(const providerName of order){
     :task==="bible-pick"&&providerName==="openrouter"
       ?{type:"json_object" as const}
       :undefined;
-  const providerReasoningEffort=task==="bible-pick"&&providerName==="cohere"?"none":reasoningEffort;
+
   const providerTemperature=task==="bible-pick"&&providerName==="cohere"?0:temperature;
-  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,providerTemperature,maxTokens,env,providerReasoningEffort,modelOverride,responseFormat);
+  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,providerTemperature,maxTokens,env,modelOverride,responseFormat);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){
     const qualityReason=qualityGateReason(result.content!,lastUserMessage,task)||"unknown";
-    const diagnostic=result.content!.slice(0,2000).replace(/\\n/g,"\\\\n");
-    console.error(`[ai-gateway] ${providerName} quality-gate-failed task=${task} reason=${qualityReason} content=${diagnostic}`);
+    const diagnosticLength=result.content!.length;
+    console.error(`[ai-gateway] ${providerName} quality-gate-failed task=${task} reason=${qualityReason} contentLength=${diagnosticLength}`);
     attempts.push({provider:providerName,reason:`quality-gate-failed:${qualityReason}`});
     continue;
   }
   return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:result.content}}],_meta:{category,provider:result.provider,attempts:attempts.map(attempt=>attempt.provider)}}),{headers:CORS_HEADERS});
+}
+if(!workersAiAttempted){
+  workersAiAttempted=true;
+  const workersResult=await callWorkersAi(effectiveMessages,maxTokens,env);
+  if(workersResult.ok&&workersResult.content){
+    const workersQualityReason=qualityGateReason(workersResult.content,lastUserMessage,task);
+    if(!workersQualityReason){
+      return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:workersResult.content}}],_meta:{category,provider:"cloudflare-workers-ai",attempts:attempts.map(attempt=>attempt.provider)}}),{headers:CORS_HEADERS});
+    }
+    attempts.push({provider:"cloudflare-workers-ai",reason:`quality-gate-failed:${workersQualityReason}`});
+    console.error(`[ai-gateway] cloudflare-workers-ai quality-gate-failed task=${task} reason=${workersQualityReason} contentLength=${workersResult.content.length}`);
+  }else{
+    attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"empty-content"});
+  }
 }
 return new Response(JSON.stringify({error:"모든 AI 공급자 호출에 실패했습니다.",_meta:{category,attempts}}),{status:503,headers:CORS_HEADERS});}catch(error){console.error("[ai-gateway] fatal:",error);return new Response(JSON.stringify({error:"게이트웨이 처리 중 오류가 발생했습니다."}),{status:500,headers:CORS_HEADERS});}}};
