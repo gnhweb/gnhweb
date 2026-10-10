@@ -156,13 +156,13 @@ async function callWorkersAi(messages:GatewayMessage[],maxTokens:number,env:Reco
     return{ok:false,error:`workers-ai-request-error:${detail}`};
   }
 }
-async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,modelOverride?:string,responseFormat?:{type:"json_object";schema?:Record<string,unknown>}):Promise<CallResult>{
+async function callProvider(cfg:ProviderConfig,messages:GatewayMessage[],temperature:number,maxTokens:number,env:Record<string,string|undefined>,modelOverride?:string,responseFormat?:{type:"json_object";schema?:Record<string,unknown>},timeoutOverrideMs?:number):Promise<CallResult>{
   const cooldownUntil=providerCooldownUntil.get(cfg.name)||0;
   if(cooldownUntil>Date.now())return{ok:false,error:"cooldown"};
   const apiKey=env[cfg.envKey]?.trim();
   if(!apiKey){providerCooldownUntil.set(cfg.name,Date.now()+providerCooldownMs("no-api-key"));return{ok:false,error:"no-api-key"};}
   const model=(modelOverride||(env[cfg.modelEnvKey]||cfg.defaultModel)).trim();
-  const timeoutMs=cfg.name==="cohere"?20000:15000;
+  const timeoutMs=timeoutOverrideMs??(cfg.name==="cohere"?20000:15000);
   const request=async():Promise<{response:Response}|{error:"timeout"|"request-error"}>=>{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),timeoutMs);
@@ -276,7 +276,8 @@ const order=task==="coaching"
 // provider, so try it first and retain Gemini/OpenRouter as the first backups.
 const biblePickOrder:ProviderName[]=["groq","gemini","openrouter","deepseek","mistral","sambanova","modelscope","cohere","nvidia","xai"];
 const providerOrder:ProviderName[]=task==="bible-pick"?biblePickOrder:order as ProviderName[];
-const maxProviderAttempts=task==="bible-pick"?2:providerOrder.length;
+// Bible Pick is latency-sensitive: make one bounded external attempt, then use the existing validated Workers AI fallback.
+const maxProviderAttempts=task==="bible-pick"?1:providerOrder.length;
 let providerAttempts=0;
 for(const providerName of providerOrder){
   // Missing credentials and known cooldowns should not consume the limited
@@ -318,7 +319,7 @@ for(const providerName of providerOrder){
       :undefined;
 
   const providerTemperature=task==="bible-pick"&&providerName==="cohere"?0:temperature;
-  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,providerTemperature,maxTokens,env,modelOverride,responseFormat);
+  const result=await callProvider(PROVIDERS[providerName],effectiveMessages,providerTemperature,maxTokens,env,modelOverride,responseFormat,task==="bible-pick"?10000:undefined);
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){
     const qualityReason=qualityGateReason(result.content!,lastUserMessage,task)||"unknown";
