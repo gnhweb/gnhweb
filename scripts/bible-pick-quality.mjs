@@ -79,6 +79,7 @@ async function runOne(index) {
       crisisMessage: data?.crisisMessage ?? null,
       error: data?.error ?? null,
       debugGateway: data?._debugGateway ?? null,
+      debugTiming: data?._debugTiming ?? null,
     };
     results[index] = result;
     console.log(JSON.stringify({
@@ -91,6 +92,7 @@ async function runOne(index) {
       elapsedMs: result.elapsedMs,
       gatewayProvider,
       debugGateway: result.debugGateway,
+      debugTiming: result.debugTiming,
     }));
   } catch (error) {
     results[index] = {
