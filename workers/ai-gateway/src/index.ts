@@ -260,6 +260,9 @@ export default { async fetch(req:Request,env:Record<string,string|undefined>):Pr
   attempts.push({provider:"cloudflare-workers-ai",reason:workersResult.error||"quality-gate-failed"});
   return {content:null,attempts};
 });if(pathname==="/nim-counseling")return handleNimCounseling(req,env);if(pathname==="/nim-quiz")return handleNimQuiz(req,env);if(pathname==="/nim-mbti")return handleNimMbti(req,env);if(req.method==="OPTIONS")return new Response("ok",{headers:CORS_HEADERS});if(req.method!=="POST")return new Response(JSON.stringify({error:"POST only"}),{status:405,headers:CORS_HEADERS});try{const body=await req.json() as {task?:unknown;messages?:unknown;temperature?:unknown;max_tokens?:unknown};const task=typeof body?.task==="string"?body.task:undefined;const messages:Array<GatewayMessage>=Array.isArray(body?.messages)?body.messages.filter((message:unknown):message is GatewayMessage=>!!message&&typeof message==="object"&&["system","user","assistant"].includes(String((message as {role?:unknown}).role))&&typeof(message as {content?:unknown}).content==="string"):[];if(messages.length===0)return new Response(JSON.stringify({error:"messages가 필요합니다."}),{status:400,headers:CORS_HEADERS});const taskInstruction=buildTaskInstruction(task);const effectiveMessages=taskInstruction?[...messages,{role:"system",content:taskInstruction}]:messages;const temperature=typeof body?.temperature==="number"?body.temperature:0.3;const requestedMaxTokens=typeof body?.max_tokens==="number"?Math.min(Math.max(body.max_tokens,64),4096):1000;const maxTokens=task==="coaching"?Math.min(Math.max(requestedMaxTokens,900),1800):task==="bible-pick"?Math.min(Math.max(requestedMaxTokens,1800),2600):(task==="faith-diary-weekly-summary"?Math.min(Math.max(requestedMaxTokens,700),1400):task==="bible-pick-analysis"?Math.min(Math.max(requestedMaxTokens,500),900):requestedMaxTokens);const lastUserMessage=[...messages].reverse().find(message=>message.role==="user")?.content||"";const category=classify(task,lastUserMessage);const attempts:{provider:string;reason:string}[]=[];
+const gatewayStartedAt=Date.now();
+const providerTimings:{provider:string;elapsedMs:number;outcome:string}[]=[];
+let workersAiElapsedMs:number|undefined;
 let workersAiAttempted=false;
 if(task==="bible-pick-analysis"||task==="faith-diary-questions"||task==="faith-diary-weekly-summary"){
   workersAiAttempted=true;
@@ -319,7 +322,9 @@ for(const providerName of providerOrder){
       :undefined;
 
   const providerTemperature=task==="bible-pick"&&providerName==="cohere"?0:temperature;
+  const providerStartedAt=Date.now();
   const result=await callProvider(PROVIDERS[providerName],effectiveMessages,providerTemperature,maxTokens,env,modelOverride,responseFormat,task==="bible-pick"?10000:undefined);
+  providerTimings.push({provider:providerName,elapsedMs:Date.now()-providerStartedAt,outcome:result.ok?"success":result.error||`http-${result.status||0}`});
   if(!result.ok){attempts.push({provider:providerName,reason:result.error||`http-${result.status||0}`});continue;}
   if(!passesQualityGate(result.content!,lastUserMessage,task)){
     const qualityReason=qualityGateReason(result.content!,lastUserMessage,task)||"unknown";
@@ -328,15 +333,17 @@ for(const providerName of providerOrder){
     attempts.push({provider:providerName,reason:`quality-gate-failed:${qualityReason}`});
     continue;
   }
-  return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:result.content}}],_meta:{category,provider:result.provider,attempts:attempts.map(attempt=>attempt.provider)}}),{headers:CORS_HEADERS});
+  return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:result.content}}],_meta:{category,provider:result.provider,attempts:attempts.map(attempt=>attempt.provider),attemptDetails:attempts,timingsMs:{totalMs:Date.now()-gatewayStartedAt,providers:providerTimings}}}),{headers:CORS_HEADERS});
 }
 if(!workersAiAttempted){
   workersAiAttempted=true;
+  const workersStartedAt=Date.now();
   const workersResult=await callWorkersAi(effectiveMessages,maxTokens,env);
+  workersAiElapsedMs=Date.now()-workersStartedAt;
   if(workersResult.ok&&workersResult.content){
     const workersQualityReason=qualityGateReason(workersResult.content,lastUserMessage,task);
     if(!workersQualityReason){
-      return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:workersResult.content}}],_meta:{category,provider:"cloudflare-workers-ai",attempts:attempts.map(attempt=>attempt.provider)}}),{headers:CORS_HEADERS});
+      return new Response(JSON.stringify({choices:[{message:{role:"assistant",content:workersResult.content}}],_meta:{category,provider:"cloudflare-workers-ai",attempts:attempts.map(attempt=>attempt.provider),attemptDetails:attempts,timingsMs:{totalMs:Date.now()-gatewayStartedAt,providers:providerTimings,workersAiMs:workersAiElapsedMs}}}),{headers:CORS_HEADERS});
     }
     attempts.push({provider:"cloudflare-workers-ai",reason:`quality-gate-failed:${workersQualityReason}`});
     console.error(`[ai-gateway] cloudflare-workers-ai quality-gate-failed task=${task} reason=${workersQualityReason} contentLength=${workersResult.content.length}`);
