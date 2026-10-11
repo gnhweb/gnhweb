@@ -86,12 +86,13 @@ function fetchKrvChapter(book:string,chapter:number):Promise<KrvChapter>{
   if(cached)return cached;
   const bookId=KRV_BOOK_IDS[book];
   if(!bookId)throw new Error(`개역한글 책 코드 매핑이 없습니다: ${book}`);
-  const request=fetch(`https://bolls.life/get-chapter/KRV/${bookId}/${chapter}/`,{headers:{Accept:'application/json'}})
+  const request=fetch(`https://bolls.life/get-chapter/KRV/${bookId}/${chapter}/`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(2500)})
     .then(async response=>{
       if(!response.ok)throw new Error(`개역한글(KRV) 본문 로딩 실패 (HTTP ${response.status})`);
       return await response.json() as KrvChapter[];
     })
-    .then(data=>Array.isArray(data)?{book:bookId,chapter,verses:data.map(item=>({verse:item.verse,text:item.text}))}:data as unknown as KrvChapter);
+    .then(data=>Array.isArray(data)?{book:bookId,chapter,verses:data.map(item=>({verse:item.verse,text:item.text}))}:data as unknown as KrvChapter)
+    .catch(error=>{if(krvChapterCache.get(key)===request)krvChapterCache.delete(key);throw error;});
   krvChapterCache.set(key,request);
   return request;
 }
@@ -111,7 +112,7 @@ async function fetchVerseText(ref: VerseRef): Promise<{text:string;context:strin
   return {text,context};
 }
 
-async function collectCandidates(text:string,analysis:ConcernAnalysis,count:number):Promise<VerseCandidate[]>{const ranked=VERSE_REFS.map(ref=>({ref,score:scoreCandidate({ref,text:'',context:'',score:0},analysis)})).sort((a,b)=>b.score-a.score||stableHash(text+a.ref.reference)-stableHash(text+b.ref.reference));const uniqueTargets=ranked.filter((item,index,array)=>array.findIndex(candidate=>candidate.ref.reference===item.ref.reference)===index).slice(0,count);const aiTargets=uniqueTargets.slice(0,AI_CANDIDATE_LIMIT);const fetched=await Promise.allSettled(aiTargets.map(async(item)=>{const verse=await fetchVerseText(item.ref);return {ref:item.ref,text:verse.text,context:verse.context,score:item.score};}));return fetched.flatMap(result=>result.status==='fulfilled'?[result.value]:[]);}
+async function collectCandidates(text:string,analysis:ConcernAnalysis,count:number):Promise<VerseCandidate[]>{const ranked=VERSE_REFS.map(ref=>({ref,score:scoreCandidate({ref,text:'',context:'',score:0},analysis)})).sort((a,b)=>b.score-a.score||stableHash(text+a.ref.reference)-stableHash(text+b.ref.reference));const uniqueTargets=ranked.filter((item,index,array)=>array.findIndex(candidate=>candidate.ref.reference===item.ref.reference)===index).slice(0,count);const aiTargets=uniqueTargets.slice(0,AI_CANDIDATE_LIMIT);const fetched=await Promise.allSettled(aiTargets.map(async(item)=>{const verse=await fetchVerseText(item.ref);return {ref:item.ref,text:verse.text,context:verse.context,score:item.score};}));const candidates=fetched.flatMap(result=>result.status==='fulfilled'?[result.value]:[]);if(candidates.length)return candidates;const fallbackRef=VERSE_REFS.find(ref=>ref.reference==='시편 34:18')!;return [{ref:fallbackRef,text:KRV_CRISIS_VERSE,context:`[18] ${KRV_CRISIS_VERSE}`,score:0}];}
 const extractJson=(content:string):Record<string,unknown>|null=>{try{return JSON.parse(content) as Record<string,unknown>}catch{}const fenced=content.match(/```(?:json)?\s*([\s\S]*?)```/);if(fenced)try{return JSON.parse(fenced[1].trim()) as Record<string,unknown>}catch{}const object=content.match(/\{[\s\S]*\}/);if(object)try{return JSON.parse(object[0]) as Record<string,unknown>}catch{}return null;};
 
 function buildCompatibilityAnswer(
