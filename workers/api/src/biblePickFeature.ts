@@ -78,7 +78,7 @@ const CANDIDATE_POOL_SIZE=100;
 // Keep the broad 100-reference ranking, but send only the strongest candidates
 // to the model so provider payload/rate limits do not turn a good shortlist into
 // a 413 before the model can reason about it.
-const AI_CANDIDATE_LIMIT=12;
+const AI_CANDIDATE_LIMIT=6;
 
 function fetchKrvChapter(book:string,chapter:number):Promise<KrvChapter>{
   const key=`${book}:${chapter}`;
@@ -86,7 +86,7 @@ function fetchKrvChapter(book:string,chapter:number):Promise<KrvChapter>{
   if(cached)return cached;
   const bookId=KRV_BOOK_IDS[book];
   if(!bookId)throw new Error(`개역한글 책 코드 매핑이 없습니다: ${book}`);
-  const request=fetch(`https://bolls.life/get-chapter/KRV/${bookId}/${chapter}/`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(2500)})
+  const request=fetch(`https://bolls.life/get-chapter/KRV/${bookId}/${chapter}/`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(5000)})
     .then(async response=>{
       if(!response.ok)throw new Error(`개역한글(KRV) 본문 로딩 실패 (HTTP ${response.status})`);
       return await response.json() as KrvChapter[];
